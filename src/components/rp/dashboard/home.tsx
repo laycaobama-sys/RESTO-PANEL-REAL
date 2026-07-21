@@ -348,10 +348,10 @@ export function Home() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => useNav.getState().go("reservas")}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-foreground/5 px-3 py-2 text-sm hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-foreground/5 px-3 py-2.5 min-h-[44px] text-sm hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
           >
             <CalendarCheck className="h-4 w-4" aria-hidden />
-            Ver reservas
+            <span>Ver reservas</span>
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
           </button>
         </div>
@@ -514,7 +514,8 @@ function Sparkline({ data, color }: { data: number[]; color: "gold" | "teal" }) 
       viewBox={`0 0 ${w} ${h}`}
       aria-hidden="true"
       focusable="false"
-      className="shrink-0 overflow-visible"
+      className="shrink-0 overflow-visible max-w-full h-auto"
+      preserveAspectRatio="xMidYMid meet"
     >
       <defs>
         <linearGradient id={`spark-${id}`} x1="0" x2="0" y1="0" y2="1">
@@ -621,10 +622,10 @@ function WidgetSettings({
         <Settings2 className="h-3.5 w-3.5" aria-hidden />
         <span>Personalizar widgets</span>
       </div>
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
         <label
           htmlFor="tg-rating"
-          className="flex items-center gap-2 text-sm cursor-pointer select-none hover:text-[var(--gold-soft)] transition-colors focus-within:text-[var(--gold-soft)]"
+          className="flex items-center gap-2 text-sm cursor-pointer select-none min-h-[40px] py-1.5 px-1 -mx-1 rounded-md hover:text-[var(--gold-soft)] transition-colors focus-within:text-[var(--gold-soft)]"
         >
           <Checkbox
             id="tg-rating"
@@ -636,7 +637,7 @@ function WidgetSettings({
         </label>
         <label
           htmlFor="tg-noshows"
-          className="flex items-center gap-2 text-sm cursor-pointer select-none hover:text-[var(--gold-soft)] transition-colors"
+          className="flex items-center gap-2 text-sm cursor-pointer select-none min-h-[40px] py-1.5 px-1 -mx-1 rounded-md hover:text-[var(--gold-soft)] transition-colors"
         >
           <Checkbox
             id="tg-noshows"
@@ -648,7 +649,7 @@ function WidgetSettings({
         </label>
         <label
           htmlFor="tg-ai"
-          className="flex items-center gap-2 text-sm cursor-pointer select-none hover:text-[var(--gold-soft)] transition-colors"
+          className="flex items-center gap-2 text-sm cursor-pointer select-none min-h-[40px] py-1.5 px-1 -mx-1 rounded-md hover:text-[var(--gold-soft)] transition-colors"
         >
           <Checkbox
             id="tg-ai"
@@ -689,7 +690,7 @@ function AlertsStrip() {
             <p className="text-sm flex-1 min-w-0">{a.text}</p>
             <button
               className={cn(
-                "inline-flex items-center gap-1 rounded-md border bg-foreground/5 px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40",
+                "inline-flex items-center gap-1 rounded-md border bg-foreground/5 px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40 min-h-[40px]",
                 btnCls
               )}
             >
@@ -754,13 +755,13 @@ function ReservasHoyWidget() {
                   aria-pressed={isSel}
                   aria-label={`Reserva ${r.time} ${r.customer}, ${r.pax} personas, ${st.label}`}
                   className={cn(
-                    "w-full flex items-center gap-3 px-2 sm:px-3 py-2.5 text-left rounded-md transition-colors",
+                    "w-full min-h-[44px] flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2.5 text-left rounded-md transition-colors",
                     isSel
                       ? "bg-[var(--gold)]/8 ring-1 ring-[var(--gold)]/25"
                       : "hover:bg-foreground/[0.04] focus-visible:bg-foreground/[0.04]"
                   )}
                 >
-                  <div className="font-mono text-sm tabular-nums w-12 shrink-0 text-[var(--gold-soft)]">
+                  <div className="font-mono text-sm tabular-nums w-11 shrink-0 text-[var(--gold-soft)]">
                     {r.time}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -783,7 +784,7 @@ function ReservasHoyWidget() {
                   </div>
                   <span
                     className={cn(
-                      "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider shrink-0",
+                      "inline-flex items-center rounded-md border px-1.5 sm:px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider shrink-0",
                       st.cls
                     )}
                   >
@@ -1058,11 +1059,11 @@ function AiRecommendationsWidget() {
                         Confianza {r.confidence}%
                       </span>
                       <button
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2 py-1 text-[11px] font-medium text-[var(--gold-soft)] hover:bg-[var(--gold)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-1.5 min-h-[36px] text-[11px] font-medium text-[var(--gold-soft)] hover:bg-[var(--gold)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
                         aria-label={`Revisar antes de ejecutar: ${r.action}`}
                       >
                         <Zap className="h-3 w-3" aria-hidden />
-                        Revisar antes de ejecutar
+                        <span>Revisar antes de ejecutar</span>
                       </button>
                     </div>
                   </div>

@@ -1,0 +1,1171 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { Badge } from "@/components/ui/badge";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Textarea } from "@/components/ui/textarea";
+     8→import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+     9→import { Input } from "@/components/ui/input";
+    10→import { toast } from "@/hooks/use-toast";
+    11→import {
+    12→  Star,
+    13→  Search,
+    14→  Sparkles,
+    15→  RefreshCw,
+    16→  Check,
+    17→  ChevronDown,
+    18→  Send,
+    19→  Clock,
+    20→  MapPin,
+    21→  TrendingUp,
+    22→  ShieldAlert,
+    23→  AlertCircle,
+    24→  MessageSquare,
+    25→} from "lucide-react";
+    26→
+    27→/* =====================================================================
+    28→ * Types
+    29→ * ===================================================================== */
+    30→
+    31→type Sentiment = "positive" | "neutral" | "negative";
+    32→type Theme = "food quality" | "service" | "ambiance" | "wait time" | "price" | "menu";
+    33→type LocationKey = "todos" | "madrid" | "barcelona" | "valencia";
+    34→type RatingFilter = "todos" | 5 | 4 | 3 | 2 | 1;
+    35→
+    36→interface Review {
+    37→  id: string;
+    38→  author: string;
+    39→  initials: string;
+    40→  location: string;
+    41→  rating: 1 | 2 | 3 | 4 | 5;
+    42→  date: string;
+    43→  snippet: string;
+    44→  fullText: string;
+    45→  sentiment: Sentiment;
+    46→  sentimentConfidence: number;
+    47→  themes: Theme[];
+    48→  replied: boolean;
+    49→  replyHistory?: { date: string; text: string; author: string }[];
+    50→  aiSuggestedReply: string;
+    51→  aiReplyAlt: string;
+    52→}
+    53→
+    54→/* =====================================================================
+    55→ * Demo data
+    56→ * ===================================================================== */
+    57→
+    58→const DISTRIBUTION: { stars: 5 | 4 | 3 | 2 | 1; count: number; pct: number }[] = [
+    59→  { stars: 5, count: 905, pct: 72.6 },
+    60→  { stars: 4, count: 215, pct: 17.2 },
+    61→  { stars: 3, count: 75, pct: 6.0 },
+    62→  { stars: 2, count: 32, pct: 2.6 },
+    63→  { stars: 1, count: 20, pct: 1.6 },
+    64→];
+    65→
+    66→const LOCATIONS: { id: LocationKey; label: string }[] = [
+    67→  { id: "todos", label: "Todos" },
+    68→  { id: "madrid", label: "Ramses Madrid" },
+    69→  { id: "barcelona", label: "Ramses Barcelona" },
+    70→  { id: "valencia", label: "Ramses Valencia" },
+    71→];
+    72→
+    73→const REVIEWS: Review[] = [
+    74→  {
+    75→    id: "r1",
+    76→    author: "María García",
+    77→    initials: "MG",
+    78→    location: "Ramses Madrid",
+    79→    rating: 5,
+    80→    date: "Hace 2 días",
+    81→    snippet: "El cochinillo estaba espectacular y el ambiente muy acogedor. Volveré seguro.",
+    82→    fullText:
+    83→      "¡Qué noche tan maravillosa! El cochinillo estaba espectacular, crujiente por fuera y tierno por dentro. El servicio fue atento sin ser invasivo y el ambiente del salón principal muy acogedor. Probamos también el vino recomendado por el sumiller y fue un acierto total. Volveré seguro la próxima semana con amigos. ¡Gracias equipo!",
+    84→    sentiment: "positive",
+    85→    sentimentConfidence: 96,
+    86→    themes: ["food quality", "service", "ambiance"],
+    87→    replied: true,
+    88→    replyHistory: [
+    89→      {
+    90→        date: "Hace 1 día",
+    91→        text: "¡Gracias María! Nos alegra que disfrutarais del cochinillo. ¡Os esperamos pronto!",
+    92→        author: "Equipo Ramses Madrid",
+    93→      },
+    94→    ],
+    95→    aiSuggestedReply:
+    96→      "¡Gracias por tu reseña, María! Nos alegra muchísimo que disfrutasteis del cochinillo y el ambiente del salón. Ya le hemos hecho llegar tus palabras al sumiller. ¡Os esperamos pronto para probar la nueva carta de otoño! — Equipo Ramses Madrid",
+    97→    aiReplyAlt:
+    98→      "María, mil gracias por tus palabras. El cochinillo es una de nuestras señas de identidad y leer esto nos hace mucha ilusión. ¿Te animas a probar el menú degustación la próxima visita? Estaremos encantados de recibiros. — Equipo Ramses Madrid",
+    99→  },
+   100→  {
+   101→    id: "r2",
+   102→    author: "James Wilson",
+   103→    initials: "JW",
+   104→    location: "Ramses Madrid",
+   105→    rating: 4,
+   106→    date: "Hace 3 días",
+   107→    snippet: "Great food but the wait at the door was longer than expected. Would return.",
+   108→    fullText:
+   109→      "Great food overall — the tapas selection was excellent and the Iberian ham was top quality. Service inside was friendly and professional once seated. The only downside was the wait at the door, almost 25 minutes past our reservation time. Would return but recommend arriving with patience.",
+   110→    sentiment: "positive",
+   111→    sentimentConfidence: 82,
+   112→    themes: ["food quality", "service", "wait time"],
+   113→    replied: false,
+   114→    aiSuggestedReply:
+   115→      "Hi James, thank you for your kind words about our food and service. We sincerely apologize for the wait at the door — we are reviewing our seating flow on peak nights to prevent this. Next time, please mention your reservation at arrival and we will prioritize your table. — Ramses Madrid Team",
+   116→    aiReplyAlt:
+   117→      "James, gracias por tu reseña. Lamentamos la espera: estamos ajustando los turnos de la entrada en franjas punta para que no vuelva a ocurrir. Nos encantaría invitarte a una copa en tu próxima visita. — Equipo Ramses Madrid",
+   118→  },
+   119→  {
+   120→    id: "r3",
+   121→    author: "Carla Rossi",
+   122→    initials: "CR",
+   123→    location: "Ramses Barcelona",
+   124→    rating: 2,
+   125→    date: "Hace 5 días",
+   126→    snippet: "Tuvimos que esperar 45 minutos para una reserva confirmada. La comida correcta pero el servicio desbordado.",
+   127→    fullText:
+   128→      "Reservamos para las 21:30 y no nos sentaron hasta las 22:15. El personal estaba claramente desbordado y tardaron otros 20 minutos en tomar nota. La comida, cuando llegó, estaba correcta — el arroz con bogavante bien de cocción pero falto de sal. Por el precio esperaba una experiencia más cuidada. Una lástima, el local es precioso.",
+   129→    sentiment: "negative",
+   130→    sentimentConfidence: 91,
+   131→    themes: ["wait time", "service", "food quality", "ambiance"],
+   132→    replied: false,
+   133→    aiSuggestedReply:
+   134→      "Carla, lamentamos sinceramente la experiencia. Una espera de 45 minutos con reserva confirmada no es aceptable y vamos a revisar el turno de sala del viernes. Nos gustaría invitarte a una nueva cena para mostraros el servicio que sí podemos dar. Escribidnos a atencion@ramses.es. — Equipo Ramses Barcelona",
+   135→    aiReplyAlt:
+   136→      "Carla, gracias por compartir esto con tanto detalle. Hemos compartido tu reseña con el encargado de Barcelona para revisar el flujo de sala y la sazón del arroz. Nos encantaría teneros de vuelta y ofreceros una cena correcta. — Equipo Ramses Barcelona",
+   137→  },
+   138→  {
+   139→    id: "r4",
+   140→    author: "Pedro Sánchez",
+   141→    initials: "PS",
+   142→    location: "Ramses Madrid",
+   143→    rating: 5,
+   144→    date: "Hace 6 días",
+   145→    snippet: "Mejor paella de Madrid, sin discusión. Volveremos con la familia.",
+   146→    fullText:
+   147→      "Llevábamos tiempo buscando una paella como Dios manda en Madrid y la hemos encontrado. El socarrat perfecto, el arroz en su punto y un sabor auténtico. El equipo de sala nos recomendó un albariño que maridó de maravilla. Postre casero para cerrar. Volveremos con la familia entera el mes que viene.",
+   148→    sentiment: "positive",
+   149→    sentimentConfidence: 98,
+   150→    themes: ["food quality", "service"],
+   151→    replied: true,
+   152→    replyHistory: [
+   153→      {
+   154→        date: "Hace 5 días",
+   155→        text: "¡Gracias Pedro! El socarrat es nuestra obsesión. ¡Os esperamos con la familia!",
+   156→        author: "Equipo Ramses Madrid",
+   157→      },
+   158→    ],
+   159→    aiSuggestedReply:
+   160→      "Pedro, qué alegría leer esto. El socarrat es una de las cosas que más cuidamos y saber que acertasteis nos hace mucha ilusión. Para la próxima visita familiar podemos reservaros una mesa en el salón privado. ¡Hasta pronto! — Equipo Ramses Madrid",
+   161→    aiReplyAlt:
+   162→      "Pedro, gracias por la confianza. Si venís con la familia, avisadnos con antelación y preparamos una paellada especial para el grupo. ¡Os esperamos! — Equipo Ramses Madrid",
+   163→  },
+   164→  {
+   165→    id: "r5",
+   166→    author: "Sophie Martin",
+   167→    initials: "SM",
+   168→    location: "Ramses Barcelona",
+   169→    rating: 3,
+   170→    date: "Hace 1 semana",
+   171→    snippet: "Bonito local, comida correcta pero sin sorprender. Relación calidad-precio justa.",
+   172→    fullText:
+   173→      "Le local est très beau, ambiance agréable et service courtois. La cuisine est correcte mais sans surprise — nous attendions un peu plus d'audace pour le prix. Le dessert était en revanche excellent. Rapport qualité-prix juste. Je reviendrai peut-être pour tester la carte du déjeuner.",
+   174→    sentiment: "neutral",
+   175→    sentimentConfidence: 74,
+   176→    themes: ["ambiance", "food quality", "price"],
+   177→    replied: false,
+   178→    aiSuggestedReply:
+   179→      "Sophie, merci pour votre retour. Nous prenons bonne note de votre remarque sur l'audace de la carte — notre chef travaille justement sur de nouvelles propositions pour la saison. À bientôt, peut-être pour le menu du déjeuner à 24€. — Équipe Ramses Barcelona",
+   180→    aiReplyAlt:
+   181→      "Sophie, merci d'avoir partagé votre expérience. Nous espérons vous surprendre lors d'une prochaine visite avec notre nouvelle carte de saison. L'équipe Ramses Barcelona.",
+   182→  },
+   183→  {
+   184→    id: "r6",
+   185→    author: "Ahmed Hassan",
+   186→    initials: "AH",
+   187→    location: "Ramses Valencia",
+   188→    rating: 1,
+   189→    date: "Hace 1 semana",
+   190→    snippet: "Reserva perdida. Llegamos y no había mesa. Una hora esperando para al final irnos.",
+   191→    fullText:
+   192→      "Hicimos reserva para 4 personas a las 14:30. Llegamos puntuales y la mesa no estaba disponible. Nos dijeron que esperáramos '5 minutos' y pasamos una hora de pie en la barra sin ofrecernos siquiera una bebida. Al final nos fuimos a otro sitio. Inaceptable para un restaurante de esta categoría. No volveremos.",
+   193→    sentiment: "negative",
+   194→    sentimentConfidence: 99,
+   195→    themes: ["wait time", "service"],
+   196→    replied: false,
+   197→    aiSuggestedReply:
+   198→      "Ahmed, sentimos muchísimo lo ocurrido. Perder una reserva confirmada y no ofrecer atención durante la espera no refleja nuestro estándar. El encargado de Valencia se pondrá en contacto contigo hoy mismo para solucionarlo. Lamentamos la mala experiencia. — Equipo Ramses Valencia",
+   199→    aiReplyAlt:
+   200→      "Ahmed, aceptamos la crítica. Lo que cuentas no debería haber pasado y vamos a revisar el protocolo de reservas en Valencia. Nos gustaría compensar esta situación con una nueva invitación. Contactaremos contigo por privado. — Equipo Ramses Valencia",
+   201→  },
+   202→  {
+   203→    id: "r7",
+   204→    author: "Laura Pérez",
+   205→    initials: "LP",
+   206→    location: "Ramses Valencia",
+   207→    rating: 4,
+   208→    date: "Hace 2 semanas",
+   209→    snippet: "Muy buena experiencia. El salón precioso y el equipo encantador. Repetiremos.",
+   210→    fullText:
+   211→      "Celebramos un cumpleaños y nos trataron de maravilla. El salón principal es precioso, con mucha luz natural y decoración cuidada. El menú degustación estuvo a la altura, con platos creativos y bien presentados. Solo le quito una estrella porque el ritmo entre platos fue algo lento al final. Por lo demás, repetiremos seguro.",
+   212→    sentiment: "positive",
+   213→    sentimentConfidence: 88,
+   214→    themes: ["service", "ambiance", "menu"],
+   215→    replied: true,
+   216→    replyHistory: [
+   217→      {
+   218→        date: "Hace 2 semanas",
+   219→        text: "¡Feliz cumpleaños Laura! Nos alegra que lo pasarais bien. ¡Os esperamos!",
+   220→        author: "Equipo Ramses Valencia",
+   221→      },
+   222→    ],
+   223→    aiSuggestedReply:
+   224→      "Laura, gracias por celebrar vuestro cumpleaños con nosotros. Tomamos nota del ritmo entre platos para ajustarlo en el menú degustación. ¡Esperamos veros pronto de nuevo para otra celebración! — Equipo Ramses Valencia",
+   225→    aiReplyAlt:
+   226→      "Laura, qué ilusión leer esto. Lo del ritmo entre platos lo anotamos para mejorarlo. Para vuestra próxima visita podemos preparar algo especial si avisáis con tiempo. — Equipo Ramses Valencia",
+   227→  },
+   228→];
+   229→
+   230→const STAR_EVOLUTION: { week: string; rating: number }[] = [
+   231→  { week: "S1", rating: 4.42 },
+   232→  { week: "S2", rating: 4.38 },
+   233→  { week: "S3", rating: 4.45 },
+   234→  { week: "S4", rating: 4.51 },
+   235→  { week: "S5", rating: 4.48 },
+   236→  { week: "S6", rating: 4.55 },
+   237→  { week: "S7", rating: 4.58 },
+   238→  { week: "S8", rating: 4.61 },
+   239→];
+   240→
+   241→const COPILOT_SUGGESTIONS = [
+   242→  "¿Qué temas aparecen en reseñas negativas?",
+   243→  "¿Comparativa entre locales?",
+   244→  "¿Resumen de esta semana?",
+   245→] as const;
+   246→
+   247→const COPILOT_ANSWERS: Record<string, { text: string; actions: string[] }> = {
+   248→  "¿Qué temas aparecen en reseñas negativas?": {
+   249→    text:
+   250→      "En las reseñas de 1–3★ (127 en total) predominan los temas 'wait time' (47%) y 'service' (38%), seguidos de 'food quality' (12%) y 'ambiance' (3%). El local Ramses Barcelona concentra el 62% de las quejas sobre tiempos de espera, principalmente en franja 20:30–21:30. Recomendado: revisar turnos de sala y política de overbooking en esa franja.",
+   251→    actions: ["Crear tarea: revisar turnos sala Barcelona", "Notificar a encargado"],
+   252→  },
+   253→  "¿Comparativa entre locales?": {
+   254→    text:
+   255→      "Madrid lidera en valoración media (4.74★) y volumen (612 reseñas). Barcelona muestra el mayor descenso (-0.31★ vs trimestre anterior) y mayor concentración de quejas por tiempo de espera. Valencia tiene el mejor ratio de respuesta a reseñas (94% vs 78% global) pero menor volumen (223 reseñas). Ningún local baja de 4.4★ en el trimestre.",
+   256→    actions: ["Marcar Barcelona para seguimiento", "Replicar protocolo Valencia en Madrid"],
+   257→  },
+   258→  "¿Resumen de esta semana?": {
+   259→    text:
+   260→      "Esta semana se recibieron +47 reseñas nuevas (vs 38 la semana anterior, +24%). Valoración media 4.6★ (+0.1 vs semana anterior). Quedan 12 reseñas pendientes de responder (9 negativas, 3 neutras). Tema emergente: 'menu degustación' mencionado 9 veces, todas con connotación positiva. Tendencia sostenida al alza desde S5.",
+   261→    actions: ["Responder 12 pendientes", "Marcar 'menu degustación' como tema a vigilar"],
+   262→  },
+   263→};
+   264→
+   265→/* =====================================================================
+   266→ * Helpers
+   267→ * ===================================================================== */
+   268→
+   269→const SENTIMENT_STYLES: Record<Sentiment, { label: string; cls: string; dot: string }> = {
+   270→  positive: {
+   271→    label: "Positiva",
+   272→    cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   273→    dot: "bg-emerald-400",
+   274→  },
+   275→  neutral: {
+   276→    label: "Neutral",
+   277→    cls: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   278→    dot: "bg-amber-400",
+   279→  },
+   280→  negative: {
+   281→    label: "Negativa",
+   282→    cls: "border-rose-400/40 bg-rose-400/10 text-rose-300",
+   283→    dot: "bg-rose-400",
+   284→  },
+   285→};
+   286→
+   287→const THEME_STYLES: Record<Theme, string> = {
+   288→  "food quality": "border-[var(--gold)]/35 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   289→  service: "border-[var(--teal)]/35 bg-[var(--teal)]/10 text-[var(--teal)]",
+   290→  ambiance: "border-[var(--gold)]/25 bg-[var(--gold)]/5 text-[var(--gold-soft)]/90",
+   291→  "wait time": "border-rose-400/35 bg-rose-400/10 text-rose-300",
+   292→  price: "border-foreground/20 bg-foreground/5 text-muted-foreground",
+   293→  menu: "border-[var(--teal)]/25 bg-[var(--teal)]/5 text-[var(--teal)]/90",
+   294→};
+   295→
+   296→function linePath(points: Array<[number, number]>): string {
+   297→  if (!points.length) return "";
+   298→  return points.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+   299→}
+   300→
+   301→function areaPath(points: Array<[number, number]>, baseY: number): string {
+   302→  if (!points.length) return "";
+   303→  const top = points.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+   304→  const last = points[points.length - 1];
+   305→  const first = points[0];
+   306→  return `${top} L${last[0]},${baseY} L${first[0]},${baseY} Z`;
+   307→}
+   308→
+   309→function StarRating({ value, className }: { value: number; className?: string }) {
+   310→  const rounded = Math.round(value);
+   311→  return (
+   312→    <div
+   313→      className={cn("inline-flex items-center gap-0.5", className)}
+   314→      role="img"
+   315→      aria-label={`${value} de 5 estrellas`}
+   316→    >
+   317→      {[1, 2, 3, 4, 5].map((i) => (
+   318→        <Star
+   319→          key={i}
+   320→          className={cn(
+   321→            "h-3.5 w-3.5",
+   322→            i <= rounded ? "text-[var(--gold)]" : "text-muted-foreground/30"
+   323→          )}
+   324→          fill={i <= rounded ? "currentColor" : "none"}
+   325→          strokeWidth={1.5}
+   326→          aria-hidden
+   327→        />
+   328→      ))}
+   329→    </div>
+   330→  );
+   331→}
+   332→
+   333→function DemoBadge({ className }: { className?: string }) {
+   334→  return (
+   335→    <Badge
+   336→      variant="outline"
+   337→      className={cn(
+   338→        "border-amber-400/40 bg-amber-400/10 text-amber-300/90 font-mono text-[10px] uppercase tracking-wider",
+   339→        className
+   340→      )}
+   341→    >
+   342→      demo
+   343→    </Badge>
+   344→  );
+   345→}
+   346→
+   347→/* =====================================================================
+   348→ * Main view
+   349→ * ===================================================================== */
+   350→
+   351→export function ReviewsView() {
+   352→  const [location, setLocation] = React.useState<LocationKey>("todos");
+   353→  const [ratingFilter, setRatingFilter] = React.useState<RatingFilter>("todos");
+   354→  const [search, setSearch] = React.useState("");
+   355→  const [selectedId, setSelectedId] = React.useState<string>(REVIEWS[0].id);
+   356→  const [locationOpen, setLocationOpen] = React.useState(false);
+   357→
+   358→  const filtered = React.useMemo(() => {
+   359→    return REVIEWS.filter((r) => {
+   360→      if (location !== "todos") {
+   361→        const locMap: Record<Exclude<LocationKey, "todos">, string> = {
+   362→          madrid: "Ramses Madrid",
+   363→          barcelona: "Ramses Barcelona",
+   364→          valencia: "Ramses Valencia",
+   365→        };
+   366→        if (r.location !== locMap[location]) return false;
+   367→      }
+   368→      if (ratingFilter !== "todos" && r.rating !== ratingFilter) return false;
+   369→      if (search.trim()) {
+   370→        const q = search.toLowerCase();
+   371→        if (!r.author.toLowerCase().includes(q) && !r.snippet.toLowerCase().includes(q) && !r.fullText.toLowerCase().includes(q)) {
+   372→          return false;
+   373→        }
+   374→      }
+   375→      return true;
+   376→    });
+   377→  }, [location, ratingFilter, search]);
+   378→
+   379→  const selected = React.useMemo(
+   380→    () => REVIEWS.find((r) => r.id === selectedId) ?? REVIEWS[0],
+   381→    [selectedId]
+   382→  );
+   383→
+   384→  const locationLabel = LOCATIONS.find((l) => l.id === location)?.label ?? "Todos";
+   385→
+   386→  return (
+   387→    <div className="space-y-5">
+   388→      <div className="flex items-center justify-between gap-3 flex-wrap">
+   389→        <div>
+   390→          <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+   391→            Google Reviews
+   392→          </h1>
+   393→          <p className="text-sm text-muted-foreground mt-1">
+   394→            Reputación online, análisis de sentimiento y respuestas asistidas por IA.
+   395→          </p>
+   396→        </div>
+   397→        <DemoBadge />
+   398→      </div>
+   399→
+   400→      <HeaderSummary
+   401→        locationLabel={locationLabel}
+   402→        locationOpen={locationOpen}
+   403→        onToggleLocation={() => setLocationOpen((v) => !v)}
+   404→        onSelectLocation={(l) => {
+   405→          setLocation(l);
+   406→          setLocationOpen(false);
+   407→        }}
+   408→        ratingFilter={ratingFilter}
+   409→        onRatingFilter={setRatingFilter}
+   410→        search={search}
+   411→        onSearch={setSearch}
+   412→      />
+   413→
+   414→      <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)] gap-4">
+   415→        <ReviewsList reviews={filtered} selectedId={selected.id} onSelect={setSelectedId} />
+   416→        <ReviewDetail review={selected} />
+   417→      </div>
+   418→
+   419→      <StarEvolutionChart />
+   420→
+   421→      <CopilotPanel />
+   422→    </div>
+   423→  );
+   424→}
+   425→
+   426→/* =====================================================================
+   427→ * Header summary
+   428→ * ===================================================================== */
+   429→
+   430→function HeaderSummary({
+   431→  locationLabel,
+   432→  locationOpen,
+   433→  onToggleLocation,
+   434→  onSelectLocation,
+   435→  ratingFilter,
+   436→  onRatingFilter,
+   437→  search,
+   438→  onSearch,
+   439→}: {
+   440→  locationLabel: string;
+   441→  locationOpen: boolean;
+   442→  onToggleLocation: () => void;
+   443→  onSelectLocation: (l: LocationKey) => void;
+   444→  ratingFilter: RatingFilter;
+   445→  onRatingFilter: (r: RatingFilter) => void;
+   446→  search: string;
+   447→  onSearch: (s: string) => void;
+   448→}) {
+   449→  return (
+   450→    <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-label="Resumen de valoración">
+   451→      <div className="flex flex-col xl:flex-row gap-6">
+   452→        {/* Rating + distribution */}
+   453→        <div className="flex items-center gap-6 min-w-0">
+   454→          <div className="text-center shrink-0">
+   455→            <div className="font-display text-5xl sm:text-6xl font-light rp-gold-text leading-none">
+   456→              4.6
+   457→            </div>
+   458→            <StarRating value={4.6} className="mt-2 justify-center" />
+   459→            <div className="text-xs text-muted-foreground mt-2 font-mono">1.247 reseñas</div>
+   460→          </div>
+   461→          <div className="flex-1 min-w-0 space-y-1.5">
+   462→            {DISTRIBUTION.map((d) => (
+   463→              <div key={d.stars} className="flex items-center gap-2 text-xs">
+   464→                <span className="w-7 text-muted-foreground inline-flex items-center gap-0.5">
+   465→                  {d.stars}
+   466→                  <Star className="h-3 w-3 text-[var(--gold)]" fill="currentColor" aria-hidden />
+   467→                </span>
+   468→                <div className="flex-1 h-1.5 rounded-full bg-foreground/10 overflow-hidden">
+   469→                  <div
+   470→                    className="h-full rounded-full bg-gradient-to-r from-[var(--gold-deep)] to-[var(--gold)]"
+   471→                    style={{ width: `${d.pct}%` }}
+   472→                  />
+   473→                </div>
+   474→                <span className="w-12 text-right font-mono text-muted-foreground tabular-nums">
+   475→                  {d.count}
+   476→                </span>
+   477→              </div>
+   478→            ))}
+   479→          </div>
+   480→        </div>
+   481→
+   482→        {/* Location selector */}
+   483→        <div className="xl:ml-auto xl:self-start relative shrink-0">
+   484→          <label className="block text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+   485→            Local
+   486→          </label>
+   487→          <button
+   488→            onClick={onToggleLocation}
+   489→            className="w-full xl:w-56 flex items-center justify-between gap-2 rounded-md border border-border/60 bg-input/30 px-3 py-2 text-sm hover:border-[var(--gold)]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+   490→            aria-expanded={locationOpen}
+   491→            aria-haspopup="listbox"
+   492→          >
+   493→            <span className="inline-flex items-center gap-2 truncate">
+   494→              <MapPin className="h-3.5 w-3.5 text-[var(--gold)]" aria-hidden />
+   495→              <span className="truncate">{locationLabel}</span>
+   496→            </span>
+   497→            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", locationOpen && "rotate-180")} aria-hidden />
+   498→          </button>
+   499→          {locationOpen && (
+   500→            <ul
+   501→              className="absolute z-20 mt-1 left-0 right-0 xl:w-56 rp-glass-strong rounded-md border border-border/60 py-1 shadow-xl"
+   502→              role="listbox"
+   503→            >
+   504→              {LOCATIONS.map((l) => (
+   505→                <li key={l.id}>
+   506→                  <button
+   507→                    onClick={() => onSelectLocation(l.id)}
+   508→                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-foreground/5 focus-visible:outline-none focus-visible:bg-foreground/5"
+   509→                    role="option"
+   510→                    aria-selected={locationLabel === l.label}
+   511→                  >
+   512→                    {l.label}
+   513→                  </button>
+   514→                </li>
+   515→              ))}
+   516→            </ul>
+   517→          )}
+   518→        </div>
+   519→      </div>
+   520→
+   521→      {/* Filter tabs + search */}
+   522→      <div className="mt-5 flex flex-col md:flex-row gap-3 md:items-center">
+   523→        <div
+   524→          role="tablist"
+   525→          aria-label="Filtrar por valoración"
+   526→          className="flex items-center rounded-md border border-border/60 p-0.5 overflow-x-auto rp-scroll-thin"
+   527→        >
+   528→          {(["todos", 5, 4, 3, 2, 1] as RatingFilter[]).map((r) => {
+   529→            const active = ratingFilter === r;
+   530→            return (
+   531→              <button
+   532→                key={String(r)}
+   533→                role="tab"
+   534→                aria-selected={active}
+   535→                onClick={() => onRatingFilter(r)}
+   536→                className={cn(
+   537→                  "rounded px-2.5 py-1 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40",
+   538→                  active
+   539→                    ? "bg-[var(--gold)] text-black"
+   540→                    : "text-muted-foreground hover:text-foreground"
+   541→                )}
+   542→              >
+   543→                {r === "todos" ? "Todos" : `${r}★`}
+   544→              </button>
+   545→            );
+   546→          })}
+   547→        </div>
+   548→        <div className="relative md:ml-auto md:w-72">
+   549→          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+   550→          <Input
+   551→            type="search"
+   552→            value={search}
+   553→            onChange={(e) => onSearch(e.target.value)}
+   554→            placeholder="Buscar por autor o texto…"
+   555→            className="pl-9 bg-input/30 border-border/60"
+   556→            aria-label="Buscar reseñas"
+   557→          />
+   558→        </div>
+   559→      </div>
+   560→    </section>
+   561→  );
+   562→}
+   563→
+   564→/* =====================================================================
+   565→ * Reviews list (master)
+   566→ * ===================================================================== */
+   567→
+   568→function ReviewsList({
+   569→  reviews,
+   570→  selectedId,
+   571→  onSelect,
+   572→}: {
+   573→  reviews: Review[];
+   574→  selectedId: string;
+   575→  onSelect: (id: string) => void;
+   576→}) {
+   577→  return (
+   578→    <section
+   579→      className="rp-glass rounded-2xl p-3 sm:p-4 flex flex-col"
+   580→      aria-label="Lista de reseñas"
+   581→    >
+   582→      <div className="flex items-center justify-between px-1 pb-3">
+   583→        <h2 className="text-sm font-medium inline-flex items-center gap-2">
+   584→          <MessageSquare className="h-4 w-4 text-[var(--gold)]" aria-hidden />
+   585→          {reviews.length} reseña{reviews.length === 1 ? "" : "s"}
+   586→        </h2>
+   587→        <DemoBadge />
+   588→      </div>
+   589→      <ul className="space-y-1.5 max-h-[640px] overflow-y-auto rp-scroll-thin pr-1" role="list">
+   590→        {reviews.length === 0 && (
+   591→          <li className="text-center py-12 text-sm text-muted-foreground">
+   592→            No hay reseñas que coincidan con los filtros.
+   593→          </li>
+   594→        )}
+   595→        {reviews.map((r) => {
+   596→          const active = r.id === selectedId;
+   597→          const s = SENTIMENT_STYLES[r.sentiment];
+   598→          return (
+   599→            <li key={r.id}>
+   600→              <button
+   601→                onClick={() => onSelect(r.id)}
+   602→                className={cn(
+   603→                  "w-full text-left rounded-xl p-3 border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40",
+   604→                  active
+   605→                    ? "border-[var(--gold)]/50 bg-[var(--gold)]/[0.06]"
+   606→                    : "border-border/40 bg-foreground/[0.015] hover:bg-foreground/[0.04] hover:border-border/60"
+   607→                )}
+   608→                aria-pressed={active}
+   609→              >
+   610→                <div className="flex items-start gap-3">
+   611→                  <Avatar className="h-9 w-9 border border-border/40">
+   612→                    <AvatarFallback className="bg-gradient-to-br from-[var(--gold)]/30 to-[var(--teal)]/20 text-foreground text-xs font-medium">
+   613→                      {r.initials}
+   614→                    </AvatarFallback>
+   615→                  </Avatar>
+   616→                  <div className="flex-1 min-w-0">
+   617→                    <div className="flex items-center justify-between gap-2">
+   618→                      <span className="text-sm font-medium truncate">{r.author}</span>
+   619→                      <span className="text-[11px] text-muted-foreground shrink-0">{r.date}</span>
+   620→                    </div>
+   621→                    <div className="mt-1 flex items-center gap-2 flex-wrap">
+   622→                      <StarRating value={r.rating} />
+   623→                      <span className="text-[11px] text-muted-foreground">·</span>
+   624→                      <span className="text-[11px] text-muted-foreground truncate">{r.location}</span>
+   625→                    </div>
+   626→                    <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+   627→                      {r.snippet}
+   628→                    </p>
+   629→                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+   630→                      <span
+   631→                        className={cn(
+   632→                          "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   633→                          s.cls
+   634→                        )}
+   635→                      >
+   636→                        <span className={cn("h-1 w-1 rounded-full", s.dot)} />
+   637→                        {s.label}
+   638→                      </span>
+   639→                      {r.replied ? (
+   640→                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-400/5 text-emerald-300/80 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider">
+   641→                          <Check className="h-2.5 w-2.5" aria-hidden />
+   642→                          Respondida
+   643→                        </span>
+   644→                      ) : (
+   645→                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/5 text-amber-300/80 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider">
+   646→                          <Clock className="h-2.5 w-2.5" aria-hidden />
+   647→                          Pendiente
+   648→                        </span>
+   649→                      )}
+   650→                    </div>
+   651→                  </div>
+   652→                </div>
+   653→              </button>
+   654→            </li>
+   655→          );
+   656→        })}
+   657→      </ul>
+   658→    </section>
+   659→  );
+   660→}
+   661→
+   662→/* =====================================================================
+   663→ * Review detail (detail)
+   664→ * ===================================================================== */
+   665→
+   666→function ReviewDetail({ review }: { review: Review }) {
+   667→  const [draft, setDraft] = React.useState(review.aiSuggestedReply);
+   668→  const [regenCount, setRegenCount] = React.useState(0);
+   669→  const [regenerating, setRegenerating] = React.useState(false);
+   670→  const [confirmState, setConfirmState] = React.useState<"idle" | "confirm" | "published">("idle");
+   671→
+   672→  React.useEffect(() => {
+   673→    setDraft(review.aiSuggestedReply);
+   674→    setRegenCount(0);
+   675→    setConfirmState("idle");
+   676→  }, [review.id, review.aiSuggestedReply]);
+   677→
+   678→  const handleRegenerate = () => {
+   679→    setRegenerating(true);
+   680→    window.setTimeout(() => {
+   681→      setDraft(regenCount % 2 === 0 ? review.aiReplyAlt : review.aiSuggestedReply);
+   682→      setRegenCount((c) => c + 1);
+   683→      setRegenerating(false);
+   684→      toast({
+   685→        title: "Respuesta regenerada (demo)",
+   686→        description: "Se ha generado una nueva propuesta de respuesta con IA.",
+   687→      });
+   688→    }, 700);
+   689→  };
+   690→
+   691→  const handleApprove = () => {
+   692→    setConfirmState("confirm");
+   693→  };
+   694→
+   695→  const handleConfirm = () => {
+   696→    setConfirmState("published");
+   697→    toast({
+   698→      title: "Respuesta publicada (demo)",
+   699→      description: `La respuesta a ${review.author} se ha publicado en Google Reviews.`,
+   700→    });
+   701→  };
+   702→
+   703→  const handleCancel = () => setConfirmState("idle");
+   704→
+   705→  const s = SENTIMENT_STYLES[review.sentiment];
+   706→
+   707→  return (
+   708→    <section
+   709→      className="rp-glass rounded-2xl p-5 sm:p-6 flex flex-col"
+   710→      aria-label={`Detalle de reseña de ${review.author}`}
+   711→    >
+   712→      <div className="flex items-start justify-between gap-3">
+   713→        <div className="flex items-start gap-3 min-w-0">
+   714→          <Avatar className="h-11 w-11 border border-border/40">
+   715→            <AvatarFallback className="bg-gradient-to-br from-[var(--gold)]/30 to-[var(--teal)]/20 text-foreground text-sm font-medium">
+   716→              {review.initials}
+   717→            </AvatarFallback>
+   718→          </Avatar>
+   719→          <div className="min-w-0">
+   720→            <h3 className="font-display text-lg sm:text-xl font-medium truncate">{review.author}</h3>
+   721→            <div className="mt-0.5 flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+   722→              <StarRating value={review.rating} />
+   723→              <span>·</span>
+   724→              <span>{review.date}</span>
+   725→              <span>·</span>
+   726→              <span className="inline-flex items-center gap-1">
+   727→                <MapPin className="h-3 w-3" aria-hidden />
+   728→                {review.location}
+   729→              </span>
+   730→            </div>
+   731→          </div>
+   732→        </div>
+   733→        <DemoBadge />
+   734→      </div>
+   735→
+   736→      <div className="mt-4 rounded-xl border border-border/40 bg-foreground/[0.02] p-4">
+   737→        <p className="text-sm leading-relaxed text-foreground/90">{review.fullText}</p>
+   738→      </div>
+   739→
+   740→      {/* Sentiment + themes */}
+   741→      <div className="mt-4 grid sm:grid-cols-2 gap-3">
+   742→        <div className="rounded-xl border border-border/40 bg-foreground/[0.02] p-3">
+   743→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+   744→            Análisis de sentimiento
+   745→          </div>
+   746→          <div className="flex items-center gap-2">
+   747→            <span className={cn("inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-mono uppercase tracking-wider", s.cls)}>
+   748→              <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} />
+   749→              {s.label}
+   750→            </span>
+   751→            <span className="text-xs text-muted-foreground">
+   752→              Confianza{" "}
+   753→              <span className="font-mono text-foreground">
+   754→                {review.sentimentConfidence}%
+   755→              </span>
+   756→            </span>
+   757→          </div>
+   758→          <div className="mt-2 h-1.5 rounded-full bg-foreground/10 overflow-hidden">
+   759→            <div
+   760→              className={cn("h-full rounded-full", s.dot)}
+   761→              style={{ width: `${review.sentimentConfidence}%` }}
+   762→            />
+   763→          </div>
+   764→        </div>
+   765→        <div className="rounded-xl border border-border/40 bg-foreground/[0.02] p-3">
+   766→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+   767→            Temas detectados
+   768→          </div>
+   769→          <div className="flex items-center gap-1.5 flex-wrap">
+   770→            {review.themes.map((t) => (
+   771→              <span
+   772→                key={t}
+   773→                className={cn(
+   774→                  "inline-flex items-center rounded-md border px-2 py-0.5 text-[11px]",
+   775→                  THEME_STYLES[t]
+   776→                )}
+   777→              >
+   778→                {t}
+   779→              </span>
+   780→            ))}
+   781→          </div>
+   782→        </div>
+   783→      </div>
+   784→
+   785→      {/* IA suggested reply */}
+   786→      <div className="mt-4 rounded-xl border border-[var(--gold)]/30 bg-[var(--gold)]/[0.04] p-4">
+   787→        <div className="flex items-center justify-between gap-2 mb-3">
+   788→          <div className="inline-flex items-center gap-2">
+   789→            <Sparkles className="h-4 w-4 text-[var(--gold)]" aria-hidden />
+   790→            <h4 className="text-sm font-medium">Respuesta sugerida por IA</h4>
+   791→            <DemoBadge />
+   792→          </div>
+   793→          <span className="text-[11px] font-mono text-muted-foreground">
+   794→            Fuente: Google Reviews
+   795→          </span>
+   796→        </div>
+   797→        <Textarea
+   798→          value={draft}
+   799→          onChange={(e) => setDraft(e.target.value)}
+   800→          rows={5}
+   801→          disabled={confirmState === "published"}
+   802→          className="bg-background/40 border-border/60 text-sm leading-relaxed resize-y"
+   803→          aria-label="Respuesta sugerida por IA editable"
+   804→        />
+   805→        <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+   806→          <div className="text-[11px] font-mono text-muted-foreground inline-flex items-center gap-3">
+   807→            <span className="inline-flex items-center gap-1">
+   808→              <ShieldAlert className="h-3 w-3 text-amber-300" aria-hidden />
+   809→              Revisar antes de ejecutar
+   810→            </span>
+   811→            {regenCount > 0 && (
+   812→              <span className="text-muted-foreground">
+   813→                versión {regenCount + 1}
+   814→              </span>
+   815→            )}
+   816→          </div>
+   817→          <div className="flex items-center gap-2">
+   818→            <Button
+   819→              variant="outline"
+   820→              size="sm"
+   821→              onClick={handleRegenerate}
+   822→              disabled={regenerating || confirmState === "published"}
+   823→              className="border-border/60"
+   824→            >
+   825→              <RefreshCw className={cn("h-3.5 w-3.5", regenerating && "animate-spin")} aria-hidden />
+   826→              {regenerating ? "Generando…" : "Regenerar"}
+   827→            </Button>
+   828→
+   829→            {confirmState === "idle" && (
+   830→              <Button
+   831→                size="sm"
+   832→                onClick={handleApprove}
+   833→                className="bg-[var(--gold)] text-black hover:bg-[var(--gold)]/90"
+   834→              >
+   835→                <Check className="h-3.5 w-3.5" aria-hidden />
+   836→                Aprobar antes de publicar
+   837→              </Button>
+   838→            )}
+   839→            {confirmState === "confirm" && (
+   840→              <div className="inline-flex items-center gap-2 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-1">
+   841→                <span className="text-xs text-amber-200">¿Publicar?</span>
+   842→                <Button
+   843→                  size="sm"
+   844→                  onClick={handleConfirm}
+   845→                  className="h-7 bg-[var(--gold)] text-black hover:bg-[var(--gold)]/90 px-2"
+   846→                >
+   847→                  Sí
+   848→                </Button>
+   849→                <Button
+   850→                  size="sm"
+   851→                  variant="ghost"
+   852→                  onClick={handleCancel}
+   853→                  className="h-7 px-2 text-muted-foreground hover:text-foreground"
+   854→                >
+   855→                  Cancelar
+   856→                </Button>
+   857→              </div>
+   858→            )}
+   859→            {confirmState === "published" && (
+   860→              <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/40 bg-emerald-400/10 px-2.5 py-1.5 text-xs text-emerald-300">
+   861→                <Check className="h-3.5 w-3.5" aria-hidden />
+   862→                Publicado
+   863→              </span>
+   864→            )}
+   865→          </div>
+   866→        </div>
+   867→      </div>
+   868→
+   869→      {/* Reply history */}
+   870→      {review.replyHistory && review.replyHistory.length > 0 && (
+   871→        <div className="mt-4">
+   872→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+   873→            Historial de respuestas
+   874→          </div>
+   875→          <ul className="space-y-2">
+   876→            {review.replyHistory.map((rh, i) => (
+   877→              <li
+   878→                key={`${review.id}-rh-${i}`}
+   879→                className="rounded-xl border border-border/40 bg-foreground/[0.02] p-3"
+   880→              >
+   881→                <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+   882→                  <span className="font-medium text-foreground/80">{rh.author}</span>
+   883→                  <span>{rh.date}</span>
+   884→                </div>
+   885→                <p className="mt-1.5 text-sm text-foreground/85 leading-relaxed">{rh.text}</p>
+   886→              </li>
+   887→            ))}
+   888→          </ul>
+   889→        </div>
+   890→      )}
+   891→    </section>
+   892→  );
+   893→}
+   894→
+   895→/* =====================================================================
+   896→ * Star evolution chart (8 weeks, inline SVG)
+   897→ * ===================================================================== */
+   898→
+   899→function StarEvolutionChart() {
+   900→  const W = 760;
+   901→  const H = 240;
+   902→  const padL = 40;
+   903→  const padR = 24;
+   904→  const padT = 20;
+   905→  const padB = 36;
+   906→  const plotW = W - padL - padR;
+   907→  const plotH = H - padT - padB;
+   908→  const yMin = 4.2;
+   909→  const yMax = 4.8;
+   910→
+   911→  const pts: Array<[number, number]> = STAR_EVOLUTION.map((d, i) => {
+   912→    const x = padL + (i / (STAR_EVOLUTION.length - 1)) * plotW;
+   913→    const y = padT + (1 - (d.rating - yMin) / (yMax - yMin)) * plotH;
+   914→    return [x, y];
+   915→  });
+   916→
+   917→  const yTicks = [4.2, 4.4, 4.6, 4.8];
+   918→  const baseY = padT + plotH;
+   919→
+   920→  return (
+   921→    <section
+   922→      className="rp-glass rounded-2xl p-5 sm:p-6"
+   923→      aria-label="Evolución de valoración media por semana"
+   924→    >
+   925→      <div className="flex items-center justify-between gap-3 mb-4">
+   926→        <div className="inline-flex items-center gap-2">
+   927→          <TrendingUp className="h-4 w-4 text-[var(--teal)]" aria-hidden />
+   928→          <h3 className="font-display text-lg font-medium">Evolución de valoración</h3>
+   929→          <span className="text-xs text-muted-foreground">— últimas 8 semanas</span>
+   930→        </div>
+   931→        <div className="flex items-center gap-2">
+   932→          <span className="inline-flex items-center gap-1 rounded-md border border-emerald-400/30 bg-emerald-400/10 text-emerald-300 px-2 py-0.5 text-[11px] font-mono">
+   933→            <TrendingUp className="h-3 w-3" aria-hidden />
+   934→            +0.19★
+   935→          </span>
+   936→          <DemoBadge />
+   937→        </div>
+   938→      </div>
+   939→
+   940→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   941→        <svg
+   942→          viewBox={`0 0 ${W} ${H}`}
+   943→          className="w-full min-w-[640px] h-auto"
+   944→          role="img"
+   945→          aria-labelledby="star-evol-title star-evol-desc"
+   946→        >
+   947→          <title id="star-evol-title">Evolución de valoración media, 8 semanas</title>
+   948→          <desc id="star-evol-desc">
+   949→            Gráfico de líneas que muestra la valoración media subiendo de 4.42 en S1 a 4.61 en S8.
+   950→          </desc>
+   951→          <defs>
+   952→            <linearGradient id="starEvolArea" x1="0" y1="0" x2="0" y2="1">
+   953→              <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.35" />
+   954→              <stop offset="100%" stopColor="var(--gold)" stopOpacity="0" />
+   955→            </linearGradient>
+   956→          </defs>
+   957→
+   958→          {/* Y grid + labels */}
+   959→          {yTicks.map((t) => {
+   960→            const y = padT + (1 - (t - yMin) / (yMax - yMin)) * plotH;
+   961→            return (
+   962→              <g key={t}>
+   963→                <line
+   964→                  x1={padL}
+   965→                  y1={y}
+   966→                  x2={W - padR}
+   967→                  y2={y}
+   968→                  stroke="currentColor"
+   969→                  strokeOpacity={0.08}
+   970→                  strokeDasharray="2 4"
+   971→                />
+   972→                <text
+   973→                  x={padL - 8}
+   974→                  y={y + 3}
+   975→                  textAnchor="end"
+   976→                  className="fill-muted-foreground font-mono"
+   977→                  fontSize="10"
+   978→                >
+   979→                  {t.toFixed(1)}
+   980→                </text>
+   981→              </g>
+   982→            );
+   983→          })}
+   984→
+   985→          {/* X labels */}
+   986→          {STAR_EVOLUTION.map((d, i) => {
+   987→            const x = padL + (i / (STAR_EVOLUTION.length - 1)) * plotW;
+   988→            return (
+   989→              <text
+   990→                key={d.week}
+   991→                x={x}
+   992→                y={H - 12}
+   993→                textAnchor="middle"
+   994→                className="fill-muted-foreground font-mono"
+   995→                fontSize="10"
+   996→              >
+   997→                {d.week}
+   998→              </text>
+   999→            );
+  1000→          })}
+  1001→
+  1002→          {/* Area */}
+  1003→          <path d={areaPath(pts, baseY)} fill="url(#starEvolArea)" />
+  1004→          {/* Line */}
+  1005→          <path
+  1006→            d={linePath(pts)}
+  1007→            fill="none"
+  1008→            stroke="var(--gold)"
+  1009→            strokeWidth="2"
+  1010→            strokeLinecap="round"
+  1011→            strokeLinejoin="round"
+  1012→          />
+  1013→
+  1014→          {/* Points */}
+  1015→          {pts.map(([x, y], i) => (
+  1016→            <g key={i}>
+  1017→              <circle cx={x} cy={y} r="3.5" fill="var(--gold)" />
+  1018→              <circle cx={x} cy={y} r="6" fill="var(--gold)" fillOpacity="0.15" />
+  1019→              <text
+  1020→                x={x}
+  1021→                y={y - 10}
+  1022→                textAnchor="middle"
+  1023→                className="fill-foreground font-mono"
+  1024→                fontSize="10"
+  1025→              >
+  1026→                {STAR_EVOLUTION[i].rating.toFixed(2)}
+  1027→              </text>
+  1028→            </g>
+  1029→          ))}
+  1030→        </svg>
+  1031→      </div>
+  1032→    </section>
+  1033→  );
+  1034→}
+  1035→
+  1036→/* =====================================================================
+  1037→ * Copilot mini-panel
+  1038→ * ===================================================================== */
+  1039→
+  1040→function CopilotPanel() {
+  1041→  const [question, setQuestion] = React.useState("");
+  1042→  const [activeAnswer, setActiveAnswer] = React.useState<string | null>(null);
+  1043→
+  1044→  const handleAsk = (q: string) => {
+  1045→    if (!q.trim()) return;
+  1046→    setActiveAnswer(q.trim());
+  1047→    setQuestion(q.trim());
+  1048→  };
+  1049→
+  1050→  const answer = activeAnswer ? COPILOT_ANSWERS[activeAnswer] : null;
+  1051→
+  1052→  return (
+  1053→    <section
+  1054→      className="rp-glass rounded-2xl p-5 sm:p-6 rp-glow-teal"
+  1055→      aria-label="Copiloto IA para reseñas"
+  1056→    >
+  1057→      <div className="flex items-center justify-between gap-3 mb-4">
+  1058→        <div className="inline-flex items-center gap-2">
+  1059→          <Sparkles className="h-4 w-4 text-[var(--teal)]" aria-hidden />
+  1060→          <h3 className="font-display text-lg font-medium">Copiloto IA · Reseñas</h3>
+  1061→        </div>
+  1062→        <DemoBadge />
+  1063→      </div>
+  1064→
+  1065→      <form
+  1066→        onSubmit={(e) => {
+  1067→          e.preventDefault();
+  1068→          handleAsk(question);
+  1069→        }}
+  1070→        className="flex items-center gap-2"
+  1071→      >
+  1072→        <div className="relative flex-1">
+  1073→          <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+  1074→          <Input
+  1075→            type="text"
+  1076→            value={question}
+  1077→            onChange={(e) => setQuestion(e.target.value)}
+  1078→            placeholder="Pregúntale al Copilot sobre tus reseñas…"
+  1079→            className="pl-9 bg-input/30 border-border/60"
+  1080→            aria-label="Pregunta al Copiloto IA"
+  1081→          />
+  1082→        </div>
+  1083→        <Button
+  1084→          type="submit"
+  1085→          size="sm"
+  1086→          className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/90"
+  1087→        >
+  1088→          <Send className="h-3.5 w-3.5" aria-hidden />
+  1089→          Preguntar
+  1090→        </Button>
+  1091→      </form>
+  1092→
+  1093→      <div className="mt-3 flex items-center gap-2 flex-wrap">
+  1094→        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1095→          Sugerencias:
+  1096→        </span>
+  1097→        {COPILOT_SUGGESTIONS.map((s) => (
+  1098→          <button
+  1099→            key={s}
+  1100→            onClick={() => handleAsk(s)}
+  1101→            className={cn(
+  1102→              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--teal)]/40",
+  1103→              activeAnswer === s
+  1104→                ? "border-[var(--teal)]/60 bg-[var(--teal)]/10 text-[var(--teal)]"
+  1105→                : "border-border/60 bg-foreground/[0.02] text-muted-foreground hover:text-foreground hover:border-[var(--teal)]/40"
+  1106→            )}
+  1107→          >
+  1108→            <Sparkles className="h-3 w-3" aria-hidden />
+  1109→            {s}
+  1110→          </button>
+  1111→        ))}
+  1112→      </div>
+  1113→
+  1114→      {answer && (
+  1115→        <div className="mt-4 rounded-xl border border-[var(--teal)]/30 bg-[var(--teal)]/[0.04] p-4">
+  1116→          <div className="flex items-start gap-3">
+  1117→            <div className="h-8 w-8 shrink-0 rounded-full bg-gradient-to-br from-[var(--teal)] to-[var(--teal-deep)] flex items-center justify-center text-black">
+  1118→              <Sparkles className="h-4 w-4" aria-hidden />
+  1119→            </div>
+  1120→            <div className="flex-1 min-w-0">
+  1121→              <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--teal)] mb-1">
+  1122→                Copiloto IA
+  1123→              </div>
+  1124→              <p className="text-sm leading-relaxed text-foreground/90">{answer.text}</p>
+  1125→
+  1126→              {/* Meta */}
+  1127→              <div className="mt-3 grid sm:grid-cols-3 gap-2 text-[11px] font-mono">
+  1128→                <div className="rounded-md border border-border/40 bg-foreground/[0.02] px-2 py-1">
+  1129→                  <span className="text-muted-foreground">Fuente: </span>
+  1130→                  <span className="text-foreground">Google Reviews (demo)</span>
+  1131→                </div>
+  1132→                <div className="rounded-md border border-border/40 bg-foreground/[0.02] px-2 py-1">
+  1133→                  <span className="text-muted-foreground">Actualizado: </span>
+  1134→                  <span className="text-foreground">hace 5 min</span>
+  1135→                </div>
+  1136→                <div className="rounded-md border border-border/40 bg-foreground/[0.02] px-2 py-1">
+  1137→                  <span className="text-muted-foreground">Confianza: </span>
+  1138→                  <span className="text-[var(--gold-soft)]">85%</span>
+  1139→                </div>
+  1140→              </div>
+  1141→
+  1142→              {/* Action pills */}
+  1143→              <div className="mt-3 flex items-center gap-2 flex-wrap">
+  1144→                <span className="inline-flex items-center gap-1 text-[11px] font-mono text-amber-300">
+  1145→                  <AlertCircle className="h-3 w-3" aria-hidden />
+  1146→                  Revisar antes de ejecutar
+  1147→                </span>
+  1148→                {answer.actions.map((a) => (
+  1149→                  <button
+  1150→                    key={a}
+  1151→                    onClick={() =>
+  1152→                      toast({
+  1153→                        title: "Acción en cola (demo)",
+  1154→                        description: a,
+  1155→                      })
+  1156→                    }
+  1157→                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] px-2.5 py-1 text-xs hover:bg-[var(--gold)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+  1158→                  >
+  1159→                    <ShieldAlert className="h-3 w-3" aria-hidden />
+  1160→                    {a}
+  1161→                  </button>
+  1162→                ))}
+  1163→              </div>
+  1164→            </div>
+  1165→          </div>
+  1166→        </div>
+  1167→      )}
+  1168→    </section>
+  1169→  );
+  1170→}
+  1171→

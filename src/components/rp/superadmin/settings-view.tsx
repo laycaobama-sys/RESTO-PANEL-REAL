@@ -206,7 +206,7 @@ export function SettingsView() {
             <FieldRow label="Colores de marca" hint="Personaliza el acento dorado y turquesa de tu panel">
               <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-2">
-                  <div className="relative h-9 w-9 rounded-md border border-border/60 overflow-hidden">
+                  <div className="relative h-11 w-11 rounded-md border border-border/60 overflow-hidden">
                     <input type="color" value={general.primary} onChange={(e) => setGeneral({ ...general, primary: e.target.value })} className="absolute inset-0 w-full h-full cursor-pointer opacity-0" aria-label="Color primario" />
                     <div className="h-full w-full" style={{ background: general.primary }} />
                   </div>
@@ -216,7 +216,7 @@ export function SettingsView() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <div className="relative h-9 w-9 rounded-md border border-border/60 overflow-hidden">
+                  <div className="relative h-11 w-11 rounded-md border border-border/60 overflow-hidden">
                     <input type="color" value={general.accent} onChange={(e) => setGeneral({ ...general, accent: e.target.value })} className="absolute inset-0 w-full h-full cursor-pointer opacity-0" aria-label="Color acento" />
                     <div className="h-full w-full" style={{ background: general.accent }} />
                   </div>

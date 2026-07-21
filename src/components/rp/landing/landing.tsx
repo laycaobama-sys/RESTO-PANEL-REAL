@@ -210,13 +210,13 @@ function LandingHeader() {
 
         <nav
           aria-label="Navegación principal"
-          className="ml-4 hidden xl:flex items-center gap-1"
+          className="ml-4 hidden 2xl:flex items-center gap-0.5 min-w-0"
         >
           {NAV_LINKS.map((label) => (
             <Link
               key={label}
               href="#p-plataforma"
-              className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
+              className="rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 whitespace-nowrap"
             >
               {label}
             </Link>
@@ -240,70 +240,70 @@ function LandingHeader() {
           </Button>
         </div>
 
-        {/* Mobile CTA (compact) */}
-        <div className="ml-auto flex items-center gap-2 lg:hidden">
-          <Button
-            size="sm"
-            onClick={goApp}
-            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
-          >
-            Crear cuenta
-          </Button>
-          <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Abrir menú"
-                className="xl:hidden"
-              >
-                <Menu className="h-5 w-5" aria-hidden />
+        {/* Mobile CTA (compact) — visible below lg */}
+        <Button
+          size="sm"
+          onClick={goApp}
+          className="ml-auto bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black lg:hidden"
+        >
+          Crear cuenta
+        </Button>
+
+        {/* Hamburger — visible below xl (covers lg–xl where desktop nav is hidden) */}
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="Abrir menú"
+              className="2xl:hidden"
+            >
+              <Menu className="h-5 w-5" aria-hidden />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[88%] sm:max-w-sm rp-glass-strong">
+            <SheetHeader className="px-5 pt-5">
+              <SheetTitle className="text-left">
+                <Logo />
+              </SheetTitle>
+            </SheetHeader>
+            <nav
+              aria-label="Navegación móvil"
+              className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-4"
+            >
+              <ul className="space-y-0.5">
+                {NAV_LINKS.map((label) => (
+                  <li key={label}>
+                    <SheetClose asChild>
+                      <Link
+                        href="#p-plataforma"
+                        className="flex items-center justify-between rounded-md px-3 py-3 min-h-11 text-sm text-foreground/85 hover:bg-foreground/5 hover:text-foreground"
+                      >
+                        {label}
+                        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+                      </Link>
+                    </SheetClose>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="border-t border-border/60 p-4 space-y-2">
+              <Button variant="ghost" className="w-full justify-start" onClick={goApp}>
+                Iniciar sesión
               </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[88%] sm:max-w-sm rp-glass-strong">
-              <SheetHeader className="px-5 pt-5">
-                <SheetTitle className="text-left">
-                  <Logo />
-                </SheetTitle>
-              </SheetHeader>
-              <nav
-                aria-label="Navegación móvil"
-                className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-4"
+              <Button variant="outline" className="w-full justify-center" onClick={goApp}>
+                Solicitar demo
+              </Button>
+              <Button
+                className="w-full justify-center bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+                onClick={goApp}
               >
-                <ul className="space-y-0.5">
-                  {NAV_LINKS.map((label) => (
-                    <li key={label}>
-                      <SheetClose asChild>
-                        <Link
-                          href="#p-plataforma"
-                          className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm text-foreground/85 hover:bg-foreground/5 hover:text-foreground"
-                        >
-                          {label}
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
-                        </Link>
-                      </SheetClose>
-                    </li>
-                  ))}
-                </ul>
-              </nav>
-              <div className="border-t border-border/60 p-4 space-y-2">
-                <Button variant="ghost" className="w-full justify-start" onClick={goApp}>
-                  Iniciar sesión
-                </Button>
-                <Button variant="outline" className="w-full justify-center" onClick={goApp}>
-                  Solicitar demo
-                </Button>
-                <Button
-                  className="w-full justify-center bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
-                  onClick={goApp}
-                >
-                  Crear cuenta
-                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
+                Crear cuenta
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </Button>
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   );
@@ -420,7 +420,7 @@ function Hero() {
 function HeroPreview() {
   const reduced = useReducedMotion();
   return (
-    <div className="relative">
+    <div className="relative min-w-0">
       <div
         className={cn(
           "relative rounded-2xl rp-glass-strong p-4 sm:p-5",
@@ -812,7 +812,7 @@ function Problems() {
               </p>
               <button
                 onClick={() => go(p.section)}
-                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)]"
+                className="mt-4 inline-flex items-center gap-1.5 min-h-11 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)]"
               >
                 <span className="text-muted-foreground">→ Solución:</span>
                 <span>{p.sol}</span>
@@ -895,7 +895,7 @@ const MODULES: Module[] = [
   },
   {
     name: "Lista de espera",
-    benefit: "Walk-ins con SMS de aviso y estimación de espera en vivo.",
+    benefit: "Clientes sin reserva con SMS de aviso y estimación de espera en vivo.",
     icon: Hourglass,
     status: "Próximamente",
     section: "reservas",
@@ -960,7 +960,7 @@ function Platform() {
               </p>
               <button
                 onClick={() => go(m.section)}
-                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)] self-start"
+                className="mt-4 inline-flex items-center gap-1.5 min-h-11 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)] self-start"
                 aria-label={`Explorar módulo ${m.name}`}
               >
                 Explorar
@@ -999,7 +999,7 @@ function DeepDiveReservas() {
     <section className="border-t border-border/60 py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
               <span className="rp-gold-text">03</span>
               <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
@@ -1059,7 +1059,7 @@ function ReservationsMock() {
   };
 
   return (
-    <div className="rp-glass-strong rounded-2xl p-4 sm:p-5 relative">
+    <div className="rp-glass-strong rounded-2xl p-4 sm:p-5 relative min-w-0">
       <DemoBadge className="absolute right-4 top-4" />
       <div className="flex items-center gap-2 mb-4">
         <CalendarCheck className="h-4 w-4 text-[var(--gold-soft)]" aria-hidden />
@@ -1068,8 +1068,9 @@ function ReservationsMock() {
         </span>
       </div>
 
-      {/* Calendar header */}
-      <div className="grid gap-2" style={{ gridTemplateColumns: `120px repeat(${hours.length}, 1fr)` }}>
+      {/* Calendar header — horizontally scrollable on narrow viewports */}
+      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+      <div className="grid gap-2 min-w-[520px]" style={{ gridTemplateColumns: `120px repeat(${hours.length}, 1fr)` }}>
         <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground" />
         {hours.map((h) => (
           <div
@@ -1119,6 +1120,7 @@ function ReservationsMock() {
             })}
           </React.Fragment>
         ))}
+      </div>
       </div>
 
       <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
@@ -1209,7 +1211,7 @@ function DeepDiveCRM() {
 
 function CrmMock() {
   return (
-    <div className="rp-glass-strong rounded-2xl p-5 relative">
+    <div className="rp-glass-strong rounded-2xl p-5 relative min-w-0">
       <DemoBadge className="absolute right-4 top-4" />
       <div className="flex items-center gap-3">
         <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-lg font-medium">
@@ -1306,7 +1308,7 @@ function DeepDiveIA() {
     <section className="border-t border-border/60 py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
               <span className="rp-gold-text">05</span>
               <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
@@ -1328,7 +1330,7 @@ function DeepDiveIA() {
                   key={q}
                   onClick={() => setActive(i)}
                   className={cn(
-                    "rounded-full border px-3 py-1.5 text-xs transition-colors",
+                    "inline-flex items-center min-h-11 rounded-full border px-3 py-2 text-xs transition-colors text-left",
                     active === i
                       ? "border-[var(--teal)]/50 bg-[var(--teal)]/10 text-[var(--teal)]"
                       : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
@@ -1416,7 +1418,7 @@ function DeepDiveIA() {
                   <button
                     key={a}
                     onClick={() => go("dashboard")}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-1 text-xs text-[var(--gold-soft)] hover:bg-[var(--gold)]/20"
+                    className="inline-flex items-center gap-1.5 min-h-11 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-2 text-xs text-[var(--gold-soft)] hover:bg-[var(--gold)]/20"
                   >
                     <Zap className="h-3 w-3" aria-hidden />
                     {a}
@@ -1526,7 +1528,7 @@ const COMPARISON: {
   { feature: "Reservas inteligentes", starter: true, pro: true, enterprise: true },
   { feature: "Plano de mesas", starter: true, pro: true, enterprise: true },
   { feature: "CRM", starter: true, pro: true, enterprise: true },
-  { feature: "Marketing (SMS/email)", starter: "Pay-per-use", pro: "5k incluidos", enterprise: "Ilimitado" },
+  { feature: "Marketing (SMS/email)", starter: "Pago por uso", pro: "5k incluidos", enterprise: "Ilimitado" },
   { feature: "Automatizaciones", starter: "5 activas", pro: "50 activas", enterprise: "Ilimitado" },
   { feature: "Google Reviews", starter: true, pro: true, enterprise: true },
   { feature: "Analytics avanzado", starter: false, pro: true, enterprise: true },
@@ -1534,8 +1536,8 @@ const COMPARISON: {
   { feature: "Lista de espera", starter: false, pro: false, enterprise: true },
   { feature: "Marketplace", starter: false, pro: false, enterprise: true },
   { feature: "Integraciones (Stripe, POS…)", starter: "3", pro: "Ilimitado", enterprise: "Ilimitado + API" },
-  { feature: "Soporte", starter: "Email", pro: "Chat优先", enterprise: "CSM dedicado + SLA" },
-  { feature: "Onboarding", starter: "Self-service", pro: "Guiado 24-48h", enterprise: "Personalizado" },
+  { feature: "Soporte", starter: "Email", pro: "Chat prioritario", enterprise: "CSM dedicado + SLA" },
+  { feature: "Onboarding", starter: "Autoservicio", pro: "Guiado 24-48h", enterprise: "Personalizado" },
   { feature: "SLA", starter: false, pro: "99,5%", enterprise: "99,9% + RTO 1h" },
 ];
 
@@ -1626,7 +1628,7 @@ function Pricing() {
                         else if (locals > PLANS[k].maxLocals) setLocals(PLANS[k].maxLocals);
                       }}
                       className={cn(
-                        "rounded-lg border px-3 py-3 text-sm transition-all relative",
+                        "min-w-0 rounded-lg border px-2 sm:px-3 py-3 text-sm transition-all relative",
                         plan === k
                           ? "border-[var(--gold)]/60 bg-[var(--gold)]/10 text-[var(--gold-soft)] rp-glow-gold"
                           : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
@@ -1755,7 +1757,7 @@ function Pricing() {
                 />
                 <PriceLine
                   label="Soporte"
-                  value={isEnterprise ? "CSM dedicado + SLA" : plan === "pro" ? "Chat优先" : "Email"}
+                  value={isEnterprise ? "CSM dedicado + SLA" : plan === "pro" ? "Chat prioritario" : "Email"}
                 />
               </ul>
 

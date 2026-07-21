@@ -1,0 +1,776 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import {
+     7→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+     8→} from "@/components/ui/dialog";
+     9→import {
+    10→  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
+    11→} from "@/components/ui/drawer";
+    12→import {
+    13→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    14→} from "@/components/ui/select";
+    15→import { Input } from "@/components/ui/input";
+    16→import { Button } from "@/components/ui/button";
+    17→import { Badge } from "@/components/ui/badge";
+    18→import {
+    19→  ShieldCheck, TrendingUp, TrendingDown, Search, Filter, AlertTriangle,
+    20→  CheckCircle2, Activity, Cpu, Globe2, Zap, DollarSign, Users, Building2,
+    21→  ChevronRight, Crown, CalendarDays, Sparkles, Server, Cloud, AlertOctagon,
+    22→} from "lucide-react";
+    23→
+    24→/* ---------------- shared bits ---------------- */
+    25→function DemoBadge({ className }: { className?: string }) {
+    26→  return (
+    27→    <Badge
+    28→      variant="outline"
+    29→      className={cn(
+    30→        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
+    31→        className
+    32→      )}
+    33→    >
+    34→      demo
+    35→    </Badge>
+    36→  );
+    37→}
+    38→
+    39→function SectionTitle({
+    40→  title, subtitle, children, demo,
+    41→}: {
+    42→  title: string; subtitle?: string; children?: React.ReactNode; demo?: boolean;
+    43→}) {
+    44→  return (
+    45→    <div className="flex items-start justify-between gap-3 mb-4">
+    46→      <div>
+    47→        <div className="flex items-center gap-2">
+    48→          <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">{title}</h3>
+    49→          {demo && <DemoBadge />}
+    50→        </div>
+    51→        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+    52→      </div>
+    53→      {children && <div className="shrink-0">{children}</div>}
+    54→    </div>
+    55→  );
+    56→}
+    57→
+    58→type TrendDir = "up" | "down" | "flat";
+    59→function TrendPill({ dir, value }: { dir: TrendDir; value: string }) {
+    60→  const Icon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : Activity;
+    61→  const tone =
+    62→    dir === "up" ? "text-emerald-300 border-emerald-400/30 bg-emerald-400/10"
+    63→    : dir === "down" ? "text-rose-300 border-rose-400/30 bg-rose-400/10"
+    64→    : "text-muted-foreground border-border/60 bg-foreground/5";
+    65→  return (
+    66→    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-mono", tone)}>
+    67→      <Icon className="h-3 w-3" aria-hidden />
+    68→      {value}
+    69→    </span>
+    70→  );
+    71→}
+    72→
+    73→function StatusPill({ status }: { status: "operational" | "degraded" | "down" | "maintenance" }) {
+    74→  const map = {
+    75→    operational: { label: "Operativo", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400" },
+    76→    degraded: { label: "Degradado", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400" },
+    77→    down: { label: "Caído", cls: "border-rose-400/50 bg-rose-400/10 text-rose-300", dot: "bg-rose-400" },
+    78→    maintenance: { label: "Mantenimiento", cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]", dot: "bg-[var(--teal)]" },
+    79→  }[status];
+    80→  return (
+    81→    <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs", map.cls)}>
+    82→      <span className={cn("h-1.5 w-1.5 rounded-full", map.dot)} />
+    83→      {map.label}
+    84→    </span>
+    85→  );
+    86→}
+    87→
+    88→/* ---------------- KPI data ---------------- */
+    89→const KPIS = [
+    90→  { label: "MRR", value: "48.250€", trend: "up" as TrendDir, delta: "+6.2% MoM" },
+    91→  { label: "ARR", value: "579.000€", trend: "up" as TrendDir, delta: "+18.4% YoY" },
+    92→  { label: "LTV", value: "3.840€", trend: "up" as TrendDir, delta: "+4.1%" },
+    93→  { label: "CAC", value: "412€", trend: "down" as TrendDir, delta: "-7.8%" },
+    94→  { label: "ARPU", value: "149€", trend: "up" as TrendDir, delta: "+2.3%" },
+    95→  { label: "Churn", value: "2.1%", trend: "down" as TrendDir, delta: "-0.3pp" },
+    96→  { label: "Conversión", value: "12.4%", trend: "up" as TrendDir, delta: "+1.2pp" },
+    97→  { label: "Orgs activas", value: "324", trend: "up" as TrendDir, delta: "+14 este mes" },
+    98→];
+    99→
+   100→/* ---------------- orgs data ---------------- */
+   101→type Org = {
+   102→  id: string; name: string; plan: "Starter" | "Professional" | "Enterprise";
+   103→  locations: number; mrr: number; status: "activa" | "trial" | "pausada" | "churned";
+   104→  churnRisk: "bajo" | "medio" | "alto" | "crítico"; lastActive: string;
+   105→  country: string; signups: number;
+   106→};
+   107→
+   108→const ORGS: Org[] = [
+   109→  { id: "o1", name: "Ramses Group", plan: "Enterprise", locations: 6, mrr: 1490, status: "activa", churnRisk: "bajo", lastActive: "hace 4 min", country: "ES", signups: 384 },
+   110→  { id: "o2", name: "El Club del Chef", plan: "Professional", locations: 3, mrr: 447, status: "activa", churnRisk: "medio", lastActive: "hace 22 min", country: "ES", signups: 211 },
+   111→  { id: "o3", name: "Sakura Sushi Chain", plan: "Enterprise", locations: 12, mrr: 2980, status: "activa", churnRisk: "bajo", lastActive: "hace 1 min", country: "PT", signups: 612 },
+   112→  { id: "o4", name: "Trattoria Bellini", plan: "Starter", locations: 1, mrr: 49, status: "trial", churnRisk: "alto", lastActive: "hace 3 días", country: "IT", signups: 47 },
+   113→  { id: "o5", name: "Mar & Sol Resorts", plan: "Professional", locations: 5, mrr: 745, status: "activa", churnRisk: "medio", lastActive: "hace 1 h", country: "ES", signups: 305 },
+   114→  { id: "o6", name: "Parrilla Sur", plan: "Starter", locations: 2, mrr: 98, status: "pausada", churnRisk: "crítico", lastActive: "hace 12 días", country: "AR", signups: 89 },
+   115→  { id: "o7", name: "Brasserie Lumière", plan: "Professional", locations: 4, mrr: 596, status: "activa", churnRisk: "bajo", lastActive: "hace 8 min", country: "FR", signups: 256 },
+   116→  { id: "o8", name: "Wok Republic", plan: "Enterprise", locations: 9, mrr: 2235, status: "activa", churnRisk: "medio", lastActive: "hace 17 min", country: "UK", signups: 478 },
+   117→  { id: "o9", name: "Café Central Lisboa", plan: "Starter", locations: 1, mrr: 49, status: "trial", churnRisk: "medio", lastActive: "hace 2 h", country: "PT", signups: 36 },
+   118→  { id: "o10", name: "Taco Loco Group", plan: "Professional", locations: 7, mrr: 1043, status: "activa", churnRisk: "bajo", lastActive: "hace 33 min", country: "MX", signups: 391 },
+   119→];
+   120→
+   121→const PLAN_FILTERS = ["Todos", "Starter", "Professional", "Enterprise"] as const;
+   122→const STATUS_FILTERS = ["Todos", "activa", "trial", "pausada", "churned"] as const;
+   123→
+   124→/* ---------------- MRR chart ---------------- */
+   125→function MrrChart() {
+   126→  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+   127→  const values = [28500, 30200, 32800, 35100, 37400, 39200, 41800, 43200, 44600, 45900, 47100, 48250];
+   128→  const max = Math.max(...values);
+   129→  const min = Math.min(...values);
+   130→  const w = 720, h = 220, pad = 32;
+   131→  const x = (i: number) => pad + (i * (w - pad * 2)) / (values.length - 1);
+   132→  const y = (v: number) => h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+   133→  const pathLine = values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`).join(" ");
+   134→  const pathArea = `${pathLine} L${x(values.length - 1)},${h - pad} L${x(0)},${h - pad} Z`;
+   135→  return (
+   136→    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto" role="img" aria-label="Crecimiento MRR últimos 12 meses">
+   137→      <defs>
+   138→        <linearGradient id="mrr-fill" x1="0" x2="0" y1="0" y2="1">
+   139→          <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.35" />
+   140→          <stop offset="100%" stopColor="var(--gold)" stopOpacity="0" />
+   141→        </linearGradient>
+   142→        <linearGradient id="mrr-line" x1="0" x2="1" y1="0" y2="0">
+   143→          <stop offset="0%" stopColor="var(--gold-soft)" />
+   144→          <stop offset="100%" stopColor="var(--teal)" />
+   145→        </linearGradient>
+   146→      </defs>
+   147→      {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+   148→        <line key={p} x1={pad} x2={w - pad} y1={pad + p * (h - pad * 2)} y2={pad + p * (h - pad * 2)} stroke="currentColor" strokeOpacity="0.06" />
+   149→      ))}
+   150→      <path d={pathArea} fill="url(#mrr-fill)" />
+   151→      <path d={pathLine} fill="none" stroke="url(#mrr-line)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+   152→      {values.map((v, i) => (
+   153→        <g key={i}>
+   154→          <circle cx={x(i)} cy={y(v)} r="3" fill="var(--background)" stroke="var(--gold)" strokeWidth="2" />
+   155→          <text x={x(i)} y={h - pad + 16} fontSize="10" fill="currentColor" fillOpacity="0.5" textAnchor="middle" fontFamily="var(--font-jetbrains)">
+   156→            {months[i]}
+   157→          </text>
+   158→        </g>
+   159→      ))}
+   160→    </svg>
+   161→  );
+   162→}
+   163→
+   164→/* ---------------- bar chart ---------------- */
+   165→function BarChart({ data, accent = "gold" }: { data: { label: string; value: number; sub?: string }[]; accent?: "gold" | "teal" }) {
+   166→  const max = Math.max(...data.map((d) => d.value));
+   167→  const color = accent === "gold" ? "var(--gold)" : "var(--teal)";
+   168→  return (
+   169→    <div className="space-y-2.5">
+   170→      {data.map((d) => (
+   171→        <div key={d.label} className="flex items-center gap-3">
+   172→          <div className="w-28 sm:w-36 truncate text-xs text-foreground/80">{d.label}</div>
+   173→          <div className="flex-1 h-6 rounded-md bg-foreground/5 overflow-hidden relative">
+   174→            <div
+   175→              className="h-full rounded-md transition-all"
+   176→              style={{ width: `${(d.value / max) * 100}%`, background: `linear-gradient(90deg, ${color}, ${accent === "gold" ? "var(--gold-deep)" : "var(--teal-deep)"})` }}
+   177→            />
+   178→          </div>
+   179→          <div className="w-20 text-right text-xs font-mono">
+   180→            {d.value.toLocaleString("es-ES")}{d.sub ? <span className="text-muted-foreground ml-1">{d.sub}</span> : null}
+   181→          </div>
+   182→        </div>
+   183→      ))}
+   184→    </div>
+   185→  );
+   186→}
+   187→
+   188→/* ---------------- world map svg ---------------- */
+   189→function WorldMap() {
+   190→  // stylized continents + glowing dots representing activity
+   191→  const dots = [
+   192→    { x: 320, y: 95, size: 6, label: "USA" },
+   193→    { x: 285, y: 130, size: 4, label: "MX" },
+   194→    { x: 350, y: 165, size: 3, label: "BR" },
+   195→    { x: 470, y: 85, size: 5, label: "UK" },
+   196→    { x: 495, y: 100, size: 7, label: "ES" },
+   197→    { x: 510, y: 95, size: 4, label: "FR" },
+   198→    { x: 545, y: 105, size: 4, label: "IT" },
+   199→    { x: 565, y: 130, size: 3, label: "AR" },
+   200→    { x: 660, y: 110, size: 8, label: "UAE" },
+   201→    { x: 720, y: 130, size: 6, label: "IN" },
+   202→    { x: 770, y: 100, size: 7, label: "JP" },
+   203→    { x: 800, y: 165, size: 4, label: "AU" },
+   204→  ];
+   205→  return (
+   206→    <svg viewBox="0 0 980 320" className="w-full h-auto" role="img" aria-label="Mapa mundial de actividad demo">
+   207→      <defs>
+   208→        <radialGradient id="dot-glow" cx="50%" cy="50%" r="50%">
+   209→          <stop offset="0%" stopColor="var(--teal)" stopOpacity="0.9" />
+   210→          <stop offset="100%" stopColor="var(--teal)" stopOpacity="0" />
+   211→        </radialGradient>
+   212→        <linearGradient id="continent" x1="0" x2="0" y1="0" y2="1">
+   213→          <stop offset="0%" stopColor="var(--foreground)" stopOpacity="0.08" />
+   214→          <stop offset="100%" stopColor="var(--foreground)" stopOpacity="0.03" />
+   215→        </linearGradient>
+   216→      </defs>
+   217→      {/* Stylized abstract continent shapes */}
+   218→      <g fill="url(#continent)" stroke="currentColor" strokeOpacity="0.12" strokeWidth="0.75">
+   219→        {/* North America */}
+   220→        <path d="M230,70 Q290,55 350,80 Q390,110 380,150 Q360,180 320,170 Q280,160 250,140 Q220,110 230,70 Z" />
+   221→        {/* South America */}
+   222→        <path d="M330,180 Q360,175 370,205 Q375,250 355,275 Q330,280 315,250 Q305,210 330,180 Z" />
+   223→        {/* Europe */}
+   224→        <path d="M440,75 Q490,68 540,80 Q560,100 545,120 Q500,125 470,115 Q445,100 440,75 Z" />
+   225→        {/* Africa */}
+   226→        <path d="M490,140 Q540,135 560,170 Q565,225 540,255 Q510,260 490,225 Q480,180 490,140 Z" />
+   227→        {/* Asia */}
+   228→        <path d="M560,70 Q700,55 820,80 Q860,110 830,150 Q760,170 680,160 Q600,140 560,110 Z" />
+   229→        {/* Oceania */}
+   230→        <path d="M770,180 Q820,175 830,200 Q825,225 790,230 Q760,220 770,180 Z" />
+   231→      </g>
+   232→      {dots.map((d) => (
+   233→        <g key={d.label}>
+   234→          <circle cx={d.x} cy={d.y} r={d.size * 3} fill="url(#dot-glow)" />
+   235→          <circle cx={d.x} cy={d.y} r={d.size * 0.6} fill="var(--teal)">
+   236→            <animate attributeName="opacity" values="1;0.4;1" dur="2.4s" repeatCount="indefinite" />
+   237→          </circle>
+   238→        </g>
+   239→      ))}
+   240→    </svg>
+   241→  );
+   242→}
+   243→
+   244→/* ---------------- rankings ---------------- */
+   245→function RankingList({
+   246→  title, icon: Icon, items, metric, accent,
+   247→}: {
+   248→  title: string; icon: React.ElementType;
+   249→  items: { name: string; value: number; meta?: string }[];
+   250→  metric: string; accent: "gold" | "teal";
+   251→}) {
+   252→  const max = Math.max(...items.map((i) => i.value));
+   253→  return (
+   254→    <div className="rp-glass rounded-xl p-4">
+   255→      <div className="flex items-center gap-2 mb-3">
+   256→        <Icon className={cn("h-4 w-4", accent === "gold" ? "rp-gold-text" : "rp-teal-text")} aria-hidden />
+   257→        <h4 className="text-sm font-medium">{title}</h4>
+   258→      </div>
+   259→      <ol className="space-y-2.5">
+   260→        {items.map((it, i) => (
+   261→          <li key={it.name} className="flex items-center gap-3">
+   262→            <span className={cn(
+   263→              "h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-xs font-mono",
+   264→              i === 0 ? "bg-[var(--gold)]/15 text-[var(--gold)]" : "bg-foreground/5 text-muted-foreground"
+   265→            )}>
+   266→              {i + 1}
+   267→            </span>
+   268→            <div className="flex-1 min-w-0">
+   269→              <div className="flex justify-between text-xs mb-1">
+   270→                <span className="truncate text-foreground/85">{it.name}</span>
+   271→                <span className="font-mono text-foreground/70">{it.value.toLocaleString("es-ES")}{metric}</span>
+   272→              </div>
+   273→              <div className="h-1 rounded-full bg-foreground/5 overflow-hidden">
+   274→                <div
+   275→                  className="h-full rounded-full"
+   276→                  style={{
+   277→                    width: `${(it.value / max) * 100}%`,
+   278→                    background: accent === "gold" ? "linear-gradient(90deg, var(--gold), var(--gold-deep))" : "linear-gradient(90deg, var(--teal), var(--teal-deep))",
+   279→                  }}
+   280→                />
+   281→              </div>
+   282→              {it.meta && <div className="text-[10px] text-muted-foreground mt-0.5">{it.meta}</div>}
+   283→            </div>
+   284→          </li>
+   285→        ))}
+   286→      </ol>
+   287→    </div>
+   288→  );
+   289→}
+   290→
+   291→/* ---------------- infra status ---------------- */
+   292→const INFRA_STATUS = [
+   293→  { service: "API Gateway", status: "operational" as const, latency: "112ms", region: "EU-West" },
+   294→  { service: "D1 (Base de datos)", status: "operational" as const, latency: "8ms", region: "Global" },
+   295→  { service: "R2 (Object Store)", status: "operational" as const, latency: "24ms", region: "Global" },
+   296→  { service: "Queues", status: "degraded" as const, latency: "1.8s p99", region: "EU-West" },
+   297→  { service: "AI Gateway", status: "operational" as const, latency: "642ms", region: "Global" },
+   298→  { service: "Workers", status: "operational" as const, latency: "4ms", region: "Global" },
+   299→  { service: "KV", status: "operational" as const, latency: "2ms", region: "Global" },
+   300→];
+   301→
+   302→const INCIDENTS = [
+   303→  { id: "inc1", severity: "alta", status: "investigando", summary: "Latencia elevada en cola de webhooks (eu-west-1)", time: "hace 18 min" },
+   304→  { id: "inc2", severity: "media", status: "monitorizando", summary: "Tasa de error 0.4% en endpoint /reservas (AI Gateway)", time: "hace 1 h" },
+   305→  { id: "inc3", severity: "baja", status: "resuelto", summary: "Despliegue 1.42.0 completado en workers", time: "hace 4 h" },
+   306→  { id: "inc4", severity: "media", status: "identificado", summary: "D1 read replica lag >2s en horario pico", time: "ayer 23:14" },
+   307→];
+   308→
+   309→/* ---------------- org detail drawer ---------------- */
+   310→function OrgDetailDrawer({ org, onClose }: { org: Org | null; onClose: () => void }) {
+   311→  return (
+   312→    <Drawer open={!!org} onOpenChange={(o) => !o && onClose()} direction="right">
+   313→      <DrawerContent className="sm:max-w-md w-full" data-vaul-drawer-direction="right">
+   314→        {org && (
+   315→          <>
+   316→            <DrawerHeader>
+   317→              <DrawerDescription className="sr-only">Detalle de organización</DrawerDescription>
+   318→              <DrawerTitle className="flex items-center gap-2">
+   319→                <Building2 className="h-4 w-4 rp-gold-text" aria-hidden />
+   320→                {org.name}
+   321→              </DrawerTitle>
+   322→              <div className="flex items-center gap-2 mt-1">
+   323→                <Badge className="border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]">{org.plan}</Badge>
+   324→                <StatusPill status={org.status === "activa" ? "operational" : org.status === "trial" ? "maintenance" : org.status === "pausada" ? "degraded" : "down"} />
+   325→                <DemoBadge />
+   326→              </div>
+   327→            </DrawerHeader>
+   328→            <div className="px-4 pb-4 overflow-y-auto rp-scroll-thin space-y-4 flex-1">
+   329→              <dl className="grid grid-cols-2 gap-3">
+   330→                <div className="rp-glass rounded-lg p-3">
+   331→                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">MRR</dt>
+   332→                  <dd className="font-display text-xl font-light rp-gold-text">{org.mrr}€</dd>
+   333→                </div>
+   334→                <div className="rp-glass rounded-lg p-3">
+   335→                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Locales</dt>
+   336→                  <dd className="font-display text-xl font-light">{org.locations}</dd>
+   337→                </div>
+   338→                <div className="rp-glass rounded-lg p-3">
+   339→                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Clientes</dt>
+   340→                  <dd className="font-display text-xl font-light">{org.signups.toLocaleString("es-ES")}</dd>
+   341→                </div>
+   342→                <div className="rp-glass rounded-lg p-3">
+   343→                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">País</dt>
+   344→                  <dd className="font-display text-xl font-light">{org.country}</dd>
+   345→                </div>
+   346→              </dl>
+   347→              <div>
+   348→                <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Riesgo de churn</div>
+   349→                <div className={cn(
+   350→                  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm",
+   351→                  org.churnRisk === "bajo" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+   352→                  : org.churnRisk === "medio" ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
+   353→                  : org.churnRisk === "alto" ? "border-orange-400/40 bg-orange-400/10 text-orange-300"
+   354→                  : "border-rose-400/50 bg-rose-400/10 text-rose-300"
+   355→                )}>
+   356→                  <span className="h-2 w-2 rounded-full bg-current" />
+   357→                  {org.churnRisk.toUpperCase()}
+   358→                </div>
+   359→              </div>
+   360→              <div className="text-xs text-muted-foreground">
+   361→                Última actividad: <span className="text-foreground/80">{org.lastActive}</span>
+   362→              </div>
+   363→              <div className="rp-glass rounded-lg p-3 space-y-2">
+   364→                <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Acciones rápidas</div>
+   365→                <div className="grid grid-cols-2 gap-2">
+   366→                  <Button variant="outline" size="sm" className="text-xs">Ver cuenta</Button>
+   367→                  <Button variant="outline" size="sm" className="text-xs">Impersonar</Button>
+   368→                  <Button variant="outline" size="sm" className="text-xs">Reasignar CSM</Button>
+   369→                  <Button variant="outline" size="sm" className="text-xs">Forzar sync</Button>
+   370→                </div>
+   371→              </div>
+   372→            </div>
+   373→          </>
+   374→        )}
+   375→      </DrawerContent>
+   376→    </Drawer>
+   377→  );
+   378→}
+   379→
+   380→/* ---------------- main view ---------------- */
+   381→export function SuperAdminView() {
+   382→  const { toast } = useToast();
+   383→  const [search, setSearch] = React.useState("");
+   384→  const [planFilter, setPlanFilter] = React.useState<string>("Todos");
+   385→  const [statusFilter, setStatusFilter] = React.useState<string>("Todos");
+   386→  const [selected, setSelected] = React.useState<Org | null>(null);
+   387→
+   388→  const filtered = ORGS.filter((o) => {
+   389→    if (search && !o.name.toLowerCase().includes(search.toLowerCase())) return false;
+   390→    if (planFilter !== "Todos" && o.plan !== planFilter) return false;
+   391→    if (statusFilter !== "Todos" && o.status !== statusFilter) return false;
+   392→    return true;
+   393→  });
+   394→
+   395→  return (
+   396→    <div className="space-y-8 max-w-[1400px] mx-auto">
+   397→      {/* Header */}
+   398→      <header className="space-y-3">
+   399→        <div className="flex flex-wrap items-center gap-3">
+   400→          <div className="flex items-center gap-2.5">
+   401→            <div className="h-9 w-9 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/30 flex items-center justify-center rp-glow-gold">
+   402→              <ShieldCheck className="h-5 w-5 rp-gold-text" aria-hidden />
+   403→            </div>
+   404→            <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+   405→              Super Admin · <span className="rp-gold-text">Plataforma</span>
+   406→            </h1>
+   407→          </div>
+   408→          <Badge className="border-rose-400/40 bg-rose-400/10 text-rose-300 text-[10px] font-mono uppercase tracking-wider">
+   409→            <AlertOctagon className="h-3 w-3 mr-1" aria-hidden />
+   410→            Nivel plataforma
+   411→          </Badge>
+   412→          <DemoBadge />
+   413→        </div>
+   414→        <p className="text-sm text-muted-foreground max-w-2xl">
+   415→          Vista operacional a nivel de plataforma RestoPanel. Acceso restringido a personal interno.
+   416→          Todos los datos mostrados son demostrativos y no representan producción.
+   417→        </p>
+   418→        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   419→          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+   420→          Entorno: production · Usuario: platform-admin@restopanel.io
+   421→        </div>
+   422→      </header>
+   423→
+   424→      {/* KPI row */}
+   425→      <section aria-label="Indicadores clave de plataforma">
+   426→        <SectionTitle title="KPIs de plataforma" subtitle="Métricas agregadas de todas las organizaciones" demo>
+   427→          <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">Última actualización: hace 2 min</span>
+   428→        </SectionTitle>
+   429→        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+   430→          {KPIS.map((k) => (
+   431→            <div key={k.label} className="rp-glass rounded-xl p-4 hover:border-[var(--gold)]/30 transition-colors">
+   432→              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{k.label}</div>
+   433→              <div className="mt-1.5 font-display text-2xl sm:text-[1.7rem] font-light text-foreground">{k.value}</div>
+   434→              <div className="mt-2">
+   435→                <TrendPill dir={k.trend} value={k.delta} />
+   436→              </div>
+   437→            </div>
+   438→          ))}
+   439→        </div>
+   440→      </section>
+   441→
+   442→      {/* Growth chart */}
+   443→      <section aria-label="Crecimiento de MRR">
+   444→        <div className="rp-glass rounded-xl p-5">
+   445→          <SectionTitle title="Crecimiento MRR" subtitle="Evolución mensual recurrente · últimos 12 meses" demo>
+   446→            <div className="flex items-center gap-3 text-xs">
+   447→              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> MRR</span>
+   448→              <TrendPill dir="up" value="+69% YoY" />
+   449→            </div>
+   450→          </SectionTitle>
+   451→          <MrrChart />
+   452→        </div>
+   453→      </section>
+   454→
+   455→      {/* Clientes table */}
+   456→      <section aria-label="Clientes y organizaciones">
+   457→        <SectionTitle title="Clientes / Organizaciones" subtitle="Listado y estado de cuentas" demo />
+   458→        <div className="rp-glass rounded-xl overflow-hidden">
+   459→          <div className="flex flex-col sm:flex-row gap-2 p-3 border-b border-border/40">
+   460→            <div className="relative flex-1">
+   461→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+   462→              <Input
+   463→                type="search"
+   464→                placeholder="Buscar organización…"
+   465→                value={search}
+   466→                onChange={(e) => setSearch(e.target.value)}
+   467→                className="pl-9"
+   468→                aria-label="Buscar organizaciones"
+   469→              />
+   470→            </div>
+   471→            <div className="flex gap-2">
+   472→              <Select value={planFilter} onValueChange={setPlanFilter}>
+   473→                <SelectTrigger size="sm" className="w-40" aria-label="Filtrar por plan">
+   474→                  <span className="flex items-center gap-2 text-muted-foreground"><Filter className="h-3 w-3" /> Plan</span>
+   475→                  <SelectValue />
+   476→                </SelectTrigger>
+   477→                <SelectContent>
+   478→                  {PLAN_FILTERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+   479→                </SelectContent>
+   480→              </Select>
+   481→              <Select value={statusFilter} onValueChange={setStatusFilter}>
+   482→                <SelectTrigger size="sm" className="w-36" aria-label="Filtrar por estado">
+   483→                  <SelectValue placeholder="Estado" />
+   484→                </SelectTrigger>
+   485→                <SelectContent>
+   486→                  {STATUS_FILTERS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+   487→                </SelectContent>
+   488→              </Select>
+   489→            </div>
+   490→          </div>
+   491→          <div className="overflow-x-auto rp-scroll-thin">
+   492→            <table className="w-full border-collapse text-sm">
+   493→              <thead>
+   494→                <tr className="border-b border-border/60 bg-foreground/[0.03]">
+   495→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Organización</th>
+   496→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Plan</th>
+   497→                  <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Locales</th>
+   498→                  <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">MRR</th>
+   499→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Estado</th>
+   500→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Riesgo churn</th>
+   501→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Última actividad</th>
+   502→                  <th className="px-4 py-2.5" aria-label="Acciones" />
+   503→                </tr>
+   504→              </thead>
+   505→              <tbody>
+   506→                {filtered.length === 0 && (
+   507→                  <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-sm">No se encontraron organizaciones.</td></tr>
+   508→                )}
+   509→                {filtered.map((o) => (
+   510→                  <tr
+   511→                    key={o.id}
+   512→                    tabIndex={0}
+   513→                    onClick={() => setSelected(o)}
+   514→                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(o); } }}
+   515→                    className="border-b border-border/40 last:border-0 transition-colors hover:bg-foreground/[0.04] cursor-pointer focus-visible:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--gold)]/40"
+   516→                  >
+   517→                    <td className="px-4 py-3">
+   518→                      <div className="flex items-center gap-2.5">
+   519→                        <div className="h-7 w-7 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/20 flex items-center justify-center text-[var(--gold)] text-[11px] font-medium">{o.name.charAt(0)}</div>
+   520→                        <div>
+   521→                          <div className="font-medium text-foreground">{o.name}</div>
+   522→                          <div className="text-[11px] text-muted-foreground">{o.country}</div>
+   523→                        </div>
+   524→                      </div>
+   525→                    </td>
+   526→                    <td className="px-4 py-3">
+   527→                      <Badge variant="outline" className={cn(
+   528→                        o.plan === "Enterprise" ? "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   529→                        : o.plan === "Professional" ? "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]"
+   530→                        : "border-border/60 bg-foreground/5 text-muted-foreground"
+   531→                      )}>{o.plan}</Badge>
+   532→                    </td>
+   533→                    <td className="px-4 py-3 text-right font-mono">{o.locations}</td>
+   534→                    <td className="px-4 py-3 text-right font-mono rp-gold-text">{o.mrr.toLocaleString("es-ES")}€</td>
+   535→                    <td className="px-4 py-3">
+   536→                      <span className={cn("inline-flex items-center gap-1.5 text-xs",
+   537→                        o.status === "activa" ? "text-emerald-300" : o.status === "trial" ? "text-[var(--teal)]" : o.status === "pausada" ? "text-amber-300" : "text-rose-300")}>
+   538→                        <span className={cn("h-1.5 w-1.5 rounded-full",
+   539→                          o.status === "activa" ? "bg-emerald-400" : o.status === "trial" ? "bg-[var(--teal)]" : o.status === "pausada" ? "bg-amber-400" : "bg-rose-400")} />
+   540→                        {o.status}
+   541→                      </span>
+   542→                    </td>
+   543→                    <td className="px-4 py-3">
+   544→                      <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   545→                        o.churnRisk === "bajo" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+   546→                        : o.churnRisk === "medio" ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+   547→                        : o.churnRisk === "alto" ? "border-orange-400/40 bg-orange-400/10 text-orange-300"
+   548→                        : "border-rose-400/40 bg-rose-400/10 text-rose-300")}>
+   549→                        {o.churnRisk}
+   550→                      </span>
+   551→                    </td>
+   552→                    <td className="px-4 py-3 text-xs text-muted-foreground">{o.lastActive}</td>
+   553→                    <td className="px-4 py-3 text-right">
+   554→                      <ChevronRight className="h-4 w-4 text-muted-foreground inline" aria-hidden />
+   555→                    </td>
+   556→                  </tr>
+   557→                ))}
+   558→              </tbody>
+   559→            </table>
+   560→          </div>
+   561→          <div className="px-3 py-2 border-t border-border/40 flex items-center justify-between text-[11px] text-muted-foreground">
+   562→            <span>{filtered.length} de {ORGS.length} organizaciones</span>
+   563→            <span className="font-mono">demo</span>
+   564→          </div>
+   565→        </div>
+   566→      </section>
+   567→
+   568→      {/* Rankings */}
+   569→      <section aria-label="Rankings de organizaciones">
+   570→        <SectionTitle title="Rankings" subtitle="Top 5 por métrica · período actual" demo />
+   571→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+   572→          <RankingList
+   573→            title="Top por ingresos (MRR)"
+   574→            icon={DollarSign}
+   575→            accent="gold"
+   576→            metric="€"
+   577→            items={[
+   578→              { name: "Sakura Sushi Chain", value: 2980, meta: "Enterprise · 12 locales" },
+   579→              { name: "Wok Republic", value: 2235, meta: "Enterprise · 9 locales" },
+   580→              { name: "Ramses Group", value: 1490, meta: "Enterprise · 6 locales" },
+   581→              { name: "Taco Loco Group", value: 1043, meta: "Professional · 7 locales" },
+   582→              { name: "Mar & Sol Resorts", value: 745, meta: "Professional · 5 locales" },
+   583→            ]}
+   584→          />
+   585→          <RankingList
+   586→            title="Top por reservas"
+   587→            icon={CalendarDays}
+   588→            accent="teal"
+   589→            metric=""
+   590→            items={[
+   591→              { name: "Sakura Sushi Chain", value: 4821, meta: "12 locales" },
+   592→              { name: "Ramses Group", value: 3892, meta: "6 locales" },
+   593→              { name: "Wok Republic", value: 3244, meta: "9 locales" },
+   594→              { name: "Taco Loco Group", value: 2810, meta: "7 locales" },
+   595→              { name: "Brasserie Lumière", value: 1948, meta: "4 locales" },
+   596→            ]}
+   597→          />
+   598→          <RankingList
+   599→            title="Top uso de IA"
+   600→            icon={Sparkles}
+   601→            accent="gold"
+   602→            metric=" cr"
+   603→            items={[
+   604→              { name: "Ramses Group", value: 18420, meta: "Smart replies + analítica" },
+   605→              { name: "Sakura Sushi Chain", value: 14870, meta: "Respuestas automáticas" },
+   606→              { name: "Wok Republic", value: 11200, meta: "Segmentación IA" },
+   607→              { name: "Taco Loco Group", value: 8650, meta: "Reviews AI" },
+   608→              { name: "Mar & Sol Resorts", value: 6940, meta: "Campanas IA" },
+   609→            ]}
+   610→          />
+   611→        </div>
+   612→      </section>
+   613→
+   614→      {/* IA + API usage */}
+   615→      <section aria-label="Uso de IA y API">
+   616→        <div className="rp-glass rounded-xl p-5">
+   617→          <SectionTitle title="Uso de IA y API" subtitle="Créditos consumidos por organización · top 5" demo />
+   618→          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+   619→            {[
+   620→              { label: "Créditos IA mes", value: "1.24M", sub: "de 2M disponibles" },
+   621→              { label: "Llamadas API 24h", value: "84.213", sub: "+12.4% vs ayer" },
+   622→              { label: "Tokens procesados", value: "312M", sub: "entrada + salida" },
+   623→              { label: "Webhooks entregados", value: "9.847", sub: "0.2% fallos" },
+   624→            ].map((s) => (
+   625→              <div key={s.label} className="rounded-lg border border-border/40 p-3">
+   626→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{s.label}</div>
+   627→                <div className="mt-1 font-display text-xl font-light rp-teal-text">{s.value}</div>
+   628→                <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
+   629→              </div>
+   630→            ))}
+   631→          </div>
+   632→          <BarChart accent="teal" data={[
+   633→            { label: "Ramses Group", value: 18420, sub: "cr" },
+   634→            { label: "Sakura Sushi", value: 14870, sub: "cr" },
+   635→            { label: "Wok Republic", value: 11200, sub: "cr" },
+   636→            { label: "Taco Loco", value: 8650, sub: "cr" },
+   637→            { label: "Mar & Sol", value: 6940, sub: "cr" },
+   638→          ]} />
+   639→        </div>
+   640→      </section>
+   641→
+   642→      {/* Infra costs */}
+   643→      <section aria-label="Costes de infraestructura">
+   644→        <div className="rp-glass rounded-xl p-5">
+   645→          <SectionTitle title="Costes de infraestructura" subtitle="Desglose mensual Cloudflare · estimación demo" demo />
+   646→          <div className="grid lg:grid-cols-2 gap-6">
+   647→            <div className="space-y-2">
+   648→              {[
+   649→                { service: "Workers", cost: 1284, share: "31%" },
+   650→                { service: "D1 (DB)", cost: 890, share: "21%" },
+   651→                { service: "R2 (Storage)", cost: 645, share: "16%" },
+   652→                { service: "KV", cost: 312, share: "8%" },
+   653→                { service: "Queues", cost: 248, share: "6%" },
+   654→                { service: "AI Gateway", cost: 768, share: "18%" },
+   655→              ].map((c) => (
+   656→                <div key={c.service} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
+   657→                  <div className="flex items-center gap-2">
+   658→                    <Server className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+   659→                    <span className="text-sm">{c.service}</span>
+   660→                  </div>
+   661→                  <div className="flex items-center gap-3">
+   662→                    <span className="text-[11px] font-mono text-muted-foreground">{c.share}</span>
+   663→                    <span className="font-mono text-sm rp-gold-text">{c.cost.toLocaleString("es-ES")}€</span>
+   664→                  </div>
+   665→                </div>
+   666→              ))}
+   667→              <div className="flex items-center justify-between pt-2 mt-2">
+   668→                <span className="text-sm font-medium">Total estimado</span>
+   669→                <span className="font-display text-xl font-light rp-gold-text">4.147€/mes</span>
+   670→              </div>
+   671→            </div>
+   672→            <BarChart accent="gold" data={[
+   673→              { label: "Workers", value: 1284, sub: "€" },
+   674→              { label: "D1 (DB)", value: 890, sub: "€" },
+   675→              { label: "AI Gateway", value: 768, sub: "€" },
+   676→              { label: "R2", value: 645, sub: "€" },
+   677→              { label: "KV", value: 312, sub: "€" },
+   678→              { label: "Queues", value: 248, sub: "€" },
+   679→            ]} />
+   680→          </div>
+   681→        </div>
+   682→      </section>
+   683→
+   684→      {/* Infra health */}
+   685→      <section aria-label="Estado de infraestructura">
+   686→        <div className="rp-glass rounded-xl p-5">
+   687→          <SectionTitle title="Estado de infraestructura" subtitle="Health checks en tiempo real" demo>
+   688→            <Button variant="outline" size="sm" onClick={() => toast({ title: "Refresh (demo)", description: "Health checks re-ejecutados" })}>
+   689→              <Activity className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Refrescar
+   690→            </Button>
+   691→          </SectionTitle>
+   692→          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   693→            {INFRA_STATUS.map((s) => (
+   694→              <div key={s.service} className="rounded-lg border border-border/40 p-3 flex items-start justify-between gap-2">
+   695→                <div>
+   696→                  <div className="text-sm font-medium">{s.service}</div>
+   697→                  <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{s.region} · {s.latency}</div>
+   698→                </div>
+   699→                <StatusPill status={s.status} />
+   700→              </div>
+   701→            ))}
+   702→          </div>
+   703→          <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 flex items-start gap-2.5">
+   704→            <AlertTriangle className="h-4 w-4 text-amber-300 mt-0.5 shrink-0" aria-hidden />
+   705→            <div className="text-xs text-amber-200/90">
+   706→              <strong className="font-medium">Último incidente:</strong> Latencia p99 elevada en Queues (eu-west-1) — hace 18 min. Investigando.
+   707→            </div>
+   708→          </div>
+   709→        </div>
+   710→      </section>
+   711→
+   712→      {/* World map */}
+   713→      <section aria-label="Mapa mundial de actividad">
+   714→        <div className="rp-glass rounded-xl p-5">
+   715→          <SectionTitle title="Mapa mundial de actividad" subtitle="Distribución geográfica de actividad (demo)" demo />
+   716→          <div className="relative rounded-lg overflow-hidden bg-background/40 rp-grid-bg">
+   717→            <WorldMap />
+   718→            <div className="absolute bottom-3 left-3 flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+   719→              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--teal)]" /> Actividad alta</span>
+   720→              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]/50" /> Actividad media</span>
+   721→            </div>
+   722→          </div>
+   723→        </div>
+   724→      </section>
+   725→
+   726→      {/* Incidents */}
+   727→      <section aria-label="Alertas e incidencias">
+   728→        <div className="rp-glass rounded-xl p-5">
+   729→          <SectionTitle title="Alertas e incidencias" subtitle="Registro de eventos recientes del sistema" demo />
+   730→          <ul className="space-y-2">
+   731→            {INCIDENTS.map((inc) => (
+   732→              <li key={inc.id} className="flex items-start gap-3 rounded-lg border border-border/40 p-3 hover:bg-foreground/[0.03]">
+   733→                <div className={cn(
+   734→                  "h-7 w-7 rounded-md flex items-center justify-center shrink-0",
+   735→                  inc.severity === "alta" ? "bg-rose-400/15 text-rose-300"
+   736→                  : inc.severity === "media" ? "bg-amber-400/15 text-amber-300"
+   737→                  : "bg-[var(--teal)]/15 text-[var(--teal)]"
+   738→                )}>
+   739→                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+   740→                </div>
+   741→                <div className="flex-1 min-w-0">
+   742→                  <div className="flex flex-wrap items-center gap-2">
+   743→                    <span className={cn("text-[10px] font-mono uppercase tracking-wider rounded px-1.5 py-0.5",
+   744→                      inc.severity === "alta" ? "bg-rose-400/15 text-rose-300"
+   745→                      : inc.severity === "media" ? "bg-amber-400/15 text-amber-300"
+   746→                      : "bg-[var(--teal)]/15 text-[var(--teal)]"
+   747→                    )}>{inc.severity}</span>
+   748→                    <span className="text-sm text-foreground/85">{inc.summary}</span>
+   749→                  </div>
+   750→                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+   751→                    <span className={cn(
+   752→                      "inline-flex items-center gap-1",
+   753→                      inc.status === "resuelto" ? "text-emerald-300" : "text-amber-300"
+   754→                    )}>
+   755→                      {inc.status === "resuelto" ? <CheckCircle2 className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
+   756→                      {inc.status}
+   757→                    </span>
+   758→                    <span>· {inc.time}</span>
+   759→                  </div>
+   760→                </div>
+   761→              </li>
+   762→            ))}
+   763→          </ul>
+   764→        </div>
+   765→      </section>
+   766→
+   767→      <OrgDetailDrawer org={selected} onClose={() => setSelected(null)} />
+   768→
+   769→      {/* Footer note */}
+   770→      <div className="text-[11px] font-mono text-muted-foreground text-center pt-4 border-t border-border/40">
+   771→        Super Admin · plataforma RestoPanel · datos demostrativos · acceso restringido
+   772→      </div>
+   773→    </div>
+   774→  );
+   775→}
+   776→

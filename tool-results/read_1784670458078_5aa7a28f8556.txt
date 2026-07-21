@@ -1,0 +1,518 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import {
+     7→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+     8→} from "@/components/ui/dialog";
+     9→import {
+    10→  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+    11→} from "@/components/ui/alert-dialog";
+    12→import {
+    13→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    14→} from "@/components/ui/select";
+    15→import { Input } from "@/components/ui/input";
+    16→import { Label } from "@/components/ui/label";
+    17→import { Button } from "@/components/ui/button";
+    18→import { Badge } from "@/components/ui/badge";
+    19→import { Checkbox } from "@/components/ui/checkbox";
+    20→import {
+    21→  UserCog, Search, Filter, UserPlus, Shield, Crown, MoreHorizontal,
+    22→  Mail, Check, X, Trash2, Pencil, Lock, ChevronRight, Users, KeyRound,
+    23→} from "lucide-react";
+    24→
+    25→function DemoBadge({ className }: { className?: string }) {
+    26→  return (
+    27→    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
+    28→      demo
+    29→    </Badge>
+    30→  );
+    31→}
+    32→
+    33→/* ---------------- members data ---------------- */
+    34→type MemberStatus = "activa" | "invitada" | "suspendida";
+    35→type Member = {
+    36→  id: string; name: string; email: string; role: string;
+    37→  locations: string[]; status: MemberStatus; lastActive: string; avatar: string;
+    38→};
+    39→
+    40→const MEMBERS: Member[] = [
+    41→  { id: "m1", name: "Ana Martínez", email: "ana@ramsesgroup.com", role: "Owner", locations: ["Todos"], status: "activa", lastActive: "ahora", avatar: "AM" },
+    42→  { id: "m2", name: "Carlos Ruiz", email: "carlos@ramsesgroup.com", role: "Director", locations: ["Ramses Madrid", "Ramses Barcelona"], status: "activa", lastActive: "hace 8 min", avatar: "CR" },
+    43→  { id: "m3", name: "Lucía Fernández", email: "lucia@ramsesgroup.com", role: "Gerente", locations: ["Ramses Madrid"], status: "activa", lastActive: "hace 1 h", avatar: "LF" },
+    44→  { id: "m4", name: "Diego Santos", email: "diego@ramsesgroup.com", role: "Maitre", locations: ["Ramses Madrid"], status: "activa", lastActive: "hace 12 min", avatar: "DS" },
+    45→  { id: "m5", name: "María López", email: "maria@ramsesgroup.com", role: "Recepción", locations: ["Ramses Barcelona"], status: "activa", lastActive: "hace 3 h", avatar: "ML" },
+    46→  { id: "m6", name: "Javier Núñez", email: "javier@external.com", role: "Marketing", locations: ["Todos"], status: "invitada", lastActive: "—", avatar: "JN" },
+    47→  { id: "m7", name: "Elena Vega", email: "elena@ramsesgroup.com", role: "Solo Lectura", locations: ["Ramses Valencia"], status: "suspendida", lastActive: "hace 14 días", avatar: "EV" },
+    48→];
+    49→
+    50→const ROLES = [
+    51→  { id: "owner", name: "Owner", members: 1, system: true, description: "Acceso total + propiedad de la cuenta" },
+    52→  { id: "director", name: "Director", members: 1, system: true, description: "Acceso multi-local, facturación y equipo" },
+    53→  { id: "gerente", name: "Gerente", members: 1, system: true, description: "Gestión operativa de un local" },
+    54→  { id: "maitre", name: "Maitre", members: 1, system: true, description: "Reservas, mesa y recepción" },
+    55→  { id: "recepcion", name: "Recepción", members: 1, system: true, description: "Front desk y reservas" },
+    56→  { id: "camarero", name: "Camarero", members: 0, system: true, description: "Solo mesa y pedidos" },
+    57→  { id: "cocina", name: "Cocina", members: 0, system: true, description: "Solo órdenes de cocina" },
+    58→  { id: "barra", name: "Barra", members: 0, system: true, description: "Solo barra y pedidos" },
+    59→  { id: "marketing", name: "Marketing", members: 1, system: true, description: "CRM, campañas y analytics" },
+    60→  { id: "contabilidad", name: "Contabilidad", members: 0, system: true, description: "Facturación y reportes" },
+    61→  { id: "auditor", name: "Auditor", members: 0, system: true, description: "Acceso solo lectura a todo" },
+    62→  { id: "lectura", name: "Solo Lectura", members: 1, system: true, description: "Lectura limitada" },
+    63→];
+    64→
+    65→const RESOURCES = ["Reservas", "Clientes", "Marketing", "Reviews", "Analytics", "Equipo", "Facturación", "Configuración"];
+    66→const ACTIONS = ["ver", "crear", "editar", "eliminar"] as const;
+    67→
+    68→/* default permission matrix per role (system roles) */
+    69→const DEFAULT_PERMS: Record<string, Record<string, boolean[]>> = {
+    70→  owner: Object.fromEntries(RESOURCES.map((r) => [r, [true, true, true, true]])),
+    71→  director: Object.fromEntries(RESOURCES.map((r) => [r, r === "Configuración" ? [true, false, false, false] : [true, true, true, true]])),
+    72→  gerente: Object.fromEntries(RESOURCES.map((r) => [r, ["Reservas", "Clientes"].includes(r) ? [true, true, true, true] : ["Marketing", "Reviews", "Analytics"].includes(r) ? [true, false, false, false] : [false, false, false, false]])),
+    73→  maitre: Object.fromEntries(RESOURCES.map((r) => [r, r === "Reservas" ? [true, true, true, false] : [false, false, false, false]])),
+    74→  recepcion: Object.fromEntries(RESOURCES.map((r) => [r, r === "Reservas" ? [true, true, false, false] : [false, false, false, false]])),
+    75→  camarero: Object.fromEntries(RESOURCES.map((r) => [r, [false, false, false, false]])),
+    76→  cocina: Object.fromEntries(RESOURCES.map((r) => [r, [false, false, false, false]])),
+    77→  barra: Object.fromEntries(RESOURCES.map((r) => [r, [false, false, false, false]])),
+    78→  marketing: Object.fromEntries(RESOURCES.map((r) => [r, ["Clientes", "Marketing", "Reviews", "Analytics"].includes(r) ? [true, true, true, false] : [false, false, false, false]])),
+    79→  contabilidad: Object.fromEntries(RESOURCES.map((r) => [r, r === "Facturación" ? [true, false, false, false] : ["Analytics"].includes(r) ? [true, false, false, false] : [false, false, false, false]])),
+    80→  auditor: Object.fromEntries(RESOURCES.map((r) => [r, [true, false, false, false]])),
+    81→  lectura: Object.fromEntries(RESOURCES.map((r) => [r, ["Reservas", "Clientes"].includes(r) ? [true, false, false, false] : [false, false, false, false]])),
+    82→};
+    83→
+    84→const LOCATIONS = ["Todos", "Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"];
+    85→const ROLE_OPTIONS = ["Director", "Gerente", "Maitre", "Recepción", "Camarero", "Cocina", "Barra", "Marketing", "Contabilidad", "Auditor", "Solo Lectura"];
+    86→
+    87→function MemberStatusPill({ status }: { status: MemberStatus }) {
+    88→  const map = {
+    89→    activa: { label: "Activa", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400" },
+    90→    invitada: { label: "Invitada", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400" },
+    91→    suspendida: { label: "Suspendida", cls: "border-rose-400/50 bg-rose-400/10 text-rose-300", dot: "bg-rose-400" },
+    92→  }[status];
+    93→  return (
+    94→    <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs", map.cls)}>
+    95→      <span className={cn("h-1.5 w-1.5 rounded-full", map.dot)} />{map.label}
+    96→    </span>
+    97→  );
+    98→}
+    99→
+   100→/* ---------------- permissions matrix ---------------- */
+   101→function PermissionsMatrix({
+   102→  perms, onChange, readOnly,
+   103→}: {
+   104→  perms: Record<string, boolean[]>;
+   105→  onChange?: (resource: string, actionIdx: number, value: boolean) => void;
+   106→  readOnly?: boolean;
+   107→}) {
+   108→  return (
+   109→    <div className="overflow-x-auto rp-scroll-thin rounded-lg border border-border/40">
+   110→      <table className="w-full border-collapse text-xs">
+   111→        <thead>
+   112→          <tr className="border-b border-border/60 bg-foreground/[0.03]">
+   113→            <th className="px-3 py-2 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground sticky left-0 bg-background/95">Recurso</th>
+   114→            {ACTIONS.map((a) => (
+   115→              <th key={a} className="px-3 py-2 text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground capitalize">{a}</th>
+   116→            ))}
+   117→          </tr>
+   118→        </thead>
+   119→        <tbody>
+   120→          {RESOURCES.map((r) => (
+   121→            <tr key={r} className="border-b border-border/40 last:border-0">
+   122→              <td className="px-3 py-2 font-medium sticky left-0 bg-background/95">{r}</td>
+   123→              {ACTIONS.map((a, ai) => {
+   124→                const checked = perms[r]?.[ai] ?? false;
+   125→                return (
+   126→                  <td key={a} className="px-3 py-2 text-center">
+   127→                    {readOnly ? (
+   128→                      checked ? <Check className="h-3.5 w-3.5 text-emerald-400 inline" aria-label="Permitido" />
+   129→                             : <X className="h-3.5 w-3.5 text-muted-foreground/40 inline" aria-label="Denegado" />
+   130→                    ) : (
+   131→                      <Checkbox checked={checked} onCheckedChange={(v) => onChange?.(r, ai, !!v)} aria-label={`${a} ${r}`} />
+   132→                    )}
+   133→                  </td>
+   134→                );
+   135→              })}
+   136→            </tr>
+   137→          ))}
+   138→        </tbody>
+   139→      </table>
+   140→    </div>
+   141→  );
+   142→}
+   143→
+   144→/* ---------------- main view ---------------- */
+   145→export function TeamView() {
+   146→  const { toast } = useToast();
+   147→  const [search, setSearch] = React.useState("");
+   148→  const [roleFilter, setRoleFilter] = React.useState("Todos");
+   149→  const [inviteOpen, setInviteOpen] = React.useState(false);
+   150→  const [permsOpen, setPermsOpen] = React.useState<string | null>(null);
+   151→  const [customRoleOpen, setCustomRoleOpen] = React.useState(false);
+   152→  const [removeTarget, setRemoveTarget] = React.useState<Member | null>(null);
+   153→
+   154→  // invite form
+   155→  const [invite, setInvite] = React.useState({ email: "", role: "Gerente", locations: [] as string[] });
+   156→  const [inviteErr, setInviteErr] = React.useState<string | null>(null);
+   157→
+   158→  // custom role form
+   159→  const [customRole, setCustomRole] = React.useState({ name: "", perms: Object.fromEntries(RESOURCES.map((r) => [r, [false, false, false, false]])) as Record<string, boolean[]> });
+   160→  const [customErr, setCustomErr] = React.useState<string | null>(null);
+   161→
+   162→  // permissions editor (copy from defaults)
+   163→  const [editPerms, setEditPerms] = React.useState<Record<string, boolean[]> | null>(null);
+   164→
+   165→  const filtered = MEMBERS.filter((m) => {
+   166→    if (search && !`${m.name} ${m.email}`.toLowerCase().includes(search.toLowerCase())) return false;
+   167→    if (roleFilter !== "Todos" && m.role !== roleFilter) return false;
+   168→    return true;
+   169→  });
+   170→
+   171→  const openPerms = (roleId: string) => {
+   172→    const base = DEFAULT_PERMS[roleId] ?? Object.fromEntries(RESOURCES.map((r) => [r, [false, false, false, false]]));
+   173→    setEditPerms(JSON.parse(JSON.stringify(base)));
+   174→    setPermsOpen(roleId);
+   175→  };
+   176→
+   177→  const savePerms = () => {
+   178→    toast({ title: "Permisos actualizados (demo)", description: `Rol ${ROLES.find((r) => r.id === permsOpen)?.name} guardado.` });
+   179→    setPermsOpen(null);
+   180→  };
+   181→
+   182→  const togglePerm = (resource: string, actionIdx: number, value: boolean) => {
+   183→    setEditPerms((p) => {
+   184→      if (!p) return p;
+   185→      const next = { ...p, [resource]: [...(p[resource] ?? [false, false, false, false])] };
+   186→      next[resource][actionIdx] = value;
+   187→      return next;
+   188→    });
+   189→  };
+   190→
+   191→  const submitInvite = () => {
+   192→    setInviteErr(null);
+   193→    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(invite.email)) { setInviteErr("El email no es válido."); return; }
+   194→    if (invite.locations.length === 0) { setInviteErr("Selecciona al menos un local."); return; }
+   195→    toast({ title: "Invitación enviada (demo)", description: `${invite.email} · ${invite.role} · ${invite.locations.length} local(es)` });
+   196→    setInvite({ email: "", role: "Gerente", locations: [] });
+   197→    setInviteOpen(false);
+   198→  };
+   199→
+   200→  const submitCustomRole = () => {
+   201→    setCustomErr(null);
+   202→    if (customRole.name.trim().length < 3) { setCustomErr("El nombre del rol debe tener al menos 3 caracteres."); return; }
+   203→    const totalGranted = Object.values(customRole.perms).reduce((acc, arr) => acc + arr.filter(Boolean).length, 0);
+   204→    if (totalGranted === 0) { setCustomErr("Concede al menos un permiso."); return; }
+   205→    toast({ title: "Rol personalizado creado (demo)", description: `"${customRole.name}" con ${totalGranted} permisos.` });
+   206→    setCustomRole({ name: "", perms: Object.fromEntries(RESOURCES.map((r) => [r, [false, false, false, false]])) });
+   207→    setCustomRoleOpen(false);
+   208→  };
+   209→
+   210→  const toggleCustomPerm = (resource: string, actionIdx: number, value: boolean) => {
+   211→    setCustomRole((c) => {
+   212→      const next = { ...c.perms, [resource]: [...(c.perms[resource] ?? [false, false, false, false])] };
+   213→      next[resource][actionIdx] = value;
+   214→      return { ...c, perms: next };
+   215→    });
+   216→  };
+   217→
+   218→  const confirmRemove = () => {
+   219→    if (removeTarget) {
+   220→      toast({ title: "Miembro eliminado (demo)", description: `${removeTarget.name} ya no tiene acceso.`, variant: "destructive" });
+   221→      setRemoveTarget(null);
+   222→    }
+   223→  };
+   224→
+   225→  return (
+   226→    <div className="space-y-6 max-w-[1400px] mx-auto">
+   227→      <header className="space-y-2">
+   228→        <div className="flex items-center gap-2.5">
+   229→          <div className="h-9 w-9 rounded-md bg-[var(--teal)]/10 border border-[var(--teal)]/30 flex items-center justify-center">
+   230→            <UserCog className="h-5 w-5 rp-teal-text" aria-hidden />
+   231→          </div>
+   232→          <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Equipo</h1>
+   233→          <DemoBadge />
+   234→        </div>
+   235→        <p className="text-sm text-muted-foreground max-w-2xl">
+   236→          Gestiona miembros, roles y permisos. La cuenta de Owner no puede ser eliminada ni degradada.
+   237→        </p>
+   238→      </header>
+   239→
+   240→      {/* KPIs */}
+   241→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+   242→        {[
+   243→          { label: "Miembros", value: MEMBERS.length, sub: `${MEMBERS.filter((m) => m.status === "activa").length} activos` },
+   244→          { label: "Roles disponibles", value: ROLES.length, sub: "11 sistema + custom" },
+   245→          { label: "Invitaciones pendientes", value: MEMBERS.filter((m) => m.status === "invitada").length, sub: "enviadas" },
+   246→          { label: "Suspendidos", value: MEMBERS.filter((m) => m.status === "suspendida").length, sub: "sin acceso" },
+   247→        ].map((s) => (
+   248→          <div key={s.label} className="rp-glass rounded-xl p-4">
+   249→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{s.label}</div>
+   250→            <div className="mt-1 font-display text-2xl font-light">{s.value}</div>
+   251→            <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
+   252→          </div>
+   253→        ))}
+   254→      </div>
+   255→
+   256→      {/* Members table */}
+   257→      <section>
+   258→        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+   259→          <div className="flex items-center gap-2">
+   260→            <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Miembros</h2>
+   261→            <DemoBadge />
+   262→          </div>
+   263→          <Button size="sm" onClick={() => setInviteOpen(true)}>
+   264→            <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Invitar miembro
+   265→          </Button>
+   266→        </div>
+   267→        <div className="rp-glass rounded-xl overflow-hidden">
+   268→          <div className="flex flex-col sm:flex-row gap-2 p-3 border-b border-border/40">
+   269→            <div className="relative flex-1">
+   270→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+   271→              <Input type="search" placeholder="Buscar por nombre o email…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" aria-label="Buscar miembros" />
+   272→            </div>
+   273→            <Select value={roleFilter} onValueChange={setRoleFilter}>
+   274→              <SelectTrigger size="sm" className="w-48">
+   275→                <span className="flex items-center gap-2 text-muted-foreground"><Filter className="h-3 w-3" /> Rol</span>
+   276→                <SelectValue />
+   277→              </SelectTrigger>
+   278→              <SelectContent>
+   279→                <SelectItem value="Todos">Todos</SelectItem>
+   280→                {ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+   281→              </SelectContent>
+   282→            </Select>
+   283→          </div>
+   284→          <div className="overflow-x-auto rp-scroll-thin">
+   285→            <table className="w-full border-collapse text-sm">
+   286→              <thead>
+   287→                <tr className="border-b border-border/60 bg-foreground/[0.03]">
+   288→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Miembro</th>
+   289→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Rol</th>
+   290→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Acceso locales</th>
+   291→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Estado</th>
+   292→                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Última actividad</th>
+   293→                  <th className="px-4 py-2.5" aria-label="Acciones" />
+   294→                </tr>
+   295→              </thead>
+   296→              <tbody>
+   297→                {filtered.length === 0 && (
+   298→                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">No se encontraron miembros.</td></tr>
+   299→                )}
+   300→                {filtered.map((m) => (
+   301→                  <tr key={m.id} className="border-b border-border/40 last:border-0 hover:bg-foreground/[0.03]">
+   302→                    <td className="px-4 py-3">
+   303→                      <div className="flex items-center gap-2.5">
+   304→                        <div className={cn("h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium",
+   305→                          m.role === "Owner" ? "bg-[var(--gold)]/15 text-[var(--gold)] border border-[var(--gold)]/30"
+   306→                          : "bg-foreground/5 text-foreground/80 border border-border/40")}>
+   307→                          {m.avatar}
+   308→                        </div>
+   309→                        <div>
+   310→                          <div className="font-medium text-foreground flex items-center gap-1.5">
+   311→                            {m.name}
+   312→                            {m.role === "Owner" && <Crown className="h-3 w-3 rp-gold-text" aria-hidden />}
+   313→                          </div>
+   314→                          <div className="text-[11px] text-muted-foreground">{m.email}</div>
+   315→                        </div>
+   316→                      </div>
+   317→                    </td>
+   318→                    <td className="px-4 py-3">
+   319→                      <Badge variant="outline" className={cn(
+   320→                        m.role === "Owner" ? "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   321→                        : "border-border/60 bg-foreground/5 text-foreground/80"
+   322→                      )}>{m.role}</Badge>
+   323→                    </td>
+   324→                    <td className="px-4 py-3">
+   325→                      <div className="flex flex-wrap gap-1">
+   326→                        {m.locations.map((l) => (
+   327→                          <span key={l} className="text-[11px] px-1.5 py-0.5 rounded bg-foreground/5 border border-border/40 text-muted-foreground">{l}</span>
+   328→                        ))}
+   329→                      </div>
+   330→                    </td>
+   331→                    <td className="px-4 py-3"><MemberStatusPill status={m.status} /></td>
+   332→                    <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{m.lastActive}</td>
+   333→                    <td className="px-4 py-3 text-right">
+   334→                      <div className="inline-flex items-center gap-1">
+   335→                        <Button size="sm" variant="ghost" className="h-7" onClick={() => toast({ title: "Editando miembro (demo)", description: m.name })}>
+   336→                          <Pencil className="h-3.5 w-3.5" aria-hidden />
+   337→                        </Button>
+   338→                        <Button size="sm" variant="ghost" className="h-7 text-rose-300" disabled={m.role === "Owner"} onClick={() => setRemoveTarget(m)}>
+   339→                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+   340→                        </Button>
+   341→                      </div>
+   342→                    </td>
+   343→                  </tr>
+   344→                ))}
+   345→              </tbody>
+   346→            </table>
+   347→          </div>
+   348→        </div>
+   349→      </section>
+   350→
+   351→      {/* Roles */}
+   352→      <section>
+   353→        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+   354→          <div className="flex items-center gap-2">
+   355→            <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Roles y permisos</h2>
+   356→            <DemoBadge />
+   357→          </div>
+   358→          <Button size="sm" variant="outline" onClick={() => setCustomRoleOpen(true)}>
+   359→            <KeyRound className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Crear rol personalizado
+   360→          </Button>
+   361→        </div>
+   362→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   363→          {ROLES.map((r) => (
+   364→            <div key={r.id} className="rp-glass rounded-xl p-4 flex flex-col gap-2 hover:border-[var(--gold)]/30 transition-colors">
+   365→              <div className="flex items-start justify-between gap-2">
+   366→                <div className="flex items-center gap-2">
+   367→                  {r.id === "owner" ? <Crown className="h-4 w-4 rp-gold-text" aria-hidden /> : <Shield className="h-4 w-4 text-muted-foreground" aria-hidden />}
+   368→                  <h4 className="font-medium">{r.name}</h4>
+   369→                </div>
+   370→                <Badge variant="outline" className="text-[10px]">
+   371→                  <Users className="h-2.5 w-2.5 mr-1" aria-hidden /> {r.members}
+   372→                </Badge>
+   373→              </div>
+   374→              <p className="text-xs text-muted-foreground leading-relaxed flex-1">{r.description}</p>
+   375→              <div className="flex items-center justify-between pt-2 border-t border-border/40">
+   376→                <span className="text-[11px] font-mono text-muted-foreground">{r.system ? "sistema" : "custom"}</span>
+   377→                <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openPerms(r.id)}>
+   378→                  Editar permisos <ChevronRight className="h-3 w-3 ml-1" aria-hidden />
+   379→                </Button>
+   380→              </div>
+   381→            </div>
+   382→          ))}
+   383→        </div>
+   384→      </section>
+   385→
+   386→      {/* Invite dialog */}
+   387→      <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteErr(null); }}>
+   388→        <DialogContent className="sm:max-w-md">
+   389→          <DialogHeader>
+   390→            <DialogTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4" aria-hidden /> Invitar miembro <DemoBadge className="ml-1" /></DialogTitle>
+   391→            <DialogDescription>El invitado recibirá un email con un enlace para unirse a la organización.</DialogDescription>
+   392→          </DialogHeader>
+   393→          <div className="space-y-3">
+   394→            <div>
+   395→              <Label htmlFor="inv-email" className="text-xs">Email *</Label>
+   396→              <div className="relative mt-1.5">
+   397→                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+   398→                <Input id="inv-email" type="email" placeholder="persona@empresa.com" value={invite.email} onChange={(e) => setInvite({ ...invite, email: e.target.value })} className="pl-9" />
+   399→              </div>
+   400→            </div>
+   401→            <div>
+   402→              <Label htmlFor="inv-role" className="text-xs">Rol *</Label>
+   403→              <Select value={invite.role} onValueChange={(v) => setInvite({ ...invite, role: v })}>
+   404→                <SelectTrigger id="inv-role" className="w-full mt-1.5"><SelectValue /></SelectTrigger>
+   405→                <SelectContent>
+   406→                  {ROLE_OPTIONS.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+   407→                </SelectContent>
+   408→              </Select>
+   409→            </div>
+   410→            <div>
+   411→              <Label className="text-xs">Locales con acceso *</Label>
+   412→              <div className="mt-2 grid grid-cols-2 gap-1.5 rounded-md border border-border/40 p-2">
+   413→                {LOCATIONS.map((l) => {
+   414→                  const checked = invite.locations.includes(l);
+   415→                  return (
+   416→                    <label key={l} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-foreground/5 rounded px-1.5 py-1">
+   417→                      <Checkbox checked={checked} onCheckedChange={(v) => {
+   418→                        if (v) setInvite({ ...invite, locations: [...invite.locations, l] });
+   419→                        else setInvite({ ...invite, locations: invite.locations.filter((x) => x !== l) });
+   420→                      }} />
+   421→                      <span>{l}</span>
+   422→                    </label>
+   423→                  );
+   424→                })}
+   425→              </div>
+   426→              <div className="text-[11px] text-muted-foreground mt-1">{invite.locations.length} local(es) seleccionado(s)</div>
+   427→            </div>
+   428→            {inviteErr && (
+   429→              <div className="rounded-md border border-rose-400/40 bg-rose-400/10 p-2.5 text-xs text-rose-200 flex items-start gap-2">
+   430→                <X className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden /><span>{inviteErr}</span>
+   431→              </div>
+   432→            )}
+   433→          </div>
+   434→          <DialogFooter>
+   435→            <Button variant="outline" onClick={() => setInviteOpen(false)}>Cancelar</Button>
+   436→            <Button onClick={submitInvite}><Mail className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Enviar invitación</Button>
+   437→          </DialogFooter>
+   438→        </DialogContent>
+   439→      </Dialog>
+   440→
+   441→      {/* Permissions editor dialog */}
+   442→      <Dialog open={!!permsOpen} onOpenChange={(o) => !o && setPermsOpen(null)}>
+   443→        <DialogContent className="sm:max-w-2xl">
+   444→          <DialogHeader>
+   445→            <DialogTitle className="flex items-center gap-2">
+   446→              <Shield className="h-4 w-4 rp-teal-text" aria-hidden />
+   447→              Permisos: {ROLES.find((r) => r.id === permsOpen)?.name}
+   448→              <DemoBadge className="ml-1" />
+   449→            </DialogTitle>
+   450→            <DialogDescription>Define qué acciones puede realizar este rol sobre cada recurso.</DialogDescription>
+   451→          </DialogHeader>
+   452→          {editPerms && (
+   453→            <>
+   454→              <PermissionsMatrix perms={editPerms} onChange={togglePerm} />
+   455→              <div className="rounded-md border border-border/40 p-3 text-[11px] text-muted-foreground flex items-start gap-2">
+   456→                <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0 rp-teal-text" aria-hidden />
+   457→                <span>Los cambios se aplican a todos los miembros con este rol. El rol Owner no puede ser modificado.</span>
+   458→              </div>
+   459→            </>
+   460→          )}
+   461→          <DialogFooter>
+   462→            <Button variant="outline" onClick={() => setPermsOpen(null)}>Cancelar</Button>
+   463→            <Button onClick={savePerms}>Guardar permisos</Button>
+   464→          </DialogFooter>
+   465→        </DialogContent>
+   466→      </Dialog>
+   467→
+   468→      {/* Custom role dialog */}
+   469→      <Dialog open={customRoleOpen} onOpenChange={(o) => { setCustomRoleOpen(o); if (!o) setCustomErr(null); }}>
+   470→        <DialogContent className="sm:max-w-2xl">
+   471→          <DialogHeader>
+   472→            <DialogTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4 rp-gold-text" aria-hidden /> Crear rol personalizado <DemoBadge className="ml-1" /></DialogTitle>
+   473→            <DialogDescription>Define un rol a medida con permisos granulares.</DialogDescription>
+   474→          </DialogHeader>
+   475→          <div className="space-y-3">
+   476→            <div>
+   477→              <Label htmlFor="role-name" className="text-xs">Nombre del rol *</Label>
+   478→              <Input id="role-name" placeholder="ej. Coordinador de eventos" value={customRole.name} onChange={(e) => setCustomRole({ ...customRole, name: e.target.value })} className="mt-1.5" />
+   479→            </div>
+   480→            <div>
+   481→              <Label className="text-xs">Permisos</Label>
+   482→              <div className="mt-1.5">
+   483→                <PermissionsMatrix perms={customRole.perms} onChange={toggleCustomPerm} />
+   484→              </div>
+   485→            </div>
+   486→            {customErr && (
+   487→              <div className="rounded-md border border-rose-400/40 bg-rose-400/10 p-2.5 text-xs text-rose-200 flex items-start gap-2">
+   488→                <X className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden /><span>{customErr}</span>
+   489→              </div>
+   490→            )}
+   491→          </div>
+   492→          <DialogFooter>
+   493→            <Button variant="outline" onClick={() => setCustomRoleOpen(false)}>Cancelar</Button>
+   494→            <Button onClick={submitCustomRole}>Crear rol</Button>
+   495→          </DialogFooter>
+   496→        </DialogContent>
+   497→      </Dialog>
+   498→
+   499→      {/* Remove confirm */}
+   500→      <AlertDialog open={!!removeTarget} onOpenChange={(o) => !o && setRemoveTarget(null)}>
+   501→        <AlertDialogContent>
+   502→          <AlertDialogHeader>
+   503→            <AlertDialogTitle className="flex items-center gap-2"><Trash2 className="h-5 w-5 text-rose-300" aria-hidden /> Eliminar miembro</AlertDialogTitle>
+   504→            <AlertDialogDescription>
+   505→              Vas a eliminar a <strong>{removeTarget?.name}</strong> ({removeTarget?.email}).
+   506→              Esta acción revoca su acceso inmediatamente y no se puede deshacer.
+   507→            </AlertDialogDescription>
+   508→          </AlertDialogHeader>
+   509→          <AlertDialogFooter>
+   510→            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+   511→            <AlertDialogAction onClick={confirmRemove} className="bg-rose-500 hover:bg-rose-600 text-white">Sí, eliminar</AlertDialogAction>
+   512→          </AlertDialogFooter>
+   513→        </AlertDialogContent>
+   514→      </AlertDialog>
+   515→    </div>
+   516→  );
+   517→}
+   518→

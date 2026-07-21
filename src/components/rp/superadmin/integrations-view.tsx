@@ -283,16 +283,16 @@ export function IntegrationsView() {
       </header>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList className="bg-muted/60">
-          <TabsTrigger value="installed">Instaladas ({INSTALLED.length})</TabsTrigger>
-          <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
-          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+        <TabsList className="bg-muted/60 w-full justify-start overflow-x-auto rp-scroll-thin h-auto sm:w-auto sm:justify-center">
+          <TabsTrigger value="installed" className="flex-1 sm:flex-none">Instaladas ({INSTALLED.length})</TabsTrigger>
+          <TabsTrigger value="marketplace" className="flex-1 sm:flex-none">Marketplace</TabsTrigger>
+          <TabsTrigger value="webhooks" className="flex-1 sm:flex-none">Webhooks</TabsTrigger>
         </TabsList>
 
         {/* Installed tab */}
         <TabsContent value="installed" className="mt-4 space-y-4">
           <SectionTitle title="Integraciones instaladas" subtitle="Servicios conectados a tu organización" />
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {INSTALLED.map((a) => (
               <InstalledCard key={a.id} app={a}
                 onConfigure={onConfigure} onDisconnect={onDisconnect}
@@ -319,7 +319,7 @@ export function IntegrationsView() {
               <Input type="search" placeholder="Buscar integración…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" aria-label="Buscar integraciones" />
             </div>
             <Select value={catFilter} onValueChange={setCatFilter}>
-              <SelectTrigger size="sm" className="w-44 sm:w-48"><SelectValue placeholder="Categoría" /></SelectTrigger>
+              <SelectTrigger size="sm" className="w-full sm:w-48"><SelectValue placeholder="Categoría" /></SelectTrigger>
               <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
             </Select>
           </div>

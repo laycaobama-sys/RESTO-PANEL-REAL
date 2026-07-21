@@ -191,7 +191,7 @@ export function DataTable({
   className?: string;
 }) {
   return (
-    <div className={cn("rp-glass overflow-hidden rounded-xl", className)}>
+    <div className={cn("rp-glass overflow-x-auto rp-scroll-thin rounded-xl", className)}>
       <div className="overflow-x-auto rp-scroll-thin">
         <table className="w-full border-collapse text-sm">
           <thead>

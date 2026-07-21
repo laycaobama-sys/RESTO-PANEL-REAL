@@ -496,7 +496,7 @@ export function ReservasView() {
     setAssigningReservationId(resId);
   }
 
-  /* ----- drag & drop ----- */
+  /* ----- drag & drop (mouse) ----- */
   function onDragStart(e: React.DragEvent, t: RpTable) {
     if (!editMode) {
       e.preventDefault();
@@ -551,6 +551,68 @@ export function ReservasView() {
       title: `${t.name} reposicionada`,
       description: `x ${nx} · y ${ny}`,
     });
+  }
+
+  /* ----- drag & drop (touch) -----
+   * Native HTML5 drag-and-drop does NOT fire on touch devices, so we add
+   * touch handlers that move the table in real time when editMode is on. */
+  const touchDragRef = React.useRef<
+    | { id: string; offsetX: number; offsetY: number }
+    | null
+  >(null);
+
+  function onTableTouchStart(e: React.TouchEvent, t: RpTable) {
+    if (!editMode) return;
+    if (e.touches.length !== 1) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const touch = e.touches[0];
+    touchDragRef.current = {
+      id: t.id,
+      offsetX: touch.clientX - rect.left - t.x,
+      offsetY: touch.clientY - rect.top - t.y,
+    };
+    setDraggedId(t.id);
+    setDragOver(true);
+  }
+
+  function onCanvasTouchMove(e: React.TouchEvent) {
+    if (!editMode || !touchDragRef.current) return;
+    if (e.touches.length !== 1) return;
+    e.preventDefault(); // stop page scroll while dragging
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const touch = e.touches[0];
+    const drag = touchDragRef.current;
+    const t = tables.find((x) => x.id === drag.id);
+    if (!t) return;
+    const w = tableW(t);
+    const h = tableH(t);
+    const x = Math.max(
+      4,
+      Math.min(touch.clientX - rect.left - drag.offsetX, rect.width - w - 4)
+    );
+    const y = Math.max(
+      4,
+      Math.min(touch.clientY - rect.top - drag.offsetY, rect.height - h - 4)
+    );
+    setTables((ts) =>
+      ts.map((x2) => (x2.id === drag.id ? { ...x2, x: Math.round(x), y: Math.round(y) } : x2))
+    );
+  }
+
+  function onCanvasTouchEnd() {
+    if (!touchDragRef.current) return;
+    const t = tables.find((x) => x.id === touchDragRef.current!.id);
+    touchDragRef.current = null;
+    setDraggedId(null);
+    setDragOver(false);
+    if (t) {
+      toast({
+        title: `${t.name} reposicionada`,
+        description: `x ${t.x} · y ${t.y}`,
+      });
+    }
   }
 
   /* ----- new reservation ----- */
@@ -613,16 +675,16 @@ export function ReservasView() {
         </div>
         <Button
           onClick={() => setNewDialogOpen(true)}
-          className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] shrink-0"
+          className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] shrink-0 min-h-11"
         >
           <Plus className="h-4 w-4" /> Nueva reserva
         </Button>
       </header>
 
-      {/* Main grid */}
-      <div className="grid lg:grid-cols-5 gap-6">
+      {/* Main grid: stacks on móvil/tablet, 60/40 split from lg+ */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
         {/* LEFT: Floor plan (60%) */}
-        <section className="lg:col-span-3 space-y-4" aria-label="Plano de mesas">
+        <section className="space-y-4" aria-label="Plano de mesas">
           {/* Zone selector + edit toggle */}
           <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
             <div
@@ -638,7 +700,7 @@ export function ReservasView() {
                   aria-controls="floor-plan-canvas"
                   onClick={() => setZone(z.id)}
                   className={cn(
-                    "rounded-md px-3 py-1.5 text-sm font-medium border transition-colors",
+                    "rounded-md px-3 py-2 min-h-11 text-sm font-medium border transition-colors",
                     zone === z.id
                       ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
                       : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
@@ -732,8 +794,11 @@ export function ReservasView() {
                 onDragOver={onCanvasDragOver}
                 onDragLeave={onCanvasDragLeave}
                 onDrop={onCanvasDrop}
+                onTouchMove={onCanvasTouchMove}
+                onTouchEnd={onCanvasTouchEnd}
+                onTouchCancel={onCanvasTouchEnd}
                 className={cn(
-                  "relative rp-grid-bg",
+                  "relative rp-grid-bg touch-pan-y",
                   dragOver && "ring-2 ring-inset ring-[var(--gold)]/60"
                 )}
                 style={{ minWidth: 680, height: 460 }}
@@ -756,6 +821,7 @@ export function ReservasView() {
                       draggable={editMode}
                       onDragStart={(e) => onDragStart(e, t)}
                       onDragEnd={onDragEnd}
+                      onTouchStart={(e) => onTableTouchStart(e, t)}
                       onClick={() => onTableClick(t)}
                       aria-label={`Mesa ${t.name}, ${t.seats} comensales, estado ${meta.label}${
                         t.reservationId ? `, reserva ${t.reservationId}` : ""
@@ -845,7 +911,7 @@ export function ReservasView() {
 
         {/* RIGHT: Reservations list + details (40%) */}
         <section
-          className="lg:col-span-2 space-y-4"
+          className="space-y-4"
           aria-label="Lista de reservas y detalles"
         >
           {/* Reservations list */}
@@ -863,7 +929,7 @@ export function ReservasView() {
 
             {/* Search + filters */}
             <div className="p-3 space-y-2.5 border-b border-border/40">
-              <div className="flex items-center gap-2 rounded-md border border-border/60 px-2.5 py-1.5 bg-input/30">
+              <div className="flex items-center gap-2 rounded-md border border-border/60 px-2.5 py-2 min-h-11 bg-input/30">
                 <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                 <input
                   type="search"
@@ -877,7 +943,7 @@ export function ReservasView() {
                   <button
                     onClick={() => setSearch("")}
                     aria-label="Limpiar búsqueda"
-                    className="text-muted-foreground hover:text-foreground"
+                    className="text-muted-foreground hover:text-foreground -mr-1 p-1"
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -896,7 +962,7 @@ export function ReservasView() {
                     aria-controls="reservations-list"
                     onClick={() => setResFilter(f.id)}
                     className={cn(
-                      "rounded-md px-2.5 py-1 text-xs font-medium border transition-colors",
+                      "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
                       resFilter === f.id
                         ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
                         : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
@@ -1283,6 +1349,7 @@ function DetailsPanel(props: {
           <Button
             size="sm"
             variant="outline"
+            className="min-h-11"
             onClick={() => onFreeTable(selectedTable.id)}
             disabled={selectedTable.status === "free"}
           >
@@ -1291,9 +1358,9 @@ function DetailsPanel(props: {
           <Button
             size="sm"
             variant="outline"
+            className="min-h-11 text-destructive hover:text-destructive"
             onClick={() => onBlockTable(selectedTable.id)}
             disabled={selectedTable.status === "blocked"}
-            className="text-destructive hover:text-destructive"
           >
             <Lock className="h-3.5 w-3.5" /> Bloquear
           </Button>
@@ -1418,7 +1485,7 @@ function DetailsPanel(props: {
           {selectedReservation.status === "espera" && (
             <Button
               size="sm"
-              className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+              className="min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
               onClick={() => onConfirmRes(selectedReservation.id)}
             >
               <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar
@@ -1427,7 +1494,7 @@ function DetailsPanel(props: {
           {selectedReservation.status === "confirmada" && (
             <Button
               size="sm"
-              className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+              className="min-h-11 bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
               onClick={() => onCheckinRes(selectedReservation.id)}
             >
               <LogIn className="h-3.5 w-3.5" /> Check-in
@@ -1438,6 +1505,7 @@ function DetailsPanel(props: {
               <Button
                 size="sm"
                 variant="outline"
+                className="min-h-11"
                 onClick={() => onStartAssign(selectedReservation.id)}
               >
                 <MapPin className="h-3.5 w-3.5" /> Asignar mesa
@@ -1447,7 +1515,7 @@ function DetailsPanel(props: {
             <Button
               size="sm"
               variant="outline"
-              className="text-destructive hover:text-destructive"
+              className="min-h-11 text-destructive hover:text-destructive"
               onClick={() => onCancelRes(selectedReservation.id)}
             >
               <XCircle className="h-3.5 w-3.5" /> Cancelar
@@ -1668,9 +1736,10 @@ function NewReservationDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Cliente">
               <Input
+                className="min-h-11"
                 value={form.customerName}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, customerName: e.target.value }))
@@ -1682,6 +1751,7 @@ function NewReservationDialog({
             </Field>
             <Field label="Teléfono">
               <Input
+                className="min-h-11"
                 value={form.phone}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, phone: e.target.value }))
@@ -1691,9 +1761,10 @@ function NewReservationDialog({
               />
             </Field>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Field label="Comensales">
               <Input
+                className="min-h-11"
                 type="number"
                 min={1}
                 max={30}
@@ -1708,6 +1779,7 @@ function NewReservationDialog({
             </Field>
             <Field label="Fecha">
               <Input
+                className="min-h-11"
                 type="date"
                 value={form.date}
                 onChange={(e) =>
@@ -1717,6 +1789,7 @@ function NewReservationDialog({
             </Field>
             <Field label="Hora">
               <Input
+                className="min-h-11"
                 type="time"
                 value={form.time}
                 onChange={(e) =>
@@ -1725,13 +1798,13 @@ function NewReservationDialog({
               />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Field label="Zona">
               <Select
                 value={form.zone}
                 onValueChange={(v) => setForm((f) => ({ ...f, zone: v as Zone }))}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full min-h-11">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1753,7 +1826,7 @@ function NewReservationDialog({
                   }))
                 }
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full min-h-11">
                   <SelectValue placeholder="Sin asignar" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1780,13 +1853,13 @@ function NewReservationDialog({
           </Field>
           <DialogFooter>
             <DialogClose asChild>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" className="min-h-11">
                 Cancelar
               </Button>
             </DialogClose>
             <Button
               type="submit"
-              className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+              className="min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
               disabled={!form.customerName.trim()}
             >
               <CheckCircle2 className="h-4 w-4" /> Crear reserva

@@ -87,9 +87,9 @@ export function AppShell() {
         <div className="lg:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-72 rp-glass-strong border-r border-border/60 flex flex-col">
-            <div className="h-16 flex items-center justify-between px-5 border-b border-border/60">
+            <div className="h-16 flex items-center justify-between pl-5 pr-2 border-b border-border/60">
               <Logo />
-              <button onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" className="text-muted-foreground hover:text-foreground">
+              <button onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" className="h-11 w-11 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -100,12 +100,12 @@ export function AppShell() {
                   key={n.id}
                   onClick={() => { go(n.id); setMobileOpen(false); }}
                   className={cn(
-                    "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors mb-0.5",
-                    section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground"
+                    "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors mb-0.5",
+                    section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
                   )}
                 >
-                  <n.icon className="h-4 w-4" aria-hidden />
-                  {n.label}
+                  <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="truncate">{n.label}</span>
                 </button>
               ))}
             </nav>
@@ -134,7 +134,7 @@ function OrgSelector() {
     <div className="px-3 py-3 border-b border-border/40 relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2.5 rounded-md border border-border/60 px-3 py-2 text-left hover:border-[var(--gold)]/40 transition-colors"
+        className="w-full min-h-[44px] flex items-center gap-2.5 rounded-md border border-border/60 px-3 py-2 text-left hover:border-[var(--gold)]/40 transition-colors"
         aria-expanded={open}
         aria-label="Seleccionar organización y local"
       >
@@ -146,18 +146,18 @@ function OrgSelector() {
         <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
       </button>
       {open && (
-        <div className="absolute left-3 right-3 top-full mt-1 rp-glass-strong rounded-md border border-border/60 py-1 z-10">
+        <div className="absolute left-3 right-3 top-full mt-1 rp-glass-strong rounded-md border border-border/60 py-1 z-10 max-h-[60vh] overflow-y-auto rp-scroll-thin">
           {["Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"].map((l) => (
             <button
               key={l}
               onClick={() => { useNav.getState().setLocation(l); setOpen(false); }}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-foreground/5"
+              className="w-full min-h-[44px] text-left px-3 py-2 text-sm hover:bg-foreground/5"
             >
               {l}
             </button>
           ))}
           <div className="border-t border-border/40 my-1" />
-          <button className="w-full text-left px-3 py-1.5 text-sm text-muted-foreground hover:bg-foreground/5">
+          <button className="w-full min-h-[44px] text-left px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5">
             + Añadir local
           </button>
         </div>
@@ -169,32 +169,32 @@ function OrgSelector() {
 function Topbar({ onMenu, title }: { onMenu: () => void; title: string }) {
   const [period, setPeriod] = React.useState<"hoy" | "semana" | "mes">("hoy");
   return (
-    <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-3 px-4 sm:px-6">
-      <button onClick={onMenu} className="lg:hidden text-muted-foreground hover:text-foreground" aria-label="Abrir menú">
+    <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
+      <button onClick={onMenu} className="lg:hidden h-11 w-11 -ml-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors" aria-label="Abrir menú">
         <Menu className="h-5 w-5" />
       </button>
-      <div className="flex items-center gap-2 text-sm">
-        <span className="text-muted-foreground hidden sm:inline">RestoPanel /</span>
-        <span className="font-medium">{title}</span>
+      <div className="flex items-center gap-2 text-sm min-w-0 flex-1 md:flex-none">
+        <span className="text-muted-foreground hidden sm:inline shrink-0">RestoPanel /</span>
+        <span className="font-medium truncate">{title}</span>
       </div>
       <div className="flex-1 max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground">
         <Search className="h-4 w-4" aria-hidden />
         <input
           type="search"
           placeholder="Buscar reservas, clientes, mesas…"
-          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground"
+          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-0"
           aria-label="Búsqueda global"
         />
-        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60">⌘K</kbd>
+        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">⌘K</kbd>
       </div>
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
         <div className="hidden sm:flex items-center rounded-md border border-border/60 p-0.5">
           {(["hoy", "semana", "mes"] as const).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={cn(
-                "rounded px-2.5 py-1 text-xs capitalize transition-colors",
+                "min-h-[36px] rounded px-2.5 py-1 text-xs capitalize transition-colors",
                 period === p ? "bg-[var(--gold)] text-black" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -202,11 +202,11 @@ function Topbar({ onMenu, title }: { onMenu: () => void; title: string }) {
             </button>
           ))}
         </div>
-        <button className="relative h-9 w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Notificaciones">
+        <button className="relative h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Notificaciones">
           <Bell className="h-4 w-4" />
           <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--teal)]" aria-hidden />
         </button>
-        <button className="h-9 w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground" aria-label="Ayuda">
+        <button className="h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Ayuda">
           <HelpCircle className="h-4 w-4" />
         </button>
       </div>

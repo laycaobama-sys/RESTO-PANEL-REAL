@@ -1,0 +1,553 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import {
+     7→  Tabs, TabsList, TabsTrigger, TabsContent,
+     8→} from "@/components/ui/tabs";
+     9→import { Input } from "@/components/ui/input";
+    10→import { Label } from "@/components/ui/label";
+    11→import { Switch } from "@/components/ui/switch";
+    12→import { Button } from "@/components/ui/button";
+    13→import { Badge } from "@/components/ui/badge";
+    14→import { Slider } from "@/components/ui/slider";
+    15→import {
+    16→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    17→} from "@/components/ui/select";
+    18→import { Separator } from "@/components/ui/separator";
+    19→import {
+    20→  Settings, Building2, CalendarDays, Users, Star, Sparkles, ShieldCheck,
+    21→  Upload, Palette, Globe, Clock, Coins, Save, AlertCircle, Check, Zap,
+    22→  Power, Lock, KeyRound, FileText, MapPin,
+    23→} from "lucide-react";
+    24→
+    25→function DemoBadge({ className }: { className?: string }) {
+    26→  return (
+    27→    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
+    28→      demo
+    29→    </Badge>
+    30→  );
+    31→}
+    32→
+    33→function FieldRow({
+    34→  label, hint, children, htmlFor,
+    35→}: {
+    36→  label: string; hint?: string; children: React.ReactNode; htmlFor?: string;
+    37→}) {
+    38→  return (
+    39→    <div className="grid sm:grid-cols-3 gap-3 py-3 border-b border-border/40 last:border-0">
+    40→      <div className="sm:col-span-1">
+    41→        <Label htmlFor={htmlFor} className="text-sm font-medium">{label}</Label>
+    42→        {hint && <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{hint}</p>}
+    43→      </div>
+    44→      <div className="sm:col-span-2">{children}</div>
+    45→    </div>
+    46→  );
+    47→}
+    48→
+    49→function ToggleRow({
+    50→  label, hint, checked, onChange,
+    51→}: {
+    52→  label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void;
+    53→}) {
+    54→  return (
+    55→    <div className="flex items-start justify-between gap-4 py-3 border-b border-border/40 last:border-0">
+    56→      <div className="flex-1">
+    57→        <div className="text-sm font-medium">{label}</div>
+    58→        {hint && <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">{hint}</p>}
+    59→      </div>
+    60→      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
+    61→    </div>
+    62→  );
+    63→}
+    64→
+    65→function TabHeader({ icon: Icon, title, subtitle, demo }: { icon: React.ElementType; title: string; subtitle: string; demo?: boolean }) {
+    66→  return (
+    67→    <div className="flex items-start gap-3 mb-4 pb-3 border-b border-border/40">
+    68→      <div className="h-9 w-9 rounded-md bg-foreground/5 border border-border/60 flex items-center justify-center shrink-0">
+    69→        <Icon className="h-4 w-4" aria-hidden />
+    70→      </div>
+    71→      <div>
+    72→        <div className="flex items-center gap-2">
+    73→          <h2 className="font-display text-lg font-medium tracking-tight">{title}</h2>
+    74→          {demo && <DemoBadge />}
+    75→        </div>
+    76→        <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+    77→      </div>
+    78→    </div>
+    79→  );
+    80→}
+    81→
+    82→function SaveBar({ onSave }: { onSave: () => void }) {
+    83→  return (
+    84→    <div className="flex justify-end gap-2 pt-4 border-t border-border/40 mt-2">
+    85→      <Button variant="outline">Descartar</Button>
+    86→      <Button onClick={onSave}>
+    87→        <Save className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Guardar cambios
+    88→      </Button>
+    89→    </div>
+    90→  );
+    91→}
+    92→
+    93→/* ---------------- main ---------------- */
+    94→export function SettingsView() {
+    95→  const { toast } = useToast();
+    96→  const [tab, setTab] = React.useState("general");
+    97→
+    98→  // General
+    99→  const [general, setGeneral] = React.useState({
+   100→    orgName: "Ramses Group",
+   101→    domain: "ramses.restopanel.app",
+   102→    locale: "es-ES",
+   103→    timezone: "Europe/Madrid",
+   104→    currency: "EUR",
+   105→    vatEnabled: true,
+   106→    vatRate: 21,
+   107→    vatNumber: "ESB12345678",
+   108→    primary: "#D4AF37",
+   109→    accent: "#3DD6C9",
+   110→  });
+   111→
+   112→  // Reservas
+   113→  const [reservas, setReservas] = React.useState({
+   114→    avgDuration: 90,
+   115→    gapBetween: 15,
+   116→    capacity: 120,
+   117→    autoConfirm: true,
+   118→    reminders: true,
+   119→    reminderTiming: 24,
+   120→    cancelPolicy: "24h",
+   121→    noShowPolicy: "marked",
+   122→    depositsEnabled: false,
+   123→    depositAmount: 10,
+   124→  });
+   125→
+   126→  // CRM
+   127→  const [crm, setCrm] = React.useState({
+   128→    defaultTags: "VIP, cumpleaños, alérgico, frecuente",
+   129→    segmentsEnabled: true,
+   130→    segmentRule: "frecuencia ≥ 3 visitas / 90 días",
+   131→    consentDefault: "opt-in",
+   132→    consentRequired: true,
+   133→  });
+   134→
+   135→  // Reputación
+   136→  const [rep, setRep] = React.useState({
+   137→    googleConnected: false,
+   138→    autoReply: false,
+   139→    autoReplyMode: "always-require",
+   140→    sentimentThresholdPositive: 4,
+   141→    sentimentThresholdNegative: 3,
+   142→  });
+   143→
+   144→  // IA
+   145→  const [ia, setIa] = React.useState({
+   146→    enabled: true,
+   147→    monthlyBudget: 2000,
+   148→    fallbackDeterministic: true,
+   149→    killSwitch: false,
+   150→  });
+   151→
+   152→  // Seguridad
+   153→  const [sec, setSec] = React.useState({
+   154→    mfaRequired: true,
+   155→    sessionTimeout: 60,
+   156→    ipAllowlist: "",
+   157→    auditRetention: 365,
+   158→  });
+   159→
+   160→  const save = (section: string) => {
+   161→    toast({ title: "Configuración guardada (demo)", description: `Sección ${section} actualizada correctamente.` });
+   162→  };
+   163→
+   164→  return (
+   165→    <div className="space-y-6 max-w-[1200px] mx-auto">
+   166→      <header className="space-y-2">
+   167→        <div className="flex items-center gap-2.5">
+   168→          <div className="h-9 w-9 rounded-md bg-foreground/5 border border-border/60 flex items-center justify-center">
+   169→            <Settings className="h-5 w-5" aria-hidden />
+   170→          </div>
+   171→          <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Configuración</h1>
+   172→          <DemoBadge />
+   173→        </div>
+   174→        <p className="text-sm text-muted-foreground max-w-2xl">
+   175→          Ajustes a nivel de organización. Aplican a todos los locales y usuarios según sus permisos.
+   176→        </p>
+   177→      </header>
+   178→
+   179→      <Tabs value={tab} onValueChange={setTab}>
+   180→        <TabsList className="bg-muted/60 flex-wrap h-auto">
+   181→          <TabsTrigger value="general"><Building2 className="h-3.5 w-3.5 mr-1.5" aria-hidden /> General</TabsTrigger>
+   182→          <TabsTrigger value="reservas"><CalendarDays className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Reservas</TabsTrigger>
+   183→          <TabsTrigger value="crm"><Users className="h-3.5 w-3.5 mr-1.5" aria-hidden /> CRM</TabsTrigger>
+   184→          <TabsTrigger value="reputacion"><Star className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Reputación</TabsTrigger>
+   185→          <TabsTrigger value="ia"><Sparkles className="h-3.5 w-3.5 mr-1.5" aria-hidden /> IA</TabsTrigger>
+   186→          <TabsTrigger value="seguridad"><ShieldCheck className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Seguridad</TabsTrigger>
+   187→        </TabsList>
+   188→
+   189→        {/* GENERAL */}
+   190→        <TabsContent value="general" className="mt-4">
+   191→          <div className="rp-glass rounded-xl p-5">
+   192→            <TabHeader icon={Building2} title="General" subtitle="Identidad y datos base de la organización" demo />
+   193→            <FieldRow label="Nombre de la organización" htmlFor="org-name" hint="Visible en facturas y comunicaciones">
+   194→              <Input id="org-name" value={general.orgName} onChange={(e) => setGeneral({ ...general, orgName: e.target.value })} />
+   195→            </FieldRow>
+   196→            <FieldRow label="Logo" hint="PNG o SVG · máx 1MB · fondo transparente recomendado">
+   197→              <div className="flex items-center gap-3">
+   198→                <div className="h-16 w-16 rounded-lg border border-dashed border-border/60 bg-foreground/5 flex items-center justify-center text-muted-foreground">
+   199→                  <Building2 className="h-6 w-6" aria-hidden />
+   200→                </div>
+   201→                <Button type="button" variant="outline" size="sm" onClick={() => toast({ title: "Subir logo (demo)", description: "Selector de archivos abierto." })}>
+   202→                  <Upload className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Subir logo
+   203→                </Button>
+   204→              </div>
+   205→            </FieldRow>
+   206→            <FieldRow label="Colores de marca" hint="Personaliza el acento dorado y turquesa de tu panel">
+   207→              <div className="flex flex-wrap items-center gap-4">
+   208→                <div className="flex items-center gap-2">
+   209→                  <div className="relative h-9 w-9 rounded-md border border-border/60 overflow-hidden">
+   210→                    <input type="color" value={general.primary} onChange={(e) => setGeneral({ ...general, primary: e.target.value })} className="absolute inset-0 w-full h-full cursor-pointer opacity-0" aria-label="Color primario" />
+   211→                    <div className="h-full w-full" style={{ background: general.primary }} />
+   212→                  </div>
+   213→                  <div>
+   214→                    <div className="text-[11px] font-mono">{general.primary}</div>
+   215→                    <div className="text-[10px] text-muted-foreground">Primario</div>
+   216→                  </div>
+   217→                </div>
+   218→                <div className="flex items-center gap-2">
+   219→                  <div className="relative h-9 w-9 rounded-md border border-border/60 overflow-hidden">
+   220→                    <input type="color" value={general.accent} onChange={(e) => setGeneral({ ...general, accent: e.target.value })} className="absolute inset-0 w-full h-full cursor-pointer opacity-0" aria-label="Color acento" />
+   221→                    <div className="h-full w-full" style={{ background: general.accent }} />
+   222→                  </div>
+   223→                  <div>
+   224→                    <div className="text-[11px] font-mono">{general.accent}</div>
+   225→                    <div className="text-[10px] text-muted-foreground">Acento</div>
+   226→                  </div>
+   227→                </div>
+   228→                <Button type="button" variant="ghost" size="sm" onClick={() => setGeneral({ ...general, primary: "#D4AF37", accent: "#3DD6C9" })}>
+   229→                  <Palette className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Restablecer marca
+   230→                </Button>
+   231→              </div>
+   232→            </FieldRow>
+   233→            <FieldRow label="Dominio personalizado" htmlFor="domain" hint="Subdominio donde se accede a tu panel">
+   234→              <div className="flex items-center gap-2">
+   235→                <Input id="domain" value={general.domain} onChange={(e) => setGeneral({ ...general, domain: e.target.value })} className="font-mono text-sm" />
+   236→                <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px]"><Check className="h-2.5 w-2.5 mr-1" /> verificado</Badge>
+   237→              </div>
+   238→            </FieldRow>
+   239→            <FieldRow label="Idioma y región" htmlFor="locale">
+   240→              <Select value={general.locale} onValueChange={(v) => setGeneral({ ...general, locale: v })}>
+   241→                <SelectTrigger id="locale" className="w-full"><SelectValue /></SelectTrigger>
+   242→                <SelectContent>
+   243→                  <SelectItem value="es-ES">Español (España)</SelectItem>
+   244→                  <SelectItem value="es-MX">Español (México)</SelectItem>
+   245→                  <SelectItem value="en-GB">English (UK)</SelectItem>
+   246→                  <SelectItem value="fr-FR">Français</SelectItem>
+   247→                  <SelectItem value="pt-PT">Português</SelectItem>
+   248→                  <SelectItem value="it-IT">Italiano</SelectItem>
+   249→                </SelectContent>
+   250→              </Select>
+   251→            </FieldRow>
+   252→            <FieldRow label="Zona horaria" htmlFor="tz">
+   253→              <Select value={general.timezone} onValueChange={(v) => setGeneral({ ...general, timezone: v })}>
+   254→                <SelectTrigger id="tz" className="w-full"><SelectValue /></SelectTrigger>
+   255→                <SelectContent>
+   256→                  <SelectItem value="Europe/Madrid">Europe/Madrid (UTC+1)</SelectItem>
+   257→                  <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+   258→                  <SelectItem value="Europe/Paris">Europe/Paris (UTC+1)</SelectItem>
+   259→                  <SelectItem value="America/Mexico_City">America/Mexico_City (UTC-6)</SelectItem>
+   260→                  <SelectItem value="America/Argentina/Buenos_Aires">America/Buenos_Aires (UTC-3)</SelectItem>
+   261→                </SelectContent>
+   262→              </Select>
+   263→            </FieldRow>
+   264→            <FieldRow label="Moneda" htmlFor="currency">
+   265→              <Select value={general.currency} onValueChange={(v) => setGeneral({ ...general, currency: v })}>
+   266→                <SelectTrigger id="currency" className="w-full"><SelectValue /></SelectTrigger>
+   267→                <SelectContent>
+   268→                  <SelectItem value="EUR">Euro (€)</SelectItem>
+   269→                  <SelectItem value="USD">US Dollar ($)</SelectItem>
+   270→                  <SelectItem value="GBP">British Pound (£)</SelectItem>
+   271→                  <SelectItem value="MXN">Mexican Peso ($MXN)</SelectItem>
+   272→                  <SelectItem value="ARS">Argentine Peso ($ARS)</SelectItem>
+   273→                </SelectContent>
+   274→              </Select>
+   275→            </FieldRow>
+   276→            <FieldRow label="Configuración IVA" hint="Aplica impuestos automáticamente a facturas y depósitos">
+   277→              <div className="space-y-3">
+   278→                <ToggleRow label="Activar IVA" checked={general.vatEnabled} onChange={(v) => setGeneral({ ...general, vatEnabled: v })} />
+   279→                {general.vatEnabled && (
+   280→                  <div className="grid grid-cols-2 gap-3">
+   281→                    <div>
+   282→                      <Label htmlFor="vat-rate" className="text-xs">Tipo de IVA (%)</Label>
+   283→                      <Input id="vat-rate" type="number" min={0} max={100} value={general.vatRate} onChange={(e) => setGeneral({ ...general, vatRate: Number(e.target.value) })} className="mt-1.5" />
+   284→                    </div>
+   285→                    <div>
+   286→                      <Label htmlFor="vat-number" className="text-xs">NIF/CIF</Label>
+   287→                      <Input id="vat-number" value={general.vatNumber} onChange={(e) => setGeneral({ ...general, vatNumber: e.target.value })} className="mt-1.5 font-mono" />
+   288→                    </div>
+   289→                  </div>
+   290→                )}
+   291→              </div>
+   292→            </FieldRow>
+   293→            <SaveBar onSave={() => save("General")} />
+   294→          </div>
+   295→        </TabsContent>
+   296→
+   297→        {/* RESERVAS */}
+   298→        <TabsContent value="reservas" className="mt-4">
+   299→          <div className="rp-glass rounded-xl p-5">
+   300→            <TabHeader icon={CalendarDays} title="Reservas" subtitle="Configuración operativa de reservas y turnos" demo />
+   301→            <FieldRow label="Duración media (min)" htmlFor="avg-dur" hint="Duración típica de una mesa ocupada">
+   302→              <div className="flex items-center gap-3">
+   303→                <Slider value={[reservas.avgDuration]} min={30} max={240} step={5} onValueChange={(v) => setReservas({ ...reservas, avgDuration: v[0] })} className="flex-1" />
+   304→                <span className="w-14 text-right font-mono text-sm rp-gold-text">{reservas.avgDuration} min</span>
+   305→              </div>
+   306→            </FieldRow>
+   307→            <FieldRow label="Tiempo entre reservas (min)" htmlFor="gap" hint="Margen de limpieza entre servicios">
+   308→              <div className="flex items-center gap-3">
+   309→                <Slider value={[reservas.gapBetween]} min={0} max={60} step={5} onValueChange={(v) => setReservas({ ...reservas, gapBetween: v[0] })} className="flex-1" />
+   310→                <span className="w-14 text-right font-mono text-sm rp-gold-text">{reservas.gapBetween} min</span>
+   311→              </div>
+   312→            </FieldRow>
+   313→            <FieldRow label="Capacidad por turno" htmlFor="cap" hint="Comensales máximos simultáneos">
+   314→              <Input id="cap" type="number" min={1} value={reservas.capacity} onChange={(e) => setReservas({ ...reservas, capacity: Number(e.target.value) })} className="max-w-[160px]" />
+   315→            </FieldRow>
+   316→            <FieldRow label="Confirmación automática" hint="Confirma reservas automáticamente sin revisión manual">
+   317→              <Switch checked={reservas.autoConfirm} onCheckedChange={(v) => setReservas({ ...reservas, autoConfirm: v })} aria-label="Confirmación automática" />
+   318→            </FieldRow>
+   319→            <FieldRow label="Recordatorios automáticos" hint="Envía recordatorios por email/WhatsApp antes del servicio">
+   320→              <div className="space-y-3">
+   321→                <Switch checked={reservas.reminders} onCheckedChange={(v) => setReservas({ ...reservas, reminders: v })} aria-label="Recordatorios automáticos" />
+   322→                {reservas.reminders && (
+   323→                  <div className="flex items-center gap-3">
+   324→                    <Label htmlFor="rem-timing" className="text-xs shrink-0">Enviar</Label>
+   325→                    <Select value={String(reservas.reminderTiming)} onValueChange={(v) => setReservas({ ...reservas, reminderTiming: Number(v) })}>
+   326→                      <SelectTrigger id="rem-timing" className="w-48"><SelectValue /></SelectTrigger>
+   327→                      <SelectContent>
+   328→                        <SelectItem value="2">2 horas antes</SelectItem>
+   329→                        <SelectItem value="12">12 horas antes</SelectItem>
+   330→                        <SelectItem value="24">24 horas antes</SelectItem>
+   331→                        <SelectItem value="48">48 horas antes</SelectItem>
+   332→                      </SelectContent>
+   333→                    </Select>
+   334→                  </div>
+   335→                )}
+   336→              </div>
+   337→            </FieldRow>
+   338→            <FieldRow label="Política de cancelación" htmlFor="cancel" hint="Ventana mínima para cancelar sin cargo">
+   339→              <Select value={reservas.cancelPolicy} onValueChange={(v) => setReservas({ ...reservas, cancelPolicy: v })}>
+   340→                <SelectTrigger id="cancel" className="w-full"><SelectValue /></SelectTrigger>
+   341→                <SelectContent>
+   342→                  <SelectItem value="flexible">Flexible (hasta 2h antes)</SelectItem>
+   343→                  <SelectItem value="24h">Moderada (24h antes)</SelectItem>
+   344→                  <SelectItem value="48h">Estricta (48h antes)</SelectItem>
+   345→                  <SelectItem value="no-refund">No reembolsable</SelectItem>
+   346→                </SelectContent>
+   347→              </Select>
+   348→            </FieldRow>
+   349→            <FieldRow label="Política de no-show" htmlFor="noshow" hint="Acción cuando un cliente no se presenta">
+   350→              <Select value={reservas.noShowPolicy} onValueChange={(v) => setReservas({ ...reservas, noShowPolicy: v })}>
+   351→                <SelectTrigger id="noshow" className="w-full"><SelectValue /></SelectTrigger>
+   352→                <SelectContent>
+   353→                  <SelectItem value="marked">Marcar en CRM (sin cargo)</SelectItem>
+   354→                  <SelectItem value="charge-deposit">Cobrar depósito</SelectItem>
+   355→                  <SelectItem value="block-3">Bloquear nuevas reservas 3 días</SelectItem>
+   356→                  <SelectItem value="block-30">Bloquear nuevas reservas 30 días</SelectItem>
+   357→                </SelectContent>
+   358→              </Select>
+   359→            </FieldRow>
+   360→            <FieldRow label="Depósitos" hint="Cobra un depósito al confirmar la reserva">
+   361→              <div className="space-y-3">
+   362→                <ToggleRow label="Activar depósitos" checked={reservas.depositsEnabled} onChange={(v) => setReservas({ ...reservas, depositsEnabled: v })} />
+   363→                {reservas.depositsEnabled && (
+   364→                  <div>
+   365→                    <Label htmlFor="dep-amt" className="text-xs">Importe del depósito (€)</Label>
+   366→                    <Input id="dep-amt" type="number" min={0} value={reservas.depositAmount} onChange={(e) => setReservas({ ...reservas, depositAmount: Number(e.target.value) })} className="mt-1.5 max-w-[160px]" />
+   367→                  </div>
+   368→                )}
+   369→              </div>
+   370→            </FieldRow>
+   371→            <SaveBar onSave={() => save("Reservas")} />
+   372→          </div>
+   373→        </TabsContent>
+   374→
+   375→        {/* CRM */}
+   376→        <TabsContent value="crm" className="mt-4">
+   377→          <div className="rp-glass rounded-xl p-5">
+   378→            <TabHeader icon={Users} title="CRM" subtitle="Etiquetado, segmentación y consentimientos" demo />
+   379→            <FieldRow label="Tags por defecto" htmlFor="tags" hint="Etiquetas disponibles para clasificar clientes">
+   380→              <Input id="tags" value={crm.defaultTags} onChange={(e) => setCrm({ ...crm, defaultTags: e.target.value })} />
+   381→            </FieldRow>
+   382→            <FieldRow label="Segmentación automática" hint="Crea segmentos basados en comportamiento">
+   383→              <ToggleRow label="Activar reglas de segmentación" checked={crm.segmentsEnabled} onChange={(v) => setCrm({ ...crm, segmentsEnabled: v })} />
+   384→            </FieldRow>
+   385→            {crm.segmentsEnabled && (
+   386→              <FieldRow label="Regla de segmento VIP" htmlFor="seg-rule" hint="Condición para incluir clientes en el segmento VIP">
+   387→                <Input id="seg-rule" value={crm.segmentRule} onChange={(e) => setCrm({ ...crm, segmentRule: e.target.value })} className="font-mono text-sm" />
+   388→              </FieldRow>
+   389→            )}
+   390→            <FieldRow label="Consentimiento por defecto" hint="Estado inicial de consentimiento de marketing">
+   391→              <div className="space-y-3">
+   392→                <Select value={crm.consentDefault} onValueChange={(v) => setCrm({ ...crm, consentDefault: v })}>
+   393→                  <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+   394→                  <SelectContent>
+   395→                    <SelectItem value="opt-in">Opt-in (consentimiento explícito)</SelectItem>
+   396→                    <SelectItem value="opt-out">Opt-out (asentido salvo objeción)</SelectItem>
+   397→                    <SelectItem value="none">Sin consentimiento (no marketing)</SelectItem>
+   398→                  </SelectContent>
+   399→                </Select>
+   400→                <ToggleRow label="Requerir checkbox de consentimiento en formularios" checked={crm.consentRequired} onChange={(v) => setCrm({ ...crm, consentRequired: v })} />
+   401→              </div>
+   402→            </FieldRow>
+   403→            <SaveBar onSave={() => save("CRM")} />
+   404→          </div>
+   405→        </TabsContent>
+   406→
+   407→        {/* REPUTACIÓN */}
+   408→        <TabsContent value="reputacion" className="mt-4">
+   409→          <div className="rp-glass rounded-xl p-5">
+   410→            <TabHeader icon={Star} title="Reputación" subtitle="Google Reviews y análisis de sentimiento" demo />
+   411→            <FieldRow label="Conexión con Google Business Profile" hint="Necesario para sincronizar reseñas">
+   412→              <div className="flex items-center gap-3">
+   413→                {rep.googleConnected ? (
+   414→                  <Badge className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300"><Check className="h-3 w-3 mr-1" /> conectado</Badge>
+   415→                ) : (
+   416→                  <Badge className="border-amber-400/40 bg-amber-400/10 text-amber-300"><AlertCircle className="h-3 w-3 mr-1" /> no conectado (demo)</Badge>
+   417→                )}
+   418→                <Button type="button" variant="outline" size="sm" onClick={() => { setRep({ ...rep, googleConnected: true }); toast({ title: "Google conectado (demo)", description: "Sincronizando reseñas…" }); }}>
+   419→                  Conectar Google
+   420→                </Button>
+   421→              </div>
+   422→            </FieldRow>
+   423→            <FieldRow label="Aprobación de respuestas automáticas" hint="Las respuestas IA a reseñas requieren siempre aprobación humana">
+   424→              <div className="space-y-3">
+   425→                <ToggleRow label="Requerir aprobación humana (siempre)" checked={rep.autoReplyMode === "always-require"} onChange={(v) => setRep({ ...rep, autoReplyMode: v ? "always-require" : "auto-positive" })} />
+   426→                <div className="rounded-md border border-border/40 p-2.5 text-[11px] text-muted-foreground flex items-start gap-2">
+   427→                  <Lock className="h-3.5 w-3.5 mt-0.5 shrink-0 rp-teal-text" aria-hidden />
+   428→                  <span>Recomendado: siempre requerir aprobación. Evita respuestas automáticas inapropiadas en reseñas sensibles.</span>
+   429→                </div>
+   430→              </div>
+   431→            </FieldRow>
+   432→            <FieldRow label="Umbral de sentimiento positivo" hint="Puntuación mínima para considerar una reseña positiva">
+   433→              <div className="flex items-center gap-3">
+   434→                <Slider value={[rep.sentimentThresholdPositive]} min={1} max={5} step={1} onValueChange={(v) => setRep({ ...rep, sentimentThresholdPositive: v[0] })} className="flex-1" />
+   435→                <span className="w-12 text-right font-mono text-sm rp-teal-text">≥ {rep.sentimentThresholdPositive}/5</span>
+   436→              </div>
+   437→            </FieldRow>
+   438→            <FieldRow label="Umbral de alerta de sentimiento negativo" hint="Puntuación máxima que activa alerta al gerente">
+   439→              <div className="flex items-center gap-3">
+   440→                <Slider value={[rep.sentimentThresholdNegative]} min={1} max={5} step={1} onValueChange={(v) => setRep({ ...rep, sentimentThresholdNegative: v[0] })} className="flex-1" />
+   441→                <span className="w-12 text-right font-mono text-sm text-rose-300">≤ {rep.sentimentThresholdNegative}/5</span>
+   442→              </div>
+   443→            </FieldRow>
+   444→            <SaveBar onSave={() => save("Reputación")} />
+   445→          </div>
+   446→        </TabsContent>
+   447→
+   448→        {/* IA */}
+   449→        <TabsContent value="ia" className="mt-4">
+   450→          <div className="rp-glass rounded-xl p-5">
+   451→            <TabHeader icon={Sparkles} title="IA" subtitle="Configuración de capacidades de IA" demo />
+   452→            <FieldRow label="IA habilitada" hint="Activa respuestas automáticas, segmentación y analítica con IA">
+   453→              <ToggleRow label="Activar IA en toda la organización" checked={ia.enabled} onChange={(v) => setIa({ ...ia, enabled: v })} />
+   454→            </FieldRow>
+   455→            <FieldRow label="Presupuesto mensual de IA" htmlFor="ia-budget" hint="Límite de créditos consumidos por mes">
+   456→              <div className="space-y-2">
+   457→                <div className="flex items-center gap-3">
+   458→                  <Slider value={[ia.monthlyBudget]} min={500} max={10000} step={100} onValueChange={(v) => setIa({ ...ia, monthlyBudget: v[0] })} className="flex-1" disabled={!ia.enabled} />
+   459→                  <span className="w-20 text-right font-mono text-sm rp-gold-text">{ia.monthlyBudget.toLocaleString("es-ES")} cr</span>
+   460→                </div>
+   461→                <div className="text-[11px] text-muted-foreground">Uso actual: 412 / {ia.monthlyBudget.toLocaleString("es-ES")} ({((412 / ia.monthlyBudget) * 100).toFixed(1)}%)</div>
+   462→              </div>
+   463→            </FieldRow>
+   464→            <FieldRow label="Fallback determinista" hint="Si la IA falla o agota presupuesto, usar reglas deterministas">
+   465→              <ToggleRow label="Activar fallback" checked={ia.fallbackDeterministic} onChange={(v) => setIa({ ...ia, fallbackDeterministic: v })} />
+   466→            </FieldRow>
+   467→            <FieldRow label="Kill switch" hint="Desactiva inmediatamente todas las llamadas IA (emergencia)">
+   468→              <div className="space-y-3">
+   469→                <div className={cn(
+   470→                  "rounded-lg border p-3 flex items-start gap-3",
+   471→                  ia.killSwitch ? "border-rose-400/50 bg-rose-400/10" : "border-border/40 bg-foreground/[0.02]"
+   472→                )}>
+   473→                  <Power className={cn("h-5 w-5 mt-0.5 shrink-0", ia.killSwitch ? "text-rose-300" : "text-muted-foreground")} aria-hidden />
+   474→                  <div className="flex-1">
+   475→                    <div className="text-sm font-medium">{ia.killSwitch ? "IA DESACTIVADA" : "IA operativa"}</div>
+   476→                    <div className="text-[11px] text-muted-foreground mt-0.5">
+   477→                      {ia.killSwitch ? "Todas las llamadas IA están pausadas. Solo respuestas deterministas."
+   478→                                     : "El kill switch desactiva IA en toda la organización al instante."}
+   479→                    </div>
+   480→                  </div>
+   481→                  <Switch checked={ia.killSwitch} onCheckedChange={(v) => setIa({ ...ia, killSwitch: v })} aria-label="Kill switch IA" />
+   482→                </div>
+   483→              </div>
+   484→            </FieldRow>
+   485→            <SaveBar onSave={() => save("IA")} />
+   486→          </div>
+   487→        </TabsContent>
+   488→
+   489→        {/* SEGURIDAD */}
+   490→        <TabsContent value="seguridad" className="mt-4">
+   491→          <div className="rp-glass rounded-xl p-5">
+   492→            <TabHeader icon={ShieldCheck} title="Seguridad" subtitle="Controles de acceso y auditoría" demo />
+   493→            <FieldRow label="MFA obligatorio" hint="Todos los miembros deben activar autenticación multifactor">
+   494→              <ToggleRow label="Requerir MFA" checked={sec.mfaRequired} onChange={(v) => setSec({ ...sec, mfaRequired: v })} />
+   495→            </FieldRow>
+   496→            <FieldRow label="Timeout de sesión (min)" htmlFor="sess" hint="Inactividad máxima antes de cerrar sesión">
+   497→              <Select value={String(sec.sessionTimeout)} onValueChange={(v) => setSec({ ...sec, sessionTimeout: Number(v) })}>
+   498→                <SelectTrigger id="sess" className="w-full"><SelectValue /></SelectTrigger>
+   499→                <SelectContent>
+   500→                  <SelectItem value="15">15 minutos</SelectItem>
+   501→                  <SelectItem value="30">30 minutos</SelectItem>
+   502→                  <SelectItem value="60">1 hora</SelectItem>
+   503→                  <SelectItem value="240">4 horas</SelectItem>
+   504→                  <SelectItem value="720">12 horas</SelectItem>
+   505→                </SelectContent>
+   506→              </Select>
+   507→            </FieldRow>
+   508→            <FieldRow label="IP allowlist" htmlFor="ip" hint="Lista de IPs/CIDR permitidas (vacío = todas)">
+   509→              <div className="space-y-2">
+   510→                <Input id="ip" placeholder="192.168.1.0/24, 84.123.45.67" value={sec.ipAllowlist} onChange={(e) => setSec({ ...sec, ipAllowlist: e.target.value })} className="font-mono text-sm" />
+   511→                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+   512→                  <MapPin className="h-3 w-3" aria-hidden /> Formato: una IP o rango CIDR por línea o separado por comas.
+   513→                </div>
+   514→              </div>
+   515→            </FieldRow>
+   516→            <FieldRow label="Retención del log de auditoría (días)" htmlFor="audit" hint="Cuánto tiempo se conservan los eventos de auditoría">
+   517→              <Select value={String(sec.auditRetention)} onValueChange={(v) => setSec({ ...sec, auditRetention: Number(v) })}>
+   518→                <SelectTrigger id="audit" className="w-full"><SelectValue /></SelectTrigger>
+   519→                <SelectContent>
+   520→                  <SelectItem value="30">30 días</SelectItem>
+   521→                  <SelectItem value="90">90 días</SelectItem>
+   522→                  <SelectItem value="180">180 días</SelectItem>
+   523→                  <SelectItem value="365">1 año</SelectItem>
+   524→                  <SelectItem value="1095">3 años (Enterprise)</SelectItem>
+   525→                </SelectContent>
+   526→              </Select>
+   527→            </FieldRow>
+   528→            <Separator className="my-3 bg-border/40" />
+   529→            <div className="grid sm:grid-cols-3 gap-3">
+   530→              <div className="rounded-lg border border-border/40 p-3">
+   531→                <KeyRound className="h-4 w-4 rp-teal-text mb-1.5" aria-hidden />
+   532→                <div className="text-xs font-medium">SSO/SAML</div>
+   533→                <div className="text-[11px] text-muted-foreground mt-0.5">Disponible en plan Enterprise</div>
+   534→              </div>
+   535→              <div className="rounded-lg border border-border/40 p-3">
+   536→                <FileText className="h-4 w-4 rp-teal-text mb-1.5" aria-hidden />
+   537→                <div className="text-xs font-medium">Eventos auditados</div>
+   538→                <div className="text-[11px] text-muted-foreground mt-0.5">8.412 eventos este mes</div>
+   539→              </div>
+   540→              <div className="rounded-lg border border-border/40 p-3">
+   541→                <Zap className="h-4 w-4 rp-teal-text mb-1.5" aria-hidden />
+   542→                <div className="text-xs font-medium">Política contraseñas</div>
+   543→                <div className="text-[11px] text-muted-foreground mt-0.5">12+ car · 1 may · 1 número</div>
+   544→              </div>
+   545→            </div>
+   546→            <SaveBar onSave={() => save("Seguridad")} />
+   547→          </div>
+   548→        </TabsContent>
+   549→      </Tabs>
+   550→    </div>
+   551→  );
+   552→}
+   553→

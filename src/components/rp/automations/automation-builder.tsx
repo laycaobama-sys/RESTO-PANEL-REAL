@@ -691,7 +691,7 @@ function PaletteCard({ type, onAdd }: { type: NodeType; onAdd: () => void }) {
       type="button"
       onClick={onAdd}
       className={cn(
-        "group flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/40 px-3 py-2.5 text-left transition-all hover:border-foreground/30 hover:bg-card/70 shrink-0 lg:w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60"
+        "group flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/40 px-3 py-2.5 text-left transition-all hover:border-foreground/30 hover:bg-card/70 shrink-0 md:w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60"
       )}
       aria-label={`Añadir nodo ${meta.label}: ${meta.description}`}
     >
@@ -700,7 +700,7 @@ function PaletteCard({ type, onAdd }: { type: NodeType; onAdd: () => void }) {
       </span>
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-medium">{meta.label}</span>
-        <span className="hidden lg:block text-[11px] text-muted-foreground truncate">{meta.description}</span>
+        <span className="hidden md:block text-[11px] text-muted-foreground truncate">{meta.description}</span>
       </span>
       <Plus className="h-3.5 w-3.5 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
     </button>
@@ -770,9 +770,9 @@ function NodeCard({
           onDelete();
         }}
         aria-label={`Eliminar nodo ${node.title}`}
-        className="absolute -top-2 -right-2 h-6 w-6 rounded-full border border-border/60 bg-background/90 flex items-center justify-center text-muted-foreground opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-rose-300 hover:border-rose-400/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+        className="absolute -top-2 -right-2 h-9 w-9 md:h-6 md:w-6 rounded-full border border-border/60 bg-background/90 flex items-center justify-center text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 hover:text-rose-300 hover:border-rose-400/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
       >
-        <X className="h-3.5 w-3.5" aria-hidden />
+        <X className="h-4 w-4 md:h-3.5 md:w-3.5" aria-hidden />
       </button>
     </div>
   );
@@ -833,7 +833,7 @@ function ConfigPanel({
 }) {
   if (!node) {
     return (
-      <div className="rp-glass rounded-xl p-6 flex flex-col items-center justify-center text-center min-h-[320px]">
+      <div className="rp-glass rounded-xl p-6 flex flex-col items-center justify-center text-center min-h-[320px] h-full">
         <div className="h-10 w-10 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground/60 mb-3">
           <Sparkles className="h-5 w-5" aria-hidden />
         </div>
@@ -850,7 +850,7 @@ function ConfigPanel({
   const c = node.config;
 
   return (
-    <div className="rp-glass rounded-xl flex flex-col min-h-[320px]">
+    <div className="rp-glass rounded-xl flex flex-col min-h-[320px] h-full">
       <header className="flex items-center gap-2 px-4 py-3 border-b border-border/60">
         <span className={cn("flex h-7 w-7 items-center justify-center rounded-md border", a.chip)}>
           <meta.icon className="h-3.5 w-3.5" aria-hidden />
@@ -1344,7 +1344,7 @@ export function AutomationBuilder() {
             Carga un flujo preconfigurado para empezar
           </span>
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {TEMPLATES.map((tpl) => (
             <TemplateCard
               key={tpl.id}
@@ -1358,21 +1358,21 @@ export function AutomationBuilder() {
 
       {/* Three-area grid: palette | canvas | config */}
       <section
-        className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)_340px]"
+        className="grid gap-4 md:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_340px]"
         aria-label="Editor de flujo"
       >
         {/* Palette */}
         <aside
-          className="rp-glass rounded-xl p-3 flex lg:flex-col gap-2 overflow-x-auto lg:overflow-visible"
+          className="rp-glass rounded-xl p-3 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible"
           aria-label="Paleta de nodos"
         >
-          <div className="hidden lg:block px-1 mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="hidden md:block px-1 mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
             Paleta
           </div>
           {NODE_TYPE_ORDER.map((t) => (
             <PaletteCard key={t} type={t} onAdd={() => addNode(t)} />
           ))}
-          <div className="hidden lg:block mt-2 px-1 text-[10px] text-muted-foreground/70 leading-relaxed">
+          <div className="hidden md:block mt-2 px-1 text-[10px] text-muted-foreground/70 leading-relaxed">
             Click para añadir tras el nodo seleccionado (o al final).
           </div>
         </aside>
@@ -1425,12 +1425,14 @@ export function AutomationBuilder() {
         </div>
 
         {/* Config */}
-        <ConfigPanel
-          node={selected}
-          onUpdateConfig={updateConfig}
-          onUpdateTitle={updateTitle}
-          onClose={() => setSelectedId(null)}
-        />
+        <div className="md:col-span-2 lg:col-span-1">
+          <ConfigPanel
+            node={selected}
+            onUpdateConfig={updateConfig}
+            onUpdateTitle={updateTitle}
+            onClose={() => setSelectedId(null)}
+          />
+        </div>
       </section>
 
       {/* Execution history */}

@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import Link from "next/link";
+     5→import { cn } from "@/lib/utils";
+     6→import { useNav, type Section } from "@/components/rp/app/nav-store";
+     7→import { BrandMark, Logo } from "@/components/rp/app/brand";
+     8→import { Button } from "@/components/ui/button";
+     9→import {
+    10→  Sheet,
+    11→  SheetContent,
+    12→  SheetHeader,
+    13→  SheetTitle,
+    14→  SheetTrigger,
+    15→  SheetClose,
+    16→} from "@/components/ui/sheet";
+    17→import { Slider } from "@/components/ui/slider";
+    18→import { Switch } from "@/components/ui/switch";
+    19→import {
+    20→  Accordion,
+    21→  AccordionContent,
+    22→  AccordionItem,
+    23→  AccordionTrigger,
+    24→} from "@/components/ui/accordion";
+    25→import {
+    26→  Menu,
+    27→  X,
+    28→  ArrowRight,
+    29→  ArrowUpRight,
+    30→  PlayCircle,
+    31→  Sparkles,
+    32→  ShieldCheck,
+    33→  CalendarCheck,
+    34→  LayoutGrid,
+    35→  Users,
+    36→  Megaphone,
+    37→  Workflow,
+    38→  Star,
+    39→  BarChart3,
+    40→  Bot,
+    41→  Hourglass,
+    42→  Store,
+    43→  Plug,
+    44→  CalendarX,
+    45→  CalendarClock,
+    46→  UserX,
+    47→  Database,
+    48→  Hand,
+    49→  Unplug,
+    50→  TrendingDown,
+    51→  Check,
+    52→  ChevronRight,
+    53→  Circle,
+    54→  Clock,
+    55→  Zap,
+    56→  Quote,
+    57→  type LucideIcon,
+    58→} from "lucide-react";
+    59→
+    60→/* ===================================================================== *
+    61→ *  RestoPanel · Landing premium (dark, gold #D4AF37, turquoise #3DD6C9) *
+    62→ * ===================================================================== */
+    63→
+    64→const NAV_LINKS = [
+    65→  "Producto",
+    66→  "Soluciones",
+    67→  "Reservas",
+    68→  "CRM",
+    69→  "IA",
+    70→  "Analytics",
+    71→  "Integraciones",
+    72→  "Precios",
+    73→  "Recursos",
+    74→  "Blog",
+    75→  "Centro de ayuda",
+    76→] as const;
+    77→
+    78→/* ------------------------------ helpers ------------------------------ */
+    79→
+    80→function useReducedMotion() {
+    81→  const [reduced, setReduced] = React.useState(false);
+    82→  React.useEffect(() => {
+    83→    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    84→    const update = () => setReduced(mq.matches);
+    85→    update();
+    86→    mq.addEventListener?.("change", update);
+    87→    return () => mq.removeEventListener?.("change", update);
+    88→  }, []);
+    89→  return reduced;
+    90→}
+    91→
+    92→function useInView<T extends HTMLElement>(opts?: IntersectionObserverInit) {
+    93→  const ref = React.useRef<T | null>(null);
+    94→  const [inView, setInView] = React.useState(false);
+    95→  React.useEffect(() => {
+    96→    const el = ref.current;
+    97→    if (!el) return;
+    98→    const ob = new IntersectionObserver(
+    99→      ([entry]) => {
+   100→        if (entry.isIntersecting) {
+   101→          setInView(true);
+   102→          ob.disconnect();
+   103→        }
+   104→      },
+   105→      opts ?? { threshold: 0.2 },
+   106→    );
+   107→    ob.observe(el);
+   108→    return () => ob.disconnect();
+   109→  }, [opts]);
+   110→  return { ref, inView };
+   111→}
+   112→
+   113→function useCountUp(target: number, run: boolean, duration = 1400) {
+   114→  const reduced = useReducedMotion();
+   115→  const [val, setVal] = React.useState(0);
+   116→  React.useEffect(() => {
+   117→    if (!run) return;
+   118→    if (reduced) {
+   119→      setVal(target);
+   120→      return;
+   121→    }
+   122→    let raf = 0;
+   123→    const start = performance.now();
+   124→    const tick = (now: number) => {
+   125→      const t = Math.min(1, (now - start) / duration);
+   126→      const eased = 1 - Math.pow(1 - t, 3);
+   127→      setVal(target * eased);
+   128→      if (t < 1) raf = requestAnimationFrame(tick);
+   129→      else setVal(target);
+   130→    };
+   131→    raf = requestAnimationFrame(tick);
+   132→    return () => cancelAnimationFrame(raf);
+   133→  }, [target, run, reduced, duration]);
+   134→  return val;
+   135→}
+   136→
+   137→function DemoBadge({ className }: { className?: string }) {
+   138→  return (
+   139→    <span
+   140→      className={cn(
+   141→        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
+   142→        className,
+   143→      )}
+   144→    >
+   145→      <Circle className="h-1.5 w-1.5 fill-amber-300 text-amber-300" aria-hidden />
+   146→      demo
+   147→    </span>
+   148→  );
+   149→}
+   150→
+   151→/* ------------------------------ Landing ------------------------------ */
+   152→
+   153→export function Landing() {
+   154→  return (
+   155→    <div className="bg-background">
+   156→      <LandingHeader />
+   157→      <main id="landing-top">
+   158→        <Hero />
+   159→        <SocialProof />
+   160→        <Problems />
+   161→        <Platform />
+   162→        <DeepDiveReservas />
+   163→        <DeepDiveCRM />
+   164→        <DeepDiveIA />
+   165→        <Pricing />
+   166→        <FAQ />
+   167→        <FinalCTA />
+   168→      </main>
+   169→    </div>
+   170→  );
+   171→}
+   172→
+   173→/* ------------------------------ Header ------------------------------- */
+   174→
+   175→function LandingHeader() {
+   176→  const setView = useNav((s) => s.setView);
+   177→  const [open, setOpen] = React.useState(false);
+   178→  const [scrolled, setScrolled] = React.useState(false);
+   179→
+   180→  React.useEffect(() => {
+   181→    const onScroll = () => setScrolled(window.scrollY > 8);
+   182→    onScroll();
+   183→    window.addEventListener("scroll", onScroll, { passive: true });
+   184→    return () => window.removeEventListener("scroll", onScroll);
+   185→  }, []);
+   186→
+   187→  const goApp = () => {
+   188→    setOpen(false);
+   189→    setView("app");
+   190→  };
+   191→
+   192→  return (
+   193→    <header
+   194→      className={cn(
+   195→        "sticky top-0 z-40 transition-all duration-300",
+   196→        scrolled
+   197→          ? "rp-glass-strong border-b border-border/60"
+   198→          : "border-b border-transparent",
+   199→      )}
+   200→    >
+   201→      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+   202→        <Link
+   203→          href="#landing-top"
+   204→          className="flex items-center gap-2.5"
+   205→          aria-label="RestoPanel — inicio"
+   206→        >
+   207→          <BrandMark className="h-8 w-8" />
+   208→          <span className="font-display text-lg tracking-tight">RestoPanel</span>
+   209→        </Link>
+   210→
+   211→        <nav
+   212→          aria-label="Navegación principal"
+   213→          className="ml-4 hidden xl:flex items-center gap-1"
+   214→        >
+   215→          {NAV_LINKS.map((label) => (
+   216→            <Link
+   217→              key={label}
+   218→              href="#p-plataforma"
+   219→              className="rounded-md px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5"
+   220→            >
+   221→              {label}
+   222→            </Link>
+   223→          ))}
+   224→        </nav>
+   225→
+   226→        <div className="ml-auto hidden items-center gap-2 lg:flex">
+   227→          <Button variant="ghost" size="sm" onClick={goApp}>
+   228→            Iniciar sesión
+   229→          </Button>
+   230→          <Button variant="outline" size="sm" onClick={goApp}>
+   231→            Solicitar demo
+   232→          </Button>
+   233→          <Button
+   234→            size="sm"
+   235→            onClick={goApp}
+   236→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   237→          >
+   238→            Crear cuenta
+   239→            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+   240→          </Button>
+   241→        </div>
+   242→
+   243→        {/* Mobile CTA (compact) */}
+   244→        <div className="ml-auto flex items-center gap-2 lg:hidden">
+   245→          <Button
+   246→            size="sm"
+   247→            onClick={goApp}
+   248→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   249→          >
+   250→            Crear cuenta
+   251→          </Button>
+   252→          <Sheet open={open} onOpenChange={setOpen}>
+   253→            <SheetTrigger asChild>
+   254→              <Button
+   255→                variant="outline"
+   256→                size="icon"
+   257→                aria-label="Abrir menú"
+   258→                className="xl:hidden"
+   259→              >
+   260→                <Menu className="h-5 w-5" aria-hidden />
+   261→              </Button>
+   262→            </SheetTrigger>
+   263→            <SheetContent side="right" className="w-[88%] sm:max-w-sm rp-glass-strong">
+   264→              <SheetHeader className="px-5 pt-5">
+   265→                <SheetTitle className="text-left">
+   266→                  <Logo />
+   267→                </SheetTitle>
+   268→              </SheetHeader>
+   269→              <nav
+   270→                aria-label="Navegación móvil"
+   271→                className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-4"
+   272→              >
+   273→                <ul className="space-y-0.5">
+   274→                  {NAV_LINKS.map((label) => (
+   275→                    <li key={label}>
+   276→                      <SheetClose asChild>
+   277→                        <Link
+   278→                          href="#p-plataforma"
+   279→                          className="flex items-center justify-between rounded-md px-3 py-2.5 text-sm text-foreground/85 hover:bg-foreground/5 hover:text-foreground"
+   280→                        >
+   281→                          {label}
+   282→                          <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+   283→                        </Link>
+   284→                      </SheetClose>
+   285→                    </li>
+   286→                  ))}
+   287→                </ul>
+   288→              </nav>
+   289→              <div className="border-t border-border/60 p-4 space-y-2">
+   290→                <Button variant="ghost" className="w-full justify-start" onClick={goApp}>
+   291→                  Iniciar sesión
+   292→                </Button>
+   293→                <Button variant="outline" className="w-full justify-center" onClick={goApp}>
+   294→                  Solicitar demo
+   295→                </Button>
+   296→                <Button
+   297→                  className="w-full justify-center bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   298→                  onClick={goApp}
+   299→                >
+   300→                  Crear cuenta
+   301→                  <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+   302→                </Button>
+   303→              </div>
+   304→            </SheetContent>
+   305→          </Sheet>
+   306→        </div>
+   307→      </div>
+   308→    </header>
+   309→  );
+   310→}
+   311→
+   312→/* ------------------------------- Hero -------------------------------- */
+   313→
+   314→function Hero() {
+   315→  const setView = useNav((s) => s.setView);
+   316→
+   317→  return (
+   318→    <section
+   319→      className="relative overflow-hidden"
+   320→      aria-labelledby="hero-title"
+   321→    >
+   322→      {/* Background layers */}
+   323→      <div
+   324→        className="absolute inset-0 -z-10 rp-grid-bg opacity-60"
+   325→        aria-hidden
+   326→      />
+   327→      <div
+   328→        className="absolute inset-0 -z-10"
+   329→        aria-hidden
+   330→        style={{
+   331→          background:
+   332→            "radial-gradient(900px 500px at 12% 8%, color-mix(in oklab, var(--gold) 18%, transparent) 0%, transparent 60%)," +
+   333→            "radial-gradient(800px 500px at 92% 22%, color-mix(in oklab, var(--teal) 16%, transparent) 0%, transparent 55%)," +
+   334→            "radial-gradient(700px 700px at 50% 100%, color-mix(in oklab, var(--gold) 8%, transparent) 0%, transparent 60%)",
+   335→        }}
+   336→      />
+   337→      <div
+   338→        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40"
+   339→        aria-hidden
+   340→        style={{
+   341→          background:
+   342→            "linear-gradient(to top, var(--background) 0%, transparent 100%)",
+   343→        }}
+   344→      />
+   345→
+   346→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32">
+   347→        <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-10 items-center">
+   348→          {/* Left: copy */}
+   349→          <div className="max-w-2xl">
+   350→            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--gold)]/30 bg-[var(--gold)]/8 px-3 py-1 text-xs font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+   351→              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+   352→              SaaS Enterprise para restaurantes
+   353→            </div>
+   354→
+   355→            <h1
+   356→              id="hero-title"
+   357→              className="mt-5 font-display text-4xl sm:text-5xl lg:text-6xl font-light leading-[1.05] tracking-tight text-balance"
+   358→            >
+   359→              Software para restaurantes que convierte{" "}
+   360→              <span className="rp-gold-gradient font-normal">cada servicio</span>{" "}
+   361→              en más ingresos
+   362→            </h1>
+   363→
+   364→            <p className="mt-6 text-base sm:text-lg leading-relaxed text-muted-foreground max-w-xl">
+   365→              Gestiona reservas, mesas, clientes, marketing, reputación y
+   366→              rendimiento desde una única plataforma diseñada para crecer con tu
+   367→              restaurante.
+   368→            </p>
+   369→
+   370→            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+   371→              <Button
+   372→                size="lg"
+   373→                onClick={() => setView("app")}
+   374→                className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   375→              >
+   376→                Crear cuenta
+   377→                <ArrowRight className="h-4 w-4" aria-hidden />
+   378→              </Button>
+   379→              <Button
+   380→                size="lg"
+   381→                variant="outline"
+   382→                onClick={() => setView("app")}
+   383→              >
+   384→                Solicitar demo
+   385→              </Button>
+   386→              <Button
+   387→                size="lg"
+   388→                variant="ghost"
+   389→                onClick={() => setView("app")}
+   390→              >
+   391→                <PlayCircle className="h-4 w-4" aria-hidden />
+   392→                Ver cómo funciona
+   393→              </Button>
+   394→            </div>
+   395→
+   396→            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+   397→              <span className="inline-flex items-center gap-1.5">
+   398→                <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+   399→                Sin tarjeta para probar
+   400→              </span>
+   401→              <span className="inline-flex items-center gap-1.5">
+   402→                <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+   403→                Onboarding en 24-48h
+   404→              </span>
+   405→              <span className="inline-flex items-center gap-1.5">
+   406→                <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+   407→                Datos migrados desde TheFork y POS
+   408→              </span>
+   409→            </div>
+   410→          </div>
+   411→
+   412→          {/* Right: dashboard preview */}
+   413→          <HeroPreview />
+   414→        </div>
+   415→      </div>
+   416→    </section>
+   417→  );
+   418→}
+   419→
+   420→function HeroPreview() {
+   421→  const reduced = useReducedMotion();
+   422→  return (
+   423→    <div className="relative">
+   424→      <div
+   425→        className={cn(
+   426→          "relative rounded-2xl rp-glass-strong p-4 sm:p-5",
+   427→          !reduced && "animate-in fade-in slide-in-from-bottom-4 duration-700",
+   428→        )}
+   429→        style={{
+   430→          boxShadow:
+   431→            "0 0 0 1px color-mix(in oklab, var(--gold) 25%, transparent)," +
+   432→            "0 30px 80px -30px color-mix(in oklab, var(--gold) 40%, transparent)",
+   433→        }}
+   434→      >
+   435→        {/* Top bar */}
+   436→        <div className="flex items-center justify-between mb-4">
+   437→          <div className="flex items-center gap-2">
+   438→            <span className="relative inline-flex h-2.5 w-2.5">
+   439→              <span
+   440→                className={cn(
+   441→                  "absolute inset-0 rounded-full bg-[var(--teal)]",
+   442→                  !reduced && "animate-ping opacity-75",
+   443→                )}
+   444→                aria-hidden
+   445→              />
+   446→              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--teal)]" />
+   447→            </span>
+   448→            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   449→              Servicio · viernes 21:14
+   450→            </span>
+   451→          </div>
+   452→          <DemoBadge />
+   453→        </div>
+   454→
+   455→        {/* KPI grid */}
+   456→        <div className="grid grid-cols-2 gap-2.5">
+   457→          <PreviewKpi label="Reservas hoy" value="47" delta="+12%" tone="gold" />
+   458→          <PreviewKpi label="Ocupación" value="78%" delta="+5pp" tone="teal" />
+   459→          <PreviewKpi label="Ticket medio" value="38€" delta="+2€" tone="gold" />
+   460→          <PreviewKpi label="No-shows" value="3" delta="-1" tone="teal" invert />
+   461→        </div>
+   462→
+   463→        {/* Reservations mini list */}
+   464→        <div className="mt-3 rounded-xl border border-border/50 bg-background/40 overflow-hidden">
+   465→          <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+   466→            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   467→              Próximas reservas
+   468→            </span>
+   469→            <span className="text-[11px] text-muted-foreground">3 de 47</span>
+   470→          </div>
+   471→          <ul className="divide-y divide-border/40">
+   472→            {HERO_RESERVATIONS.map((r, i) => (
+   473→              <li
+   474→                key={r.name}
+   475→                className="flex items-center gap-3 px-3 py-2"
+   476→                style={{
+   477→                  animation: reduced
+   478→                    ? undefined
+   479→                    : `rp-fade-in 0.5s ease-out ${0.2 + i * 0.12}s both`,
+   480→                }}
+   481→              >
+   482→                <span className="text-xs font-mono text-[var(--gold-soft)] w-12">
+   483→                  {r.time}
+   484→                </span>
+   485→                <div className="min-w-0 flex-1">
+   486→                  <div className="text-sm font-medium truncate">{r.name}</div>
+   487→                  <div className="text-[11px] text-muted-foreground">
+   488→                    {r.pax} pax · {r.table}
+   489→                  </div>
+   490→                </div>
+   491→                <span
+   492→                  className={cn(
+   493→                    "rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   494→                    r.status === "Confirmada" &&
+   495→                      "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   496→                    r.status === "Pendiente" &&
+   497→                      "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   498→                    r.status === "En mesa" &&
+   499→                      "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   500→                  )}
+   501→                >
+   502→                  {r.status}
+   503→                </span>
+   504→              </li>
+   505→            ))}
+   506→          </ul>
+   507→        </div>
+   508→
+   509→        {/* Floor plan mini */}
+   510→        <div className="mt-3 rounded-xl border border-border/50 bg-background/40 p-3">
+   511→          <div className="flex items-center justify-between mb-2.5">
+   512→            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   513→              Plano de sala
+   514→            </span>
+   515→            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+   516→              <LegendDot className="bg-[var(--gold)]" label="Ocupada" />
+   517→              <LegendDot className="bg-[var(--teal)]" label="Reservada" />
+   518→              <LegendDot className="bg-foreground/25" label="Libre" />
+   519→            </div>
+   520→          </div>
+   521→          <div className="grid grid-cols-3 gap-2">
+   522→            {HERO_TABLES.map((t, i) => (
+   523→              <div
+   524→                key={t.id}
+   525→                className={cn(
+   526→                  "rounded-md border px-2 py-2 text-center text-[11px] font-mono",
+   527→                  t.state === "ocupada" &&
+   528→                    "border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold-soft)]",
+   529→                  t.state === "reservada" &&
+   530→                    "border-[var(--teal)]/45 bg-[var(--teal)]/12 text-[var(--teal)]",
+   531→                  t.state === "libre" &&
+   532→                    "border-border/50 bg-foreground/[0.03] text-muted-foreground",
+   533→                )}
+   534→                style={{
+   535→                  animation: reduced
+   536→                    ? undefined
+   537→                    : `rp-fade-in 0.4s ease-out ${0.4 + i * 0.06}s both`,
+   538→                }}
+   539→              >
+   540→                <div className="text-[10px] uppercase tracking-wider opacity-70">
+   541→                  {t.id}
+   542→                </div>
+   543→                <div className="mt-0.5 text-sm">{t.pax}p</div>
+   544→              </div>
+   545→            ))}
+   546→          </div>
+   547→        </div>
+   548→      </div>
+   549→
+   550→      {/* Floating chip */}
+   551→      <div
+   552→        className={cn(
+   553→          "absolute -left-4 top-1/3 hidden sm:flex rp-glass-strong rounded-lg px-3 py-2 items-center gap-2",
+   554→          !reduced && "animate-in fade-in slide-in-from-left-4 duration-700 delay-300",
+   555→        )}
+   556→        style={{
+   557→          boxShadow:
+   558→            "0 0 0 1px color-mix(in oklab, var(--teal) 30%, transparent)",
+   559→        }}
+   560→      >
+   561→        <Bot className="h-4 w-4 text-[var(--teal)]" aria-hidden />
+   562→        <div className="text-[11px] leading-tight">
+   563→          <div className="text-muted-foreground">IA Copilot</div>
+   564→          <div className="font-medium">Mesa 7 rinde -18%</div>
+   565→        </div>
+   566→      </div>
+   567→    </div>
+   568→  );
+   569→}
+   570→
+   571→function PreviewKpi({
+   572→  label,
+   573→  value,
+   574→  delta,
+   575→  tone,
+   576→  invert,
+   577→}: {
+   578→  label: string;
+   579→  value: string;
+   580→  delta: string;
+   581→  tone: "gold" | "teal";
+   582→  invert?: boolean;
+   583→}) {
+   584→  const isPositive = !invert;
+   585→  return (
+   586→    <div className="rounded-xl border border-border/50 bg-background/40 p-3">
+   587→      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   588→        {label}
+   589→      </div>
+   590→      <div className="mt-1 flex items-baseline gap-2">
+   591→        <span className="font-display text-2xl font-light">{value}</span>
+   592→        <span
+   593→          className={cn(
+   594→            "text-xs font-mono",
+   595→            tone === "gold"
+   596→              ? "text-[var(--gold-soft)]"
+   597→              : "text-[var(--teal)]",
+   598→            !isPositive && "text-[var(--teal)]",
+   599→          )}
+   600→        >
+   601→          {delta}
+   602→        </span>
+   603→      </div>
+   604→    </div>
+   605→  );
+   606→}
+   607→
+   608→function LegendDot({ className, label }: { className: string; label: string }) {
+   609→  return (
+   610→    <span className="inline-flex items-center gap-1">
+   611→      <span className={cn("h-1.5 w-1.5 rounded-full", className)} aria-hidden />
+   612→      {label}
+   613→    </span>
+   614→  );
+   615→}
+   616→
+   617→const HERO_RESERVATIONS = [
+   618→  { time: "21:30", name: "Familia Ortega", pax: 4, table: "Mesa 12", status: "Confirmada" as const },
+   619→  { time: "21:45", name: "Sra. Velasco", pax: 2, table: "Mesa 5", status: "Pendiente" as const },
+   620→  { time: "22:00", name: "Cumple Lara", pax: 6, table: "Mesa 18", status: "En mesa" as const },
+   621→];
+   622→
+   623→const HERO_TABLES = [
+   624→  { id: "M1", pax: 2, state: "ocupada" as const },
+   625→  { id: "M2", pax: 2, state: "libre" as const },
+   626→  { id: "M3", pax: 4, state: "reservada" as const },
+   627→  { id: "M5", pax: 2, state: "reservada" as const },
+   628→  { id: "M7", pax: 4, state: "ocupada" as const },
+   629→  { id: "M9", pax: 6, state: "libre" as const },
+   630→];
+   631→
+   632→/* --------------------------- Social proof ---------------------------- */
+   633→
+   634→const METRICS: {
+   635→  label: string;
+   636→  target: number;
+   637→  decimals?: number;
+   638→  prefix?: string;
+   639→  suffix?: string;
+   640→  format?: (v: number) => string;
+   641→}[] = [
+   642→  { label: "Reservas gestionadas", target: 1.2, format: (v) => `${v.toFixed(1)}M` },
+   643→  { label: "Restaurantes activos", target: 3400, format: (v) => Math.round(v).toLocaleString("es-ES") },
+   644→  { label: "No-shows reducidos", target: -42, format: (v) => `${Math.round(v)}%` },
+   645→  { label: "Horas ahorradas", target: 180, format: (v) => `${Math.round(v)}k/mes` },
+   646→  { label: "Clientas fidelizadas", target: 2.1, format: (v) => `${v.toFixed(1)}M` },
+   647→  { label: "Mejora media valoración", target: 0.6, format: (v) => `+${v.toFixed(1)}★` },
+   648→];
+   649→
+   650→function SocialProof() {
+   651→  const { ref, inView } = useInView<HTMLDivElement>();
+   652→  return (
+   653→    <section className="border-t border-border/40 bg-background/60 py-14 sm:py-20">
+   654→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   655→        <div className="flex items-center justify-between mb-8">
+   656→          <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   657→            La plataforma en cifras
+   658→          </p>
+   659→          <DemoBadge />
+   660→        </div>
+   661→        <div
+   662→          ref={ref}
+   663→          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6"
+   664→        >
+   665→          {METRICS.map((m, i) => (
+   666→            <MetricCard key={m.label} metric={m} run={inView} delay={i * 80} />
+   667→          ))}
+   668→        </div>
+   669→      </div>
+   670→    </section>
+   671→  );
+   672→}
+   673→
+   674→function MetricCard({
+   675→  metric,
+   676→  run,
+   677→  delay,
+   678→}: {
+   679→  metric: (typeof METRICS)[number];
+   680→  run: boolean;
+   681→  delay: number;
+   682→}) {
+   683→  const val = useCountUp(metric.target, run);
+   684→  const reduced = useReducedMotion();
+   685→  return (
+   686→    <div
+   687→      className={cn(
+   688→        "rp-glass rounded-xl p-4 sm:p-5",
+   689→        !reduced && "animate-in fade-in slide-in-from-bottom-2 duration-500",
+   690→      )}
+   691→      style={{ animationDelay: reduced ? undefined : `${delay}ms` }}
+   692→    >
+   693→      <div className="font-display text-2xl sm:text-3xl font-light rp-gold-text">
+   694→        {metric.format(val)}
+   695→      </div>
+   696→      <div className="mt-1.5 text-xs text-muted-foreground leading-snug">
+   697→        {metric.label}
+   698→      </div>
+   699→    </div>
+   700→  );
+   701→}
+   702→
+   703→/* ----------------------------- Problems ------------------------------ */
+   704→
+   705→type Problem = {
+   706→  icon: LucideIcon;
+   707→  title: string;
+   708→  desc: string;
+   709→  sol: string;
+   710→  section: Section;
+   711→};
+   712→
+   713→const PROBLEMS: Problem[] = [
+   714→  {
+   715→    icon: CalendarX,
+   716→    title: "Reservas dispersas",
+   717→    desc: "WhatsApp, teléfono, TheFork y web sin una sola fuente de verdad.",
+   718→    sol: "Reservas inteligentes",
+   719→    section: "reservas",
+   720→  },
+   721→  {
+   722→    icon: CalendarClock,
+   723→    title: "Mesas vacías",
+   724→    desc: "Turnos sin optimizar y plano de sala sin visibilidad de ocupación real.",
+   725→    sol: "Plano de mesas",
+   726→    section: "reservas",
+   727→  },
+   728→  {
+   729→    icon: UserX,
+   730→    title: "No-shows",
+   731→    desc: "Huecos imprevistos que cuestan hasta el 15% de la facturación mensual.",
+   732→    sol: "Reservas inteligentes",
+   733→    section: "reservas",
+   734→  },
+   735→  {
+   736→    icon: Database,
+   737→    title: "Datos de clientes perdidos",
+   738→    desc: "Histórico, preferencias y alergias repartidos en cuadernos y teléfonos.",
+   739→    sol: "CRM",
+   740→    section: "crm",
+   741→  },
+   742→  {
+   743→    icon: Star,
+   744→    title: "Reseñas sin responder",
+   745→    desc: "Cada reseña sin respuesta es un cliente que no vuelve.",
+   746→    sol: "Google Reviews",
+   747→    section: "reviews",
+   748→  },
+   749→  {
+   750→    icon: Hand,
+   751→    title: "Procesos manuales",
+   752→    desc: "Confirmaciones, recordatorios y cumpleaños gestionados a mano.",
+   753→    sol: "Automatizaciones",
+   754→    section: "automatizaciones",
+   755→  },
+   756→  {
+   757→    icon: Unplug,
+   758→    title: "Herramientas desconectadas",
+   759→    desc: "POS, delivery, reservas y marketing en silos que no comparten datos.",
+   760→    sol: "Integraciones",
+   761→    section: "integraciones",
+   762→  },
+   763→  {
+   764→    icon: TrendingDown,
+   765→    title: "Sin visibilidad de rentabilidad",
+   766→    desc: "Decisiones sin datos: no sabes qué plato, turno o camarero pierde dinero.",
+   767→    sol: "Analytics",
+   768→    section: "analytics",
+   769→  },
+   770→];
+   771→
+   772→function Problems() {
+   773→  const go = useNav((s) => s.go);
+   774→  return (
+   775→    <section className="border-t border-border/60 py-16 sm:py-24">
+   776→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   777→        <header className="mb-10 sm:mb-14 max-w-3xl">
+   778→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   779→            <span className="rp-gold-text">01</span>
+   780→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+   781→            <span>El problema</span>
+   782→          </div>
+   783→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+   784→            Ocho problemas que cuestan dinero cada servicio
+   785→          </h2>
+   786→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+   787→            Cada cuello de botella se traduce en reservas perdidas, mesas vacías
+   788→            o clientes que no vuelven. RestoPanel ataca cada uno con un módulo
+   789→            concreto.
+   790→          </p>
+   791→        </header>
+   792→
+   793→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   794→          {PROBLEMS.map((p) => (
+   795→            <div
+   796→              key={p.title}
+   797→              className="group rp-glass rounded-2xl p-5 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+   798→            >
+   799→              <div className="flex items-center justify-between">
+   800→                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border/60 bg-foreground/5 text-muted-foreground group-hover:text-[var(--gold-soft)] group-hover:border-[var(--gold)]/40 transition-colors">
+   801→                  <p.icon className="h-5 w-5" aria-hidden />
+   802→                </div>
+   803→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+   804→                  problema
+   805→                </span>
+   806→              </div>
+   807→              <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+   808→                {p.title}
+   809→              </h3>
+   810→              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+   811→                {p.desc}
+   812→              </p>
+   813→              <button
+   814→                onClick={() => go(p.section)}
+   815→                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)]"
+   816→              >
+   817→                <span className="text-muted-foreground">→ Solución:</span>
+   818→                <span>{p.sol}</span>
+   819→                <ArrowUpRight className="h-3 w-3" aria-hidden />
+   820→              </button>
+   821→            </div>
+   822→          ))}
+   823→        </div>
+   824→      </div>
+   825→    </section>
+   826→  );
+   827→}
+   828→
+   829→/* ----------------------------- Platform ------------------------------ */
+   830→
+   831→type Module = {
+   832→  name: string;
+   833→  benefit: string;
+   834→  icon: LucideIcon;
+   835→  status: "Disponible" | "Próximamente";
+   836→  section: Section;
+   837→};
+   838→
+   839→const MODULES: Module[] = [
+   840→  {
+   841→    name: "Reservas inteligentes",
+   842→    benefit: "Calendario, timeline y confirmaciones automáticas que reducen no-shows.",
+   843→    icon: CalendarCheck,
+   844→    status: "Disponible",
+   845→    section: "reservas",
+   846→  },
+   847→  {
+   848→    name: "Plano de mesas",
+   849→    benefit: "Drag & drop de mesas en tiempo real con estados y turnos.",
+   850→    icon: LayoutGrid,
+   851→    status: "Disponible",
+   852→    section: "reservas",
+   853→  },
+   854→  {
+   855→    name: "CRM",
+   856→    benefit: "Historial, preferencias, alergias, VIP y consentimiento por cliente.",
+   857→    icon: Users,
+   858→    status: "Disponible",
+   859→    section: "crm",
+   860→  },
+   861→  {
+   862→    name: "Marketing",
+   863→    benefit: "Campañas SMS y email segmentadas y medibles desde el CRM.",
+   864→    icon: Megaphone,
+   865→    status: "Disponible",
+   866→    section: "marketing",
+   867→  },
+   868→  {
+   869→    name: "Automatizaciones",
+   870→    benefit: "Reglas if-this-then-that para reservas, no-shows y cumpleaños.",
+   871→    icon: Workflow,
+   872→    status: "Disponible",
+   873→    section: "automatizaciones",
+   874→  },
+   875→  {
+   876→    name: "Google Reviews",
+   877→    benefit: "Solicita reseñas en el momento justo y responde desde un buzón único.",
+   878→    icon: Star,
+   879→    status: "Disponible",
+   880→    section: "reviews",
+   881→  },
+   882→  {
+   883→    name: "Analytics",
+   884→    benefit: "Rentabilidad por servicio, plato, camarero y horario en tiempo real.",
+   885→    icon: BarChart3,
+   886→    status: "Disponible",
+   887→    section: "analytics",
+   888→  },
+   889→  {
+   890→    name: "IA Copilot",
+   891→    benefit: "Pregunta en lenguaje natural y actúa: “¿Qué mesa rinde menos?”.",
+   892→    icon: Bot,
+   893→    status: "Disponible",
+   894→    section: "dashboard",
+   895→  },
+   896→  {
+   897→    name: "Lista de espera",
+   898→    benefit: "Walk-ins con SMS de aviso y estimación de espera en vivo.",
+   899→    icon: Hourglass,
+   900→    status: "Próximamente",
+   901→    section: "reservas",
+   902→  },
+   903→  {
+   904→    name: "Marketplace",
+   905→    benefit: "Conecta con proveedores y servicios para restaurantes.",
+   906→    icon: Store,
+   907→    status: "Próximamente",
+   908→    section: "integraciones",
+   909→  },
+   910→  {
+   911→    name: "Integraciones",
+   912→    benefit: "Stripe, WhatsApp, Google Business, SumUp, TheFork y más.",
+   913→    icon: Plug,
+   914→    status: "Disponible",
+   915→    section: "integraciones",
+   916→  },
+   917→];
+   918→
+   919→function Platform() {
+   920→  const go = useNav((s) => s.go);
+   921→  return (
+   922→    <section
+   923→      id="p-plataforma"
+   924→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+   925→    >
+   926→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   927→        <header className="mb-10 sm:mb-14 max-w-3xl">
+   928→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   929→            <span className="rp-gold-text">02</span>
+   930→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+   931→            <span>La plataforma</span>
+   932→          </div>
+   933→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+   934→            Una plataforma conectada, no una colección de herramientas
+   935→          </h2>
+   936→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+   937→            Once módulos que comparten los mismos datos, los mismos permisos y la
+   938→            misma identidad de cliente. Lo que cambia en reservas aparece al
+   939→            instante en CRM, analytics y marketing.
+   940→          </p>
+   941→        </header>
+   942→
+   943→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   944→          {MODULES.map((m) => (
+   945→            <div
+   946→              key={m.name}
+   947→              className="group flex flex-col rp-glass rounded-2xl p-5 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+   948→            >
+   949→              <div className="flex items-start justify-between">
+   950→                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]">
+   951→                  <m.icon className="h-5 w-5" aria-hidden />
+   952→                </div>
+   953→                <StatusPill status={m.status} />
+   954→              </div>
+   955→              <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+   956→                {m.name}
+   957→              </h3>
+   958→              <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted-foreground">
+   959→                {m.benefit}
+   960→              </p>
+   961→              <button
+   962→                onClick={() => go(m.section)}
+   963→                className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)] self-start"
+   964→                aria-label={`Explorar módulo ${m.name}`}
+   965→              >
+   966→                Explorar
+   967→                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+   968→              </button>
+   969→            </div>
+   970→          ))}
+   971→        </div>
+   972→      </div>
+   973→    </section>
+   974→  );
+   975→}
+   976→
+   977→function StatusPill({ status }: { status: "Disponible" | "Próximamente" }) {
+   978→  if (status === "Disponible") {
+   979→    return (
+   980→      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
+   981→        <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]" aria-hidden />
+   982→        Disponible
+   983→      </span>
+   984→    );
+   985→  }
+   986→  return (
+   987→    <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-foreground/5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   988→      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" aria-hidden />
+   989→      Próximamente
+   990→    </span>
+   991→  );
+   992→}
+   993→
+   994→/* ----------------------- Deep dive: Reservas ------------------------- */
+   995→
+   996→function DeepDiveReservas() {
+   997→  const go = useNav((s) => s.go);
+   998→  return (
+   999→    <section className="border-t border-border/60 py-16 sm:py-24">
+  1000→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1001→        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+  1002→          <div>
+  1003→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1004→              <span className="rp-gold-text">03</span>
+  1005→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1006→              <span>Reservas y plano inteligente</span>
+  1007→            </div>
+  1008→            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-light tracking-tight text-balance">
+  1009→              Calendario, timeline y drag &amp; drop de mesas en una sola vista
+  1010→            </h2>
+  1011→            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+  1012→              Cada reserva entra al sistema una sola vez y aparece en el
+  1013→              calendario, en el plano y en el CRM. Las confirmaciones y
+  1014→              recordatorios se envían solos, y las reglas anti-no-show deciden
+  1015→              cuándo pedir depósito o tarjeta.
+  1016→            </p>
+  1017→            <ul className="mt-6 space-y-3">
+  1018→              {[
+  1019→                "Calendario por turnos con filtros de servicio, zona y pax.",
+  1020→                "Timeline horizontal con drag & drop entre mesas y horas.",
+  1021→                "Confirmaciones automáticas por SMS y WhatsApp con idempotencia.",
+  1022→                "Reglas anti-no-show: depósito, pre-autorización o lista de espera.",
+  1023→                "Sustitución de última hora con reasignación inteligente de mesas.",
+  1024→              ].map((t) => (
+  1025→                <li key={t} className="flex gap-3 text-sm leading-relaxed">
+  1026→                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--gold)]" aria-hidden />
+  1027→                  <span className="text-foreground/85">{t}</span>
+  1028→                </li>
+  1029→              ))}
+  1030→            </ul>
+  1031→            <div className="mt-7 flex flex-wrap gap-3">
+  1032→              <Button
+  1033→                onClick={() => go("reservas")}
+  1034→                className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1035→              >
+  1036→                Explorar reservas
+  1037→                <ArrowRight className="h-4 w-4" aria-hidden />
+  1038→              </Button>
+  1039→              <Button variant="outline" onClick={() => go("reservas")}>
+  1040→                Ver plano en vivo
+  1041→              </Button>
+  1042→            </div>
+  1043→          </div>
+  1044→
+  1045→          <ReservationsMock />
+  1046→        </div>
+  1047→      </div>
+  1048→    </section>
+  1049→  );
+  1050→}
+  1051→
+  1052→function ReservationsMock() {
+  1053→  const hours = ["13:00", "13:30", "14:00", "14:30", "15:00"];
+  1054→  const lanes = ["Mesa 5", "Mesa 7", "Mesa 12"];
+  1055→  const blocks: Record<string, { start: number; span: number; name: string; pax: number; tone: "gold" | "teal" | "muted" }> = {
+  1056→    "Mesa 5": { start: 0, span: 2, name: "Sra. Velasco", pax: 2, tone: "teal" },
+  1057→    "Mesa 7": { start: 1, span: 3, name: "Familia Ortega", pax: 4, tone: "gold" },
+  1058→    "Mesa 12": { start: 2, span: 2, name: "Cumple Lara", pax: 6, tone: "gold" },
+  1059→  };
+  1060→
+  1061→  return (
+  1062→    <div className="rp-glass-strong rounded-2xl p-4 sm:p-5 relative">
+  1063→      <DemoBadge className="absolute right-4 top-4" />
+  1064→      <div className="flex items-center gap-2 mb-4">
+  1065→        <CalendarCheck className="h-4 w-4 text-[var(--gold-soft)]" aria-hidden />
+  1066→        <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1067→          Timeline · viernes · servicio de comida
+  1068→        </span>
+  1069→      </div>
+  1070→
+  1071→      {/* Calendar header */}
+  1072→      <div className="grid gap-2" style={{ gridTemplateColumns: `120px repeat(${hours.length}, 1fr)` }}>
+  1073→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground" />
+  1074→        {hours.map((h) => (
+  1075→          <div
+  1076→            key={h}
+  1077→            className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center"
+  1078→          >
+  1079→            {h}
+  1080→          </div>
+  1081→        ))}
+  1082→
+  1083→        {lanes.map((lane) => (
+  1084→          <React.Fragment key={lane}>
+  1085→            <div className="text-xs text-foreground/80 font-medium py-3">
+  1086→              {lane}
+  1087→            </div>
+  1088→            {hours.map((_, hi) => {
+  1089→              const b = blocks[lane];
+  1090→              const isStart = b && hi === b.start;
+  1091→              const isInside = b && hi > b.start && hi < b.start + b.span;
+  1092→              if (isStart) {
+  1093→                return (
+  1094→                  <div
+  1095→                    key={`${lane}-${hi}`}
+  1096→                    className={cn(
+  1097→                      "rounded-md border px-2 py-2 text-xs h-14 flex flex-col justify-center",
+  1098→                      b.tone === "gold" &&
+  1099→                        "border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold-soft)]",
+  1100→                      b.tone === "teal" &&
+  1101→                        "border-[var(--teal)]/45 bg-[var(--teal)]/12 text-[var(--teal)]",
+  1102→                      b.tone === "muted" &&
+  1103→                        "border-border/50 bg-foreground/5 text-muted-foreground",
+  1104→                    )}
+  1105→                    style={{ gridColumn: `span ${b.span}` }}
+  1106→                  >
+  1107→                    <div className="font-medium truncate">{b.name}</div>
+  1108→                    <div className="text-[10px] opacity-80">{b.pax} pax</div>
+  1109→                  </div>
+  1110→                );
+  1111→              }
+  1112→              if (isInside) return null;
+  1113→              return (
+  1114→                <div
+  1115→                  key={`${lane}-${hi}`}
+  1116→                  className="h-14 rounded-md border border-dashed border-border/40 bg-background/30"
+  1117→                />
+  1118→              );
+  1119→            })}
+  1120→          </React.Fragment>
+  1121→        ))}
+  1122→      </div>
+  1123→
+  1124→      <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
+  1125→        <div className="rounded-md border border-border/50 bg-background/40 p-2">
+  1126→          <div className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+  1127→            Confirmadas
+  1128→          </div>
+  1129→          <div className="mt-1 font-display text-lg text-[var(--gold-soft)]">
+  1130→            47
+  1131→          </div>
+  1132→        </div>
+  1133→        <div className="rounded-md border border-border/50 bg-background/40 p-2">
+  1134→          <div className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+  1135→            Pendientes
+  1136→          </div>
+  1137→          <div className="mt-1 font-display text-lg text-amber-300">5</div>
+  1138→        </div>
+  1139→        <div className="rounded-md border border-border/50 bg-background/40 p-2">
+  1140→          <div className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+  1141→            Riesgo no-show
+  1142→          </div>
+  1143→          <div className="mt-1 font-display text-lg text-[var(--teal)]">2</div>
+  1144→        </div>
+  1145→      </div>
+  1146→    </div>
+  1147→  );
+  1148→}
+  1149→
+  1150→/* ------------------------- Deep dive: CRM ---------------------------- */
+  1151→
+  1152→function DeepDiveCRM() {
+  1153→  const go = useNav((s) => s.go);
+  1154→  return (
+  1155→    <section className="border-t border-border/60 py-16 sm:py-24 bg-foreground/[0.02]">
+  1156→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1157→        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+  1158→          <CrmMock />
+  1159→          <div className="lg:order-2">
+  1160→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1161→              <span className="rp-gold-text">04</span>
+  1162→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1163→              <span>CRM que recuerda</span>
+  1164→            </div>
+  1165→            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-light tracking-tight text-balance">
+  1166→              Cada cliente con su historia, no solo con su teléfono
+  1167→            </h2>
+  1168→            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+  1169→              El CRM de RestoPanel recuerda cada visita, cada preferencia y cada
+  1170→              alergia. Cuando el cliente vuelve, el equipo de sala sabe
+  1171→              exactamente cómo atenderle — y el marketing sabe qué mensaje
+  1172→              enviarle.
+  1173→            </p>
+  1174→            <div className="mt-6 grid sm:grid-cols-2 gap-3">
+  1175→              {[
+  1176→                { k: "Visitas", v: "Historial completo por cliente" },
+  1177→                { k: "Frecuencia", v: "Cadencia y última visita" },
+  1178→                { k: "Ticket medio", v: "Gasto acumulado y por servicio" },
+  1179→                { k: "Preferencias", v: "Mesa favorita, platos, vino" },
+  1180→                { k: "Alergias", v: "Avisos en sala y en cocina" },
+  1181→                { k: "Cumpleaños", v: "Campañas automáticas" },
+  1182→                { k: "Etiquetas", v: "VIP, business, regular, famoso" },
+  1183→                { k: "Consentimiento", v: "RGPD y preferencias de canal" },
+  1184→              ].map((it) => (
+  1185→                <div
+  1186→                  key={it.k}
+  1187→                  className="rp-glass rounded-lg p-3"
+  1188→                >
+  1189→                  <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1190→                    {it.k}
+  1191→                  </div>
+  1192→                  <div className="mt-1 text-sm text-foreground/85">{it.v}</div>
+  1193→                </div>
+  1194→              ))}
+  1195→            </div>
+  1196→            <Button
+  1197→              className="mt-7 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1198→              onClick={() => go("crm")}
+  1199→            >
+  1200→              Explorar CRM
+  1201→              <ArrowRight className="h-4 w-4" aria-hidden />
+  1202→            </Button>
+  1203→          </div>
+  1204→        </div>
+  1205→      </div>
+  1206→    </section>
+  1207→  );
+  1208→}
+  1209→
+  1210→function CrmMock() {
+  1211→  return (
+  1212→    <div className="rp-glass-strong rounded-2xl p-5 relative">
+  1213→      <DemoBadge className="absolute right-4 top-4" />
+  1214→      <div className="flex items-center gap-3">
+  1215→        <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-lg font-medium">
+  1216→          EV
+  1217→        </div>
+  1218→        <div className="flex-1 min-w-0">
+  1219→          <div className="flex items-center gap-2">
+  1220→            <h3 className="font-display text-lg font-medium">Elena Velasco</h3>
+  1221→            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--gold)]/45 bg-[var(--gold)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1222→              <Star className="h-3 w-3" aria-hidden />
+  1223→              VIP
+  1224→            </span>
+  1225→          </div>
+  1226→          <div className="text-xs text-muted-foreground">
+  1227→            Cliente desde 2022 · +34 6•• ••• ••8
+  1228→          </div>
+  1229→        </div>
+  1230→      </div>
+  1231→
+  1232→      <div className="mt-4 grid grid-cols-3 gap-2">
+  1233→        <MiniStat label="Visitas" value="28" />
+  1234→        <MiniStat label="Freq." value="2,1/mes" />
+  1235→        <MiniStat label="Ticket" value="42€" />
+  1236→      </div>
+  1237→
+  1238→      <div className="mt-4 rounded-xl border border-border/50 bg-background/40 p-3">
+  1239→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+  1240→          Preferencias
+  1241→        </div>
+  1242→        <div className="flex flex-wrap gap-1.5">
+  1243→          {["Mesa 5 (ventana)", "Vino tinto Rioja", "Sin gluten", "Cumple 14/03"].map((t) => (
+  1244→            <span
+  1245→              key={t}
+  1246→              className="rounded-md border border-border/60 bg-foreground/5 px-2 py-0.5 text-[11px]"
+  1247→            >
+  1248→              {t}
+  1249→            </span>
+  1250→          ))}
+  1251→        </div>
+  1252→      </div>
+  1253→
+  1254→      <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/8 p-3">
+  1255→        <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+  1256→          <ShieldCheck className="h-3 w-3" aria-hidden />
+  1257→          Alergias
+  1258→        </div>
+  1259→        <div className="mt-1 text-sm text-amber-200">
+  1260→          Apio · Mariscos (anafilaxia)
+  1261→        </div>
+  1262→      </div>
+  1263→
+  1264→      <div className="mt-3 rounded-xl border border-border/50 bg-background/40 p-3">
+  1265→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+  1266→          Últimas visitas
+  1267→        </div>
+  1268→        <ul className="space-y-1.5 text-xs">
+  1269→          {[
+  1270→            { d: "12 mar", t: "Comida · 2p · 44€" },
+  1271→            { d: "28 feb", t: "Cena · 4p · 168€" },
+  1272→            { d: "14 feb", t: "Cena · 2p · 38€" },
+  1273→          ].map((v) => (
+  1274→            <li key={v.d} className="flex items-center gap-3">
+  1275→              <span className="font-mono text-[var(--gold-soft)] w-12">{v.d}</span>
+  1276→              <span className="text-foreground/80">{v.t}</span>
+  1277→            </li>
+  1278→          ))}
+  1279→        </ul>
+  1280→      </div>
+  1281→    </div>
+  1282→  );
+  1283→}
+  1284→
+  1285→function MiniStat({ label, value }: { label: string; value: string }) {
+  1286→  return (
+  1287→    <div className="rounded-lg border border-border/50 bg-background/40 p-2 text-center">
+  1288→      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1289→        {label}
+  1290→      </div>
+  1291→      <div className="mt-0.5 font-display text-base text-[var(--gold-soft)]">
+  1292→        {value}
+  1293→      </div>
+  1294→    </div>
+  1295→  );
+  1296→}
+  1297→
+  1298→/* ------------------------- Deep dive: IA ----------------------------- */
+  1299→
+  1300→function DeepDiveIA() {
+  1301→  const go = useNav((s) => s.go);
+  1302→  const [active, setActive] = React.useState(0);
+  1303→  const reduced = useReducedMotion();
+  1304→
+  1305→  return (
+  1306→    <section className="border-t border-border/60 py-16 sm:py-24">
+  1307→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1308→        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+  1309→          <div>
+  1310→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1311→              <span className="rp-gold-text">05</span>
+  1312→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1313→              <span>IA Copilot</span>
+  1314→            </div>
+  1315→            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-light tracking-tight text-balance">
+  1316→              Pregunta en lenguaje natural. Recibe respuestas con fuentes y
+  1317→              confianza.
+  1318→            </h2>
+  1319→            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+  1320→              El Copilot lee tus datos de reservas, CRM y analytics y responde
+  1321→              con un nivel de confianza, las fuentes que usó y las acciones que
+  1322→              puedes ejecutar directamente desde el chat.
+  1323→            </p>
+  1324→
+  1325→            <div className="mt-6 flex flex-wrap gap-2">
+  1326→              {IA_QUERIES.map((q, i) => (
+  1327→                <button
+  1328→                  key={q}
+  1329→                  onClick={() => setActive(i)}
+  1330→                  className={cn(
+  1331→                    "rounded-full border px-3 py-1.5 text-xs transition-colors",
+  1332→                    active === i
+  1333→                      ? "border-[var(--teal)]/50 bg-[var(--teal)]/10 text-[var(--teal)]"
+  1334→                      : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
+  1335→                  )}
+  1336→                >
+  1337→                  {q}
+  1338→                </button>
+  1339→              ))}
+  1340→            </div>
+  1341→
+  1342→            <Button
+  1343→              className="mt-7 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1344→              onClick={() => go("dashboard")}
+  1345→            >
+  1346→              Hablar con el Copilot
+  1347→              <ArrowRight className="h-4 w-4" aria-hidden />
+  1348→            </Button>
+  1349→          </div>
+  1350→
+  1351→          <div className="rp-glass-strong rounded-2xl p-5 relative">
+  1352→            <DemoBadge className="absolute right-4 top-4" />
+  1353→            <div className="flex items-center gap-2 mb-4">
+  1354→              <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]">
+  1355→                <Bot className="h-4 w-4" aria-hidden />
+  1356→              </div>
+  1357→              <div>
+  1358→                <div className="text-sm font-medium">RestoPanel Copilot</div>
+  1359→                <div className="text-[11px] text-muted-foreground">
+  1360→                  Conectado a reservas · CRM · analytics
+  1361→                </div>
+  1362→              </div>
+  1363→            </div>
+  1364→
+  1365→            <div
+  1366→              className="rounded-xl border border-border/50 bg-background/40 p-3 mb-3"
+  1367→              aria-live="polite"
+  1368→            >
+  1369→              <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+  1370→                <Quote className="h-3 w-3" aria-hidden />
+  1371→                Pregunta
+  1372→              </div>
+  1373→              <div className="text-sm text-foreground/90">
+  1374→                {IA_QUERIES[active]}
+  1375→              </div>
+  1376→            </div>
+  1377→
+  1378→            <div
+  1379→              key={active}
+  1380→              className={cn(
+  1381→                "rounded-xl border border-[var(--teal)]/30 bg-[var(--teal)]/5 p-3",
+  1382→                !reduced && "animate-in fade-in slide-in-from-bottom-2 duration-500",
+  1383→              )}
+  1384→            >
+  1385→              <div className="flex items-center justify-between mb-2">
+  1386→                <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[var(--teal)]">
+  1387→                  <Sparkles className="h-3 w-3" aria-hidden />
+  1388→                  Respuesta
+  1389→                </div>
+  1390→                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono text-[var(--teal)]">
+  1391→                  Confianza {IA_ANSWERS[active].confidence}
+  1392→                </span>
+  1393→              </div>
+  1394→              <p className="text-sm leading-relaxed text-foreground/90">
+  1395→                {IA_ANSWERS[active].text}
+  1396→              </p>
+  1397→
+  1398→              <div className="mt-3">
+  1399→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+  1400→                  Fuentes
+  1401→                </div>
+  1402→                <div className="flex flex-wrap gap-1.5">
+  1403→                  {IA_ANSWERS[active].sources.map((s) => (
+  1404→                    <span
+  1405→                      key={s}
+  1406→                      className="rounded-md border border-border/60 bg-foreground/5 px-2 py-0.5 text-[11px] text-muted-foreground"
+  1407→                    >
+  1408→                      {s}
+  1409→                    </span>
+  1410→                  ))}
+  1411→                </div>
+  1412→              </div>
+  1413→
+  1414→              <div className="mt-3 flex flex-wrap gap-2">
+  1415→                {IA_ANSWERS[active].actions.map((a) => (
+  1416→                  <button
+  1417→                    key={a}
+  1418→                    onClick={() => go("dashboard")}
+  1419→                    className="inline-flex items-center gap-1.5 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-1 text-xs text-[var(--gold-soft)] hover:bg-[var(--gold)]/20"
+  1420→                  >
+  1421→                    <Zap className="h-3 w-3" aria-hidden />
+  1422→                    {a}
+  1423→                  </button>
+  1424→                ))}
+  1425→              </div>
+  1426→            </div>
+  1427→          </div>
+  1428→        </div>
+  1429→      </div>
+  1430→    </section>
+  1431→  );
+  1432→}
+  1433→
+  1434→const IA_QUERIES = [
+  1435→  "¿Qué mesa rinde menos este mes?",
+  1436→  "¿Cuánto nos han costado los no-shows en marzo?",
+  1437→  "¿Qué clientes VIP no vienen desde hace 60 días?",
+  1438→  "¿Qué turno conviene abrir más?",
+  1439→];
+  1440→
+  1441→const IA_ANSWERS: {
+  1442→  confidence: string;
+  1443→  text: string;
+  1444→  sources: string[];
+  1445→  actions: string[];
+  1446→}[] = [
+  1447→  {
+  1448→    confidence: "92%",
+  1449→    text: "La Mesa 7 rinde un 18% menos que la media del comedor en marzo: ocupa 4 pax pero solo factura 28€ por servicio, frente a los 42€ de media. Suele asignarse a parejas en horas valle (15:00-16:00).",
+  1450→    sources: ["analytics.facturacion_por_mesa", "reservas.ocupacion_30d", "crm.ticket_medio"],
+  1451→    actions: ["Reasignar Mesa 7 a 4 pax", "Bloquear en horas valle", "Ver historial completo"],
+  1452→  },
+  1453→  {
+  1454→    confidence: "97%",
+  1455→    text: "En marzo tuviste 14 no-shows con un coste estimado de 532€ (14 × 38€ ticket medio). El 71% ocurrió en viernes y sábados. Con depósito de 10€ en esas franjas reducirías el riesgo entre un 40-60%.",
+  1456→    sources: ["reservas.no_shows", "analytics.ticket_medio", "automatizaciones.reglas"],
+  1457→    actions: ["Activar depósito en fines de semana", "Ver lista de no-shows", "Crear regla anti-no-show"],
+  1458→  },
+  1459→  {
+  1460→    confidence: "89%",
+  1461→    text: "Detecto 12 clientes VIP sin visita en 60+ días. El de mayor valor histórico es Elena Velasco (28 visitas, 1.176€ acumulados), última visita el 12 de marzo. Sugerencia: campaña SMS personalizada con invitación a su mesa favorita (Mesa 5).",
+  1462→    sources: ["crm.clientes_vip", "crm.visitas_60d", "reservas.preferencias"],
+  1463→    actions: ["Lanzar campaña VIP", "Ver ficha completa", "Reservar Mesa 5"],
+  1464→  },
+  1465→  {
+  1466→    confidence: "84%",
+  1467→    text: "El viernes de 21:30 a 22:30 concentra el 38% de la demanda pero solo el 24% de la oferta de mesas. Abrir 4 mesas más en esa franja durante marzo y abril podría sumar unos 2.400€/mes adicionales.",
+  1468→    sources: ["analytics.demanda_por_hora", "reservas.ocupacion", "crm.ticket_medio"],
+  1469→    actions: ["Abrir 4 mesas extra", "Crear turno viernes-noche", "Ver proyección"],
+  1470→  },
+  1471→];
+  1472→
+  1473→/* ----------------------------- Pricing ------------------------------- */
+  1474→
+  1475→type PlanKey = "starter" | "pro" | "enterprise";
+  1476→
+  1477→const PLANS: Record<
+  1478→  PlanKey,
+  1479→  {
+  1480→    name: string;
+  1481→    monthly: number;
+  1482→    annual: number;
+  1483→    baseLocals: number;
+  1484→    maxLocals: number;
+  1485→    baseUsers: number;
+  1486→    unlimited?: boolean;
+  1487→    highlight?: boolean;
+  1488→  }
+  1489→> = {
+  1490→  starter: {
+  1491→    name: "Starter",
+  1492→    monthly: 69,
+  1493→    annual: 690,
+  1494→    baseLocals: 1,
+  1495→    maxLocals: 1,
+  1496→    baseUsers: 3,
+  1497→  },
+  1498→  pro: {
+  1499→    name: "Pro",
+  1500→    monthly: 149,
+  1501→    annual: 1490,
+  1502→    baseLocals: 5,
+  1503→    maxLocals: 5,
+  1504→    baseUsers: 10,
+  1505→    highlight: true,
+  1506→  },
+  1507→  enterprise: {
+  1508→    name: "Enterprise",
+  1509→    monthly: 399,
+  1510→    annual: 3990,
+  1511→    baseLocals: 1,
+  1512→    maxLocals: 50,
+  1513→    baseUsers: 0,
+  1514→    unlimited: true,
+  1515→  },
+  1516→};
+  1517→
+  1518→const COMPARISON: {
+  1519→  feature: string;
+  1520→  starter: string | boolean;
+  1521→  pro: string | boolean;
+  1522→  enterprise: string | boolean;
+  1523→}[] = [
+  1524→  { feature: "Locales incluidos", starter: "1", pro: "5", enterprise: "Ilimitado" },
+  1525→  { feature: "Usuarios incluidos", starter: "3", pro: "10", enterprise: "Ilimitado" },
+  1526→  { feature: "Reservas inteligentes", starter: true, pro: true, enterprise: true },
+  1527→  { feature: "Plano de mesas", starter: true, pro: true, enterprise: true },
+  1528→  { feature: "CRM", starter: true, pro: true, enterprise: true },
+  1529→  { feature: "Marketing (SMS/email)", starter: "Pay-per-use", pro: "5k incluidos", enterprise: "Ilimitado" },
+  1530→  { feature: "Automatizaciones", starter: "5 activas", pro: "50 activas", enterprise: "Ilimitado" },
+  1531→  { feature: "Google Reviews", starter: true, pro: true, enterprise: true },
+  1532→  { feature: "Analytics avanzado", starter: false, pro: true, enterprise: true },
+  1533→  { feature: "IA Copilot", starter: false, pro: true, enterprise: true },
+  1534→  { feature: "Lista de espera", starter: false, pro: false, enterprise: true },
+  1535→  { feature: "Marketplace", starter: false, pro: false, enterprise: true },
+  1536→  { feature: "Integraciones (Stripe, POS…)", starter: "3", pro: "Ilimitado", enterprise: "Ilimitado + API" },
+  1537→  { feature: "Soporte", starter: "Email", pro: "Chat优先", enterprise: "CSM dedicado + SLA" },
+  1538→  { feature: "Onboarding", starter: "Self-service", pro: "Guiado 24-48h", enterprise: "Personalizado" },
+  1539→  { feature: "SLA", starter: false, pro: "99,5%", enterprise: "99,9% + RTO 1h" },
+  1540→];
+  1541→
+  1542→function Pricing() {
+  1543→  const setView = useNav((s) => s.setView);
+  1544→  const go = useNav((s) => s.go);
+  1545→  const [plan, setPlan] = React.useState<PlanKey>("pro");
+  1546→  const [annual, setAnnual] = React.useState(true);
+  1547→  const [locals, setLocals] = React.useState(5);
+  1548→
+  1549→  const p = PLANS[plan];
+  1550→  const isEnterprise = plan === "enterprise";
+  1551→
+  1552→  // Compute effective price
+  1553→  const { price, period, savings } = React.useMemo(() => {
+  1554→    if (isEnterprise) {
+  1555→      // Enterprise scales by locals beyond base
+  1556→      const extra = Math.max(0, locals - 1);
+  1557→      const perLocal = annual ? 90 : 110; // approx enterprise per-local delta
+  1558→      const base = annual ? p.annual : p.monthly * 12;
+  1559→      const total = base + extra * perLocal * (annual ? 1 : 12);
+  1560→      if (annual) {
+  1561→        const monthlyEquiv = p.monthly * 12 + extra * perLocal * 12;
+  1562→        return {
+  1563→          price: total,
+  1564→          period: "año",
+  1565→          savings: monthlyEquiv - total,
+  1566→        };
+  1567→      }
+  1568→      return { price: total, period: "año", savings: 0 };
+  1569→    }
+  1570→    if (annual) {
+  1571→      const monthlyEquiv = p.monthly * 12;
+  1572→      return { price: p.annual, period: "año", savings: monthlyEquiv - p.annual };
+  1573→    }
+  1574→    return { price: p.monthly, period: "mes", savings: 0 };
+  1575→  }, [plan, annual, locals, isEnterprise, p]);
+  1576→
+  1577→  const cta = isEnterprise
+  1578→    ? "Solicitar demo Enterprise"
+  1579→    : `Crear cuenta ${p.name}`;
+  1580→
+  1581→  const onCta = () => {
+  1582→    if (isEnterprise) {
+  1583→      setView("app");
+  1584→    } else {
+  1585→      go("billing");
+  1586→    }
+  1587→  };
+  1588→
+  1589→  return (
+  1590→    <section
+  1591→      id="p-pricing"
+  1592→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1593→    >
+  1594→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1595→        <header className="mb-10 sm:mb-14 max-w-3xl">
+  1596→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1597→            <span className="rp-gold-text">06</span>
+  1598→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1599→            <span>Precios</span>
+  1600→          </div>
+  1601→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1602→            Precios honestos que escalan contigo
+  1603→          </h2>
+  1604→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+  1605→            Elige plan, facturación y número de locales. El precio se actualiza
+  1606→            en tiempo real. Sin sorpresas, sin coste oculto por usuario.
+  1607→          </p>
+  1608→        </header>
+  1609→
+  1610→        {/* Calculator */}
+  1611→        <div className="rp-glass-strong rounded-2xl p-5 sm:p-8">
+  1612→          <div className="grid lg:grid-cols-[1fr_1fr] gap-8">
+  1613→            {/* Controls */}
+  1614→            <div className="space-y-6">
+  1615→              <div>
+  1616→                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+  1617→                  Plan
+  1618→                </div>
+  1619→                <div className="grid grid-cols-3 gap-2">
+  1620→                  {(Object.keys(PLANS) as PlanKey[]).map((k) => (
+  1621→                    <button
+  1622→                      key={k}
+  1623→                      onClick={() => {
+  1624→                        setPlan(k);
+  1625→                        if (k === "enterprise") setLocals(1);
+  1626→                        else if (locals > PLANS[k].maxLocals) setLocals(PLANS[k].maxLocals);
+  1627→                      }}
+  1628→                      className={cn(
+  1629→                        "rounded-lg border px-3 py-3 text-sm transition-all relative",
+  1630→                        plan === k
+  1631→                          ? "border-[var(--gold)]/60 bg-[var(--gold)]/10 text-[var(--gold-soft)] rp-glow-gold"
+  1632→                          : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
+  1633→                      )}
+  1634→                      aria-pressed={plan === k}
+  1635→                    >
+  1636→                      <div className="font-medium">{PLANS[k].name}</div>
+  1637→                      <div className="text-[11px] mt-0.5 opacity-80">
+  1638→                        {PLANS[k].unlimited
+  1639→                          ? "Ilimitado"
+  1640→                          : `hasta ${PLANS[k].maxLocals} local${PLANS[k].maxLocals > 1 ? "es" : ""}`}
+  1641→                      </div>
+  1642→                      {PLANS[k].highlight && (
+  1643→                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-[var(--teal)] px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-black">
+  1644→                          popular
+  1645→                        </span>
+  1646→                      )}
+  1647→                    </button>
+  1648→                  ))}
+  1649→                </div>
+  1650→              </div>
+  1651→
+  1652→              <div className="flex items-center justify-between gap-4">
+  1653→                <div>
+  1654→                  <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1655→                    Facturación
+  1656→                  </div>
+  1657→                  <div className="mt-1 text-sm text-foreground/85">
+  1658→                    {annual ? "Anual (ahorras)" : "Mensual"}
+  1659→                  </div>
+  1660→                </div>
+  1661→                <div className="flex items-center gap-2.5">
+  1662→                  <span
+  1663→                    className={cn(
+  1664→                      "text-xs",
+  1665→                      !annual ? "text-foreground" : "text-muted-foreground",
+  1666→                    )}
+  1667→                  >
+  1668→                    Mensual
+  1669→                  </span>
+  1670→                  <Switch
+  1671→                    checked={annual}
+  1672→                    onCheckedChange={setAnnual}
+  1673→                    aria-label="Cambiar facturación entre mensual y anual"
+  1674→                  />
+  1675→                  <span
+  1676→                    className={cn(
+  1677→                      "text-xs",
+  1678→                      annual ? "text-[var(--gold-soft)]" : "text-muted-foreground",
+  1679→                    )}
+  1680→                  >
+  1681→                    Anual
+  1682→                  </span>
+  1683→                </div>
+  1684→              </div>
+  1685→
+  1686→              <div>
+  1687→                <div className="flex items-center justify-between mb-3">
+  1688→                  <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1689→                    Locales
+  1690→                  </div>
+  1691→                  <div className="text-sm font-medium">
+  1692→                    {locals}
+  1693→                    {p.unlimited && locals >= 50 ? "+" : ""}
+  1694→                  </div>
+  1695→                </div>
+  1696→                <Slider
+  1697→                  value={[locals]}
+  1698→                  min={1}
+  1699→                  max={p.unlimited ? 50 : p.maxLocals}
+  1700→                  step={1}
+  1701→                  onValueChange={(v) => setLocals(v[0])}
+  1702→                  aria-label="Número de locales"
+  1703→                />
+  1704→                <div className="mt-2 flex justify-between text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1705→                  <span>1</span>
+  1706→                  <span>
+  1707→                    {p.unlimited ? "50+" : p.maxLocals}
+  1708→                  </span>
+  1709→                </div>
+  1710→                {!p.unlimited && locals > p.maxLocals && (
+  1711→                  <div className="mt-2 text-[11px] text-amber-300">
+  1712→                    {p.name} admite hasta {p.maxLocals} local
+  1713→                    {p.maxLocals > 1 ? "es" : ""}. Sube a Pro/Enterprise para
+  1714→                    más.
+  1715→                  </div>
+  1716→                )}
+  1717→              </div>
+  1718→            </div>
+  1719→
+  1720→            {/* Price display */}
+  1721→            <div className="rp-glass rounded-2xl p-6 flex flex-col">
+  1722→              <div className="flex items-center justify-between">
+  1723→                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1724→                  {p.name} · {annual ? "anual" : "mensual"}
+  1725→                </div>
+  1726→                <DemoBadge />
+  1727→              </div>
+  1728→              <div className="mt-4 flex items-baseline gap-2">
+  1729→                <span className="font-display text-5xl sm:text-6xl font-light rp-gold-text">
+  1730→                  {price.toLocaleString("es-ES")}
+  1731→                </span>
+  1732→                <span className="text-lg text-muted-foreground">€</span>
+  1733→                <span className="text-sm text-muted-foreground">/ {period}</span>
+  1734→              </div>
+  1735→
+  1736→              {annual && savings > 0 && (
+  1737→                <div className="mt-3 inline-flex items-center gap-2 self-start rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-3 py-1 text-xs text-[var(--teal)]">
+  1738→                  <Check className="h-3.5 w-3.5" aria-hidden />
+  1739→                  Ahorras {savings.toLocaleString("es-ES")} €/año
+  1740→                </div>
+  1741→              )}
+  1742→
+  1743→              <ul className="mt-5 space-y-2 text-sm text-foreground/85 flex-1">
+  1744→                <PriceLine
+  1745→                  label={`Locales`}
+  1746→                  value={p.unlimited ? `${locals}${locals >= 50 ? "+" : ""} (escala)` : `${locals} de ${p.maxLocals}`}
+  1747→                />
+  1748→                <PriceLine
+  1749→                  label="Usuarios incluidos"
+  1750→                  value={p.unlimited ? "Ilimitados" : `${p.baseUsers}`}
+  1751→                />
+  1752→                <PriceLine
+  1753→                  label="Módulos"
+  1754→                  value={isEnterprise ? "Todos (11)" : plan === "pro" ? "10 de 11" : "8 de 11"}
+  1755→                />
+  1756→                <PriceLine
+  1757→                  label="Soporte"
+  1758→                  value={isEnterprise ? "CSM dedicado + SLA" : plan === "pro" ? "Chat优先" : "Email"}
+  1759→                />
+  1760→              </ul>
+  1761→
+  1762→              <Button
+  1763→                size="lg"
+  1764→                onClick={onCta}
+  1765→                className={cn(
+  1766→                  "mt-6 w-full justify-center",
+  1767→                  isEnterprise
+  1768→                    ? "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+  1769→                    : "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black",
+  1770→                )}
+  1771→              >
+  1772→                {cta}
+  1773→                <ArrowRight className="h-4 w-4" aria-hidden />
+  1774→              </Button>
+  1775→              <p className="mt-2 text-center text-[11px] text-muted-foreground">
+  1776→                {isEnterprise
+  1777→                  ? "Un especialista diseña la propuesta a tu medida."
+  1778→                  : "Sin permanencia. Cancela cuando quieras."}
+  1779→              </p>
+  1780→            </div>
+  1781→          </div>
+  1782→        </div>
+  1783→
+  1784→        {/* Comparison table */}
+  1785→        <div className="mt-10 rp-glass rounded-2xl overflow-hidden">
+  1786→          <div className="overflow-x-auto rp-scroll-thin">
+  1787→            <table className="w-full text-sm min-w-[640px]">
+  1788→              <thead>
+  1789→                <tr className="border-b border-border/60 bg-foreground/[0.03]">
+  1790→                  <th className="px-5 py-4 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1791→                    Característica
+  1792→                  </th>
+  1793→                  <th className="px-5 py-4 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1794→                    Starter
+  1795→                  </th>
+  1796→                  <th className="px-5 py-4 text-left text-[11px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1797→                    Pro · popular
+  1798→                  </th>
+  1799→                  <th className="px-5 py-4 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1800→                    Enterprise
+  1801→                  </th>
+  1802→                </tr>
+  1803→              </thead>
+  1804→              <tbody>
+  1805→                {COMPARISON.map((row) => (
+  1806→                  <tr
+  1807→                    key={row.feature}
+  1808→                    className="border-b border-border/40 last:border-0 hover:bg-foreground/[0.02]"
+  1809→                  >
+  1810→                    <td className="px-5 py-3 font-medium">{row.feature}</td>
+  1811→                    <Cell value={row.starter} />
+  1812→                    <Cell value={row.pro} highlight />
+  1813→                    <Cell value={row.enterprise} />
+  1814→                  </tr>
+  1815→                ))}
+  1816→              </tbody>
+  1817→            </table>
+  1818→          </div>
+  1819→        </div>
+  1820→      </div>
+  1821→    </section>
+  1822→  );
+  1823→}
+  1824→
+  1825→function PriceLine({ label, value }: { label: string; value: string }) {
+  1826→  return (
+  1827→    <li className="flex items-center justify-between gap-3">
+  1828→      <span className="text-muted-foreground">{label}</span>
+  1829→      <span className="font-medium text-foreground">{value}</span>
+  1830→    </li>
+  1831→  );
+  1832→}
+  1833→
+  1834→function Cell({
+  1835→  value,
+  1836→  highlight,
+  1837→}: {
+  1838→  value: string | boolean;
+  1839→  highlight?: boolean;
+  1840→}) {
+  1841→  return (
+  1842→    <td
+  1843→      className={cn(
+  1844→        "px-5 py-3",
+  1845→        highlight && "bg-[var(--gold)]/[0.04]",
+  1846→      )}
+  1847→    >
+  1848→      {typeof value === "boolean" ? (
+  1849→        value ? (
+  1850→          <Check className="h-4 w-4 text-[var(--teal)]" aria-label="incluido" />
+  1851→        ) : (
+  1852→          <X className="h-4 w-4 text-muted-foreground/50" aria-label="no incluido" />
+  1853→        )
+  1854→      ) : (
+  1855→        <span className={cn(highlight && "text-[var(--gold-soft)]")}>{value}</span>
+  1856→      )}
+  1857→    </td>
+  1858→  );
+  1859→}
+  1860→
+  1861→/* ------------------------------- FAQ --------------------------------- */
+  1862→
+  1863→const FAQ_ITEMS: { q: string; a: string }[] = [
+  1864→  {
+  1865→    q: "¿Qué es un software de gestión para restaurantes?",
+  1866→    a: "Es una plataforma que centraliza las operaciones diarias del restaurante: reservas, plano de mesas, clientes, marketing, reputación y análisis de rentabilidad. RestoPanel reúne todo eso en una sola herramienta, en lugar de tener cuatro o cinco apps desconectadas que no comparten datos.",
+  1867→  },
+  1868→  {
+  1869→    q: "¿Cómo ayuda RestoPanel a reducir los no-shows?",
+  1870→    a: "Con confirmaciones y recordatorios automáticos por SMS y WhatsApp, reglas configurables de depósito o pre-autorización para franjas de riesgo, y lista de espera inteligente para reasignar mesas en cuanto un hueco se libera. Los restaurantes que lo usan reducen los no-shows una media del 42%.",
+  1871→  },
+  1872→  {
+  1873→    q: "¿Puedo gestionar varios restaurantes?",
+  1874→    a: "Sí. RestoPanel está diseñado multi-local desde el primer día: cada restaurante tiene sus propios datos, turnos, equipo y plano, y un panel de grupo permite comparar rentabilidad entre locales. El plan Pro incluye hasta 5 locales y Enterprise, sin límite.",
+  1875→  },
+  1876→  {
+  1877→    q: "¿Qué integraciones ofrece?",
+  1878→    a: "Stripe para pagos, WhatsApp Cloud API, Google Business Profile y Google Reviews, SumUp y los principales POS del mercado, TheFork para importar reservas históricas, y un proveedor SMS europeo. Enterprise añade API REST y webhooks para integraciones a medida.",
+  1879→  },
+  1880→  {
+  1881→    q: "¿Cómo funciona el CRM?",
+  1882→    a: "Cada reserva, visita y pago alimenta automáticamente la ficha del cliente: histórico, frecuencia, ticket medio, mesa favorita, alergias, cumpleaños, etiquetas (VIP, business) y consentimiento RGPD por canal. El equipo de sala y el marketing ven exactamente la misma información.",
+  1883→  },
+  1884→  {
+  1885→    q: "¿Puedo importar mis clientes?",
+  1886→    a: "Sí. Importamos desde TheFork, tu POS y un CSV o Excel estándar con plantilla guiada. El proceso deduplica por teléfono y email, respeta el consentimiento existente y conserva el histórico de visitas si está disponible. Suele tardar entre 24 y 48 horas.",
+  1887→  },
+  1888→  {
+  1889→    q: "¿Cómo se protege la información?",
+  1890→    a: "Cada organización vive en su propia celda de datos con aislamiento a nivel de aplicación (Tenant Enforcement Layer). Todo el tráfico va cifrado, los accesos quedan en una auditoría append-only, y los datos personales siguen RGPD con consentimiento por canal y derecho de supresión en un clic.",
+  1891→  },
+  1892→  {
+  1893→    q: "¿Tiene API?",
+  1894→    a: "Sí, en el plan Enterprise. REST con webhooks para reservas, clientes, pagos y eventos de automation. Hay SDKs oficiales para JavaScript y Python, y un sandbox completo para desarrollo. La API respeta los mismos permisos y aislamiento que la interfaz.",
+  1895→  },
+  1896→  {
+  1897→    q: "¿Puedo cambiar de plan?",
+  1898→    a: "Sí, en cualquier momento y sin penalización. Si subes de plan, prorrateamos lo que ya has pagado. Si bajas, el cambio se aplica al siguiente ciclo de facturación. Los locales y usuarios adicionales se facturan también de forma prorrateada.",
+  1899→  },
+  1900→  {
+  1901→    q: "¿Cómo funciona la prueba?",
+  1902→    a: "No ofrecemos trial libre indefinido: creas cuenta en segundos, accedes al dashboard con datos demo navegables y, si quieres verlo con tus datos reales, agendamos un onboarding guiado de 24-48 horas en el que migramos clientes y reservas contigo. Sin tarjeta para empezar.",
+  1903→  },
+  1904→];
+  1905→
+  1906→function FAQ() {
+  1907→  return (
+  1908→    <section
+  1909→      id="p-faq"
+  1910→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1911→    >
+  1912→      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+  1913→        <header className="mb-10 sm:mb-14">
+  1914→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1915→            <span className="rp-gold-text">07</span>
+  1916→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1917→            <span>Preguntas frecuentes</span>
+  1918→          </div>
+  1919→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1920→            Todo lo que necesitas saber antes de empezar
+  1921→          </h2>
+  1922→        </header>
+  1923→
+  1924→        <Accordion type="single" collapsible className="rp-glass rounded-2xl px-5 sm:px-6">
+  1925→          {FAQ_ITEMS.map((item, i) => (
+  1926→            <AccordionItem key={item.q} value={`item-${i}`}>
+  1927→              <AccordionTrigger className="text-left text-base font-medium hover:no-underline">
+  1928→                {item.q}
+  1929→              </AccordionTrigger>
+  1930→              <AccordionContent className="text-sm leading-relaxed text-muted-foreground">
+  1931→                {item.a}
+  1932→              </AccordionContent>
+  1933→            </AccordionItem>
+  1934→          ))}
+  1935→        </Accordion>
+  1936→      </div>
+  1937→    </section>
+  1938→  );
+  1939→}
+  1940→
+  1941→/* ----------------------------- Final CTA ----------------------------- */
+  1942→
+  1943→function FinalCTA() {
+  1944→  const setView = useNav((s) => s.setView);
+  1945→  return (
+  1946→    <section className="border-t border-border/60 py-20 sm:py-28">
+  1947→      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+  1948→        <div
+  1949→          className="relative overflow-hidden rounded-3xl rp-glass-strong p-8 sm:p-12 lg:p-16 text-center"
+  1950→          style={{
+  1951→            background:
+  1952→              "radial-gradient(700px 400px at 50% 0%, color-mix(in oklab, var(--gold) 18%, transparent) 0%, transparent 65%)," +
+  1953→              "radial-gradient(500px 400px at 50% 100%, color-mix(in oklab, var(--teal) 12%, transparent) 0%, transparent 60%)",
+  1954→            boxShadow:
+  1955→              "0 0 0 1px color-mix(in oklab, var(--gold) 25%, transparent)," +
+  1956→              "0 40px 100px -30px color-mix(in oklab, var(--gold) 35%, transparent)",
+  1957→          }}
+  1958→        >
+  1959→          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--gold)]/30 bg-[var(--gold)]/8 px-3 py-1 text-xs font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1960→            <Sparkles className="h-3.5 w-3.5" aria-hidden />
+  1961→            Empieza hoy
+  1962→          </div>
+  1963→          <h2 className="mt-5 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1964→            Empieza a convertir cada servicio en{" "}
+  1965→            <span className="rp-gold-gradient font-normal">más ingresos</span>
+  1966→          </h2>
+  1967→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground max-w-2xl mx-auto">
+  1968→            Crea tu cuenta en segundos, explora el dashboard con datos demo y, si
+  1969→            quieres verlo con tus datos, te lo migramos en 24-48 horas.
+  1970→          </p>
+  1971→          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+  1972→            <Button
+  1973→              size="lg"
+  1974→              onClick={() => setView("app")}
+  1975→              className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1976→            >
+  1977→              Crear cuenta
+  1978→              <ArrowRight className="h-4 w-4" aria-hidden />
+  1979→            </Button>
+  1980→            <Button
+  1981→              size="lg"
+  1982→              variant="outline"
+  1983→              onClick={() => setView("app")}
+  1984→            >
+  1985→              Solicitar demo
+  1986→            </Button>
+  1987→          </div>
+  1988→          <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+  1989→            <span className="inline-flex items-center gap-1.5">
+  1990→              <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+  1991→              Sin tarjeta para probar
+  1992→            </span>
+  1993→            <span className="inline-flex items-center gap-1.5">
+  1994→              <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+  1995→              Onboarding en 24-48h
+  1996→            </span>
+  1997→            <span className="inline-flex items-center gap-1.5">
+  1998→              <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+  1999→              Cancela cuando quieras
+  2000→            </span>
+
+[showing lines 1-2000 of 2007; use offset=2001 with limit to continue reading]

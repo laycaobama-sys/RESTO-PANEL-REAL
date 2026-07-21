@@ -1117,11 +1117,11 @@ function CustomerProfile({
 
         {/* Actions */}
         <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border/50 pt-4">
-          <Button onClick={() => setReservationOpen(true)} disabled={!canReserve}>
+          <Button onClick={() => setReservationOpen(true)} disabled={!canReserve} className="min-h-11">
             <CalendarPlus className="h-4 w-4" aria-hidden />
             Nueva reserva
           </Button>
-          <Button variant="outline" onClick={() => setMessageOpen(true)} disabled={!canMessage}>
+          <Button variant="outline" onClick={() => setMessageOpen(true)} disabled={!canMessage} className="min-h-11">
             <Send className="h-4 w-4" aria-hidden />
             Enviar mensaje
           </Button>
@@ -1134,6 +1134,7 @@ function CustomerProfile({
                     disabled={!canExport}
                     aria-label="Exportar ficha de cliente"
                     aria-describedby="export-tip"
+                    className="min-h-11"
                   >
                     <Download className="h-4 w-4" aria-hidden />
                     Exportar
@@ -1287,13 +1288,14 @@ function CustomerProfile({
             className="mt-4 resize-none"
             aria-label="Notas internas"
           />
-          <div className="mt-2 flex items-center justify-between">
+            <div className="mt-2 flex items-center justify-between">
             <p className="text-[11px] text-muted-foreground">
               {canEditNotes ? "Visibles solo para el equipo del local." : "Solo lectura para tu rol."}
             </p>
             <Button
               size="sm"
               variant="outline"
+              className="min-h-9"
               disabled={!canEditNotes || notesDraft === customer.notes}
               onClick={() => onNotesChange(notesDraft)}
               aria-label="Guardar notas"
@@ -1379,11 +1381,11 @@ export function CrmView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span className="hidden sm:inline text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
             Rol simulado
           </span>
           <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-            <SelectTrigger className="w-[150px]" aria-label="Rol simulado para permisos">
+            <SelectTrigger className="w-full sm:w-[150px] min-h-11" aria-label="Rol simulado para permisos">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -1404,7 +1406,7 @@ export function CrmView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Buscar por nombre, email o teléfono…"
-              className="pl-9"
+              className="pl-9 min-h-11"
               aria-label="Buscar clientes"
             />
           </div>
@@ -1426,7 +1428,7 @@ export function CrmView() {
                 aria-selected={filter === t.id}
                 onClick={() => setFilter(t.id)}
                 className={cn(
-                  "flex-1 rounded-md px-2 py-1 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+                  "flex-1 rounded-md px-2 py-2 min-h-9 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
                   filter === t.id
                     ? "bg-[var(--gold)] text-black"
                     : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
@@ -1442,7 +1444,7 @@ export function CrmView() {
             <DemoBadge />
           </div>
 
-          <ul className="mt-2 max-h-[calc(100vh-340px)] min-h-[280px] space-y-2 overflow-y-auto rp-scroll-thin pr-1">
+          <ul className="mt-2 max-h-[60vh] lg:max-h-[calc(100vh-340px)] min-h-[280px] space-y-2 overflow-y-auto rp-scroll-thin pr-1">
             {filtered.length === 0 ? (
               <EmptyResults query={query} />
             ) : (

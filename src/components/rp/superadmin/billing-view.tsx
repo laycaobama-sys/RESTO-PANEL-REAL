@@ -232,7 +232,7 @@ export function BillingView() {
 
       {/* Usage this period */}
       <section>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex flex-wrap items-center gap-2 mb-3">
           <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Uso del período</h2>
           <span className="text-[11px] text-muted-foreground font-mono">01 jul — 31 jul 2025</span>
           <DemoBadge />

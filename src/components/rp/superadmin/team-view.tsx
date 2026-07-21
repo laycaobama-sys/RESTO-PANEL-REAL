@@ -271,7 +271,7 @@ export function TeamView() {
               <Input type="search" placeholder="Buscar por nombre o email…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" aria-label="Buscar miembros" />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger size="sm" className="w-48">
+              <SelectTrigger size="sm" className="w-full sm:w-48">
                 <span className="flex items-center gap-2 text-muted-foreground"><Filter className="h-3 w-3" /> Rol</span>
                 <SelectValue />
               </SelectTrigger>

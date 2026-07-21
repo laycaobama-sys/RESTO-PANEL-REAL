@@ -1,0 +1,1225 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { Checkbox } from "@/components/ui/checkbox";
+     5→import { cn } from "@/lib/utils";
+     6→import { useNav } from "@/components/rp/app/nav-store";
+     7→import {
+     8→  CalendarCheck,
+     9→  Banknote,
+    10→  Percent,
+    11→  ReceiptText,
+    12→  UserX,
+    13→  Star,
+    14→  Sparkles,
+    15→  BellRing,
+    16→  CalendarClock,
+    17→  Plug,
+    18→  AlertTriangle,
+    19→  ArrowUpRight,
+    20→  ArrowDownRight,
+    21→  Clock,
+    22→  Users,
+    23→  ChevronRight,
+    24→  Crown,
+    25→  Megaphone,
+    26→  MessageSquare,
+    27→  RefreshCw,
+    28→  Settings2,
+    29→  CheckCircle2,
+    30→  Hourglass,
+    31→  Zap,
+    32→  TrendingUp,
+    33→  ShieldAlert,
+    34→  Star as StarIcon,
+    35→} from "lucide-react";
+    36→
+    37→/* ============================================================
+    38→   Types
+    39→============================================================ */
+    40→
+    41→type Trend = "up" | "down";
+    42→type ResStatus = "confirmed" | "waitlist" | "checked-in";
+    43→
+    44→interface Kpi {
+    45→  id: "reservas" | "ingresos" | "ocupacion" | "ticket" | "noshows" | "rating";
+    46→  label: string;
+    47→  value: string;
+    48→  delta: string;
+    49→  trend: Trend;
+    50→  goodDown?: boolean;
+    51→  color: "gold" | "teal";
+    52→  spark: number[];
+    53→  icon: React.ElementType;
+    54→  caption: string;
+    55→}
+    56→
+    57→interface Reservation {
+    58→  id: string;
+    59→  time: string;
+    60→  customer: string;
+    61→  pax: number;
+    62→  status: ResStatus;
+    63→  vip?: boolean;
+    64→  table?: string;
+    65→}
+    66→
+    67→interface TimelineEvent {
+    68→  id: string;
+    69→  time: string;
+    70→  label: string;
+    71→  note?: string;
+    72→  tone: "default" | "gold" | "teal";
+    73→}
+    74→
+    75→interface ChartPoint {
+    76→  day: string;
+    77→  date: string;
+    78→  v: number;
+    79→  today?: boolean;
+    80→}
+    81→
+    82→interface AiRec {
+    83→  id: string;
+    84→  title: string;
+    85→  action: string;
+    86→  confidence: number;
+    87→  rationale: string;
+    88→  icon: React.ElementType;
+    89→}
+    90→
+    91→interface ActivityEvent {
+    92→  id: string;
+    93→  type: "reserva" | "vip" | "resena" | "campana" | "mesa";
+    94→  text: string;
+    95→  ago: string;
+    96→  icon: React.ElementType;
+    97→  tone: "gold" | "teal" | "default";
+    98→}
+    99→
+   100→interface Upcoming {
+   101→  id: string;
+   102→  time: string;
+   103→  customer: string;
+   104→  pax: number;
+   105→  vip?: boolean;
+   106→  inMin: number;
+   107→}
+   108→
+   109→interface Integration {
+   110→  id: string;
+   111→  name: string;
+   112→  status: "conectado" | "pendiente";
+   113→  detail: string;
+   114→  icon: React.ElementType;
+   115→}
+   116→
+   117→interface DemoAlert {
+   118→  id: string;
+   119→  text: string;
+   120→  action: string;
+   121→  tone: "amber" | "red";
+   122→}
+   123→
+   124→/* ============================================================
+   125→   Demo data
+   126→============================================================ */
+   127→
+   128→const KPIS: Kpi[] = [
+   129→  {
+   130→    id: "reservas",
+   131→    label: "Reservas hoy",
+   132→    value: "47",
+   133→    delta: "+12% vs ayer",
+   134→    trend: "up",
+   135→    color: "teal",
+   136→    spark: [33, 38, 35, 41, 39, 44, 47],
+   137→    icon: CalendarCheck,
+   138→    caption: "Comida 21 · Cena 26",
+   139→  },
+   140→  {
+   141→    id: "ingresos",
+   142→    label: "Ingresos hoy",
+   143→    value: "1.842€",
+   144→    delta: "+8%",
+   145→    trend: "up",
+   146→    color: "gold",
+   147→    spark: [1480, 1560, 1450, 1690, 1730, 1810, 1842],
+   148→    icon: Banknote,
+   149→    caption: "Proyección cierre 4.100€",
+   150→  },
+   151→  {
+   152→    id: "ocupacion",
+   153→    label: "Ocupación",
+   154→    value: "78%",
+   155→    delta: "+5pp",
+   156→    trend: "up",
+   157→    color: "teal",
+   158→    spark: [62, 66, 70, 71, 74, 76, 78],
+   159→    icon: Percent,
+   160→    caption: "52 de 66 cubiertos",
+   161→  },
+   162→  {
+   163→    id: "ticket",
+   164→    label: "Ticket medio",
+   165→    value: "38€",
+   166→    delta: "+2€",
+   167→    trend: "up",
+   168→    color: "gold",
+   169→    spark: [34, 35, 36, 35, 37, 37, 38],
+   170→    icon: ReceiptText,
+   171→    caption: "Meta 40€ · 95%",
+   172→  },
+   173→  {
+   174→    id: "noshows",
+   175→    label: "No-shows",
+   176→    value: "3",
+   177→    delta: "−1",
+   178→    trend: "down",
+   179→    goodDown: true,
+   180→    color: "teal",
+   181→    spark: [6, 5, 6, 4, 5, 4, 3],
+   182→    icon: UserX,
+   183→    caption: "Tasa 6.4% · meta <8%",
+   184→  },
+   185→  {
+   186→    id: "rating",
+   187→    label: "Google Rating",
+   188→    value: "4.6★",
+   189→    delta: "+0.1",
+   190→    trend: "up",
+   191→    color: "gold",
+   192→    spark: [4.3, 4.4, 4.4, 4.5, 4.5, 4.6, 4.6],
+   193→    icon: Star,
+   194→    caption: "412 reseñas · 30 días",
+   195→  },
+   196→];
+   197→
+   198→const RESERVATIONS: Reservation[] = [
+   199→  { id: "r1", time: "13:30", customer: "Familia Marín", pax: 4, status: "checked-in", table: "Mesa 12" },
+   200→  { id: "r2", time: "14:00", customer: "Javier Soler", pax: 2, status: "checked-in", table: "Mesa 4" },
+   201→  { id: "r3", time: "14:15", customer: "Marta Iborra", pax: 3, status: "confirmed", table: "Mesa 9" },
+   202→  { id: "r4", time: "14:30", customer: "David Puig", pax: 6, status: "waitlist", vip: true },
+   203→  { id: "r5", time: "20:30", customer: "Elena Marín", pax: 2, status: "confirmed", vip: true, table: "Mesa 7" },
+   204→  { id: "r6", time: "21:00", customer: "Andrés Vidal", pax: 5, status: "confirmed", table: "Mesa 14" },
+   205→  { id: "r7", time: "21:15", customer: "Lucía Ferrer", pax: 4, status: "waitlist" },
+   206→];
+   207→
+   208→const TIMELINE: TimelineEvent[] = [
+   209→  { id: "t1", time: "10:00", label: "Apertura", note: "Equipo de mañana · 4 personas", tone: "default" },
+   210→  { id: "t2", time: "13:00", label: "Primer servicio", note: "Comida abierta al público", tone: "teal" },
+   211→  { id: "t3", time: "14:30", label: "Pico comida", note: "Ocupación 92% · 6 mesas activas", tone: "gold" },
+   212→  { id: "t4", time: "20:30", label: "Pico cena", note: "Pico previsto · 18 reservas simultáneas", tone: "gold" },
+   213→  { id: "t5", time: "23:30", label: "Cierre", note: "Última mesa · cuadre de caja", tone: "default" },
+   214→];
+   215→
+   216→const CHART: ChartPoint[] = [
+   217→  { day: "Mar", date: "21 ene", v: 38 },
+   218→  { day: "Mié", date: "22 ene", v: 42 },
+   219→  { day: "Jue", date: "23 ene", v: 35 },
+   220→  { day: "Vie", date: "24 ene", v: 56 },
+   221→  { day: "Sáb", date: "25 ene", v: 67 },
+   222→  { day: "Dom", date: "26 ene", v: 51 },
+   223→  { day: "Lun", date: "27 ene", v: 47, today: true },
+   224→];
+   225→
+   226→const AI_RECS: AiRec[] = [
+   227→  {
+   228→    id: "ai1",
+   229→    title: "Ofrece 10% en postres a mesas de 2+ para subir el ticket medio",
+   230→    action: "Crear oferta",
+   231→    confidence: 82,
+   232→    rationale: "Mesas de 2+ pax piden postre solo en el 31% de los servicios.",
+   233→    icon: ReceiptText,
+   234→  },
+   235→  {
+   236→    id: "ai2",
+   237→    title: "3 clientes VIP no reservan hace 60 días · lanza campaña de reactivación",
+   238→    action: "Lanzar campaña",
+   239→    confidence: 91,
+   240→    rationale: "Patrón de inactividad detectado en segmento VIP.",
+   241→    icon: Crown,
+   242→  },
+   243→  {
+   244→    id: "ai3",
+   245→    title: "Sobredemanda el sábado 20:30 · activa lista de espera automática",
+   246→    action: "Activar lista",
+   247→    confidence: 74,
+   248→    rationale: "Previsión 113% de capacidad con 9 reservas pendientes.",
+   249→    icon: CalendarClock,
+   250→  },
+   251→];
+   252→
+   253→const ACTIVITY: ActivityEvent[] = [
+   254→  {
+   255→    id: "a1",
+   256→    type: "reserva",
+   257→    text: "Nueva reserva · Elena Marín, 2 pax, hoy 20:30",
+   258→    ago: "hace 3 min",
+   259→    icon: CalendarCheck,
+   260→    tone: "teal",
+   261→  },
+   262→  {
+   263→    id: "a2",
+   264→    type: "vip",
+   265→    text: "Cliente VIP check-in · David Puig",
+   266→    ago: "hace 12 min",
+   267→    icon: Crown,
+   268→    tone: "gold",
+   269→  },
+   270→  {
+   271→    id: "a3",
+   272→    type: "resena",
+   273→    text: "Reseña recibida · 5★ de Carlos M.",
+   274→    ago: "hace 28 min",
+   275→    icon: StarIcon,
+   276→    tone: "gold",
+   277→  },
+   278→  {
+   279→    id: "a4",
+   280→    type: "campana",
+   281→    text: "Campaña enviada · «Cena de San Valentín» a 248 clientes",
+   282→    ago: "hace 1 h",
+   283→    icon: Megaphone,
+   284→    tone: "default",
+   285→  },
+   286→  {
+   287→    id: "a5",
+   288→    type: "mesa",
+   289→    text: "Mesa reasignada · Mesa 14 → Mesa 9 (familia Marín)",
+   290→    ago: "hace 2 h",
+   291→    icon: RefreshCw,
+   292→    tone: "default",
+   293→  },
+   294→];
+   295→
+   296→const UPCOMING: Upcoming[] = [
+   297→  { id: "u1", time: "20:30", customer: "Elena Marín", pax: 2, vip: true, inMin: 18 },
+   298→  { id: "u2", time: "20:45", customer: "Marc Puig", pax: 3, inMin: 33 },
+   299→  { id: "u3", time: "21:00", customer: "Andrés Vidal", pax: 5, inMin: 48 },
+   300→  { id: "u4", time: "21:15", customer: "Lucía Ferrer", pax: 4, inMin: 63 },
+   301→];
+   302→
+   303→const INTEGRATIONS: Integration[] = [
+   304→  { id: "i1", name: "Stripe", status: "conectado", detail: "Pagos y depósitos · ✓", icon: Banknote },
+   305→  { id: "i2", name: "WhatsApp", status: "conectado", detail: "Recordatorios · ✓", icon: MessageSquare },
+   306→  { id: "i3", name: "Google", status: "pendiente", detail: "Reseñas · OAuth pendiente", icon: StarIcon },
+   307→  { id: "i4", name: "Resend", status: "conectado", detail: "Email transaccional · ✓", icon: Megaphone },
+   308→];
+   309→
+   310→const ALERTS: DemoAlert[] = [
+   311→  { id: "al1", text: "3 reservas sin confirmar para esta noche", action: "Revisar", tone: "amber" },
+   312→  { id: "al2", text: "Reseña negativa recibida en Ramses Barcelona (2★)", action: "Responder", tone: "red" },
+   313→];
+   314→
+   315→/* ============================================================
+   316→   Main Home component
+   317→============================================================ */
+   318→
+   319→export function Home() {
+   320→  const [showRating, setShowRating] = React.useState(true);
+   321→  const [showNoShows, setShowNoShows] = React.useState(true);
+   322→  const [showAI, setShowAI] = React.useState(true);
+   323→
+   324→  const visibleKpis = KPIS.filter((k) => {
+   325→    if (k.id === "rating" && !showRating) return false;
+   326→    if (k.id === "noshows" && !showNoShows) return false;
+   327→    return true;
+   328→  });
+   329→
+   330→  return (
+   331→    <div className="space-y-5 sm:space-y-6">
+   332→      {/* Header */}
+   333→      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+   334→        <div className="min-w-0">
+   335→          <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   336→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)] animate-pulse" aria-hidden />
+   337→            <span className="rp-teal-text">En servicio</span>
+   338→            <span className="text-muted-foreground/60">·</span>
+   339→            <span>martes 27 ene 2025</span>
+   340→          </div>
+   341→          <h1 className="mt-2 font-display text-2xl sm:text-3xl font-light tracking-tight">
+   342→            Buenas tardes, <span className="rp-gold-text">Ana</span>
+   343→          </h1>
+   344→          <p className="mt-1 text-sm text-muted-foreground">
+   345→            Resumen operativo de Ramses Madrid · Servicio de cena empieza en 3h 12min.
+   346→          </p>
+   347→        </div>
+   348→        <div className="flex items-center gap-2 shrink-0">
+   349→          <button
+   350→            onClick={() => useNav.getState().go("reservas")}
+   351→            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-foreground/5 px-3 py-2 text-sm hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+   352→          >
+   353→            <CalendarCheck className="h-4 w-4" aria-hidden />
+   354→            Ver reservas
+   355→            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+   356→          </button>
+   357→        </div>
+   358→      </header>
+   359→
+   360→      {/* Alerts strip */}
+   361→      <AlertsStrip />
+   362→
+   363→      {/* Widget visibility toggles */}
+   364→      <WidgetSettings
+   365→        showRating={showRating}
+   366→        setShowRating={setShowRating}
+   367→        showNoShows={showNoShows}
+   368→        setShowNoShows={setShowNoShows}
+   369→        showAI={showAI}
+   370→        setShowAI={setShowAI}
+   371→      />
+   372→
+   373→      {/* KPI grid */}
+   374→      <section aria-label="Indicadores clave del día" className="space-y-3">
+   375→        <div className="flex items-center justify-between">
+   376→          <h2 className="font-display text-base sm:text-lg font-medium tracking-tight">
+   377→            Indicadores del día
+   378→          </h2>
+   379→          <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   380→            {visibleKpis.length} de {KPIS.length} widgets
+   381→          </span>
+   382→        </div>
+   383→        {visibleKpis.length === 0 ? (
+   384→          <EmptyState message="Todos los KPIs están ocultos. Activa alguno para ver métricas." />
+   385→        ) : (
+   386→          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
+   387→            {visibleKpis.map((k) => (
+   388→              <KpiCard key={k.id} kpi={k} />
+   389→            ))}
+   390→          </div>
+   391→        )}
+   392→      </section>
+   393→
+   394→      {/* Two-column layout */}
+   395→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
+   396→        {/* Main column */}
+   397→        <main className="lg:col-span-2 space-y-5">
+   398→          <ReservasHoyWidget />
+   399→          <TimelineWidget />
+   400→          <PerformanceWidget />
+   401→        </main>
+   402→
+   403→        {/* Sidebar column */}
+   404→        <aside className="space-y-5">
+   405→          {showAI ? <AiRecommendationsWidget /> : null}
+   406→          <ActivityWidget />
+   407→          <UpcomingReservationsWidget />
+   408→          <IntegrationsWidget />
+   409→        </aside>
+   410→      </div>
+   411→    </div>
+   412→  );
+   413→}
+   414→
+   415→/* ============================================================
+   416→   Sub-components
+   417→============================================================ */
+   418→
+   419→function DemoBadge({ className }: { className?: string }) {
+   420→  return (
+   421→    <span
+   422→      className={cn(
+   423→        "inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-300/90",
+   424→        className
+   425→      )}
+   426→      title="Datos de demostración"
+   427→    >
+   428→      demo
+   429→    </span>
+   430→  );
+   431→}
+   432→
+   433→function WidgetShell({
+   434→  title,
+   435→  icon: Icon,
+   436→  iconColor = "gold",
+   437→  action,
+   438→  children,
+   439→  ariaLabel,
+   440→  className,
+   441→}: {
+   442→  title: string;
+   443→  icon: React.ElementType;
+   444→  iconColor?: "gold" | "teal";
+   445→  action?: React.ReactNode;
+   446→  children: React.ReactNode;
+   447→  ariaLabel: string;
+   448→  className?: string;
+   449→}) {
+   450→  const iconBg = iconColor === "gold" ? "bg-[var(--gold)]/10" : "bg-[var(--teal)]/10";
+   451→  const iconColorCls = iconColor === "gold" ? "text-[var(--gold-soft)]" : "text-[var(--teal)]";
+   452→  return (
+   453→    <section
+   454→      aria-label={ariaLabel}
+   455→      className={cn("rp-glass rounded-xl p-4 sm:p-5 relative", className)}
+   456→    >
+   457→      <header className="flex items-center justify-between gap-3 mb-4">
+   458→        <div className="flex items-center gap-2.5 min-w-0">
+   459→          <div className={cn("h-8 w-8 rounded-md flex items-center justify-center shrink-0", iconBg)}>
+   460→            <Icon className={cn("h-4 w-4", iconColorCls)} aria-hidden />
+   461→          </div>
+   462→          <h3 className="font-display text-base sm:text-lg font-medium tracking-tight truncate">
+   463→            {title}
+   464→          </h3>
+   465→        </div>
+   466→        <div className="flex items-center gap-2 shrink-0">
+   467→          {action}
+   468→          <DemoBadge />
+   469→        </div>
+   470→      </header>
+   471→      {children}
+   472→    </section>
+   473→  );
+   474→}
+   475→
+   476→function EmptyState({ message }: { message: string }) {
+   477→  return (
+   478→    <div className="rp-glass rounded-xl p-8 text-center" role="status">
+   479→      <div className="mx-auto h-10 w-10 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground">
+   480→        <Clock className="h-4 w-4" aria-hidden />
+   481→      </div>
+   482→      <p className="mt-3 text-sm text-muted-foreground">{message}</p>
+   483→    </div>
+   484→  );
+   485→}
+   486→
+   487→/* ---------- Sparkline ---------- */
+   488→
+   489→function Sparkline({ data, color }: { data: number[]; color: "gold" | "teal" }) {
+   490→  const rawId = React.useId();
+   491→  const id = rawId.replace(/[:]/g, "");
+   492→  const w = 76;
+   493→  const h = 28;
+   494→  const pad = 3;
+   495→  const max = Math.max(...data);
+   496→  const min = Math.min(...data);
+   497→  const range = max - min || 1;
+   498→  const pts = data.map((v, i) => {
+   499→    const x = (i / (data.length - 1)) * (w - pad * 2) + pad;
+   500→    const y = h - pad - ((v - min) / range) * (h - pad * 2);
+   501→    return [x, y] as [number, number];
+   502→  });
+   503→  const linePts = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+   504→  const areaPath = `M${pts[0][0].toFixed(1)},${(h - pad).toFixed(1)} L${pts
+   505→    .map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`)
+   506→    .join(" L")} L${pts[pts.length - 1][0].toFixed(1)},${(h - pad).toFixed(1)} Z`;
+   507→  const stroke = color === "gold" ? "var(--gold)" : "var(--teal)";
+   508→  const lastPt = pts[pts.length - 1];
+   509→
+   510→  return (
+   511→    <svg
+   512→      width={w}
+   513→      height={h}
+   514→      viewBox={`0 0 ${w} ${h}`}
+   515→      aria-hidden="true"
+   516→      focusable="false"
+   517→      className="shrink-0 overflow-visible"
+   518→    >
+   519→      <defs>
+   520→        <linearGradient id={`spark-${id}`} x1="0" x2="0" y1="0" y2="1">
+   521→          <stop offset="0%" stopColor={stroke} stopOpacity="0.32" />
+   522→          <stop offset="100%" stopColor={stroke} stopOpacity="0" />
+   523→        </linearGradient>
+   524→      </defs>
+   525→      <path d={areaPath} fill={`url(#spark-${id})`} />
+   526→      <polyline
+   527→        points={linePts}
+   528→        fill="none"
+   529→        stroke={stroke}
+   530→        strokeWidth="1.5"
+   531→        strokeLinejoin="round"
+   532→        strokeLinecap="round"
+   533→      />
+   534→      <circle cx={lastPt[0]} cy={lastPt[1]} r="2" fill={stroke} />
+   535→    </svg>
+   536→  );
+   537→}
+   538→
+   539→/* ---------- KPI card ---------- */
+   540→
+   541→function KpiCard({ kpi }: { kpi: Kpi }) {
+   542→  const Icon = kpi.icon;
+   543→  const isGood = kpi.trend === "up" || kpi.goodDown === true;
+   544→  const valueColor =
+   545→    kpi.color === "gold" ? "text-[var(--gold-soft)]" : "text-[var(--teal)]";
+   546→  const pillCls = isGood
+   547→    ? kpi.color === "gold"
+   548→      ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border-[var(--gold)]/25"
+   549→      : "bg-[var(--teal)]/10 text-[var(--teal)] border-[var(--teal)]/25"
+   550→    : "bg-destructive/10 text-destructive border-destructive/30";
+   551→  const iconBg = kpi.color === "gold" ? "bg-[var(--gold)]/10" : "bg-[var(--teal)]/10";
+   552→  const iconColorCls = kpi.color === "gold" ? "text-[var(--gold-soft)]" : "text-[var(--teal)]";
+   553→
+   554→  return (
+   555→    <article
+   556→      className="rp-glass rounded-xl p-4 relative group transition-all hover:border-[var(--gold)]/30 hover:shadow-[0_8px_40px_-12px_color-mix(in_oklab,var(--gold)_30%,transparent)]"
+   557→      aria-label={`KPI ${kpi.label}: ${kpi.value}, ${kpi.delta}`}
+   558→    >
+   559→      <div className="absolute top-3 right-3">
+   560→        <DemoBadge />
+   561→      </div>
+   562→      <div className="flex items-start gap-3 pr-12">
+   563→        <div className={cn("h-9 w-9 rounded-md flex items-center justify-center shrink-0", iconBg)}>
+   564→          <Icon className={cn("h-4 w-4", iconColorCls)} aria-hidden />
+   565→        </div>
+   566→        <div className="min-w-0">
+   567→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
+   568→            {kpi.label}
+   569→          </div>
+   570→          <div className={cn("mt-1 font-display text-2xl sm:text-3xl font-light tabular-nums leading-none", valueColor)}>
+   571→            {kpi.value}
+   572→          </div>
+   573→        </div>
+   574→      </div>
+   575→      <div className="mt-4 flex items-end justify-between gap-2">
+   576→        <div className="min-w-0">
+   577→          <span
+   578→            className={cn(
+   579→              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-mono",
+   580→              pillCls
+   581→            )}
+   582→          >
+   583→            {kpi.trend === "up" ? (
+   584→              <ArrowUpRight className="h-3 w-3" aria-hidden />
+   585→            ) : (
+   586→              <ArrowDownRight className="h-3 w-3" aria-hidden />
+   587→            )}
+   588→            <span className="tabular-nums">{kpi.delta}</span>
+   589→          </span>
+   590→          <div className="mt-1.5 text-[11px] text-muted-foreground truncate">{kpi.caption}</div>
+   591→        </div>
+   592→        <Sparkline data={kpi.spark} color={kpi.color} />
+   593→      </div>
+   594→    </article>
+   595→  );
+   596→}
+   597→
+   598→/* ---------- Widget settings (toggles) ---------- */
+   599→
+   600→function WidgetSettings({
+   601→  showRating,
+   602→  setShowRating,
+   603→  showNoShows,
+   604→  setShowNoShows,
+   605→  showAI,
+   606→  setShowAI,
+   607→}: {
+   608→  showRating: boolean;
+   609→  setShowRating: (v: boolean) => void;
+   610→  showNoShows: boolean;
+   611→  setShowNoShows: (v: boolean) => void;
+   612→  showAI: boolean;
+   613→  setShowAI: (v: boolean) => void;
+   614→}) {
+   615→  return (
+   616→    <section
+   617→      aria-label="Personalizar widgets del dashboard"
+   618→      className="rp-glass rounded-xl p-3 sm:p-4 flex flex-wrap items-center gap-x-5 gap-y-3"
+   619→    >
+   620→      <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   621→        <Settings2 className="h-3.5 w-3.5" aria-hidden />
+   622→        <span>Personalizar widgets</span>
+   623→      </div>
+   624→      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+   625→        <label
+   626→          htmlFor="tg-rating"
+   627→          className="flex items-center gap-2 text-sm cursor-pointer select-none hover:text-[var(--gold-soft)] transition-colors focus-within:text-[var(--gold-soft)]"
+   628→        >
+   629→          <Checkbox
+   630→            id="tg-rating"
+   631→            checked={showRating}
+   632→            onCheckedChange={(v) => setShowRating(v === true)}
+   633→            aria-label="Mostrar Google Rating"
+   634→          />
+   635→          <span>Mostrar Google Rating</span>
+   636→        </label>
+   637→        <label
+   638→          htmlFor="tg-noshows"
+   639→          className="flex items-center gap-2 text-sm cursor-pointer select-none hover:text-[var(--gold-soft)] transition-colors"
+   640→        >
+   641→          <Checkbox
+   642→            id="tg-noshows"
+   643→            checked={showNoShows}
+   644→            onCheckedChange={(v) => setShowNoShows(v === true)}
+   645→            aria-label="Mostrar No-shows"
+   646→          />
+   647→          <span>Mostrar No-shows</span>
+   648→        </label>
+   649→        <label
+   650→          htmlFor="tg-ai"
+   651→          className="flex items-center gap-2 text-sm cursor-pointer select-none hover:text-[var(--gold-soft)] transition-colors"
+   652→        >
+   653→          <Checkbox
+   654→            id="tg-ai"
+   655→            checked={showAI}
+   656→            onCheckedChange={(v) => setShowAI(v === true)}
+   657→            aria-label="Mostrar Recomendaciones IA"
+   658→          />
+   659→          <span>Mostrar Recomendaciones IA</span>
+   660→        </label>
+   661→      </div>
+   662→    </section>
+   663→  );
+   664→}
+   665→
+   666→/* ---------- Alerts strip ---------- */
+   667→
+   668→function AlertsStrip() {
+   669→  return (
+   670→    <section aria-label="Alertas operativas" className="space-y-2">
+   671→      {ALERTS.map((a) => {
+   672→        const isRed = a.tone === "red";
+   673→        const Icon = isRed ? ShieldAlert : AlertTriangle;
+   674→        const cls = isRed
+   675→          ? "border-destructive/40 bg-destructive/10 text-destructive"
+   676→          : "border-amber-400/40 bg-amber-400/10 text-amber-300";
+   677→        const btnCls = isRed
+   678→          ? "border-destructive/40 hover:bg-destructive/15 hover:border-destructive/60"
+   679→          : "border-amber-400/40 hover:bg-amber-400/15 hover:border-amber-400/60";
+   680→        return (
+   681→          <div
+   682→            key={a.id}
+   683→            className={cn(
+   684→              "rp-glass rounded-lg border-l-2 px-3 sm:px-4 py-2.5 flex items-center gap-3 flex-wrap",
+   685→              cls
+   686→            )}
+   687→          >
+   688→            <Icon className="h-4 w-4 shrink-0" aria-hidden />
+   689→            <p className="text-sm flex-1 min-w-0">{a.text}</p>
+   690→            <button
+   691→              className={cn(
+   692→                "inline-flex items-center gap-1 rounded-md border bg-foreground/5 px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40",
+   693→                btnCls
+   694→              )}
+   695→            >
+   696→              {a.action}
+   697→              <ChevronRight className="h-3 w-3" aria-hidden />
+   698→            </button>
+   699→            <DemoBadge />
+   700→          </div>
+   701→        );
+   702→      })}
+   703→    </section>
+   704→  );
+   705→}
+   706→
+   707→/* ---------- Reservations today widget ---------- */
+   708→
+   709→const STATUS_STYLES: Record<ResStatus, { label: string; cls: string }> = {
+   710→  confirmed: {
+   711→    label: "Confirmada",
+   712→    cls: "bg-[var(--gold)]/10 text-[var(--gold-soft)] border-[var(--gold)]/25",
+   713→  },
+   714→  waitlist: {
+   715→    label: "Lista de espera",
+   716→    cls: "bg-foreground/5 text-muted-foreground border-foreground/15",
+   717→  },
+   718→  "checked-in": {
+   719→    label: "Check-in",
+   720→    cls: "bg-[var(--teal)]/10 text-[var(--teal)] border-[var(--teal)]/25",
+   721→  },
+   722→};
+   723→
+   724→function ReservasHoyWidget() {
+   725→  const [selected, setSelected] = React.useState<string | null>(RESERVATIONS[0]?.id ?? null);
+   726→  const go = useNav((s) => s.go);
+   727→
+   728→  return (
+   729→    <WidgetShell
+   730→      title="Reservas de hoy"
+   731→      icon={CalendarCheck}
+   732→      iconColor="gold"
+   733→      ariaLabel="Reservas de hoy"
+   734→      action={
+   735→        <button
+   736→          onClick={() => go("reservas")}
+   737→          className="text-xs text-muted-foreground hover:text-[var(--gold)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40 rounded px-1"
+   738→        >
+   739→          Ver todo
+   740→        </button>
+   741→      }
+   742→    >
+   743→      {RESERVATIONS.length === 0 ? (
+   744→        <EmptyState message="No hay reservas para hoy." />
+   745→      ) : (
+   746→        <ul className="divide-y divide-border/40 -mx-1" role="list">
+   747→          {RESERVATIONS.map((r) => {
+   748→            const isSel = selected === r.id;
+   749→            const st = STATUS_STYLES[r.status];
+   750→            return (
+   751→              <li key={r.id}>
+   752→                <button
+   753→                  onClick={() => setSelected(r.id)}
+   754→                  aria-pressed={isSel}
+   755→                  aria-label={`Reserva ${r.time} ${r.customer}, ${r.pax} personas, ${st.label}`}
+   756→                  className={cn(
+   757→                    "w-full flex items-center gap-3 px-2 sm:px-3 py-2.5 text-left rounded-md transition-colors",
+   758→                    isSel
+   759→                      ? "bg-[var(--gold)]/8 ring-1 ring-[var(--gold)]/25"
+   760→                      : "hover:bg-foreground/[0.04] focus-visible:bg-foreground/[0.04]"
+   761→                  )}
+   762→                >
+   763→                  <div className="font-mono text-sm tabular-nums w-12 shrink-0 text-[var(--gold-soft)]">
+   764→                    {r.time}
+   765→                  </div>
+   766→                  <div className="min-w-0 flex-1">
+   767→                    <div className="flex items-center gap-1.5 min-w-0">
+   768→                      <span className="text-sm font-medium truncate">{r.customer}</span>
+   769→                      {r.vip ? (
+   770→                        <Crown
+   771→                          className="h-3.5 w-3.5 text-[var(--gold)] shrink-0"
+   772→                          aria-label="Cliente VIP"
+   773→                        />
+   774→                      ) : null}
+   775→                    </div>
+   776→                    <div className="text-[11px] text-muted-foreground truncate">
+   777→                      {r.table ?? "Mesa por asignar"}
+   778→                    </div>
+   779→                  </div>
+   780→                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+   781→                    <Users className="h-3.5 w-3.5" aria-hidden />
+   782→                    <span className="tabular-nums">{r.pax}</span>
+   783→                  </div>
+   784→                  <span
+   785→                    className={cn(
+   786→                      "inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider shrink-0",
+   787→                      st.cls
+   788→                    )}
+   789→                  >
+   790→                    {st.label}
+   791→                  </span>
+   792→                </button>
+   793→              </li>
+   794→            );
+   795→          })}
+   796→        </ul>
+   797→      )}
+   798→    </WidgetShell>
+   799→  );
+   800→}
+   801→
+   802→/* ---------- Timeline widget ---------- */
+   803→
+   804→function TimelineWidget() {
+   805→  return (
+   806→    <WidgetShell
+   807→      title="Timeline del día"
+   808→      icon={Clock}
+   809→      iconColor="teal"
+   810→      ariaLabel="Timeline del día"
+   811→    >
+   812→      <ol className="relative pl-6" role="list">
+   813→        {/* vertical line */}
+   814→        <div
+   815→          className="absolute left-[7px] top-1 bottom-1 w-px bg-gradient-to-b from-[var(--teal)]/40 via-foreground/15 to-transparent"
+   816→          aria-hidden
+   817→        />
+   818→        {TIMELINE.map((e) => {
+   819→          const dotCls =
+   820→            e.tone === "gold"
+   821→              ? "bg-[var(--gold)] ring-[var(--gold)]/30"
+   822→              : e.tone === "teal"
+   823→              ? "bg-[var(--teal)] ring-[var(--teal)]/30"
+   824→              : "bg-foreground/60 ring-foreground/20";
+   825→          return (
+   826→            <li key={e.id} className="relative pb-5 last:pb-0">
+   827→              <span
+   828→                className={cn(
+   829→                  "absolute -left-6 top-1 h-3 w-3 rounded-full ring-4 ring-background",
+   830→                  dotCls
+   831→                )}
+   832→                aria-hidden
+   833→              />
+   834→              <div className="flex items-baseline gap-3 flex-wrap">
+   835→                <span className="font-mono text-sm tabular-nums text-[var(--gold-soft)]">
+   836→                  {e.time}
+   837→                </span>
+   838→                <span className="text-sm font-medium">{e.label}</span>
+   839→              </div>
+   840→              {e.note ? (
+   841→                <p className="mt-0.5 text-xs text-muted-foreground">{e.note}</p>
+   842→              ) : null}
+   843→            </li>
+   844→          );
+   845→        })}
+   846→      </ol>
+   847→    </WidgetShell>
+   848→  );
+   849→}
+   850→
+   851→/* ---------- Performance chart widget ---------- */
+   852→
+   853→function PerformanceWidget() {
+   854→  const w = 560;
+   855→  const h = 200;
+   856→  const padT = 14;
+   857→  const padB = 38;
+   858→  const padL = 30;
+   859→  const padR = 8;
+   860→  const chartW = w - padL - padR;
+   861→  const chartH = h - padT - padB;
+   862→  const max = Math.max(...CHART.map((d) => d.v));
+   863→  const niceMax = Math.ceil(max / 20) * 20;
+   864→  const stepX = chartW / CHART.length;
+   865→  const barW = stepX * 0.5;
+   866→  const gridLevels = [0, 0.25, 0.5, 0.75, 1];
+   867→
+   868→  return (
+   869→    <WidgetShell
+   870→      title="Gráfico de rendimiento"
+   871→      icon={TrendingUp}
+   872→      iconColor="gold"
+   873→      ariaLabel="Gráfico de rendimiento de reservas por día"
+   874→      action={
+   875→        <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono">
+   876→          <span className="flex items-center gap-1.5">
+   877→            <span className="h-2 w-2 rounded-sm bg-[var(--gold)]" aria-hidden />
+   878→            <span className="text-muted-foreground">Reservas</span>
+   879→          </span>
+   880→          <span className="flex items-center gap-1.5">
+   881→            <span className="h-2 w-2 rounded-sm bg-[var(--teal)]" aria-hidden />
+   882→            <span className="text-muted-foreground">Hoy</span>
+   883→          </span>
+   884→        </div>
+   885→      }
+   886→    >
+   887→      <div className="space-y-3">
+   888→        <div className="flex items-baseline justify-between gap-3 flex-wrap">
+   889→          <p className="text-sm text-muted-foreground">
+   890→            Reservas por día · últimos 7 días
+   891→          </p>
+   892→          <p className="text-[11px] font-mono text-muted-foreground">
+   893→            Media{" "}
+   894→            <span className="text-[var(--gold-soft)] tabular-nums">
+   895→              {(CHART.reduce((s, d) => s + d.v, 0) / CHART.length).toFixed(1)}
+   896→            </span>{" "}
+   897→            · Total{" "}
+   898→            <span className="text-[var(--gold-soft)] tabular-nums">
+   899→              {CHART.reduce((s, d) => s + d.v, 0)}
+   900→            </span>
+   901→          </p>
+   902→        </div>
+   903→        <svg
+   904→          viewBox={`0 0 ${w} ${h}`}
+   905→          width="100%"
+   906→          className="block rp-scroll-thin"
+   907→          preserveAspectRatio="xMidYMid meet"
+   908→          role="img"
+   909→          aria-label="Barras de reservas por día de la última semana"
+   910→        >
+   911→          {/* Y axis labels + gridlines */}
+   912→          {gridLevels.map((lvl) => {
+   913→            const y = padT + chartH - lvl * chartH;
+   914→            const val = Math.round(niceMax * lvl);
+   915→            return (
+   916→              <g key={`g-${lvl}`}>
+   917→                <line
+   918→                  x1={padL}
+   919→                  x2={w - padR}
+   920→                  y1={y}
+   921→                  y2={y}
+   922→                  stroke="currentColor"
+   923→                  strokeOpacity={lvl === 0 ? 0.25 : 0.08}
+   924→                  strokeWidth={1}
+   925→                />
+   926→                <text
+   927→                  x={padL - 6}
+   928→                  y={y + 3}
+   929→                  textAnchor="end"
+   930→                  fontSize="9"
+   931→                  fontFamily="var(--font-jetbrains), monospace"
+   932→                  fill="currentColor"
+   933→                  fillOpacity={0.5}
+   934→                >
+   935→                  {val}
+   936→                </text>
+   937→              </g>
+   938→            );
+   939→          })}
+   940→          {/* Bars */}
+   941→          {CHART.map((d, i) => {
+   942→            const barH = (d.v / niceMax) * chartH;
+   943→            const x = padL + i * stepX + (stepX - barW) / 2;
+   944→            const y = padT + chartH - barH;
+   945→            const fill = d.today ? "var(--teal)" : "var(--gold)";
+   946→            const fillOpacity = d.today ? 1 : 0.85;
+   947→            return (
+   948→              <g key={`b-${d.day}`}>
+   949→                <rect
+   950→                  x={x}
+   951→                  y={y}
+   952→                  width={barW}
+   953→                  height={barH}
+   954→                  rx={2}
+   955→                  fill={fill}
+   956→                  fillOpacity={fillOpacity}
+   957→                >
+   958→                  <title>{`${d.day} ${d.date}: ${d.v} reservas`}</title>
+   959→                </rect>
+   960→                <text
+   961→                  x={x + barW / 2}
+   962→                  y={y - 5}
+   963→                  textAnchor="middle"
+   964→                  fontSize="9"
+   965→                  fontFamily="var(--font-jetbrains), monospace"
+   966→                  fill={d.today ? "var(--teal)" : "var(--gold-soft)"}
+   967→                >
+   968→                  {d.v}
+   969→                </text>
+   970→                <text
+   971→                  x={x + barW / 2}
+   972→                  y={padT + chartH + 14}
+   973→                  textAnchor="middle"
+   974→                  fontSize="10"
+   975→                  fontFamily="var(--font-inter), sans-serif"
+   976→                  fill="currentColor"
+   977→                  fillOpacity={d.today ? 0.95 : 0.55}
+   978→                  fontWeight={d.today ? 600 : 400}
+   979→                >
+   980→                  {d.day}
+   981→                </text>
+   982→                <text
+   983→                  x={x + barW / 2}
+   984→                  y={padT + chartH + 26}
+   985→                  textAnchor="middle"
+   986→                  fontSize="8"
+   987→                  fontFamily="var(--font-jetbrains), monospace"
+   988→                  fill="currentColor"
+   989→                  fillOpacity={0.35}
+   990→                >
+   991→                  {d.date}
+   992→                </text>
+   993→              </g>
+   994→            );
+   995→          })}
+   996→        </svg>
+   997→        {/* Mobile legend */}
+   998→        <div className="sm:hidden flex items-center gap-3 text-[11px] font-mono">
+   999→          <span className="flex items-center gap-1.5">
+  1000→            <span className="h-2 w-2 rounded-sm bg-[var(--gold)]" aria-hidden />
+  1001→            <span className="text-muted-foreground">Reservas</span>
+  1002→          </span>
+  1003→          <span className="flex items-center gap-1.5">
+  1004→            <span className="h-2 w-2 rounded-sm bg-[var(--teal)]" aria-hidden />
+  1005→            <span className="text-muted-foreground">Hoy</span>
+  1006→          </span>
+  1007→        </div>
+  1008→      </div>
+  1009→    </WidgetShell>
+  1010→  );
+  1011→}
+  1012→
+  1013→/* ---------- AI recommendations widget ---------- */
+  1014→
+  1015→function AiRecommendationsWidget() {
+  1016→  return (
+  1017→    <WidgetShell
+  1018→      title="Recomendaciones de IA"
+  1019→      icon={Sparkles}
+  1020→      iconColor="gold"
+  1021→      ariaLabel="Recomendaciones de IA"
+  1022→      className="rp-glow-gold"
+  1023→    >
+  1024→      {AI_RECS.length === 0 ? (
+  1025→        <EmptyState message="No hay recomendaciones disponibles en este momento." />
+  1026→      ) : (
+  1027→        <ul className="space-y-3" role="list">
+  1028→          {AI_RECS.map((r) => {
+  1029→            const Icon = r.icon;
+  1030→            const confCls =
+  1031→              r.confidence >= 85
+  1032→                ? "bg-emerald-400/10 text-emerald-300 border-emerald-400/30"
+  1033→                : r.confidence >= 75
+  1034→                ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border-[var(--gold)]/30"
+  1035→                : "bg-foreground/5 text-muted-foreground border-foreground/20";
+  1036→            return (
+  1037→              <li
+  1038→                key={r.id}
+  1039→                className="rounded-lg border border-border/60 bg-foreground/[0.02] p-3 hover:border-[var(--gold)]/30 transition-colors"
+  1040→              >
+  1041→                <div className="flex items-start gap-2.5">
+  1042→                  <div className="h-7 w-7 rounded-md bg-[var(--gold)]/10 flex items-center justify-center shrink-0 mt-0.5">
+  1043→                    <Icon className="h-3.5 w-3.5 text-[var(--gold-soft)]" aria-hidden />
+  1044→                  </div>
+  1045→                  <div className="min-w-0 flex-1">
+  1046→                    <p className="text-sm leading-snug">{r.title}</p>
+  1047→                    <p className="mt-1 text-[11px] text-muted-foreground leading-relaxed">
+  1048→                      {r.rationale}
+  1049→                    </p>
+  1050→                    <div className="mt-2 flex items-center justify-between gap-2 flex-wrap">
+  1051→                      <span
+  1052→                        className={cn(
+  1053→                          "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+  1054→                          confCls
+  1055→                        )}
+  1056→                      >
+  1057→                        <Sparkles className="h-3 w-3" aria-hidden />
+  1058→                        Confianza {r.confidence}%
+  1059→                      </span>
+  1060→                      <button
+  1061→                        className="inline-flex items-center gap-1 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2 py-1 text-[11px] font-medium text-[var(--gold-soft)] hover:bg-[var(--gold)]/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+  1062→                        aria-label={`Revisar antes de ejecutar: ${r.action}`}
+  1063→                      >
+  1064→                        <Zap className="h-3 w-3" aria-hidden />
+  1065→                        Revisar antes de ejecutar
+  1066→                      </button>
+  1067→                    </div>
+  1068→                  </div>
+  1069→                </div>
+  1070→              </li>
+  1071→            );
+  1072→          })}
+  1073→        </ul>
+  1074→      )}
+  1075→      <p className="mt-3 text-[11px] text-muted-foreground/80 italic">
+  1076→        IA propone, humano decide. Toda acción sensible requiere aprobación explícita.
+  1077→      </p>
+  1078→    </WidgetShell>
+  1079→  );
+  1080→}
+  1081→
+  1082→/* ---------- Activity feed widget ---------- */
+  1083→
+  1084→function ActivityWidget() {
+  1085→  return (
+  1086→    <WidgetShell
+  1087→      title="Actividad reciente"
+  1088→      icon={BellRing}
+  1089→      iconColor="teal"
+  1090→      ariaLabel="Actividad reciente"
+  1091→    >
+  1092→      {ACTIVITY.length === 0 ? (
+  1093→        <EmptyState message="Sin actividad reciente." />
+  1094→      ) : (
+  1095→        <ul className="space-y-1 -mx-1" role="list">
+  1096→          {ACTIVITY.map((a) => {
+  1097→            const Icon = a.icon;
+  1098→            const iconBg =
+  1099→              a.tone === "gold"
+  1100→                ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+  1101→                : a.tone === "teal"
+  1102→                ? "bg-[var(--teal)]/10 text-[var(--teal)]"
+  1103→                : "bg-foreground/5 text-muted-foreground";
+  1104→            return (
+  1105→              <li key={a.id}>
+  1106→                <div className="flex items-start gap-2.5 px-2 py-2 rounded-md hover:bg-foreground/[0.03]">
+  1107→                  <div
+  1108→                    className={cn(
+  1109→                      "h-7 w-7 rounded-md flex items-center justify-center shrink-0",
+  1110→                      iconBg
+  1111→                    )}
+  1112→                  >
+  1113→                    <Icon className="h-3.5 w-3.5" aria-hidden />
+  1114→                  </div>
+  1115→                  <div className="min-w-0 flex-1">
+  1116→                    <p className="text-sm leading-snug">{a.text}</p>
+  1117→                    <p className="mt-0.5 text-[11px] font-mono text-muted-foreground tabular-nums">
+  1118→                      {a.ago}
+  1119→                    </p>
+  1120→                  </div>
+  1121→                </div>
+  1122→              </li>
+  1123→            );
+  1124→          })}
+  1125→        </ul>
+  1126→      )}
+  1127→    </WidgetShell>
+  1128→  );
+  1129→}
+  1130→
+  1131→/* ---------- Upcoming reservations widget ---------- */
+  1132→
+  1133→function UpcomingReservationsWidget() {
+  1134→  return (
+  1135→    <WidgetShell
+  1136→      title="Próximas reservas"
+  1137→      icon={CalendarClock}
+  1138→      iconColor="gold"
+  1139→      ariaLabel="Próximas reservas en las próximas 2 horas"
+  1140→    >
+  1141→      {UPCOMING.length === 0 ? (
+  1142→        <EmptyState message="No hay reservas en las próximas 2 horas." />
+  1143→      ) : (
+  1144→        <ul className="space-y-2" role="list">
+  1145→          {UPCOMING.map((u) => (
+  1146→            <li
+  1147→              key={u.id}
+  1148→              className="flex items-center gap-3 rounded-md border border-border/60 bg-foreground/[0.02] px-3 py-2 hover:border-[var(--gold)]/30 transition-colors"
+  1149→            >
+  1150→              <div className="font-mono text-sm tabular-nums text-[var(--gold-soft)] w-12 shrink-0">
+  1151→                {u.time}
+  1152→              </div>
+  1153→              <div className="min-w-0 flex-1">
+  1154→                <div className="flex items-center gap-1.5 min-w-0">
+  1155→                  <span className="text-sm font-medium truncate">{u.customer}</span>
+  1156→                  {u.vip ? (
+  1157→                    <Crown className="h-3.5 w-3.5 text-[var(--gold)] shrink-0" aria-label="VIP" />
+  1158→                  ) : null}
+  1159→                </div>
+  1160→                <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+  1161→                  <span className="inline-flex items-center gap-1">
+  1162→                    <Users className="h-3 w-3" aria-hidden />
+  1163→                    <span className="tabular-nums">{u.pax}</span>
+  1164→                  </span>
+  1165→                  <span className="text-muted-foreground/60">·</span>
+  1166→                  <span className="font-mono tabular-nums">en {u.inMin} min</span>
+  1167→                </div>
+  1168→              </div>
+  1169→            </li>
+  1170→          ))}
+  1171→        </ul>
+  1172→      )}
+  1173→    </WidgetShell>
+  1174→  );
+  1175→}
+  1176→
+  1177→/* ---------- Integrations widget ---------- */
+  1178→
+  1179→function IntegrationsWidget() {
+  1180→  return (
+  1181→    <WidgetShell
+  1182→      title="Estado de integraciones"
+  1183→      icon={Plug}
+  1184→      iconColor="teal"
+  1185→      ariaLabel="Estado de integraciones"
+  1186→    >
+  1187→      <ul className="space-y-2" role="list">
+  1188→        {INTEGRATIONS.map((it) => {
+  1189→          const Icon = it.icon;
+  1190→          const connected = it.status === "conectado";
+  1191→          return (
+  1192→            <li
+  1193→              key={it.id}
+  1194→              className="flex items-center gap-3 rounded-md border border-border/60 bg-foreground/[0.02] px-3 py-2"
+  1195→            >
+  1196→              <div className="h-8 w-8 rounded-md bg-foreground/5 flex items-center justify-center shrink-0">
+  1197→                <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+  1198→              </div>
+  1199→              <div className="min-w-0 flex-1">
+  1200→                <div className="text-sm font-medium">{it.name}</div>
+  1201→                <div className="text-[11px] text-muted-foreground truncate">{it.detail}</div>
+  1202→              </div>
+  1203→              <span
+  1204→                className={cn(
+  1205→                  "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider shrink-0",
+  1206→                  connected
+  1207→                    ? "bg-[var(--teal)]/10 text-[var(--teal)] border-[var(--teal)]/25"
+  1208→                    : "bg-amber-400/10 text-amber-300 border-amber-400/30"
+  1209→                )}
+  1210→              >
+  1211→                {connected ? (
+  1212→                  <CheckCircle2 className="h-3 w-3" aria-hidden />
+  1213→                ) : (
+  1214→                  <Hourglass className="h-3 w-3" aria-hidden />
+  1215→                )}
+  1216→                {it.status}
+  1217→              </span>
+  1218→            </li>
+  1219→          );
+  1220→        })}
+  1221→      </ul>
+  1222→    </WidgetShell>
+  1223→  );
+  1224→}
+  1225→

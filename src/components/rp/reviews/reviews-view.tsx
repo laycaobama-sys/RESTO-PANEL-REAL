@@ -448,9 +448,9 @@ function HeaderSummary({
 }) {
   return (
     <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-label="Resumen de valoración">
-      <div className="flex flex-col xl:flex-row gap-6">
+      <div className="flex flex-col xl:flex-row gap-5 sm:gap-6">
         {/* Rating + distribution */}
-        <div className="flex items-center gap-6 min-w-0">
+        <div className="flex items-center gap-4 sm:gap-6 min-w-0">
           <div className="text-center shrink-0">
             <div className="font-display text-5xl sm:text-6xl font-light rp-gold-text leading-none">
               4.6
@@ -1067,7 +1067,7 @@ function CopilotPanel() {
           e.preventDefault();
           handleAsk(question);
         }}
-        className="flex items-center gap-2"
+        className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2"
       >
         <div className="relative flex-1">
           <Sparkles className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
@@ -1083,7 +1083,7 @@ function CopilotPanel() {
         <Button
           type="submit"
           size="sm"
-          className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/90"
+          className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/90 w-full sm:w-auto"
         >
           <Send className="h-3.5 w-3.5" aria-hidden />
           Preguntar

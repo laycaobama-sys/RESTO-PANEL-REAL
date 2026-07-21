@@ -426,11 +426,11 @@ export function SuperAdminView() {
         <SectionTitle title="KPIs de plataforma" subtitle="Métricas agregadas de todas las organizaciones" demo>
           <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">Última actualización: hace 2 min</span>
         </SectionTitle>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {KPIS.map((k) => (
             <div key={k.label} className="rp-glass rounded-xl p-4 hover:border-[var(--gold)]/30 transition-colors">
               <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{k.label}</div>
-              <div className="mt-1.5 font-display text-xl sm:text-2xl xl:text-[1.7rem] font-light text-foreground">{k.value}</div>
+              <div className="mt-1.5 font-display text-2xl sm:text-[1.7rem] font-light text-foreground">{k.value}</div>
               <div className="mt-2">
                 <TrendPill dir={k.trend} value={k.delta} />
               </div>
@@ -468,9 +468,9 @@ export function SuperAdminView() {
                 aria-label="Buscar organizaciones"
               />
             </div>
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2">
               <Select value={planFilter} onValueChange={setPlanFilter}>
-                <SelectTrigger size="sm" className="w-full sm:w-40" aria-label="Filtrar por plan">
+                <SelectTrigger size="sm" className="w-40" aria-label="Filtrar por plan">
                   <span className="flex items-center gap-2 text-muted-foreground"><Filter className="h-3 w-3" /> Plan</span>
                   <SelectValue />
                 </SelectTrigger>
@@ -479,7 +479,7 @@ export function SuperAdminView() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger size="sm" className="w-full sm:w-36 flex-1 sm:flex-none" aria-label="Filtrar por estado">
+                <SelectTrigger size="sm" className="w-36" aria-label="Filtrar por estado">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>

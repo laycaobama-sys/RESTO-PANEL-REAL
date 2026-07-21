@@ -1234,16 +1234,16 @@ export function MarketingView() {
       </header>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList className="w-full justify-start sm:w-auto" aria-label="Vistas de marketing">
-          <TabsTrigger value="segmentos" aria-label="Vista de segmentos">
+        <TabsList className="w-full justify-start overflow-x-auto rp-scroll-thin sm:w-auto" aria-label="Vistas de marketing">
+          <TabsTrigger value="segmentos" aria-label="Vista de segmentos" className="min-h-9">
             <Users className="h-4 w-4" aria-hidden />
             Segmentos
           </TabsTrigger>
-          <TabsTrigger value="campanas" aria-label="Vista de campañas">
+          <TabsTrigger value="campanas" aria-label="Vista de campañas" className="min-h-9">
             <Megaphone className="h-4 w-4" aria-hidden />
             Campañas
           </TabsTrigger>
-          <TabsTrigger value="plantillas" aria-label="Vista de plantillas">
+          <TabsTrigger value="plantillas" aria-label="Vista de plantillas" className="min-h-9">
             <FileText className="h-4 w-4" aria-hidden />
             Plantillas
           </TabsTrigger>
@@ -1251,9 +1251,9 @@ export function MarketingView() {
 
         {/* SEGMENTOS */}
         <TabsContent value="segmentos" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SectionLabel icon={Users}>Segmentos definidos</SectionLabel>
-            <Button onClick={() => setNewSegmentOpen(true)}>
+            <Button onClick={() => setNewSegmentOpen(true)} className="min-h-11 sm:self-auto">
               <Plus className="h-4 w-4" aria-hidden />
               Nuevo segmento
             </Button>
@@ -1267,7 +1267,7 @@ export function MarketingView() {
               onAction={() => setNewSegmentOpen(true)}
             />
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {segments.map((s) => (
                 <SegmentCard
                   key={s.id}
@@ -1284,9 +1284,9 @@ export function MarketingView() {
 
         {/* CAMPAÑAS */}
         <TabsContent value="campanas" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SectionLabel icon={Megaphone}>Campañas</SectionLabel>
-            <Button onClick={() => setNewCampaignOpen(true)}>
+            <Button onClick={() => setNewCampaignOpen(true)} className="min-h-11 sm:self-auto">
               <Plus className="h-4 w-4" aria-hidden />
               Nueva campaña
             </Button>
@@ -1352,9 +1352,9 @@ export function MarketingView() {
 
         {/* PLANTILLAS */}
         <TabsContent value="plantillas" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <SectionLabel icon={FileText}>Plantillas</SectionLabel>
-            <Button onClick={() => setNewTemplateOpen(true)}>
+            <Button onClick={() => setNewTemplateOpen(true)} className="min-h-11 sm:self-auto">
               <Plus className="h-4 w-4" aria-hidden />
               Nueva plantilla
             </Button>
@@ -1368,7 +1368,7 @@ export function MarketingView() {
               onAction={() => setNewTemplateOpen(true)}
             />
           ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
+            <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {templates.map((t) => (
                 <TemplateCard key={t.id} template={t} />
               ))}

@@ -1,0 +1,557 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import {
+     7→  Tabs, TabsList, TabsTrigger, TabsContent,
+     8→} from "@/components/ui/tabs";
+     9→import {
+    10→  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+    11→} from "@/components/ui/dialog";
+    12→import {
+    13→  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+    14→} from "@/components/ui/alert-dialog";
+    15→import {
+    16→  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+    17→} from "@/components/ui/select";
+    18→import { Input } from "@/components/ui/input";
+    19→import { Label } from "@/components/ui/label";
+    20→import { Button } from "@/components/ui/button";
+    21→import { Badge } from "@/components/ui/badge";
+    22→import { Checkbox } from "@/components/ui/checkbox";
+    23→import {
+    24→  Plug, Search, Plus, Settings, LogOut, RefreshCw, FileText, Check, X,
+    25→  CreditCard, MessageCircle, Star, Mail, Slack, Facebook, ShoppingCart,
+    26→  Webhook, Shield, Zap, Link2, ExternalLink, AlertCircle, Globe, Building2,
+    27→} from "lucide-react";
+    28→
+    29→/* ---------------- shared bits ---------------- */
+    30→function DemoBadge({ className }: { className?: string }) {
+    31→  return (
+    32→    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
+    33→      demo
+    34→    </Badge>
+    35→  );
+    36→}
+    37→
+    38→function SectionTitle({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
+    39→  return (
+    40→    <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+    41→      <div>
+    42→        <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">{title}</h3>
+    43→        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+    44→      </div>
+    45→      {children && <div className="shrink-0">{children}</div>}
+    46→    </div>
+    47→  );
+    48→}
+    49→
+    50→type Status = "connected" | "pending" | "not-configured" | "error";
+    51→function StatusPill({ status }: { status: Status }) {
+    52→  const map = {
+    53→    connected: { label: "Conectado", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400" },
+    54→    pending: { label: "Pendiente", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400" },
+    55→    "not-configured": { label: "No configurado", cls: "border-border/60 bg-foreground/5 text-muted-foreground", dot: "bg-muted-foreground/50" },
+    56→    error: { label: "Error", cls: "border-rose-400/50 bg-rose-400/10 text-rose-300", dot: "bg-rose-400" },
+    57→  }[status];
+    58→  return (
+    59→    <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs", map.cls)}>
+    60→      <span className={cn("h-1.5 w-1.5 rounded-full", map.dot)} />
+    61→      {map.label}
+    62→    </span>
+    63→  );
+    64→}
+    65→
+    66→/* integration icon registry — abstract shapes via lucide */
+    67→const ICON_MAP: Record<string, React.ElementType> = {
+    68→  stripe: CreditCard, whatsapp: MessageCircle, google: Star, resend: Mail,
+    69→  slack: Slack, meta: Facebook, hubspot: Building2, salesforce: Zap,
+    70→  zapier: Zap, make: Zap, erp: ShoppingCart, tpv: CreditCard, mailchimp: Mail,
+    71→};
+    72→
+    73→/* ---------------- installed integrations ---------------- */
+    74→type Installed = {
+    75→  id: string; name: string; category: string; description: string;
+    76→  status: Status; version: string; lastSync: string; real: boolean;
+    77→  scopes?: string[]; oauthState?: string;
+    78→};
+    79→
+    80→const INSTALLED: Installed[] = [
+    81→  { id: "stripe", name: "Stripe", category: "Pagos", description: "Cobros, suscripciones y facturación automática.", status: "connected", version: "v2.4.1", lastSync: "hace 2 min", real: false, scopes: ["read_payments", "write_payments", "read_customers"], oauthState: "active" },
+    82→  { id: "whatsapp", name: "WhatsApp Business", category: "Mensajería", description: "Mensajería y plantillas con WhatsApp Cloud API.", status: "connected", version: "v1.8.0", lastSync: "hace 5 min", real: false, scopes: ["send_messages", "read_templates"], oauthState: "active" },
+    83→  { id: "google", name: "Google Business Profile", category: "Reputación", description: "Sincronización de reseñas y datos de establecimiento.", status: "pending", version: "v0.9.2", lastSync: "—", real: false, scopes: [], oauthState: "pending_authorization" },
+    84→  { id: "resend", name: "Resend", category: "Email", description: "Envío transaccional y campañas con DKIM/SPF.", status: "connected", version: "v3.1.0", lastSync: "hace 1 h", real: false, scopes: ["send_emails", "read_domains"], oauthState: "active" },
+    85→  { id: "slack", name: "Slack", category: "Notificaciones", description: "Alertas y notificaciones operativas en canales.", status: "not-configured", version: "v1.2.0", lastSync: "—", real: false, scopes: [], oauthState: "not_started" },
+    86→  { id: "meta", name: "Meta Business", category: "Marketing", description: "Conexión con Facebook Pages e Instagram Business.", status: "pending", version: "v2.0.0", lastSync: "—", real: false, scopes: ["pages_manage_posts", "read_insights"], oauthState: "pending_authorization" },
+    87→];
+    88→
+    89→/* ---------------- marketplace ---------------- */
+    90→type MarketApp = {
+    91→  id: string; name: string; category: string; benefit: string;
+    92→  real: boolean; popular?: boolean; new?: boolean;
+    93→};
+    94→
+    95→const MARKETPLACE: MarketApp[] = [
+    96→  { id: "stripe", name: "Stripe", category: "Pagos", benefit: "Cobros, suscripciones y facturación.", real: false, popular: true },
+    97→  { id: "whatsapp", name: "WhatsApp Business", category: "Mensajería", benefit: "Mensajería plantillas y conversaciones.", real: false, popular: true },
+    98→  { id: "meta", name: "Meta Business", category: "Marketing", benefit: "Facebook Pages e Instagram insights.", real: false },
+    99→  { id: "google", name: "Google Business Profile", category: "Reputación", benefit: "Reseñas y ficha de establecimiento.", real: false, popular: true },
+   100→  { id: "hubspot", name: "HubSpot", category: "CRM", benefit: "Sincronización bidireccional de contactos.", real: false },
+   101→  { id: "salesforce", name: "Salesforce", category: "CRM", benefit: "Enterprise: cuentas y oportunidades.", real: false, new: true },
+   102→  { id: "zapier", name: "Zapier", category: "Automatización", benefit: "5000+ apps para automatizar workflows.", real: false, popular: true },
+   103→  { id: "make", name: "Make (Integromat)", category: "Automatización", benefit: "Escenarios visuales multi-paso.", real: false },
+   104→  { id: "slack", name: "Slack", category: "Notificaciones", benefit: "Alertas y resúmenes operativos.", real: false },
+   105→  { id: "erp", name: "ERP (Sage / SAP)", category: "Finanzas", benefit: "Exportación contable y facturas.", real: false, new: true },
+   106→  { id: "tpv", name: "TPV (Sumup / Square)", category: "Operación", benefit: "Tickets en tiempo real y cierre de caja.", real: false },
+   107→  { id: "mailchimp", name: "Mailchimp", category: "Email", benefit: "Newsletters y segmentación clásica.", real: false },
+   108→];
+   109→
+   110→/* ---------------- webhooks ---------------- */
+   111→type Hook = {
+   112→  id: string; url: string; events: string[]; lastDelivery: string; status: Status;
+   113→};
+   114→
+   115→const HOOKS: Hook[] = [
+   116→  { id: "h1", url: "https://api.example.com/hooks/reservas", events: ["reservation.created", "reservation.cancelled"], lastDelivery: "hace 12 s", status: "connected" },
+   117→  { id: "h2", url: "https://crm.example.com/inbox/rp", events: ["customer.created", "customer.updated"], lastDelivery: "hace 1 min", status: "connected" },
+   118→  { id: "h3", url: "https://analytics.example.com/ingest", events: ["*"], lastDelivery: "hace 8 min", status: "pending" },
+   119→  { id: "h4", url: "https://legacy.example.com/billing", events: ["invoice.paid", "invoice.failed"], lastDelivery: "hace 2 h", status: "error" },
+   120→];
+   121→
+   122→const HOOK_EVENTS = [
+   123→  "reservation.created", "reservation.updated", "reservation.cancelled", "reservation.no_show",
+   124→  "customer.created", "customer.updated", "customer.deleted",
+   125→  "invoice.paid", "invoice.failed", "review.received",
+   126→  "campaign.sent", "ai.message.composed",
+   127→];
+   128→
+   129→/* ---------------- Installed card ---------------- */
+   130→function InstalledCard({ app, onConfigure, onDisconnect, onReauth, onLogs }: {
+   131→  app: Installed; onConfigure: (a: Installed) => void;
+   132→  onDisconnect: (a: Installed) => void; onReauth: (a: Installed) => void; onLogs: (a: Installed) => void;
+   133→}) {
+   134→  const Icon = ICON_MAP[app.id] ?? Plug;
+   135→  return (
+   136→    <div className="rp-glass rounded-xl p-4 flex flex-col gap-3 hover:border-[var(--gold)]/30 transition-colors">
+   137→      <div className="flex items-start gap-3">
+   138→        <div className="h-10 w-10 rounded-lg bg-foreground/5 border border-border/60 flex items-center justify-center shrink-0">
+   139→          <Icon className="h-5 w-5 text-foreground/80" aria-hidden />
+   140→        </div>
+   141→        <div className="flex-1 min-w-0">
+   142→          <div className="flex flex-wrap items-center gap-2">
+   143→            <h4 className="font-medium text-foreground">{app.name}</h4>
+   144→            {!app.real && app.status === "connected" && <DemoBadge />}
+   145→            {app.real && app.status === "connected" && (
+   146→              <Badge className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px]">
+   147→                <Check className="h-2.5 w-2.5 mr-1" /> real
+   148→              </Badge>
+   149→            )}
+   150→          </div>
+   151→          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{app.description}</p>
+   152→        </div>
+   153→        <StatusPill status={app.status} />
+   154→      </div>
+   155→      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-mono">
+   156→        <span>v{app.version}</span>
+   157→        <span>·</span>
+   158→        <span>{app.category}</span>
+   159→        <span>·</span>
+   160→        <span>Últ. sync: {app.lastSync}</span>
+   161→      </div>
+   162→      <div className="flex flex-wrap gap-2 pt-1 border-t border-border/40">
+   163→        <Button size="sm" variant="outline" onClick={() => onConfigure(app)} disabled={app.status === "not-configured"}>
+   164→          <Settings className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Configurar
+   165→        </Button>
+   166→        {app.status === "connected" && (
+   167→          <>
+   168→            <Button size="sm" variant="outline" onClick={() => onReauth(app)}>
+   169→              <RefreshCw className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Reautenticar
+   170→            </Button>
+   171→            <Button size="sm" variant="outline" onClick={() => onLogs(app)}>
+   172→              <FileText className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Ver logs
+   173→            </Button>
+   174→            <Button size="sm" variant="outline" className="text-rose-300 border-rose-400/30 hover:bg-rose-400/10" onClick={() => onDisconnect(app)}>
+   175→              <LogOut className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Desconectar
+   176→            </Button>
+   177→          </>
+   178→        )}
+   179→        {app.status === "pending" && (
+   180→          <Button size="sm" variant="outline" onClick={() => onConfigure(app)}>
+   181→            <Link2 className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Completar OAuth
+   182→          </Button>
+   183→        )}
+   184→        {app.status === "not-configured" && (
+   185→          <Button size="sm" onClick={() => onConfigure(app)}>
+   186→            <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Conectar
+   187→          </Button>
+   188→        )}
+   189→      </div>
+   190→    </div>
+   191→  );
+   192→}
+   193→
+   194→/* ---------------- Market card ---------------- */
+   195→function MarketCard({ app, onInstall }: { app: MarketApp; onInstall: (a: MarketApp) => void }) {
+   196→  const Icon = ICON_MAP[app.id] ?? Plug;
+   197→  return (
+   198→    <div className="rp-glass rounded-xl p-4 flex flex-col gap-3 hover:border-[var(--teal)]/30 transition-colors">
+   199→      <div className="flex items-start gap-3">
+   200→        <div className="h-10 w-10 rounded-lg bg-[var(--teal)]/10 border border-[var(--teal)]/30 flex items-center justify-center shrink-0">
+   201→          <Icon className="h-5 w-5 rp-teal-text" aria-hidden />
+   202→        </div>
+   203→        <div className="flex-1 min-w-0">
+   204→          <div className="flex flex-wrap items-center gap-2">
+   205→            <h4 className="font-medium text-foreground">{app.name}</h4>
+   206→            {app.popular && <Badge className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px]">popular</Badge>}
+   207→            {app.new && <Badge className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[10px]">nuevo</Badge>}
+   208→            {!app.real && <DemoBadge />}
+   209→          </div>
+   210→          <p className="text-xs text-muted-foreground mt-0.5">{app.benefit}</p>
+   211→        </div>
+   212→      </div>
+   213→      <div className="flex items-center justify-between pt-2 border-t border-border/40">
+   214→        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{app.category}</span>
+   215→        <Button size="sm" variant="outline" onClick={() => onInstall(app)}>
+   216→          <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Instalar
+   217→        </Button>
+   218→      </div>
+   219→    </div>
+   220→  );
+   221→}
+   222→
+   223→/* ---------------- main view ---------------- */
+   224→export function IntegrationsView() {
+   225→  const { toast } = useToast();
+   226→  const [tab, setTab] = React.useState<"installed" | "marketplace" | "webhooks">("installed");
+   227→  const [search, setSearch] = React.useState("");
+   228→  const [catFilter, setCatFilter] = React.useState("Todas");
+   229→
+   230→  const [configApp, setConfigApp] = React.useState<Installed | null>(null);
+   231→  const [disconnectApp, setDisconnectApp] = React.useState<Installed | null>(null);
+   232→  const [installApp, setInstallApp] = React.useState<MarketApp | null>(null);
+   233→  const [newHookOpen, setNewHookOpen] = React.useState(false);
+   234→
+   235→  const [hookForm, setHookForm] = React.useState({ url: "", secret: "", events: [] as string[] });
+   236→  const [hookErr, setHookErr] = React.useState<string | null>(null);
+   237→
+   238→  const categories = React.useMemo(() => ["Todas", ...Array.from(new Set(MARKETPLACE.map((m) => m.category)))], []);
+   239→  const filteredMarket = MARKETPLACE.filter((m) => {
+   240→    if (search && !m.name.toLowerCase().includes(search.toLowerCase())) return false;
+   241→    if (catFilter !== "Todas" && m.category !== catFilter) return false;
+   242→    return true;
+   243→  });
+   244→
+   245→  const onConfigure = (a: Installed) => setConfigApp(a);
+   246→  const onDisconnect = (a: Installed) => setDisconnectApp(a);
+   247→  const onReauth = (a: Installed) => toast({ title: `${a.name}: reautenticación (demo)`, description: "Se ha iniciado el flujo OAuth de nuevo." });
+   248→  const onLogs = (a: Installed) => toast({ title: `${a.name}: logs (demo)`, description: "Abriendo visor de logs en nueva pestaña." });
+   249→  const onInstall = (a: MarketApp) => setInstallApp(a);
+   250→
+   251→  const confirmDisconnect = () => {
+   252→    if (disconnectApp) {
+   253→      toast({ title: `${disconnectApp.name} desconectado (demo)`, description: "La integración ya no está activa.", variant: "destructive" });
+   254→      setDisconnectApp(null);
+   255→    }
+   256→  };
+   257→
+   258→  const submitNewHook = () => {
+   259→    setHookErr(null);
+   260→    if (!hookForm.url.trim()) { setHookErr("La URL del endpoint es obligatoria."); return; }
+   261→    try { new URL(hookForm.url); } catch { setHookErr("La URL no es válida."); return; }
+   262→    if (hookForm.events.length === 0) { setHookErr("Selecciona al menos un evento."); return; }
+   263→    if (!hookForm.secret.trim() || hookForm.secret.length < 8) { setHookErr("El secreto debe tener al menos 8 caracteres."); return; }
+   264→    toast({ title: "Webhook creado (demo)", description: `${hookForm.events.length} eventos suscritos a ${hookForm.url}` });
+   265→    setHookForm({ url: "", secret: "", events: [] });
+   266→    setNewHookOpen(false);
+   267→  };
+   268→
+   269→  return (
+   270→    <div className="space-y-6 max-w-[1400px] mx-auto">
+   271→      <header className="space-y-2">
+   272→        <div className="flex items-center gap-2.5">
+   273→          <div className="h-9 w-9 rounded-md bg-[var(--teal)]/10 border border-[var(--teal)]/30 flex items-center justify-center">
+   274→            <Plug className="h-5 w-5 rp-teal-text" aria-hidden />
+   275→          </div>
+   276→          <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Integraciones</h1>
+   277→          <DemoBadge />
+   278→        </div>
+   279→        <p className="text-sm text-muted-foreground max-w-2xl">
+   280→          Conecta RestoPanel con tus servicios externos. Gestiona integraciones instaladas, explora el marketplace
+   281→          y configura webhooks salientes. Las integraciones marcadas como «demo» no están conectadas a servicios reales.
+   282→        </p>
+   283→      </header>
+   284→
+   285→      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+   286→        <TabsList className="bg-muted/60">
+   287→          <TabsTrigger value="installed">Instaladas ({INSTALLED.length})</TabsTrigger>
+   288→          <TabsTrigger value="marketplace">Marketplace</TabsTrigger>
+   289→          <TabsTrigger value="webhooks">Webhooks</TabsTrigger>
+   290→        </TabsList>
+   291→
+   292→        {/* Installed tab */}
+   293→        <TabsContent value="installed" className="mt-4 space-y-4">
+   294→          <SectionTitle title="Integraciones instaladas" subtitle="Servicios conectados a tu organización" />
+   295→          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+   296→            {INSTALLED.map((a) => (
+   297→              <InstalledCard key={a.id} app={a}
+   298→                onConfigure={onConfigure} onDisconnect={onDisconnect}
+   299→                onReauth={onReauth} onLogs={onLogs} />
+   300→            ))}
+   301→          </div>
+   302→          <div className="rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 flex items-start gap-2.5 text-xs text-amber-200/90">
+   303→            <AlertCircle className="h-4 w-4 text-amber-300 mt-0.5 shrink-0" aria-hidden />
+   304→            <span>
+   305→              Las integraciones marcadas como <strong>demo</strong> simulan conexión y no realizan llamadas reales.
+   306→              Para activar una conexión real, completa el flujo OAuth con credenciales válidas.
+   307→            </span>
+   308→          </div>
+   309→        </TabsContent>
+   310→
+   311→        {/* Marketplace tab */}
+   312→        <TabsContent value="marketplace" className="mt-4 space-y-4">
+   313→          <SectionTitle title="Marketplace" subtitle="Explora integraciones disponibles">
+   314→            <span className="text-[11px] font-mono text-muted-foreground">{MARKETPLACE.length} apps</span>
+   315→          </SectionTitle>
+   316→          <div className="flex flex-col sm:flex-row gap-2">
+   317→            <div className="relative flex-1">
+   318→              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+   319→              <Input type="search" placeholder="Buscar integración…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" aria-label="Buscar integraciones" />
+   320→            </div>
+   321→            <Select value={catFilter} onValueChange={setCatFilter}>
+   322→              <SelectTrigger size="sm" className="w-44 sm:w-48"><SelectValue placeholder="Categoría" /></SelectTrigger>
+   323→              <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+   324→            </Select>
+   325→          </div>
+   326→          {filteredMarket.length === 0 ? (
+   327→            <div className="text-center py-12 text-muted-foreground text-sm">No se encontraron integraciones.</div>
+   328→          ) : (
+   329→            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+   330→              {filteredMarket.map((a) => <MarketCard key={a.id} app={a} onInstall={onInstall} />)}
+   331→            </div>
+   332→          )}
+   333→        </TabsContent>
+   334→
+   335→        {/* Webhooks tab */}
+   336→        <TabsContent value="webhooks" className="mt-4 space-y-4">
+   337→          <SectionTitle title="Webhooks salientes" subtitle="Endpoints que reciben eventos de RestoPanel" demo>
+   338→            <Button size="sm" onClick={() => setNewHookOpen(true)}>
+   339→              <Plus className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Nuevo webhook
+   340→            </Button>
+   341→          </SectionTitle>
+   342→          <div className="rp-glass rounded-xl overflow-hidden">
+   343→            <div className="overflow-x-auto rp-scroll-thin">
+   344→              <table className="w-full border-collapse text-sm">
+   345→                <thead>
+   346→                  <tr className="border-b border-border/60 bg-foreground/[0.03]">
+   347→                    <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Endpoint</th>
+   348→                    <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Eventos</th>
+   349→                    <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Últ. entrega</th>
+   350→                    <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Estado</th>
+   351→                    <th className="px-4 py-2.5" aria-label="Acciones" />
+   352→                  </tr>
+   353→                </thead>
+   354→                <tbody>
+   355→                  {HOOKS.map((h) => (
+   356→                    <tr key={h.id} className="border-b border-border/40 last:border-0 hover:bg-foreground/[0.03]">
+   357→                      <td className="px-4 py-3">
+   358→                        <div className="flex items-center gap-2 font-mono text-xs">
+   359→                          <Globe className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+   360→                          <span className="truncate max-w-[260px]">{h.url}</span>
+   361→                        </div>
+   362→                      </td>
+   363→                      <td className="px-4 py-3">
+   364→                        <div className="flex flex-wrap gap-1">
+   365→                          {h.events.map((e) => (
+   366→                            <code key={e} className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/5 border border-border/40 text-[var(--teal)]">{e}</code>
+   367→                          ))}
+   368→                        </div>
+   369→                      </td>
+   370→                      <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{h.lastDelivery}</td>
+   371→                      <td className="px-4 py-3"><StatusPill status={h.status} /></td>
+   372→                      <td className="px-4 py-3 text-right">
+   373→                        <Button size="sm" variant="ghost" className="h-7" onClick={() => toast({ title: "Probando webhook (demo)", description: h.url })}>
+   374→                          Probar
+   375→                        </Button>
+   376→                      </td>
+   377→                    </tr>
+   378→                  ))}
+   379→                </tbody>
+   380→              </table>
+   381→            </div>
+   382→          </div>
+   383→        </TabsContent>
+   384→      </Tabs>
+   385→
+   386→      {/* Configure dialog */}
+   387→      <Dialog open={!!configApp} onOpenChange={(o) => !o && setConfigApp(null)}>
+   388→        <DialogContent className="sm:max-w-lg">
+   389→          {configApp && (
+   390→            <>
+   391→              <DialogHeader>
+   392→                <DialogTitle className="flex items-center gap-2">
+   393→                  {React.createElement(ICON_MAP[configApp.id] ?? Plug, { className: "h-4 w-4" })}
+   394→                  Configurar {configApp.name}
+   395→                  {!configApp.real && <DemoBadge className="ml-1" />}
+   396→                </DialogTitle>
+   397→                <DialogDescription>{configApp.description}</DialogDescription>
+   398→              </DialogHeader>
+   399→              <div className="space-y-3">
+   400→                <div className="grid grid-cols-2 gap-3 text-xs">
+   401→                  <div className="rounded-md border border-border/40 p-2.5">
+   402→                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Versión</div>
+   403→                    <div className="mt-0.5 font-mono">{configApp.version}</div>
+   404→                  </div>
+   405→                  <div className="rounded-md border border-border/40 p-2.5">
+   406→                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">OAuth state</div>
+   407→                    <div className="mt-0.5 font-mono text-[var(--teal)]">{configApp.oauthState}</div>
+   408→                  </div>
+   409→                  <div className="rounded-md border border-border/40 p-2.5">
+   410→                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Categoría</div>
+   411→                    <div className="mt-0.5">{configApp.category}</div>
+   412→                  </div>
+   413→                  <div className="rounded-md border border-border/40 p-2.5">
+   414→                    <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Última sync</div>
+   415→                    <div className="mt-0.5">{configApp.lastSync}</div>
+   416→                  </div>
+   417→                </div>
+   418→                <div>
+   419→                  <Label className="text-xs">Scopes concedidos</Label>
+   420→                  <div className="mt-2 flex flex-wrap gap-1.5">
+   421→                    {configApp.scopes && configApp.scopes.length > 0 ? configApp.scopes.map((s) => (
+   422→                      <code key={s} className="text-[11px] px-2 py-0.5 rounded bg-[var(--teal)]/10 border border-[var(--teal)]/30 text-[var(--teal)]">{s}</code>
+   423→                    )) : <span className="text-xs text-muted-foreground">Sin scopes concedidos.</span>}
+   424→                  </div>
+   425→                </div>
+   426→                <div className="rounded-md border border-border/40 p-3 text-xs text-muted-foreground">
+   427→                  <Shield className="h-3.5 w-3.5 inline mr-1.5 rp-teal-text" aria-hidden />
+   428→                  Las credenciales se almacenan cifradas (AES-256-GCM) y rotan cada 90 días.
+   429→                </div>
+   430→              </div>
+   431→              <DialogFooter>
+   432→                <Button variant="outline" onClick={() => setConfigApp(null)}>Cerrar</Button>
+   433→                <Button onClick={() => { toast({ title: `${configApp.name}: configuración guardada (demo)` }); setConfigApp(null); }}>
+   434→                  Guardar
+   435→                </Button>
+   436→              </DialogFooter>
+   437→            </>
+   438→          )}
+   439→        </DialogContent>
+   440→      </Dialog>
+   441→
+   442→      {/* Disconnect confirm */}
+   443→      <AlertDialog open={!!disconnectApp} onOpenChange={(o) => !o && setDisconnectApp(null)}>
+   444→        <AlertDialogContent>
+   445→          <AlertDialogHeader>
+   446→            <AlertDialogTitle className="flex items-center gap-2">
+   447→              <AlertCircle className="h-5 w-5 text-rose-300" aria-hidden />
+   448→              Desconectar {disconnectApp?.name}
+   449→            </AlertDialogTitle>
+   450→            <AlertDialogDescription>
+   451→              Esta acción detendrá todas las sincronizaciones con {disconnectApp?.name}.
+   452→              Los flujos que dependen de esta integración dejarán de funcionar. La acción es reversible volviendo a conectar.
+   453→            </AlertDialogDescription>
+   454→          </AlertDialogHeader>
+   455→          <AlertDialogFooter>
+   456→            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+   457→            <AlertDialogAction onClick={confirmDisconnect} className="bg-rose-500 hover:bg-rose-600 text-white">
+   458→              Sí, desconectar
+   459→            </AlertDialogAction>
+   460→          </AlertDialogFooter>
+   461→        </AlertDialogContent>
+   462→      </AlertDialog>
+   463→
+   464→      {/* Install dialog */}
+   465→      <Dialog open={!!installApp} onOpenChange={(o) => !o && setInstallApp(null)}>
+   466→        <DialogContent className="sm:max-w-lg">
+   467→          {installApp && (
+   468→            <>
+   469→              <DialogHeader>
+   470→                <DialogTitle className="flex items-center gap-2">
+   471→                  {React.createElement(ICON_MAP[installApp.id] ?? Plug, { className: "h-4 w-4" })}
+   472→                  Instalar {installApp.name}
+   473→                  {!installApp.real && <DemoBadge className="ml-1" />}
+   474→                </DialogTitle>
+   475→                <DialogDescription>{installApp.benefit}</DialogDescription>
+   476→              </DialogHeader>
+   477→              <div className="space-y-3">
+   478→                <div className="rounded-md border border-border/40 p-3 text-xs">
+   479→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">Requisitos de instalación</div>
+   480→                  <ul className="space-y-1.5 text-muted-foreground">
+   481→                    <li className="flex gap-2"><Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" /> Cuenta activa en {installApp.name}</li>
+   482→                    <li className="flex gap-2"><Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" /> Permisos de OAuth para los scopes requeridos</li>
+   483→                    <li className="flex gap-2"><Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" /> Credenciales API (client_id / client_secret)</li>
+   484→                    <li className="flex gap-2"><Check className="h-3.5 w-3.5 text-emerald-400 mt-0.5 shrink-0" /> URL de callback configurada</li>
+   485→                  </ul>
+   486→                </div>
+   487→                <div className="rounded-md border border-amber-400/30 bg-amber-400/5 p-3 text-xs text-amber-200/90 flex gap-2">
+   488→                  <AlertCircle className="h-3.5 w-3.5 text-amber-300 mt-0.5 shrink-0" aria-hidden />
+   489→                  <span>Esta es una integración <strong>demo</strong>. La instalación simula el flujo OAuth sin llamar al servicio real.</span>
+   490→                </div>
+   491→              </div>
+   492→              <DialogFooter>
+   493→                <Button variant="outline" onClick={() => setInstallApp(null)}>Cancelar</Button>
+   494→                <Button onClick={() => { toast({ title: `${installApp.name}: instalación iniciada (demo)`, description: "Redirigiendo a OAuth…" }); setInstallApp(null); }}>
+   495→                  <ExternalLink className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Iniciar OAuth
+   496→                </Button>
+   497→              </DialogFooter>
+   498→            </>
+   499→          )}
+   500→        </DialogContent>
+   501→      </Dialog>
+   502→
+   503→      {/* New webhook dialog */}
+   504→      <Dialog open={newHookOpen} onOpenChange={(o) => { setNewHookOpen(o); if (!o) setHookErr(null); }}>
+   505→        <DialogContent className="sm:max-w-lg">
+   506→          <DialogHeader>
+   507→            <DialogTitle className="flex items-center gap-2">
+   508→              <Webhook className="h-4 w-4" aria-hidden /> Nuevo webhook
+   509→              <DemoBadge className="ml-1" />
+   510→            </DialogTitle>
+   511→            <DialogDescription>Configura un endpoint que recibirá eventos de RestoPanel.</DialogDescription>
+   512→          </DialogHeader>
+   513→          <div className="space-y-3">
+   514→            <div>
+   515→              <Label htmlFor="hook-url" className="text-xs">URL del endpoint *</Label>
+   516→              <Input id="hook-url" type="url" placeholder="https://api.tuapp.com/hooks/restopanel" value={hookForm.url} onChange={(e) => setHookForm({ ...hookForm, url: e.target.value })} className="mt-1.5" />
+   517→            </div>
+   518→            <div>
+   519→              <Label className="text-xs">Eventos suscritos *</Label>
+   520→              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-44 overflow-y-auto rp-scroll-thin rounded-md border border-border/40 p-2">
+   521→                {HOOK_EVENTS.map((e) => {
+   522→                  const checked = hookForm.events.includes(e);
+   523→                  return (
+   524→                    <label key={e} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-foreground/5 rounded px-1.5 py-1">
+   525→                      <Checkbox checked={checked} onCheckedChange={(v) => {
+   526→                        if (v) setHookForm({ ...hookForm, events: [...hookForm.events, e] });
+   527→                        else setHookForm({ ...hookForm, events: hookForm.events.filter((x) => x !== e) });
+   528→                      }} />
+   529→                      <code className="text-[var(--teal)]">{e}</code>
+   530→                    </label>
+   531→                  );
+   532→                })}
+   533→              </div>
+   534→              <div className="text-[11px] text-muted-foreground mt-1">{hookForm.events.length} evento(s) seleccionado(s)</div>
+   535→            </div>
+   536→            <div>
+   537→              <Label htmlFor="hook-secret" className="text-xs">Secreto de firma (HMAC) *</Label>
+   538→              <Input id="hook-secret" type="text" placeholder="mín. 8 caracteres" value={hookForm.secret} onChange={(e) => setHookForm({ ...hookForm, secret: e.target.value })} className="mt-1.5" />
+   539→              <p className="text-[11px] text-muted-foreground mt-1">Se usará para firmar cada entrega en el header <code className="text-[var(--teal)]">X-RP-Signature</code>.</p>
+   540→            </div>
+   541→            {hookErr && (
+   542→              <div className="rounded-md border border-rose-400/40 bg-rose-400/10 p-2.5 text-xs text-rose-200 flex items-start gap-2">
+   543→                <X className="h-3.5 w-3.5 mt-0.5 shrink-0" aria-hidden />
+   544→                <span>{hookErr}</span>
+   545→              </div>
+   546→            )}
+   547→          </div>
+   548→          <DialogFooter>
+   549→            <Button variant="outline" onClick={() => setNewHookOpen(false)}>Cancelar</Button>
+   550→            <Button onClick={submitNewHook}>Crear webhook</Button>
+   551→          </DialogFooter>
+   552→        </DialogContent>
+   553→      </Dialog>
+   554→    </div>
+   555→  );
+   556→}
+   557→
