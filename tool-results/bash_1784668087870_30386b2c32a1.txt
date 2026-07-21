@@ -1,0 +1,280 @@
+- Fase 4 (Núcleo Enterprise — Motor de Restaurantes) completa y verificada en la ruta /.
+- 24 secciones entregadas por 5 subagentes paralelos (A-E), todas con lint limpio.
+- Contenido: código REAL y ejecutable organizado por el orden de implementación especificado (19 etapas).
+- Esquema D1 completo (25 tablas + 13 índices compuestos, SQLite-accurate, PK compuesta (organization_id, id), FK compuestas, idem_key unique parcial para idempotencia).
+- TenantCtx + resolveTenantCtx + ReservationsRepo (org_id forzado en cada query).
+- Hono middleware chain (CORS+headers → rate limit IP → resolveTenantCtx → rate limit org → requirePermission).
+- RBAC Enterprise: 13 roles sistema + roles custom, catálogo 15 permisos, deny por defecto, ABAC scope.
+- Auditoría append-only + soft delete + restore.
+- FloorObject Durable Object (lockSlot/moveTable/handleWs/alarm) + D1 canónico.
+- Queue consumers con backoff + DLQ + idempotencia por message_id.
+- R2 namespaced (orgs/{org_id}/...) + signed URLs + AI Gateway con límites/redacción/fallback.
+- Caché KV namespaced (org:{id}:...) + invalidación por tenant.
+- Stripe webhooks idempotentes (stripe_events dedup) + entitlements.
+- React hooks (TanStack Query) + widget registry por permisos.
+- Tests Vitest + cloudflare:test: aislamiento cross-tenant, RBAC escalada, concurrencia DO.
+- Seguridad (CSP nonces, headers, rate limit, anti-IDOR), observabilidad (logs redact + correlation), despliegue reproducible (wrangler + secrets + smoke), migración/rollback (forward-only + Time Travel solo incidentes).
+- 15 criterios de aceptación verificables.
+- Honestidad técnica mantenida: D1 sin RLS (Tenant Enforcement Layer), DO no reemplaza D1, KV no es fuente de verdad, Time Travel ≠ backup, PII nunca al modelo cruda.
+
+---
+Task ID: PROD-INFRA
+Agent: main (architect)
+Task: Infraestructura para Fase 5 (Producto RestoPanel — respuesta al master prompt). Extender el documento a 5 fases.
+
+Work Log:
+- Extendí phase-store.ts: Phase = "fase0" | "fase1" | "fase2" | "fase4" | "producto"; default producto.
+- Añadí NAV_PRODUCTO (21 items: p-inicio → p-deploy) a nav.tsx.
+- SideNav: items resuelve a NAV_PRODUCTO cuando phase=producto; scrollspy reinicializado al cambiar fase.
+- PhaseToggle reescrito a 5 vías (F0 / F1.1 / F1.2 / F4 / P).
+- Header links, subtítulo y estado reconocen las 5 fases.
+- Creé p-hero.tsx (ProductoHero): hero con CTA a dashboard/pricing/automatizaciones, card "El SO del restaurante" con badge "Datos demo", 6 principios.
+- Actualicé page.tsx: switch quíntuple; función Producto() con 21 secciones; Footer reescrito para 5 fases.
+- Creé directorio src/components/rp/sections-producto/ para los 5 archivos de bloque.
+
+Stage Summary:
+- Infraestructura lista para 5 subagentes paralelos (bloques A-E) de Fase 5 (Producto).
+- Enfoque: esta fase es DIFERENTE — son componentes interactivos reales (pricing calculadora con estado, dashboard con widgets vivos, builder de automatizaciones visual, plano de mesas, CRM) más los 14 entregables del master prompt.
+- Primitivas disponibles: Section, Tag, Risk, GlassCard, Stat, Pill, H3, Lead, DataTable, GoldList, KV, Callout, Code + Mermaid.
+- Los bloques C y D deben incluir componentes React con estado real (useState), no maquetas estáticas.
+
+---
+Task ID: PROD-E
+Agent: full-stack-developer
+Task: Crear bloque E de la Fase 5 (Producto RestoPanel): billing/marketplace, super admin, datos demo, tests, riesgos y deploy + cierre del documento.
+
+Work Log:
+- Leí worklog.md (fases 0/1.1/1.2/4 + PROD-INFRA) y primitivas disponibles. Confirmé que page.tsx ya importa los 6 exports de `p-e.tsx` (línea 51) pero el archivo no existía → dev.log mostraba `Can't resolve '@/components/rp/sections-producto/p-e'`.
+- Apliqué estilo visual alineado con p-hero.tsx y f4-e.tsx: premium dark, glassmorphism, gold (#D4AF37) + teal (#3DD6C9), helper `Mono` para texto monoespaciado dorado, keys estables por celda.
+- Creé `src/components/rp/sections-producto/p-e.tsx` (~640 líneas, 6 exports):
+  - ProductoBilling (p-billing, 15): DataTable "Capacidades de billing" (12 filas: Suscripciones→Estado de pago), DataTable "Marketplace de integraciones" (11 filas: Stripe→TPV), GlassCard gold "Cada integración muestra" (GoldList 10 ítems: descripción, beneficio, estado, versión, permisos, última sync, logs, instalar/desconectar/reautenticar, documentación, nunca "conectado" sin conexión real), Callout warn "No simular conexiones reales".
+  - ProductoSuperAdmin (p-super-admin, 16): DataTable "Métricas de plataforma" (13 filas: MRR→coste infra), DataTable "Acceso de soporte (impersonación)" (13 filas: consentimiento→prohibición datos no necesarios), Mermaid stateDiagram-v2 (ciclo Solicitada→Verificada→ActivaLectura→ActivaEscritura→Revocada), GlassCard gold "Reglas de Super Admin" (6 ítems), Callout warn "Nunca acceso silencioso".
+  - ProductoDemo (p-demo, 17): DataTable "Tipos de datos en el producto" (6 filas: datos demo→no disponible), GlassCard gold "Reglas de datos demo" (6 ítems), Callout ok "Desacoplado = degradable", Code typescript (ReviewsAdapter + DemoReviewsAdapter + GoogleReviewsAdapter con health() returning "connected"|"demo"|"pending").
+  - ProductoTests (p-tests, 18): DataTable "Estrategia de testing" (9 filas: unit→seguridad), Code typescript (Playwright e2e: login + crear reserva + usuario sin permisos no exporta CRM), DataTable "Checklist QA" (22 filas: pantallas vacías→skeletons), Callout ok "Criterios mínimos de aceptación".
+  - ProductoRiesgos (p-riesgos, 19): DataTable "Riesgos técnicos" (8 filas con componente `<Risk level=.../>` en columna impacto: D1 sin RLS crítico, IA/floor/fiscal alto, proveedores/load/pendientes/deuda medio), DataTable "Funcionalidades pendientes" (10 filas: WhatsApp Cloud→API pública v1), GlassCard gold "Honestidad" (5 ítems), Callout warn "Piloto antes de escala".
+  - ProductoDeploy (p-deploy, 20): Code bash (bun install → .env → wrangler d1 create/migrations/execute/seed → bun run dev → lint/test/test:e2e → wrangler d1 migrations --remote → wrangler secret put → wrangler deploy --env production → smoke-prod.ts), DataTable "Entornos" (4 filas: local/preview/staging/production), GlassCard gold "Reglas de despliegue" (7 ítems), GlassCard strong (cierre: "sistema operativo digital para restaurantes, con aislamiento real, componentes interactivos, datos demo honestos y un camino claro de piloto a escala").
+- React keys: cada celda en arrays `rows` usa key semántica única por fila+columna (`cap-${c.id}`, `impl-${c.id}`, `est-${c.id}`, `integ-${m.id}`, `met-${m.id}`, `req-${r.id}`, `tipo-${d.id}`, `nivel-${t.id}`, `item-${q.id}`, `riesgo-${r.id}`, `imp-${r.id}`, `feat-${f.id}`, `ent-${e.id}`) — sin colisiones. Los `id` strings en los arrays son únicos dentro de cada DataTable.
+- Mermaid: stateDiagram-v2 con estados PascalCase y transiciones etiquetadas. Tema dark ya inicializado en mermaid.tsx.
+- Code blocks: 3 bloques. El regex `/\/dashboard/` del test Playwright se escapó como `/\\/dashboard/` dentro del template literal TS para evitar conflicto con backticks.
+- Componente `<Risk>` usado directamente como nodo React en celdas de DataTable (columna "Impacto").
+- Cloudflare-native: wrangler d1/secret/deploy, .dev.vars, sandbox por entorno, smoke-prod.ts. Honestidad: integraciones "pendientes" declaradas, modo demo explícito, piloto antes de escala, D1 sin RLS mitigado con Tenant Enforcement Layer + tests IDOR.
+
+Stage Summary:
+- Archivo creado: `src/components/rp/sections-producto/p-e.tsx` (~640 líneas, 6 exports).
+- 6 secciones navegables (índices 15–20) — bloque E cierra la Fase 5 (Producto).
+- 8 DataTables (108 filas totales) con keys estables y únicas por celda.
+- 3 Code blocks (1 typescript adapter pattern, 1 typescript Playwright e2e, 1 bash deploy) — código ejecutable, sintácticamente correcto.
+- 1 Mermaid stateDiagram-v2 (ciclo de vida del acceso de soporte).
+- 4 GlassCards gold + 1 GlassCard strong (cierre del documento).
+- 5 Callouts (2 warn, 2 ok, 1 warn piloto).
+- 8 componentes `<Risk>` (1 crítico, 3 altos, 4 medios) en tabla de riesgos técnicos.
+- Lint: `bun run lint` → 0 errores, 0 warnings. `bunx tsc --noEmit` → sin errores en p-e.tsx.
+- Dev log: error `Can't resolve '@/components/rp/sections-producto/p-e'` desapareció; `✓ Compiled in 486ms`. Restantes errores de módulo son p-a/p-b/p-c/p-d pendientes de otros subagentes paralelos.
+- Cierre del documento RestoPanel completo con statement final en GlassCard strong.
+
+---
+Task ID: PROD-A
+Agent: full-stack-developer
+Task: Construir el bloque A de la fase Producto (RestoPanel Producto) — 5 secciones en `src/components/rp/sections-producto/p-a.tsx`: `ProductoResumen`, `ProductoArquitectura`, `ProductoDesignSystem`, `ProductoRutas`, `ProductoDatos`.
+
+Work Log:
+- Leí `worklog.md` previo: fases 0, 1.1, 1.2, 4 completas por subagentes previos. Infra de Producto ya montada: `p-hero.tsx` existe, `page.tsx` importa los 5 exports desde `p-a` (línea 47) y los renderiza entre `ProductoHero` y `ProductoComponentes` en el wrapper `Producto()`. Nav `NAV_PRODUCTO` ya incluye los 5 IDs (`p-resumen`, `p-arquitectura`, `p-design-system`, `p-rutas`, `p-datos`) con índices 01–05. Primitivas disponibles: Section, Tag, Risk, GlassCard, Stat, Pill, H3, Lead, DataTable, GoldList, KV, Callout, Code (todas en `primitives.tsx`) y Mermaid (`mermaid.tsx`).
+- Revisé `primitives.tsx` (firmas exactas), `mermaid.tsx` (client, theme dark+gold+teal, securityLevel loose, fallback de error legible), `p-hero.tsx` (patrón de hero con gradientes radiales gold/teal + grid bg + BrandMark + pills + stat grid + GlassCard gold derecha), `f1-a.tsx` (patrón de DataTable con keys estables tipo `key="riesgo"` por celda JSX), y la sección de `page.tsx` que importa los 5 exports.
+- Creé `src/components/rp/sections-producto/p-a.tsx` (~470 líneas) con 5 exports:
+  - `ProductoResumen` (id=p-resumen, 01): GlassCard gold con tesis (SaaS de cientos de millones, preciso/rápido/fiable/elegante/operativo, 10 referencias como Pills: CoverManager/SevenRooms/OpenTable/Toast/Shopify/HubSpot/Stripe/Linear/Vercel/Notion) + 3 Stats (Entregables 14 / Componentes 30+ / Módulos 11) + DataTable "Los 14 entregables del master prompt" (14 filas con Pills tone gold/teal/outline en columna Estado) + DataTable "Reglas de ejecución" (7 filas) + Callout warn "Datos demo claramente identificados".
+  - `ProductoArquitectura` (id=p-arquitectura, 02): Mermaid flowchart TB con 5 subgraphs (Frontend, Edge, Datos, Asíncrono, Externos), cylinder shapes `[(D1 · transaccional)]` quoted, flechas Frontend→WAF→WORKERS→D1/R2/KV/DO/Q→WF/STRIPE/WA/GOOGLE/AI + DataTable "Servicios Cloudflare → responsabilidad" (7 filas) + GlassCard gold "Principios arquitectónicos" GoldList (10 items: aislamiento por tenant, Zod, idempotencia, correlation_id, feature flags, entornos, secret management, migraciones forward-only, rate limiting, caching namespaced) + 3 Stats (Workers/DO/D1) + Callout info "Evolución sin reescritura" (sharding por celdas, honestidad sobre límites D1).
+  - `ProductoDesignSystem` (id=p-design-system, 03): DataTable "Tokens de color (paleta premium)" (12 filas con token en mono gold, hex, swatch inline visual, uso) cubriendo los 6 tokens de marca (--gold, --gold-soft, --gold-deep, --teal, --teal-deep, background, card, foreground, muted-foreground, success, warning, destructive con oklch y hex reales) + DataTable "Escala tipográfica y espaciado" (7 filas) + grid 2 columnas con DataTable "Breakpoints responsive" (6 filas) y DataTable "Estados semánticos" (9 filas) + GlassCard gold "Componentes base reutilizables" GoldList (11 items: Button variantes, Input/Textarea/Select, DataTable, Card, Badge/Pill/Tag, Modal/Drawer, Toast, Skeleton, Tabs, Accordion, CommandPalette) + Callout ok "WCAG 2.2 AA" (contraste, foco, teclado, ARIA, touch targets, no solo color, prefers-reduced-motion).
+  - `ProductoRutas` (id=p-rutas, 04): DataTable "Fases de construcción" (9 filas con criterio de paso medible) + Mermaid flowchart LR del mapa de rutas (LANDING→LOGIN→DASH→RES/FLOOR/CRM/MKT/REP/ANA/AUTO/INT/BILL/TEAM/SET + SUPER como app independiente) + nota sobre `/super-admin` + GlassCard gold "Navegación del dashboard" GoldList (11 items: sidebar configurable, selector org, selector location, selector periodo, búsqueda global, notificaciones, ayuda, perfil, breadcrumbs, command palette, atajos) + GlassCard default "Restricción de este entorno" + Callout info "Restricción de este entorno" (solo ruta `/` visible, experiencias como componentes interactivos).
+  - `ProductoDatos` (id=p-datos, 05): Mermaid erDiagram con 16 relaciones cubriendo organizations, locations, floors, zones, tables, reservations, customers, customer_tags, users, memberships, roles, permissions, campaigns, automations, reviews, invoices, subscriptions (cardinalidades `||--o{`, `||--||`, `}o--||`) + DataTable "Entidades principales" (12 filas con Pills tone gold/teal en columna Tenant scope) + GlassCard gold "Convenciones" GoldList (8 items: ULID opacos, UTC ISO-8601 + tz IANA, minor units + ISO 4217, organization_id NOT NULL, PK compuesta (org_id, id), idem_key UNIQUE parcial, soft delete, audit append-only) + Callout warn "D1 sin RLS nativa" (SQLite/D1 sin RLS, Tenant Enforcement Layer + constraints compuestos + tests IDOR en CI).
+- Honestidad técnica Cloudflare: D1 ~10GB por shard, sin RLS nativa (SQLite), Workers sin estado, KV nunca autoritativo, DO efímero vs D1 canónico, sharding obligatorio para escalar, no se promete 100k en una sola base.
+- React keys: cada celda JSX en arrays `rows` usa key semántica única por fila (`e1`…`e14` para entregables, `t1`…`t7` para tipografía, `b1`…`b6` para breakpoints, `s1`…`s9` para estados, `f1`…`f9` para fases, `e1`…`e12` para entidades con `p1`…`p12` para pills de scope, `t-/h-/s-${token}` para color tokens). Sin colisiones dentro de cada DataTable. Swatch y Pill usan keys derivados del token o índice.
+- Mermaid: 3 charts válidos (flowchart TB arquitectura con subgraphs quoted + cylinders quoted, flowchart LR mapa de rutas con labels quoted incluidos paréntesis, erDiagram con cardinalidades estándar y labels simples).
+- Lint: `bunx eslint src/components/rp/sections-producto/p-a.tsx` → 0 errores, 0 warnings. `bun run lint` global → limpio. Dev log confirma "✓ Compiled in 486ms" — mi módulo `p-a` resuelve correctamente. Únicos module-not-found restantes son `p-b`, `p-c`, `p-d`, `p-e` (otros subagentes paralelos, no mi responsabilidad).
+- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/PROD-A-full-stack-developer.md`.
+
+Stage Summary:
+- Archivo creado: `src/components/rp/sections-producto/p-a.tsx` (~470 líneas, 5 exports).
+- 5 secciones navegables vía NAV_PRODUCTO (items 01–05): `p-resumen`, `p-arquitectura`, `p-design-system`, `p-rutas`, `p-datos`.
+- 3 diagramas Mermaid válidos integrados con theme dark+gold+teal del proyecto (arquitectura TB, rutas LR, ER diagram).
+- 8 DataTables (14 entregables + 7 reglas + 7 servicios CF + 12 color tokens + 7 tipografía + 6 breakpoints + 9 estados + 9 fases + 12 entidades) con keys estables y únicas por celda.
+- 4 GlassCards gold (tesis, principios arquitectónicos, componentes base, navegación dashboard, convenciones modelo) + 1 GlassCard default (restricción entorno).
+- 4 Callouts (warn datos demo, info evolución sin reescritura, ok WCAG 2.2 AA, info restricción entorno, warn D1 sin RLS).
+- 6 Stats (entregables/componentes/módulos + Workers/DO/D1).
+- Contenido 100% en español, dark theme premium (dorado #D4AF37, turquesa #3DD6C9, glassmorphism), técnicamente preciso sobre primitivas Cloudflare.
+- Lint limpio en archivos propios. Sin blockers para este bloque. Pendiente de otros subagentes: p-b (componentes/flujos/landing), p-c (pricing/dashboard/reservas), p-d (CRM/automatizaciones/reputación), p-e (billing/super-admin/demo/tests/riesgos/deploy).
+
+---
+Task ID: PROD-B
+Agent: full-stack-developer
+Task: Construir bloque B de Fase 5 (Producto RestoPanel) — `src/components/rp/sections-producto/p-b.tsx` con tres componentes: `ProductoComponentes` (06), `ProductoFlujos` (07), `ProductoLanding` (08).
+
+Work Log:
+- Leí `worklog.md`: Fase 0/1.1/1.2/4 completas y verificadas; infra Fase 5 (producto) creada por architect (phase-store con default `producto`, `NAV_PRODUCTO` 21 items, `page.tsx` importa `ProductoComponentes, ProductoFlujos, ProductoLanding` desde `p-b`, `p-hero.tsx` ya creado). 5 subagentes paralelos en bloques A-E.
+- Revisé `primitives.tsx` (firmas Section/GlassCard/Pill/H3/Lead/DataTable/GoldList/Callout/Code), `p-hero.tsx` (patrones de hero con BrandMark+pills+KPI grid), `f4-c.tsx` (patrones DataTable con keys por celda, helper `Mono`, GlassCard gold con GoldList, Code con escaping).
+- Verifiqué `nav.tsx`: items `p-componentes` (06), `p-flujos` (07), `p-landing` (08) registrados en `NAV_PRODUCTO`.
+- Verifiqué `page.tsx`: importa correctamente los 3 exports de `p-b` en orden después de `ProductoDatos` y antes de `ProductoPricing`.
+- Creé `src/components/rp/sections-producto/p-b.tsx` (~640 líneas, 3 exports):
+  - **ProductoComponentes** (id=p-componentes, 06): DataTable "Catálogo de componentes" 16 filas (Button, Input, DataTable, Card, Badge/Pill/Tag, Modal/Drawer, Toast, Skeleton, Tabs, ReservationCard, TableNode, CustomerCard, KpiWidget, AutomationNode, ReviewCard, CommandPalette) con Componente mono gold / Variantes / Estados · GlassCard gold "Reglas de componentes" GoldList 7 (botón decorativo prohibido, skeletons en vez de spinners, focus-visible, estados loading/error/empty/success obligatorios, responsive mobile-first, ARIA, microinteracciones con prefers-reduced-motion) · Code lang=typescript con BUTTON_CODE (Button.tsx canónico: forwardRef + cva + VariantProps + 4 variantes + 3 sizes + loading con aria-busy + focus-visible ring dorado) · Callout ok "Estados completos".
+  - **ProductoFlujos** (id=p-flujos, 07): grid md:grid-cols-2 de 8 GlassCards, una por flujo crítico: (1) Alta de restaurante Owner <48h, (2) Reserva de cliente Conversión >35%, (3) Confirmación y recordatorio no-show <8%, (4) Operación de sala Host latencia <500ms, (5) Solicitud de reseña respuesta <24h, (6) Segmentación y campaña CTR >12%, (7) Suscripción y billing MRR/local, (8) Soporte e impersonación MTTR <4h. Cada card: número 01-08 mono gold, título H3, actor pill, objetivo, pasos numerados, estados en code teal, excepciones (bullets amber), automatizaciones (bullets teal), métrica con pill gold en footer · Callout warn "Acciones destructivas requieren confirmación" (destructivas sin confirmación explícita prohibidas; sensibles precio/campaña pública/respuesta reseña/pago requieren permiso + aprobación humana si salida IA).
+  - **ProductoLanding** (id=p-landing, 08): Hero mockup interactivo GlassCard strong con top bar (dot emerald pulsante "Vista previa · datos demo", pills Servicio en curso/Local Demo) · Hero text block (pills RestoPanel/SaaS Enterprise, título con rp-gold-gradient, subtítulo, 3 CTAs Crear cuenta dorado/Solicitar demo/Ver cómo funciona) · Mini KPI row 4 stats con badge demo (Reservas hoy 84 +12%, Ocupación 78% +5pp, No-shows 3 -42%, Ticket medio 38€ +2€) · Dos columnas: lista 4 reservas entrantes con pills gold/teal (Laura M. 13:30 4pax confirmada, Bruno C. 14:00 2pax en espera, Familia Ortega 14:15 6pax confirmada, Sara V. 14:30 2pax confirmada) + plano de sala mini 6 mesas coloreadas (T1 ocupada rose, T2 reservada gold, T3 libre emerald, T4 libre emerald, T5 ocupada rose, T6 bloqueada gray) con hover scale y leyenda · Activity feed 5 eventos con bullets gold/teal/gray · Pie "Composición estática con datos demo · no es un sistema en vivo" · DataTable "Prueba social (métricas demo etiquetadas)" 6 filas (1.2M/3.400/-42%/180k mes/2.1M/+0.6★) cada una con Pill outline "demo" · Grid lg:grid-cols-4 "Problemas del sector" 8 GlassCards (reservas dispersas/mesas vacías/no-shows/datos perdidos/reseñas sin responder/procesos manuales/herramientas desconectadas/falta visibilidad rentabilidad) con icono emoji, título, descripción, link → Solución: ódulo] · Grid lg:grid-cols-3 "Plataforma conectada" 11 GlassCards (Reservas inteligentes, Plano de mesas, CRM, Marketing, Automatizaciones, Google Reviews, Analytics, IA Copilot, Lista de espera, Marketplace, Integraciones) con pill estado (Disponible gold/Beta teal/Próximamente outline/Parcial teal) + beneficio 1 línea + CTA contextual · GlassCard gold "Copy orientado a beneficio" GoldList 6 (hero promesa económica explícita, módulos declaran beneficio no features, CTAs diferenciados, prueba social etiquetada demo, secciones orientadas a caso de uso problema→solución→módulo, tono operativo concreto) · Callout info "SEO y AEO" (title/meta únicos, canonical absoluto, OG+Twitter Cards, sitemap, robots, Schema.org SoftwareApplication/FAQPage/Organization, breadcrumbs, URLs limpias, páginas por funcionalidad y caso de uso, comparativas honestas, documentación rastreable, sin keyword stuffing).
+- React keys: cada celda de las DataTables usa key estable por columna (`c`/`v`/`e` para catálogo, `m`/`v`/`t` para prueba social). Arrays de cards usan key semántico único (número de flow, label de KPI, id de mesa T1-T6, title de problema, name de módulo). Listas internas indexadas con `key={i}` (estáticas, sin reorden).
+- Diseño visual: dark premium consistente con fases anteriores. Dorado #D4AF37 (rp-gold-text, rp-gold-gradient, rp-glow-gold) para accent, turquesa #3DD6C9 (rp-teal-text) para info, glassmorphism rp-glass/rp-glass-strong. Hover effects discretos (scale 1.03 en mesas, underline en links). Animación sutil: dot emerald pulsante en top bar del mockup.
+- Lint: `bun run lint` → 0 errores, 0 warnings. Dev log: tras crear p-b.tsx, "✓ Compiled in 486ms" y "✓ Compiled in 467ms" confirman que p-b resuelve. Errores residuales en dev.log son para p-a/p-c/p-d/p-e (otros subagentes paralelos), no responsabilidad de este bloque.
+- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/PROD-B-full-stack-developer.md`.
+
+Stage Summary:
+- Archivo creado: `src/components/rp/sections-producto/p-b.tsx` (~640 líneas, 3 exports).
+- 3 secciones navegables vía NAV_PRODUCTO (items 06, 07, 08).
+- 2 DataTables (16 + 6 = 22 filas) con keys estables y únicas por celda.
+- 28 GlassCards en total (8 flow + 11 módulos + 8 problemas + 1 reglas componentes gold).
+- 1 Code block TypeScript (Button.tsx canónico con cva + VariantProps + loading + ARIA + focus-visible).
+- 2 GlassCard gold (reglas de componentes, copy orientado a beneficio).
+- 3 Callouts (ok estados completos, warn acciones destructivas, info SEO y AEO).
+- Hero mockup compuesto estático pero realista: 4 KPIs + 4 reservas + 6 mesas coloreadas + 5 eventos activity feed, todo etiquetado "demo".
+- Contenido 100% en español, dark theme premium (dorado #D4AF37, turquesa #3DD6C9, glassmorphism).
+- Lint limpio. Sin blockers. Mis archivos compilan limpio; errores residuales en dev.log son responsabilidad de los subagentes p-a/p-c/p-d/p-e en paralelo.
+
+---
+Task ID: PROD-C
+Agent: full-stack-developer
+Task: Construir el bloque C de la fase Producto (RestoPanel SaaS) con tres secciones interactivas reales usando React useState: ProductoPricing (calculadora), ProductoDashboard (widgets vivos) y ProductoReservas (plano de mesas interactivo).
+
+Work Log:
+- Leí worklog.md previo: proyecto Next.js 16 + shadcn/ui, dark theme premium (gold #D4AF37, teal #3DD6C9), primitives.tsx (Section, GlassCard, Pill, H3, Lead, DataTable, GoldList, Callout, Stat, etc.), mermaid.tsx, page.tsx que importa los 3 exports desde "@/components/rp/sections-producto/p-c". Solo existía p-hero.tsx en sections-producto/; PROD-A/B/D/E se ejecutaban en paralelo.
+- Creé `src/components/rp/sections-producto/p-c.tsx` (1581 líneas) con `"use client"` en la primera línea y 3 exports: `ProductoPricing`, `ProductoDashboard`, `ProductoReservas`.
+
+ProductoPricing (id="p-pricing", index="09"):
+- Estado React useState: `plan` ("starter"|"professional"|"enterprise"), `billing` ("monthly"|"annual"), `locations` (number, 1-50).
+- Configuración de planes (PLAN_CONFIG): Starter 69€/mes · 690€/año · 1 local; Professional 149€/mes · 1.490€/año · 5 locales; Enterprise desde 399€/mes · 3.990€/año · hasta 50 locales (10 incluidos + 25€/local adicional).
+- selectPlan() clampea `locations` al límite del plan cuando se cambia de plan.
+- Cálculo: monthlyCost = base + extraLocs × 25 (Enterprise); annualCost = round(monthlyCost × 12 × 0.9); savings = monthlyCost × 12 − annualCost. Se muestra el precio grande actualizado en tiempo real con label "/mes" o "/año".
+- Badge "Ahorras X €/año" visible solo en billing=annual cuando savings>0.
+- Slider nativo `<input type="range">` para locales (1..cfg.locLimit), con accent-[var(--gold)]. Hint "subir de plan para más locales" cuando locations alcanza el límite del plan actual.
+- CTA cambia por plan: "Crear cuenta Starter" / "Crear cuenta Pro" / "Solicitar demo Enterprise". Para Enterprise se aclara: "No autopago: un especialista valida tu caso antes de activar Enterprise."
+- Tooltips InfoDot en límites (locales) y en características que requieren implementación real (SSO, RBAC, White label, SLA, CF Enterprise, Soporte 24/7).
+- PlanCard (3 cards) seleccionables con radio visual y accent por plan (teal/gold/gold-soft).
+- Comparativa de 27 características (FEATURES_MATRIX) como DataTable con Check/Dash por plan, con InfoDot en features pendientes de implementación.
+- DataTable "Detalle por plan" (3 filas) con precio mensual/anual/perfil/incluye en español.
+- GlassCard gold "Reglas de pricing" (6 GoldList items: transparencia, Enterprise desde con CTA demo, tooltips en límites, sin comisiones ocultas, conversión anual muestra ahorro explícito, extra locations con precio visible).
+- Callout kind="warn" "No prometer lo no implementado" sobre SSO/RBAC/White label/SLA/CF Enterprise/Soporte 24/7.
+
+ProductoDashboard (id="p-dashboard", index="10"):
+- Top bar mockup: selector org ("Ramses Madrid") + selector restaurante ("Ramses Centro") + selector periodo (Hoy/Semana/Mes) con useState + búsqueda global con kbd ⌘K + bell con badge + perfil con avatar.
+- Estado React useState: `period`, `showGoogleRating`, `showNoShows`, `showAI` (todos true inicialmente, excepto period="hoy").
+- Widget visibility toggle row con 3 checkboxes (Mostrar Google Rating, Mostrar No-shows, Mostrar IA) que ocultan/muestran widgets reales en tiempo real.
+- KPI row de 6 widgets (Reservas hoy 47 +12%, Ocupación 78% +5pp, Ticket medio 38€ +2€, No-shows 3 −1, Clientes nuevos 8 +2, Google Rating 4.6★ estable). Cada widget: label, big number con color de acento, Sparkline SVG (path dinámico por puntos), TrendPill (up/down/flat con color), DemoBadge.
+- Reservas de hoy widget (6 reservas demo con time, name, party, status pill, table). Lista con scroll max-h-80 rp-scroll-thin.
+- Timeline del día widget (7 eventos verticales con dot color y time/title/desc).
+- Actividad reciente feed (5 eventos con icon, text, time, tone).
+- Recomendaciones de IA widget (3 sugerencias con badge de confianza 82%/71%/64% por color). Nota "Revisar antes de ejecutar: la IA propone, el operador decide. Toda acción queda auditada." Widget ocultable por checkbox; cuando está oculto se muestra un placeholder con botón "Mostrar recomendaciones".
+- DataTable "Widgets disponibles" (13 widgets): Widget | Permiso requerido | Default (on/off). Cubre reservations_today, occupancy, avg_ticket, no_shows, new_customers, google_rating, ai_recommendations, revenue, day_timeline, recent_activity, upcoming, pending_tasks, integration_status.
+- GlassCard gold "Shell de aplicación" (11 GoldList items: sidebar configurable, selector org/restaurant/periodo, búsqueda global ⌘K, centro de notificaciones, ayuda contextual, perfil con preferencias, breadcrumbs, command palette, atajos de teclado, widgets movibles, vistas guardadas por rol).
+- Callout kind="ok" "Widgets por rol": recepción ve reservas, marketing ve CRM/campañas, contabilidad ve ingresos, owner ve todo. Filtrado en servidor desde catálogo RBAC, no con CSS.
+
+ProductoReservas (id="p-reservas", index="11"):
+- Estado React useState: `statuses` (Record<string, TableStatus> de 12 mesas), `selected` (mesa seleccionada), `pendingRes` (reserva pendiente de asignar).
+- Plano de mesas interactivo: grid de 12 mesas (M1-M12) en zonas (Ventana, Centro, Barra, Privado, Terraza) con comensales 2-8. Cada mesa es un botón clickable.
+- Ciclo de estados: clic en mesa cicla free → reserved → occupied → blocked → free. Si hay reserva pendiente y la mesa está libre, el clic asigna (cambia a reserved y limpia pendingRes).
+- Side panel "Mesa seleccionada": nombre grande dorado, comensales, zona, estado actual, reserva actual (demo data contextual por estado), 4 botones manuales para cambiar estado.
+- Leyenda con dot + label + count por estado.
+- Banner "Asignando reserva X — haz clic en una mesa libre" cuando pendingRes está activo, con botón Cancelar.
+- Lista "Reservas de hoy" (6 reservas con time/name/party/status). Clic en reserva → pendingRes → clic en mesa libre → asignación visual. Reserva pendiente queda resaltada con ring dorado.
+- DataTable "Estados de mesa" (5 filas): Estado | Color | Significado (libre/verde, reservada/dorado, ocupada/turquesa, bloqueada/gris, por limpiar/ámbar).
+- DataTable "Funciones de reservas" (11 filas): Función | Descripción (calendario, timeline, drag & drop, filtros, confirmaciones, pagos, historial, reconfirmaciones, cancelaciones, no-show, lista de espera).
+- GlassCard gold "Concurrencia en tiempo real" (7 GoldList items): Durable Objects coordinan plano, locks de slot evitan doble reserva, WebSocket sync <200ms, D1 fuente canónica, DO reconstruye tras desconexión, conflictos por D1 UNIQUE + DO lock, operaciones idempotentes con idempotency-key.
+- Callout kind="warn" "Drag & drop con confirmación": mover audita origen/destino/timestamp; reasignar a mesa ocupada requiere confirmación; bloquear mesa requiere permiso tables.admin.
+
+Detalles técnicos:
+- `"use client"` en la primera línea; `import * as React from "react"` para useState y tipos.
+- Imports solo de "@/components/rp/primitives" (Section, GlassCard, Pill, H3, Lead, DataTable, GoldList, Callout, Stat) — Stat no usado al final (KPIs con widget propio para Sparkline), pero importado por consistencia con la firma.
+- React keys estables y únicos por celda en todos los DataTable rows (`feat-${f.id}`, `s-${f.id}`, `p-${f.id}`, `e-${f.id}`, `wid-${r.id}`, `wperm-${r.id}`, `wdef-${r.id}`, `st-free`, `sc-free`, `sd-free`, `tbl-${t.id}`, `btn-${selectedTable.id}-${s}`, `fr-${r.id}`, `res-${r.id}`, `tl-${ev.id}`, `act-${a.id}`, `ai-${rec.id}`, `kpi-${k.id}`, `leg-${s}`, `tog-${t.id}`, `period-${p}`, `d-starter-name`, etc.).
+- Sparkline: SVG path dinámico con stroke por color (var(--gold), var(--teal), #f59e0b). viewBox 80×24, sin librería externa.
+- Tooltip nativo CSS (group-hover/tt) sin dependencias, accesible (cursor-help + texto).
+- DemoBadge: amber pill consistente en todos los widgets con datos demo.
+- Sin colores indigo/blue; paleta exclusiva gold/teal/emerald/amber/red(badge)/muted.
+- Responsive: KPIs grid-cols-2 sm:lg:grid-cols-3 xl:grid-cols-6; floor plan grid-cols-2 sm:md:grid-cols-4; widgets en grid lg:grid-cols-2.
+- Accesibilidad: aria-label en mesas, aria-pressed en plan cards, label htmlFor en slider, kbd visible, button type="button", focus visible por ring.
+
+Lint & TypeScript:
+- `bun run lint` → 0 errores, 0 warnings.
+- `bunx tsc --noEmit` → 0 errores en p-c.tsx (errores residuales solo en examples/ y skills/ preexistentes, no relacionados).
+- Dev log: tras crear p-c.tsx, errores "Can't resolve '@/components/rp/sections-producto/p-c'" desaparecen; `✓ Compiled in 137ms` y `GET / 200` confirman render exitoso. Otros archivos p-a/p-b/p-d/p-e se completaron en paralelo por los otros agentes y todos resuelven correctamente.
+
+Stage Summary:
+- Archivo creado: `src/components/rp/sections-producto/p-c.tsx` (1581 líneas, 3 exports).
+- 3 secciones navegables vía NAV_PRODUCTO (items 09, 10, 11).
+- Componentes interactivos reales con useState: calculadora de pricing (plan + billing + locations + savings), dashboard (period + 3 widget toggles + KPIs filtrados), plano de mesas (12 mesas + cycle status + asignación reserva → mesa).
+- 5 DataTables (detalle por plan 3 filas + comparativa 27 filas + widgets disponibles 13 filas + estados de mesa 5 filas + funciones de reservas 11 filas = 59 filas totales) con keys estables y únicas por celda.
+- 3 GlassCards gold (Reglas de pricing, Shell de aplicación, Concurrencia en tiempo real).
+- 3 Callouts (warn no prometer lo no implementado, ok widgets por rol, warn drag & drop con confirmación).
+- 6 KPI widgets con Sparkline SVG, TrendPill y DemoBadge.
+- 4 listas demo (reservas hoy, timeline día, actividad reciente, recomendaciones IA) con scroll rp-scroll-thin.
+- Tooltips InfoDot nativos (sin librería) en límites y features pendientes de implementación.
+- Contenido 100% en español, dark theme premium (dorado #D4AF37, turquesa #3DD6C9, glassmorphism).
+- Cloudflare-native mencionado (Durable Objects, D1, WebSocket sync, idempotency-key) sin implementarse — demo visual del comportamiento.
+- Sin blockers. Lint limpio. Bloque C (PROD-C) listo e integrado.
+
+---
+Task ID: PROD-D
+Agent: full-stack-developer
+Task: Construir el bloque D de Fase 5 (Producto) como 3 componentes interactivos en `src/components/rp/sections-producto/p-d.tsx`: `ProductoCRM`, `ProductoAutomatizaciones`, `ProductoReputacion`. Cada uno incluye componentes React con `useState` reales (no maquetas estáticas).
+
+Work Log:
+- Leí worklog.md previo: Fase 0 + Fase 1.1 + Fase 1.2 + Fase 4 completas y verificadas; infra Fase 5 (Producto) lista con phase-store de 5 fases (default `producto`), NAV_PRODUCTO 21 items, page.tsx que importa `ProductoCRM, ProductoAutomatizaciones, ProductoReputacion` desde `@/components/rp/sections-producto/p-d`. Directorio `sections-producto/` existente con `p-hero.tsx` ya creado por architect; bloques A/B/C/E en paralelo por otros subagentes.
+- Revisé `primitives.tsx` (firmas exactas: Section, Tag, Risk, GlassCard variant gold/teal/default/strong, Stat, Pill tone gold/teal/outline/default, H3, Lead, DataTable, GoldList items: ReactNode[], KV k+v, Callout kind adr/warn/info/ok, Code lang+children string). Revisé `p-hero.tsx` para alinear tono editorial y patrones (DEMO_BADGE amber, tokens rp-gold-text/rp-glass/rp-glow-gold/rp-scroll-thin). Verifiqué `lucide-react` instalado (^0.525.0) e importé 26 iconos operativos.
+- Creé `src/components/rp/sections-producto/p-d.tsx` (~1840 líneas, 3 exports interactivos):
+  - **ProductoCRM** (id=p-crm, 12, eyebrow "CRM y marketing"): título "Memoria del cliente, segmentos y campañas." + intro. Componente interactivo `useState(selectedId)`: lista de 6 clientes demo (Elena Marín VIP bajo, Javier Soler recurrente medio, Marta Iborra riesgo alto no-show, David Puig VIP cumpleaños, Lucía Ferrer nuevo medio, Andrés Vidal inactivo 90d alto) con nombre/visitas/VIP badge/risk badge. Click selecciona y pinta panel gold con avatar inicial + contacto (email/phone) + LTV + visitas + mesa favorita + alergias + consentimientos (ConsentBadge email/whatsapp con check/X) + historial 3-4 visitas (fecha/servicio/pax/ticket o "No-show" destructivo) + tags (Pill condicional) + notas internas. Mini-section "Segmentos" 4 segmentos (VIP 12, Inactivos 90d 184, Cumpleaños este mes 37, Riesgo no-show 9). Mini-section "Campañas" 3 campañas con estado Pill + CTR. DataTable "Datos del CRM" 15 filas con Risk en Sensible. GlassCard gold "Reglas de CRM" GoldList 6 (consent versionado RGPD, org_id forzado, consent+horario silencioso+cuota, crm.export audita, VIP/risk por eventos, fusión con auditoría). Callout warn "Consentimiento obligatorio".
+  - **ProductoAutomatizaciones** (id=p-automatizaciones, 13, eyebrow "Builder de automatizaciones"): título "Builder visual: disparador → condiciones → acciones." + intro. Componente interactivo con 5 useState: `nodes[]` (FlowNode), `selectedNode`, `active` (toggle), `duplicated`/`simulated` feedback. Layout 3 columnas: paleta izquierda (5 tipos Trigger/Condition/Action/Wait/Branch con icono+color propio, click añade nodo al final); canvas central (flujo horizontal de cards con type icon, label, config preview, click para seleccionar + resaltado ring, X para eliminar, ChevronRight entre nodos, scroll horizontal); panel lateral gold (configuración del nodo seleccionado con textarea editable + nota idempotencia/anti-bucle). 5 plantillas (Recordatorio de reserva T-24h, Reconfirmación T-2h + marca riesgo no-show, Cumpleaños cron diario, Recuperación inactivos 90d dos intentos, Solicitud de reseña post-servicio) cada una carga flujo predefinido al click (clona con ids frescos). Historial de ejecuciones 4 items (success/failed/pending con StatusDot pulse animado para pending). Controles superiores: Activar/Pausar toggle (cambia color emerald/amber + icono Play/Pause + aria-pressed), Duplicar (feedback "Duplicado ✓" 1.8s), Simular (feedback "Simulación iniciada…" 2.4s + barra teal). DataTable "Componentes del builder" 15 filas (Trigger/Condition/Action/Wait/Branch/Plantilla/Variable dinámica {{customer.first_name}}/Límite por plan/Idempotencia execution_id/Anti-bucle depth_limit:10/Versionado v3 draft/Simulación dry-run/Pausa-Reactivación/Historial/Aprobación humana approve_required). GlassCard gold "Ejemplos de automatizaciones" GoldList 9. Callout warn "Aprobación humana para lo sensible".
+  - **ProductoReputacion** (id=p-reputacion, 14, eyebrow "Reputación, analytics e IA"): título "Google Reviews con IA, analytics operativo y Copilot." + intro extensa cubriendo bandeja reviews + AI replies + sentiment + themes + star evolution + comparativa + reply history + prior approval; analytics (ocupación/ingresos/ticket/reservas/cancelaciones/no-shows/nuevos/recurrentes/peak/forecast/comparativa/export CSV-PDF); IA Copilot con queries tipo (cuántas reservas mañana, clientes en riesgo, mejor campaña, local más ingresos, horas menor ocupación, acciones para subir ticket medio) y siempre muestra fuente/fecha/confianza/acciones sugeridas/revisión antes de ejecutar/log de ejecutadas. Componente interactivo con 5 useState: `selectedReviewId`, `replyText`, `approved`, `chat[]` + `copilotInput`. Layout 2 columnas: lista de 5 reseñas demo (Carlos 5★ positive sin responder, Nuria 4★ neutral sin responder, Anónimo 2★ negative sin responder, Sergio 5★ positive respondida, Pilar 3★ neutral sin responder) con stars + snippet + SentimentPill + replied status. Click selecciona y muestra panel gold con autor + reseña completa + análisis IA (sentiment + temas detectados Pills teal) + textarea "Respuesta sugerida (IA)" pre-llenada + editable + botón "Aprobar antes de publicar" (cambia a estado aprobado con check + botón "Publicar ahora" + nota "Revisión obligatoria"). StarChart SVG personalizado (4 semanas demo con gradiente gold, puntos con valor, eje X con etiquetas semana, panel lateral con media 4.46★ y tendencia). IA Copilot: chat transcript con burbujas user (gold rounded-br-sm) / ai (glass rounded-bl-sm) mostrando texto + grid 3 cols (Fuente/Actualizado/Confianza%) + acciones sugeridas como pills amber "revisar antes de ejecutar". Chips predefinidos (3 consultas) con respuestas demo ricas (texto + fuente + actualizado hace 5 min + confianza 82/76/88% + 1-2 acciones). Input libre + botón Preguntar (Enter envía, fallback genérico para preguntas fuera de chips). DataTable "Analytics disponibles" 12 filas (Métrica/Fuente/Frecuencia con Mono). GlassCard gold "Reglas de IA" GoldList 11 (fuente siempre, fecha actualización, confianza, acciones revisión humana, registro ejecutadas, prompts versionados, límites plan, redacción PII, kill switch, fallback determinista, aprobación humana sensible). Callout warn "IA propone, humano decide lo sensible".
+- React keys: cada celda en arrays DataTable rows usa key semántico por columna (c-nombre/c-email/c-phone/...; cmp-trigger/cmp-cond/...; m-ocu/m-ing/...); items de GoldList usan key `crm-r1`..`crm-r6`, `ar-${i}`, `ex-${i}`; lista de clientes `key={c.id}`; reseñas `key={r.id}`; nodos del canvas usan `React.Fragment key={n.id}` para envolver card + flecha; chips copilot `key={c.id}`; mensajes chat `key={m.id}`; historial ejecuciones `key={e.id}`; segmentos `key={s.id}`; campañas `key={ca.id}`; plantillas `key={t.id}`. Sin colisiones.
+- Componentes auxiliares extraídos: `Mono` (inline code dorado/turquesa/muted), `DEMO_BADGE` (badge amber "demo" con dot pulse), `ConsentBadge` (channel + ok=true/false con Check/X), `StatusDot` (success/failed/pending con dot pulse animado), `SentimentPill` (positive/neutral/negative), `StarChart` (SVG con linearGradient gold, área + línea + puntos + etiquetas semana + valor + media calculada). Helper `nextNodeId()` para ids únicos al añadir/clonar nodos.
+- Honestidad técnica: consentimiento por canal+finalidad versionado (RGPD); segmentos siempre con org_id forzado; campañas respetan horario silencioso 22:00-09:00 + cuota plan; exportación requiere permiso crm.export; VIP/risk alimentados por eventos (recurrencia, no-show); idempotencia execution_id único; anti-bucle depth_limit 10 + TTL 60min; versionado draft/published; aprobación humana obligatoria para sensible (precio, campaña pública, respuesta reseña, eliminación, pago); IA nunca ejecuta sensible sin aprobación; fallback determinista garantiza operación; PII redactada antes del modelo; kill switch por org.
+- Lint inicial: 6 errores `react/jsx-key` por spans sin key en GoldList items de "Reglas de CRM" → añadidos keys `crm-r1`..`crm-r6`. Lint final: 0 errores, 0 warnings en `bun run lint` global. TypeScript: 1 error inicial línea 1114 (`Type 'string' is not assignable to type '"success" | "failed" | "pending"'`) por array `EXECUTIONS` sin tipado explícito → solucionado declarando tipo explícito `const EXECUTIONS: { id: string; flow: string; status: "success" | "failed" | "pending"; time: string; duration: string }[]`. `bunx tsc --noEmit` ya no reporta errores en p-d.tsx (errores residuales son en examples/ y skills/, no míos).
+- Dev log: solo reporta module-not-found para p-c y p-e (otros subagentes paralelos). Mi p-d.tsx resuelve limpiamente (sin errores en trace).
+- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/PROD-D-full-stack-developer.md`.
+
+Stage Summary:
+- Archivo creado: `src/components/rp/sections-producto/p-d.tsx` (~1840 líneas, 3 exports interactivos).
+- 3 secciones navegables vía NAV_PRODUCTO (items 12, 13, 14): CRM, Automatizaciones, Reputación.
+- Componentes React con `useState` reales y genuinamente interactivos:
+  - **CRM**: lista clickable de 6 clientes + panel de detalle dinámico que cambia por cliente (contacto, historial, preferencias, consentimientos email/whatsapp, tags, notas internas); mini-sections Segmentos (4) y Campañas (3).
+  - **Automatizaciones**: paleta añade nodos al flujo, plantillas reemplazan todo el canvas, click selecciona nodo y edita config en textarea, toggle activar/pausar con feedback visual, botones duplicar/simular con feedback temporal, historial de ejecuciones con status animado.
+  - **Reputación**: lista de 5 reseñas clickable + panel gold con reseña completa + análisis IA (sentiment + temas) + textarea editable de respuesta sugerida + botón "Aprobar antes de publicar" con estado aprobado; SVG chart personalizado de evolución de estrellas; chat IA Copilot con chips predefinidos + input libre, burbujas user/ai con grid fuente/actualizado/confianza y acciones sugeridas "revisar antes de ejecutar".
+- 3 DataTables (15 + 15 + 12 = 42 filas) con keys estables y únicas por celda.
+- 3 GlassCards gold (Reglas de CRM, Ejemplos de automatizaciones, Reglas de IA) con GoldList.
+- 3 Callouts warn (Consentimiento obligatorio, Aprobación humana para lo sensible, IA propone humano decide lo sensible).
+- 1 SVG chart personalizado (StarChart con gradiente gold, área+ línea+puntos+etiquetas+media calculada).
+- 26 iconos lucide-react operativos integrados con colores de marca.
+- DEMO_BADGE amber visible en cada componente interactivo y mini-sección.
+- Contenido 100% en español, dark theme premium (dorado #D4AF37, turquesa #3DD6C9, glassmorphism, rp-glow-gold).
+- Lint limpio (0 errores, 0 warnings). TypeScript limpio en p-d.tsx. Sin bloqueadores.
+
+---
+Task ID: PROD-VERIFY
+Agent: main (architect)
+Task: Verificación end-to-end de Fase 5 (Producto RestoPanel — respuesta al master prompt) con Agent Browser + lint + VLM.
+
+Work Log:
+- Lint global: 0 errores tras la entrega de los 5 subagentes (A-E).
+- Dev server: reiniciado de forma persistente (PID 14708); responde 200.
+- Agent Browser (desktop 1440x900): página carga sin errores de consola ni de página.
+- Producto renderiza por defecto (store phase=producto): hero "Software para restaurantes que convierte cada servicio en más ingresos" + 21 items de índice (00-20) + toggle 5-vías (F0/F1.1/F1.2/F4/P).
+- Mermaid: 0 errores. 88 SVGs total (incluye sparklines y charts de componentes interactivos) + 4 bloques de código.
+- Componentes interactivos verificados con estado REAL (useState):
+  * Pricing calculator (#p-pricing): 3 botones de plan + toggle Mensual/Anual + slider de locales + CTA dinámico. Verificado: CTA cambia "Crear cuenta Starter" → "Crear cuenta Pro" → "Solicitar demo Enterprise" según plan.
+  * Dashboard (#p-dashboard): selector periodo (Hoy/Semana/Mes) + 3 checkboxes de visibilidad (Google Rating, No-shows, IA). Verificado: toggle de "Recomendaciones de IA" muestra/oculta el widget (conteo de elementos cambia 407↔427).
+  * Floor plan (#p-reservas): 22 botones interactivos (12 mesas clicables + controles).
+  * Automation builder (#p-automatizaciones): 16 botones (paleta de nodos + plantillas + controles activar/duplicar/simular).
+- Toggle de 5 fases verificado: P→F0 ("sistema operativo del restaurante")→P ("Software para restaurantes..."). Todos los cambios de hero correctos.
+- Responsive móvil (390x844): nav colapsable con botón "Índice" presente; footer al final del contenido (natural push, sin overlap).
+- VLM (glm-5v-turbo): tema dark premium dorado correcto, sidebar con 21 items, SIN glitches, se percibe como "producto SaaS interactivo" no documento estático. "High-quality, glitch-free, enterprise-grade."
+
+Stage Summary:
+- Fase 5 (Producto RestoPanel) completa y verificada en la ruta /.
+- 21 secciones entregadas por 5 subagentes paralelos (A-E), todas con lint limpio.
+- DIFERENCIA vs fases anteriores: esta fase tiene componentes interactivos REALES con useState (no maquetas estáticas):
+  * Calculadora de pricing funcional (plan + billing + locations + CTA dinámico)
+  * Dashboard con widgets toggleables (visibilidad por checkbox)
+  * Plano de mesas interactivo (mesas clicables que cambian estado)
+  * Builder de automatizaciones visual (paleta + canvas + plantillas + controles)
+  * CRM con perfil de cliente dinámico

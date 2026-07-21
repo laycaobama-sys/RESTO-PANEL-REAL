@@ -1,0 +1,775 @@
+"use client";
+
+import * as React from "react";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription,
+} from "@/components/ui/drawer";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  ShieldCheck, TrendingUp, TrendingDown, Search, Filter, AlertTriangle,
+  CheckCircle2, Activity, Cpu, Globe2, Zap, DollarSign, Users, Building2,
+  ChevronRight, Crown, CalendarDays, Sparkles, Server, Cloud, AlertOctagon,
+} from "lucide-react";
+
+/* ---------------- shared bits ---------------- */
+function DemoBadge({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
+        className
+      )}
+    >
+      demo
+    </Badge>
+  );
+}
+
+function SectionTitle({
+  title, subtitle, children, demo,
+}: {
+  title: string; subtitle?: string; children?: React.ReactNode; demo?: boolean;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 mb-4">
+      <div>
+        <div className="flex items-center gap-2">
+          <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">{title}</h3>
+          {demo && <DemoBadge />}
+        </div>
+        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      </div>
+      {children && <div className="shrink-0">{children}</div>}
+    </div>
+  );
+}
+
+type TrendDir = "up" | "down" | "flat";
+function TrendPill({ dir, value }: { dir: TrendDir; value: string }) {
+  const Icon = dir === "up" ? TrendingUp : dir === "down" ? TrendingDown : Activity;
+  const tone =
+    dir === "up" ? "text-emerald-300 border-emerald-400/30 bg-emerald-400/10"
+    : dir === "down" ? "text-rose-300 border-rose-400/30 bg-rose-400/10"
+    : "text-muted-foreground border-border/60 bg-foreground/5";
+  return (
+    <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-mono", tone)}>
+      <Icon className="h-3 w-3" aria-hidden />
+      {value}
+    </span>
+  );
+}
+
+function StatusPill({ status }: { status: "operational" | "degraded" | "down" | "maintenance" }) {
+  const map = {
+    operational: { label: "Operativo", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400" },
+    degraded: { label: "Degradado", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400" },
+    down: { label: "Caído", cls: "border-rose-400/50 bg-rose-400/10 text-rose-300", dot: "bg-rose-400" },
+    maintenance: { label: "Mantenimiento", cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]", dot: "bg-[var(--teal)]" },
+  }[status];
+  return (
+    <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs", map.cls)}>
+      <span className={cn("h-1.5 w-1.5 rounded-full", map.dot)} />
+      {map.label}
+    </span>
+  );
+}
+
+/* ---------------- KPI data ---------------- */
+const KPIS = [
+  { label: "MRR", value: "48.250€", trend: "up" as TrendDir, delta: "+6.2% MoM" },
+  { label: "ARR", value: "579.000€", trend: "up" as TrendDir, delta: "+18.4% YoY" },
+  { label: "LTV", value: "3.840€", trend: "up" as TrendDir, delta: "+4.1%" },
+  { label: "CAC", value: "412€", trend: "down" as TrendDir, delta: "-7.8%" },
+  { label: "ARPU", value: "149€", trend: "up" as TrendDir, delta: "+2.3%" },
+  { label: "Churn", value: "2.1%", trend: "down" as TrendDir, delta: "-0.3pp" },
+  { label: "Conversión", value: "12.4%", trend: "up" as TrendDir, delta: "+1.2pp" },
+  { label: "Orgs activas", value: "324", trend: "up" as TrendDir, delta: "+14 este mes" },
+];
+
+/* ---------------- orgs data ---------------- */
+type Org = {
+  id: string; name: string; plan: "Starter" | "Professional" | "Enterprise";
+  locations: number; mrr: number; status: "activa" | "trial" | "pausada" | "churned";
+  churnRisk: "bajo" | "medio" | "alto" | "crítico"; lastActive: string;
+  country: string; signups: number;
+};
+
+const ORGS: Org[] = [
+  { id: "o1", name: "Ramses Group", plan: "Enterprise", locations: 6, mrr: 1490, status: "activa", churnRisk: "bajo", lastActive: "hace 4 min", country: "ES", signups: 384 },
+  { id: "o2", name: "El Club del Chef", plan: "Professional", locations: 3, mrr: 447, status: "activa", churnRisk: "medio", lastActive: "hace 22 min", country: "ES", signups: 211 },
+  { id: "o3", name: "Sakura Sushi Chain", plan: "Enterprise", locations: 12, mrr: 2980, status: "activa", churnRisk: "bajo", lastActive: "hace 1 min", country: "PT", signups: 612 },
+  { id: "o4", name: "Trattoria Bellini", plan: "Starter", locations: 1, mrr: 49, status: "trial", churnRisk: "alto", lastActive: "hace 3 días", country: "IT", signups: 47 },
+  { id: "o5", name: "Mar & Sol Resorts", plan: "Professional", locations: 5, mrr: 745, status: "activa", churnRisk: "medio", lastActive: "hace 1 h", country: "ES", signups: 305 },
+  { id: "o6", name: "Parrilla Sur", plan: "Starter", locations: 2, mrr: 98, status: "pausada", churnRisk: "crítico", lastActive: "hace 12 días", country: "AR", signups: 89 },
+  { id: "o7", name: "Brasserie Lumière", plan: "Professional", locations: 4, mrr: 596, status: "activa", churnRisk: "bajo", lastActive: "hace 8 min", country: "FR", signups: 256 },
+  { id: "o8", name: "Wok Republic", plan: "Enterprise", locations: 9, mrr: 2235, status: "activa", churnRisk: "medio", lastActive: "hace 17 min", country: "UK", signups: 478 },
+  { id: "o9", name: "Café Central Lisboa", plan: "Starter", locations: 1, mrr: 49, status: "trial", churnRisk: "medio", lastActive: "hace 2 h", country: "PT", signups: 36 },
+  { id: "o10", name: "Taco Loco Group", plan: "Professional", locations: 7, mrr: 1043, status: "activa", churnRisk: "bajo", lastActive: "hace 33 min", country: "MX", signups: 391 },
+];
+
+const PLAN_FILTERS = ["Todos", "Starter", "Professional", "Enterprise"] as const;
+const STATUS_FILTERS = ["Todos", "activa", "trial", "pausada", "churned"] as const;
+
+/* ---------------- MRR chart ---------------- */
+function MrrChart() {
+  const months = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+  const values = [28500, 30200, 32800, 35100, 37400, 39200, 41800, 43200, 44600, 45900, 47100, 48250];
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const w = 720, h = 220, pad = 32;
+  const x = (i: number) => pad + (i * (w - pad * 2)) / (values.length - 1);
+  const y = (v: number) => h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+  const pathLine = values.map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`).join(" ");
+  const pathArea = `${pathLine} L${x(values.length - 1)},${h - pad} L${x(0)},${h - pad} Z`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-auto" role="img" aria-label="Crecimiento MRR últimos 12 meses">
+      <defs>
+        <linearGradient id="mrr-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--gold)" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="mrr-line" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="var(--gold-soft)" />
+          <stop offset="100%" stopColor="var(--teal)" />
+        </linearGradient>
+      </defs>
+      {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+        <line key={p} x1={pad} x2={w - pad} y1={pad + p * (h - pad * 2)} y2={pad + p * (h - pad * 2)} stroke="currentColor" strokeOpacity="0.06" />
+      ))}
+      <path d={pathArea} fill="url(#mrr-fill)" />
+      <path d={pathLine} fill="none" stroke="url(#mrr-line)" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      {values.map((v, i) => (
+        <g key={i}>
+          <circle cx={x(i)} cy={y(v)} r="3" fill="var(--background)" stroke="var(--gold)" strokeWidth="2" />
+          <text x={x(i)} y={h - pad + 16} fontSize="10" fill="currentColor" fillOpacity="0.5" textAnchor="middle" fontFamily="var(--font-jetbrains)">
+            {months[i]}
+          </text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ---------------- bar chart ---------------- */
+function BarChart({ data, accent = "gold" }: { data: { label: string; value: number; sub?: string }[]; accent?: "gold" | "teal" }) {
+  const max = Math.max(...data.map((d) => d.value));
+  const color = accent === "gold" ? "var(--gold)" : "var(--teal)";
+  return (
+    <div className="space-y-2.5">
+      {data.map((d) => (
+        <div key={d.label} className="flex items-center gap-3">
+          <div className="w-28 sm:w-36 truncate text-xs text-foreground/80">{d.label}</div>
+          <div className="flex-1 h-6 rounded-md bg-foreground/5 overflow-hidden relative">
+            <div
+              className="h-full rounded-md transition-all"
+              style={{ width: `${(d.value / max) * 100}%`, background: `linear-gradient(90deg, ${color}, ${accent === "gold" ? "var(--gold-deep)" : "var(--teal-deep)"})` }}
+            />
+          </div>
+          <div className="w-20 text-right text-xs font-mono">
+            {d.value.toLocaleString("es-ES")}{d.sub ? <span className="text-muted-foreground ml-1">{d.sub}</span> : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------- world map svg ---------------- */
+function WorldMap() {
+  // stylized continents + glowing dots representing activity
+  const dots = [
+    { x: 320, y: 95, size: 6, label: "USA" },
+    { x: 285, y: 130, size: 4, label: "MX" },
+    { x: 350, y: 165, size: 3, label: "BR" },
+    { x: 470, y: 85, size: 5, label: "UK" },
+    { x: 495, y: 100, size: 7, label: "ES" },
+    { x: 510, y: 95, size: 4, label: "FR" },
+    { x: 545, y: 105, size: 4, label: "IT" },
+    { x: 565, y: 130, size: 3, label: "AR" },
+    { x: 660, y: 110, size: 8, label: "UAE" },
+    { x: 720, y: 130, size: 6, label: "IN" },
+    { x: 770, y: 100, size: 7, label: "JP" },
+    { x: 800, y: 165, size: 4, label: "AU" },
+  ];
+  return (
+    <svg viewBox="0 0 980 320" className="w-full h-auto" role="img" aria-label="Mapa mundial de actividad demo">
+      <defs>
+        <radialGradient id="dot-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="var(--teal)" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="var(--teal)" stopOpacity="0" />
+        </radialGradient>
+        <linearGradient id="continent" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="var(--foreground)" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="var(--foreground)" stopOpacity="0.03" />
+        </linearGradient>
+      </defs>
+      {/* Stylized abstract continent shapes */}
+      <g fill="url(#continent)" stroke="currentColor" strokeOpacity="0.12" strokeWidth="0.75">
+        {/* North America */}
+        <path d="M230,70 Q290,55 350,80 Q390,110 380,150 Q360,180 320,170 Q280,160 250,140 Q220,110 230,70 Z" />
+        {/* South America */}
+        <path d="M330,180 Q360,175 370,205 Q375,250 355,275 Q330,280 315,250 Q305,210 330,180 Z" />
+        {/* Europe */}
+        <path d="M440,75 Q490,68 540,80 Q560,100 545,120 Q500,125 470,115 Q445,100 440,75 Z" />
+        {/* Africa */}
+        <path d="M490,140 Q540,135 560,170 Q565,225 540,255 Q510,260 490,225 Q480,180 490,140 Z" />
+        {/* Asia */}
+        <path d="M560,70 Q700,55 820,80 Q860,110 830,150 Q760,170 680,160 Q600,140 560,110 Z" />
+        {/* Oceania */}
+        <path d="M770,180 Q820,175 830,200 Q825,225 790,230 Q760,220 770,180 Z" />
+      </g>
+      {dots.map((d) => (
+        <g key={d.label}>
+          <circle cx={d.x} cy={d.y} r={d.size * 3} fill="url(#dot-glow)" />
+          <circle cx={d.x} cy={d.y} r={d.size * 0.6} fill="var(--teal)">
+            <animate attributeName="opacity" values="1;0.4;1" dur="2.4s" repeatCount="indefinite" />
+          </circle>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ---------------- rankings ---------------- */
+function RankingList({
+  title, icon: Icon, items, metric, accent,
+}: {
+  title: string; icon: React.ElementType;
+  items: { name: string; value: number; meta?: string }[];
+  metric: string; accent: "gold" | "teal";
+}) {
+  const max = Math.max(...items.map((i) => i.value));
+  return (
+    <div className="rp-glass rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <Icon className={cn("h-4 w-4", accent === "gold" ? "rp-gold-text" : "rp-teal-text")} aria-hidden />
+        <h4 className="text-sm font-medium">{title}</h4>
+      </div>
+      <ol className="space-y-2.5">
+        {items.map((it, i) => (
+          <li key={it.name} className="flex items-center gap-3">
+            <span className={cn(
+              "h-6 w-6 shrink-0 rounded-md flex items-center justify-center text-xs font-mono",
+              i === 0 ? "bg-[var(--gold)]/15 text-[var(--gold)]" : "bg-foreground/5 text-muted-foreground"
+            )}>
+              {i + 1}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between text-xs mb-1">
+                <span className="truncate text-foreground/85">{it.name}</span>
+                <span className="font-mono text-foreground/70">{it.value.toLocaleString("es-ES")}{metric}</span>
+              </div>
+              <div className="h-1 rounded-full bg-foreground/5 overflow-hidden">
+                <div
+                  className="h-full rounded-full"
+                  style={{
+                    width: `${(it.value / max) * 100}%`,
+                    background: accent === "gold" ? "linear-gradient(90deg, var(--gold), var(--gold-deep))" : "linear-gradient(90deg, var(--teal), var(--teal-deep))",
+                  }}
+                />
+              </div>
+              {it.meta && <div className="text-[10px] text-muted-foreground mt-0.5">{it.meta}</div>}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/* ---------------- infra status ---------------- */
+const INFRA_STATUS = [
+  { service: "API Gateway", status: "operational" as const, latency: "112ms", region: "EU-West" },
+  { service: "D1 (Base de datos)", status: "operational" as const, latency: "8ms", region: "Global" },
+  { service: "R2 (Object Store)", status: "operational" as const, latency: "24ms", region: "Global" },
+  { service: "Queues", status: "degraded" as const, latency: "1.8s p99", region: "EU-West" },
+  { service: "AI Gateway", status: "operational" as const, latency: "642ms", region: "Global" },
+  { service: "Workers", status: "operational" as const, latency: "4ms", region: "Global" },
+  { service: "KV", status: "operational" as const, latency: "2ms", region: "Global" },
+];
+
+const INCIDENTS = [
+  { id: "inc1", severity: "alta", status: "investigando", summary: "Latencia elevada en cola de webhooks (eu-west-1)", time: "hace 18 min" },
+  { id: "inc2", severity: "media", status: "monitorizando", summary: "Tasa de error 0.4% en endpoint /reservas (AI Gateway)", time: "hace 1 h" },
+  { id: "inc3", severity: "baja", status: "resuelto", summary: "Despliegue 1.42.0 completado en workers", time: "hace 4 h" },
+  { id: "inc4", severity: "media", status: "identificado", summary: "D1 read replica lag >2s en horario pico", time: "ayer 23:14" },
+];
+
+/* ---------------- org detail drawer ---------------- */
+function OrgDetailDrawer({ org, onClose }: { org: Org | null; onClose: () => void }) {
+  return (
+    <Drawer open={!!org} onOpenChange={(o) => !o && onClose()} direction="right">
+      <DrawerContent className="sm:max-w-md w-full" data-vaul-drawer-direction="right">
+        {org && (
+          <>
+            <DrawerHeader>
+              <DrawerDescription className="sr-only">Detalle de organización</DrawerDescription>
+              <DrawerTitle className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 rp-gold-text" aria-hidden />
+                {org.name}
+              </DrawerTitle>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge className="border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]">{org.plan}</Badge>
+                <StatusPill status={org.status === "activa" ? "operational" : org.status === "trial" ? "maintenance" : org.status === "pausada" ? "degraded" : "down"} />
+                <DemoBadge />
+              </div>
+            </DrawerHeader>
+            <div className="px-4 pb-4 overflow-y-auto rp-scroll-thin space-y-4 flex-1">
+              <dl className="grid grid-cols-2 gap-3">
+                <div className="rp-glass rounded-lg p-3">
+                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">MRR</dt>
+                  <dd className="font-display text-xl font-light rp-gold-text">{org.mrr}€</dd>
+                </div>
+                <div className="rp-glass rounded-lg p-3">
+                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Locales</dt>
+                  <dd className="font-display text-xl font-light">{org.locations}</dd>
+                </div>
+                <div className="rp-glass rounded-lg p-3">
+                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Clientes</dt>
+                  <dd className="font-display text-xl font-light">{org.signups.toLocaleString("es-ES")}</dd>
+                </div>
+                <div className="rp-glass rounded-lg p-3">
+                  <dt className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">País</dt>
+                  <dd className="font-display text-xl font-light">{org.country}</dd>
+                </div>
+              </dl>
+              <div>
+                <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Riesgo de churn</div>
+                <div className={cn(
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm",
+                  org.churnRisk === "bajo" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+                  : org.churnRisk === "medio" ? "border-amber-400/40 bg-amber-400/10 text-amber-300"
+                  : org.churnRisk === "alto" ? "border-orange-400/40 bg-orange-400/10 text-orange-300"
+                  : "border-rose-400/50 bg-rose-400/10 text-rose-300"
+                )}>
+                  <span className="h-2 w-2 rounded-full bg-current" />
+                  {org.churnRisk.toUpperCase()}
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Última actividad: <span className="text-foreground/80">{org.lastActive}</span>
+              </div>
+              <div className="rp-glass rounded-lg p-3 space-y-2">
+                <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Acciones rápidas</div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="sm" className="text-xs">Ver cuenta</Button>
+                  <Button variant="outline" size="sm" className="text-xs">Impersonar</Button>
+                  <Button variant="outline" size="sm" className="text-xs">Reasignar CSM</Button>
+                  <Button variant="outline" size="sm" className="text-xs">Forzar sync</Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/* ---------------- main view ---------------- */
+export function SuperAdminView() {
+  const { toast } = useToast();
+  const [search, setSearch] = React.useState("");
+  const [planFilter, setPlanFilter] = React.useState<string>("Todos");
+  const [statusFilter, setStatusFilter] = React.useState<string>("Todos");
+  const [selected, setSelected] = React.useState<Org | null>(null);
+
+  const filtered = ORGS.filter((o) => {
+    if (search && !o.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (planFilter !== "Todos" && o.plan !== planFilter) return false;
+    if (statusFilter !== "Todos" && o.status !== statusFilter) return false;
+    return true;
+  });
+
+  return (
+    <div className="space-y-8 max-w-[1400px] mx-auto">
+      {/* Header */}
+      <header className="space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-9 w-9 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/30 flex items-center justify-center rp-glow-gold">
+              <ShieldCheck className="h-5 w-5 rp-gold-text" aria-hidden />
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+              Super Admin · <span className="rp-gold-text">Plataforma</span>
+            </h1>
+          </div>
+          <Badge className="border-rose-400/40 bg-rose-400/10 text-rose-300 text-[10px] font-mono uppercase tracking-wider">
+            <AlertOctagon className="h-3 w-3 mr-1" aria-hidden />
+            Nivel plataforma
+          </Badge>
+          <DemoBadge />
+        </div>
+        <p className="text-sm text-muted-foreground max-w-2xl">
+          Vista operacional a nivel de plataforma RestoPanel. Acceso restringido a personal interno.
+          Todos los datos mostrados son demostrativos y no representan producción.
+        </p>
+        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Entorno: production · Usuario: platform-admin@restopanel.io
+        </div>
+      </header>
+
+      {/* KPI row */}
+      <section aria-label="Indicadores clave de plataforma">
+        <SectionTitle title="KPIs de plataforma" subtitle="Métricas agregadas de todas las organizaciones" demo>
+          <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">Última actualización: hace 2 min</span>
+        </SectionTitle>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {KPIS.map((k) => (
+            <div key={k.label} className="rp-glass rounded-xl p-4 hover:border-[var(--gold)]/30 transition-colors">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{k.label}</div>
+              <div className="mt-1.5 font-display text-2xl sm:text-[1.7rem] font-light text-foreground">{k.value}</div>
+              <div className="mt-2">
+                <TrendPill dir={k.trend} value={k.delta} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Growth chart */}
+      <section aria-label="Crecimiento de MRR">
+        <div className="rp-glass rounded-xl p-5">
+          <SectionTitle title="Crecimiento MRR" subtitle="Evolución mensual recurrente · últimos 12 meses" demo>
+            <div className="flex items-center gap-3 text-xs">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> MRR</span>
+              <TrendPill dir="up" value="+69% YoY" />
+            </div>
+          </SectionTitle>
+          <MrrChart />
+        </div>
+      </section>
+
+      {/* Clientes table */}
+      <section aria-label="Clientes y organizaciones">
+        <SectionTitle title="Clientes / Organizaciones" subtitle="Listado y estado de cuentas" demo />
+        <div className="rp-glass rounded-xl overflow-hidden">
+          <div className="flex flex-col sm:flex-row gap-2 p-3 border-b border-border/40">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
+              <Input
+                type="search"
+                placeholder="Buscar organización…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+                aria-label="Buscar organizaciones"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select value={planFilter} onValueChange={setPlanFilter}>
+                <SelectTrigger size="sm" className="w-40" aria-label="Filtrar por plan">
+                  <span className="flex items-center gap-2 text-muted-foreground"><Filter className="h-3 w-3" /> Plan</span>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {PLAN_FILTERS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger size="sm" className="w-36" aria-label="Filtrar por estado">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_FILTERS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="overflow-x-auto rp-scroll-thin">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b border-border/60 bg-foreground/[0.03]">
+                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Organización</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Plan</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Locales</th>
+                  <th className="px-4 py-2.5 text-right text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">MRR</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Estado</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Riesgo churn</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground whitespace-nowrap">Última actividad</th>
+                  <th className="px-4 py-2.5" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 && (
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-sm">No se encontraron organizaciones.</td></tr>
+                )}
+                {filtered.map((o) => (
+                  <tr
+                    key={o.id}
+                    tabIndex={0}
+                    onClick={() => setSelected(o)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelected(o); } }}
+                    className="border-b border-border/40 last:border-0 transition-colors hover:bg-foreground/[0.04] cursor-pointer focus-visible:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--gold)]/40"
+                  >
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-7 w-7 rounded-md bg-[var(--gold)]/10 border border-[var(--gold)]/20 flex items-center justify-center text-[var(--gold)] text-[11px] font-medium">{o.name.charAt(0)}</div>
+                        <div>
+                          <div className="font-medium text-foreground">{o.name}</div>
+                          <div className="text-[11px] text-muted-foreground">{o.country}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge variant="outline" className={cn(
+                        o.plan === "Enterprise" ? "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+                        : o.plan === "Professional" ? "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]"
+                        : "border-border/60 bg-foreground/5 text-muted-foreground"
+                      )}>{o.plan}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">{o.locations}</td>
+                    <td className="px-4 py-3 text-right font-mono rp-gold-text">{o.mrr.toLocaleString("es-ES")}€</td>
+                    <td className="px-4 py-3">
+                      <span className={cn("inline-flex items-center gap-1.5 text-xs",
+                        o.status === "activa" ? "text-emerald-300" : o.status === "trial" ? "text-[var(--teal)]" : o.status === "pausada" ? "text-amber-300" : "text-rose-300")}>
+                        <span className={cn("h-1.5 w-1.5 rounded-full",
+                          o.status === "activa" ? "bg-emerald-400" : o.status === "trial" ? "bg-[var(--teal)]" : o.status === "pausada" ? "bg-amber-400" : "bg-rose-400")} />
+                        {o.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn("inline-flex items-center gap-1.5 rounded border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+                        o.churnRisk === "bajo" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                        : o.churnRisk === "medio" ? "border-amber-400/30 bg-amber-400/10 text-amber-300"
+                        : o.churnRisk === "alto" ? "border-orange-400/40 bg-orange-400/10 text-orange-300"
+                        : "border-rose-400/40 bg-rose-400/10 text-rose-300")}>
+                        {o.churnRisk}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{o.lastActive}</td>
+                    <td className="px-4 py-3 text-right">
+                      <ChevronRight className="h-4 w-4 text-muted-foreground inline" aria-hidden />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-3 py-2 border-t border-border/40 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{filtered.length} de {ORGS.length} organizaciones</span>
+            <span className="font-mono">demo</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Rankings */}
+      <section aria-label="Rankings de organizaciones">
+        <SectionTitle title="Rankings" subtitle="Top 5 por métrica · período actual" demo />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <RankingList
+            title="Top por ingresos (MRR)"
+            icon={DollarSign}
+            accent="gold"
+            metric="€"
+            items={[
+              { name: "Sakura Sushi Chain", value: 2980, meta: "Enterprise · 12 locales" },
+              { name: "Wok Republic", value: 2235, meta: "Enterprise · 9 locales" },
+              { name: "Ramses Group", value: 1490, meta: "Enterprise · 6 locales" },
+              { name: "Taco Loco Group", value: 1043, meta: "Professional · 7 locales" },
+              { name: "Mar & Sol Resorts", value: 745, meta: "Professional · 5 locales" },
+            ]}
+          />
+          <RankingList
+            title="Top por reservas"
+            icon={CalendarDays}
+            accent="teal"
+            metric=""
+            items={[
+              { name: "Sakura Sushi Chain", value: 4821, meta: "12 locales" },
+              { name: "Ramses Group", value: 3892, meta: "6 locales" },
+              { name: "Wok Republic", value: 3244, meta: "9 locales" },
+              { name: "Taco Loco Group", value: 2810, meta: "7 locales" },
+              { name: "Brasserie Lumière", value: 1948, meta: "4 locales" },
+            ]}
+          />
+          <RankingList
+            title="Top uso de IA"
+            icon={Sparkles}
+            accent="gold"
+            metric=" cr"
+            items={[
+              { name: "Ramses Group", value: 18420, meta: "Smart replies + analítica" },
+              { name: "Sakura Sushi Chain", value: 14870, meta: "Respuestas automáticas" },
+              { name: "Wok Republic", value: 11200, meta: "Segmentación IA" },
+              { name: "Taco Loco Group", value: 8650, meta: "Reviews AI" },
+              { name: "Mar & Sol Resorts", value: 6940, meta: "Campanas IA" },
+            ]}
+          />
+        </div>
+      </section>
+
+      {/* IA + API usage */}
+      <section aria-label="Uso de IA y API">
+        <div className="rp-glass rounded-xl p-5">
+          <SectionTitle title="Uso de IA y API" subtitle="Créditos consumidos por organización · top 5" demo />
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+            {[
+              { label: "Créditos IA mes", value: "1.24M", sub: "de 2M disponibles" },
+              { label: "Llamadas API 24h", value: "84.213", sub: "+12.4% vs ayer" },
+              { label: "Tokens procesados", value: "312M", sub: "entrada + salida" },
+              { label: "Webhooks entregados", value: "9.847", sub: "0.2% fallos" },
+            ].map((s) => (
+              <div key={s.label} className="rounded-lg border border-border/40 p-3">
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{s.label}</div>
+                <div className="mt-1 font-display text-xl font-light rp-teal-text">{s.value}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{s.sub}</div>
+              </div>
+            ))}
+          </div>
+          <BarChart accent="teal" data={[
+            { label: "Ramses Group", value: 18420, sub: "cr" },
+            { label: "Sakura Sushi", value: 14870, sub: "cr" },
+            { label: "Wok Republic", value: 11200, sub: "cr" },
+            { label: "Taco Loco", value: 8650, sub: "cr" },
+            { label: "Mar & Sol", value: 6940, sub: "cr" },
+          ]} />
+        </div>
+      </section>
+
+      {/* Infra costs */}
+      <section aria-label="Costes de infraestructura">
+        <div className="rp-glass rounded-xl p-5">
+          <SectionTitle title="Costes de infraestructura" subtitle="Desglose mensual Cloudflare · estimación demo" demo />
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              {[
+                { service: "Workers", cost: 1284, share: "31%" },
+                { service: "D1 (DB)", cost: 890, share: "21%" },
+                { service: "R2 (Storage)", cost: 645, share: "16%" },
+                { service: "KV", cost: 312, share: "8%" },
+                { service: "Queues", cost: 248, share: "6%" },
+                { service: "AI Gateway", cost: 768, share: "18%" },
+              ].map((c) => (
+                <div key={c.service} className="flex items-center justify-between py-2 border-b border-border/40 last:border-0">
+                  <div className="flex items-center gap-2">
+                    <Server className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    <span className="text-sm">{c.service}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-mono text-muted-foreground">{c.share}</span>
+                    <span className="font-mono text-sm rp-gold-text">{c.cost.toLocaleString("es-ES")}€</span>
+                  </div>
+                </div>
+              ))}
+              <div className="flex items-center justify-between pt-2 mt-2">
+                <span className="text-sm font-medium">Total estimado</span>
+                <span className="font-display text-xl font-light rp-gold-text">4.147€/mes</span>
+              </div>
+            </div>
+            <BarChart accent="gold" data={[
+              { label: "Workers", value: 1284, sub: "€" },
+              { label: "D1 (DB)", value: 890, sub: "€" },
+              { label: "AI Gateway", value: 768, sub: "€" },
+              { label: "R2", value: 645, sub: "€" },
+              { label: "KV", value: 312, sub: "€" },
+              { label: "Queues", value: 248, sub: "€" },
+            ]} />
+          </div>
+        </div>
+      </section>
+
+      {/* Infra health */}
+      <section aria-label="Estado de infraestructura">
+        <div className="rp-glass rounded-xl p-5">
+          <SectionTitle title="Estado de infraestructura" subtitle="Health checks en tiempo real" demo>
+            <Button variant="outline" size="sm" onClick={() => toast({ title: "Refresh (demo)", description: "Health checks re-ejecutados" })}>
+              <Activity className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Refrescar
+            </Button>
+          </SectionTitle>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {INFRA_STATUS.map((s) => (
+              <div key={s.service} className="rounded-lg border border-border/40 p-3 flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-medium">{s.service}</div>
+                  <div className="text-[11px] text-muted-foreground font-mono mt-0.5">{s.region} · {s.latency}</div>
+                </div>
+                <StatusPill status={s.status} />
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 flex items-start gap-2.5">
+            <AlertTriangle className="h-4 w-4 text-amber-300 mt-0.5 shrink-0" aria-hidden />
+            <div className="text-xs text-amber-200/90">
+              <strong className="font-medium">Último incidente:</strong> Latencia p99 elevada en Queues (eu-west-1) — hace 18 min. Investigando.
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* World map */}
+      <section aria-label="Mapa mundial de actividad">
+        <div className="rp-glass rounded-xl p-5">
+          <SectionTitle title="Mapa mundial de actividad" subtitle="Distribución geográfica de actividad (demo)" demo />
+          <div className="relative rounded-lg overflow-hidden bg-background/40 rp-grid-bg">
+            <WorldMap />
+            <div className="absolute bottom-3 left-3 flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+              <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[var(--teal)]" /> Actividad alta</span>
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]/50" /> Actividad media</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Incidents */}
+      <section aria-label="Alertas e incidencias">
+        <div className="rp-glass rounded-xl p-5">
+          <SectionTitle title="Alertas e incidencias" subtitle="Registro de eventos recientes del sistema" demo />
+          <ul className="space-y-2">
+            {INCIDENTS.map((inc) => (
+              <li key={inc.id} className="flex items-start gap-3 rounded-lg border border-border/40 p-3 hover:bg-foreground/[0.03]">
+                <div className={cn(
+                  "h-7 w-7 rounded-md flex items-center justify-center shrink-0",
+                  inc.severity === "alta" ? "bg-rose-400/15 text-rose-300"
+                  : inc.severity === "media" ? "bg-amber-400/15 text-amber-300"
+                  : "bg-[var(--teal)]/15 text-[var(--teal)]"
+                )}>
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn("text-[10px] font-mono uppercase tracking-wider rounded px-1.5 py-0.5",
+                      inc.severity === "alta" ? "bg-rose-400/15 text-rose-300"
+                      : inc.severity === "media" ? "bg-amber-400/15 text-amber-300"
+                      : "bg-[var(--teal)]/15 text-[var(--teal)]"
+                    )}>{inc.severity}</span>
+                    <span className="text-sm text-foreground/85">{inc.summary}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground">
+                    <span className={cn(
+                      "inline-flex items-center gap-1",
+                      inc.status === "resuelto" ? "text-emerald-300" : "text-amber-300"
+                    )}>
+                      {inc.status === "resuelto" ? <CheckCircle2 className="h-3 w-3" /> : <Activity className="h-3 w-3" />}
+                      {inc.status}
+                    </span>
+                    <span>· {inc.time}</span>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <OrgDetailDrawer org={selected} onClose={() => setSelected(null)} />
+
+      {/* Footer note */}
+      <div className="text-[11px] font-mono text-muted-foreground text-center pt-4 border-t border-border/40">
+        Super Admin · plataforma RestoPanel · datos demostrativos · acceso restringido
+      </div>
+    </div>
+  );
+}

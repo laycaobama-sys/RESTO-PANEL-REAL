@@ -977,3 +977,390 @@ Stage Summary:
 - Contenido cubre los 14 entregables del master prompt: arquitectura, design system, mapa de rutas, modelo de datos, componentes, flujos críticos, código funcional, datos demo etiquetados, integraciones desacopladas, tests, checklist QA, riesgos, pendientes, ejecución/despliegue.
 - Honestidad técnica: datos demo con badge "demo"; integraciones con estado "conectado/demo/pendiente"; no prometer features no implementadas (SSO/SLA/White label = Enterprise con CTA demo); piloto antes de escala.
 - Toggle F0/F1.1/F1.2/F4/P operativo (5 vías); footer sticky adaptativo; Mermaid renderiza; componentes interactivos responden.
+
+---
+Task ID: PROD-REAL-START
+Agent: main
+Task: Reemplazar las 5 fases de documentación por el producto RestoPanel real y navegable (SPA).
+
+Work Log:
+- Limpié: rm -rf sections, sections-fase1/2/4, sections-producto, phase-store, nav, hero, mermaid.
+- Creé directorios: app/, landing/, dashboard/, reservas/, crm/, automations/, reviews/, superadmin/.
+- nav-store.ts: store zustand con view (landing|app) + section + org + location.
+- page.tsx: wrapper SPA que renderiza Landing o AppShell + Footer sticky.
+- brand.tsx: BrandMark + Logo.
+- app-shell.tsx: sidebar con 12 secciones agrupadas (Operación/Relación/Reputación/Plataforma), OrgSelector, Topbar (búsqueda + periodo + notifs), SectionRenderer con React.lazy + Suspense (skeleton).
+
+Stage Summary:
+- Infraestructura SPA lista. 8 subagentes en paralelo construirán: landing, dashboard/home, reservas, crm+marketing, automations builder, reviews+analytics, superadmin (integraciones/billing/team/settings/superadmin).
+
+---
+Task ID: PROD-CRM
+Agent: full-stack-developer
+Task: Construir las vistas CRM y Marketing de RestoPanel como dos componentes cliente premium (dark theme, dorado #D4AF37, turquesa #3DD6C9, glassmorphism) que se cargan dentro del AppShell existente.
+
+Work Log:
+- Leí worklog.md previo: confirmada infraestructura AppShell con lazy-load de `@/components/rp/crm/crm-view` (CrmView) y `@/components/rp/crm/marketing-view` (MarketingView). Revisé `primitives.tsx`, `globals.css` (tokens: --gold #D4AF37, --gold-soft #E8C766, --gold-deep, --teal #3DD6C9, utilidades rp-glass / rp-glass-strong / rp-glow-gold / rp-glow-teal / rp-scroll-thin / rp-gold-text / rp-teal-text), `nav-store.ts` y `app-shell.tsx` (role Owner Ana Martínez, sidebar con grupos Operación/Relación/Reputación/Plataforma, sección `crm` y `marketing` en grupo Relación).
+- Verifiqué shadcn/ui disponibles: button, input, textarea, switch, badge, avatar, tooltip, dialog, alert-dialog, select, tabs (todos Radix-based, dark-ready). Verifiqué lucide-react ^0.525.0.
+- Creé `src/components/rp/crm/crm-view.tsx` (~890 líneas, `"use client"` en primera línea, export `CrmView`):
+  - **Master-detail layout** grid `lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]`, stack en mobile.
+  - **Header**: título "Clientes" + DemoBadge + descripción + Select de "Rol simulado" (Owner/Manager/Hostess) que cambia los permisos en tiempo real.
+  - **Lista izquierda (aside rp-glass)**: Input de búsqueda (nombre/email/teléfono) con icono Search, fila de tabs (role="tablist") Todos / VIP / Riesgo / Cumpleaños, contador + DemoBadge, `<ul>` scrollable (`max-h-[calc(100vh-340px)] rp-scroll-thin`) de 10 CustomerListItem.
+  - **CustomerListItem**: `<li>` con `<button aria-current>` y `aria-label="Seleccionar cliente {name}, {visits} visitas"`, avatar con iniciales (AvatarFallback con gradiente dorado cuando seleccionado), nombre, visitas + última visita, tags como TagChip. Selected state: `border-[var(--gold)]/60 bg-[var(--gold)]/[0.07] rp-glow-gold`.
+  - **10 clientes demo** con datos ricos: Elena Marín (VIP recurrente, LTV 4.820€), Javier Soler (recurrente), Marta Iborra (riesgo, no-show), David Puig (VIP cumpleaños, LTV 6.340€), Lucía Ferrer (nuevo), Andrés Vidal (riesgo inactivo 95d), Carmen Ruiz (VIP cumpleaños recurrente, LTV 9.120€), Pablo Navarro (recurrente), Sofía Castro (nuevo), Marcos Llopis (riesgo, todos los consentimientos revocados). Cada uno: email, phone, visits, ltv, tags[], lastVisit, birthday, favoriteTable, allergens[], dietary, acquisition, consents {email,whatsapp,sms}, notes, history[4-5].
+  - **Empty state lista**: EmptyResults con search icon + mensaje contextual.
+  - **Perfil derecho (CustomerProfile)**:
+    - **Header section** (rp-glass-strong): avatar grande con borde dorado, nombre + Badge VIP, contacto (email/phone con `mailto:`/`tel:`), tags como chips editables con botón X (TagChip removable), botón "+ Añadir" para abrir AddTagDialog. LTV grande (font-display text-3xl rp-gold-text) + visitas/última visita. Actions: Nueva reserva (CalendarPlus), Enviar mensaje (Send), Exportar (Download) — el botón Exportar está envuelto en TooltipProvider+Tooltip; disabled si no hay permiso `crm.export`, tooltip explica auditoría o falta de permiso según rol.
+    - **Historial de visitas** (rp-glass): `<ul>` de 4-5 entradas con fecha, pax, mesa, ticket (formatEur) o Badge "No-show" destructivo, notas. No-show con borde destructive.
+    - **Preferencias y datos** (rp-glass): `<dl>` divide-y con mesa favorita (MapPin), alérgenos (Soup), dieta (Utensils), cumpleaños (Gift), fuente de captación (Megaphone).
+    - **Consentimientos** (rp-glass): ConsentRow por canal (email/whatsapp/sms) con Switch disabled si no hay permiso `crm.consent.edit`, tooltip explicando descripción del canal + estado (otorgado/revocado) o mensaje de falta de permiso. Badge "Otorgado" (emerald) o "Revocado" (destructive) con iconos ShieldCheck/ShieldOff. Si no puede editar, mensaje amber con icono Lock.
+    - **Notas internas** (rp-glass): Textarea editable (disabled si no permiso), botón "Guardar" disabled si no hay cambios o sin permiso.
+  - **Diálogos**: AddTagDialog (lista de tags disponibles, excluye los ya asignados), NewReservationDialog (form validado: fecha/hora/comensales 1-20 con inline errors y aria-invalid/aria-describedby), SendMessageDialog (form validado: canal Select, asunto solo si email, body requerido; valida que canal tenga consentimiento, si no muestra error en línea "Consentimiento revocado para este canal").
+  - **DemoBadge** amber visible en header, lista, y cada sección del perfil.
+  - **Permisos**: ROLE_PERMISSIONS con owner (todo true), manager (todo true), hostess (crm.export=false, crm.consent.edit=false, crm.tag.edit=false). Select de rol en header permite ver ambos estados del botón Exportar.
+- Creé `src/components/rp/crm/marketing-view.tsx` (~1400 líneas, `"use client"` en primera línea, export `MarketingView`):
+  - **Header**: título "Marketing" + DemoBadge + descripción.
+  - **Tabs** (Tabs/TabsList/TabsTrigger/TabsContent de shadcn): Segmentos / Campañas / Plantillas con iconos Users/Megaphone/FileText.
+  - **Segmentos tab**: "Nuevo segmento" button → NewSegmentDialog con rule builder (campo Select: Visitas/LTV/Días desde última visita/Etiqueta/Cumpleaños en mes; operador Select: =/≥/≤/es uno de/no es ninguno de; valor Input requerido). Vista previa en vivo `FIELD LABEL OPERATOR VALUE`. Form validado (nombre y valor requeridos, inline errors). Lista `<ul>` grid sm:grid-cols-2 de SegmentCard con nombre, DemoBadge, regla (font-mono con icon Filter teal), count grande (rp-gold-text), button "Crear campaña" que cambia tab a campañas y abre NewCampaignDialog. 5 segmentos demo: VIP (12), Inactivos 90d (184), Cumpleaños este mes (37), Riesgo no-show (9), Clientes nuevos (56).
+  - **Campañas tab**: "Nueva campaña" button → NewCampaignDialog (name, segment Select con count, channel Select, template Select; form validado). Layout grid `lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]`: lista izquierda `<ul>` de CampaignRow + panel detalle derecho sticky. CampaignRow: botón con aria-current, nombre + StatusPill, segmento, ChannelPill, grid de 3 mini-métricas (Enviados/Apertura rp-gold-text/CTR rp-teal-text). 4 campañas demo: Cupón cumpleaños marzo (whatsapp, activa, 28 enviados, 82% open, 41% CTR), Recuperación inactivos Q1 (email, pausada), Bienvenida clientes nuevos (email, activa), Cena VIP exclusiva (sms, borrador). **CampaignDetails** panel: título + StatusPill + DemoBadge, segmento+plantilla, grid de 3 métricas grandes (Send/Eye/MousePointerClick con tone rp-gold-text/rp-teal-text), `<dl>` con canal/creada/regla/asunto. Actions: Pausar (solo si activa) abre AlertDialog confirm, Reanudar (si pausada), Activar (si borrador), Duplicar con feedback "Duplicada ✓", Eliminar con AlertDialog destructive. Badge "Finalizada" si ya terminó.
+  - **Plantillas tab**: "Nueva plantilla" button → NewTemplateDialog (name, channel, subject, body Textarea con hint de variables `{{nombre}} {{fecha}} {{hora}} {{pax}} {{restaurante}}` en turquesa; form validado). Lista `<ul>` grid sm:grid-cols-2 de TemplateCard: icon FileText teal, nombre, DemoBadge, asunto, preview (line-clamp-2), ChannelPill, último uso, botón Editar. 4 plantillas demo: Recordatorio de reserva T-24h (email), Cupón de cumpleaños (whatsapp), Recuperación inactivos (email), Confirmación SMS (sms).
+  - **Estados vacíos**: EmptyState component (icon, title, description, optional CTA) usado en cada tab cuando no hay items. Panel detalle campañas tiene empty state "Selecciona una campaña".
+- **Accesibilidad**: listas como `<ul>` con `<li>`; botones con `aria-label` descriptivos; `aria-current="true"` en items seleccionados; `role="tab"` y `aria-selected` en filtros CRM; `aria-invalid` + `aria-describedby` + `role="alert"` en campos con error; `aria-labelledby` en secciones del perfil con `<h3 className="sr-only">` para lectores de pantalla; focus-visible con `outline-2 outline-ring` en elementos interactivos; `role="alert"` en mensajes de error; tooltips envuelven botones disabled (span tabIndex=0) para que el tooltip sea accesible por teclado.
+- **Responsive**: stack en mobile (grid-cols-1 → sm:grid-cols-2 / lg:grid-cols-2 / lg:grid-cols-[360px_1fr]); tabs envuelven; métricas en grid-cols-3 mobile-friendly; details panel sticky en lg.
+- **Lint inicial**: 1 error `JSX element 'SelectContent' has no corresponding closing tag` en línea 631 de marketing-view.tsx (typo: cerré `</Select>` donde debía ser `</SelectContent>` en el Select de plantillas del NewCampaignDialog). Corregido. **Lint final: 0 errores, 0 warnings.**
+- **TypeScript**: `bunx tsc --noEmit` no reporta errores en ninguno de los dos archivos (verificado con grep). Resolución de módulos en dev server OK — no aparecen errores para crm-view ni marketing-view en dev.log (solo module-not-found para team-view y landing/landing, responsabilidad de otros agentes paralelos).
+
+Stage Summary:
+- Archivos creados:
+  - `src/components/rp/crm/crm-view.tsx` (~890 líneas) — export `CrmView`, master-detail CRM con 10 clientes demo, búsqueda + filtros por tag, perfil completo (header con LTV, historial, preferencias, consentimientos con tooltips, notas), 3 diálogos con forms validados (reserva, mensaje, añadir tag), select de rol que cambia permisos en vivo (Exportar disabled para Hostess con tooltip explicativo).
+  - `src/components/rp/crm/marketing-view.tsx` (~1400 líneas) — export `MarketingView`, 3 tabs (Segmentos / Campañas / Plantillas), 5 segmentos + 4 campañas + 4 plantillas demo, rule builder dialog, nueva campaña dialog, editor de plantillas con variables `{{}}`, panel de detalles de campaña con métricas + acciones Pausar/Reanudar/Duplicar/Eliminar con AlertDialog de confirmación en Pausar y Eliminar.
+- Estilo: dark theme premium con dorado #D4AF37 (rp-gold-text, --gold), turquesa #3DD6C9 (rp-teal-text, --teal), glassmorphism (rp-glass, rp-glass-strong), glows (rp-glow-gold en items seleccionados), scroll-thin en listas largas.
+- DemoBadge amber visible en headers de vista, headers de sección, y cada card demo. Todo el contenido es demo y está marcado.
+- Lint limpio (0 errores, 0 warnings). TypeScript limpio en ambos archivos. Sin blockers. Las vistas se cargan via lazy-load desde AppShell cuando el usuario navega a `crm` o `marketing` en el sidebar.
+
+---
+Task ID: PROD-DASHBOARD
+Agent: full-stack-developer
+Task: Construir la vista Home del Dashboard de RestoPanel (SaaS Enterprise, dark theme premium dorado #D4AF37 + turquesa #3DD6C9 + glassmorphism). Componente Home en `src/components/rp/dashboard/home.tsx` renderizado dentro del AppShell.
+
+Work Log:
+- Leí worklog.md previo: Fase 0 + Fase 1.1 + Fase 1.2 + Fase 4 + Fase 5 Producto completas. Verifiqué que `app-shell.tsx` ya referencia `dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then(m => ({ default: m.Home })))` en línea 220 — mi archivo es la dependencia que falta para que el dashboard cargue.
+- Revisé `nav-store.ts` (useNav con `go(section)` y `setView`, `org`/`location`), `primitives.tsx` (tokens rp-glass, rp-glow-gold, rp-gold-text, rp-teal-text, DEMO_BADGE amber pattern), `app-shell.tsx` (AppShell con sidebar + topbar sticky + SectionRenderer lazy + skeleton), `globals.css` (--gold #D4AF37, --gold-soft #E8C766, --teal #3DD6C9, fuentes Fraunces display + Inter UI + JetBrains mono, utilities rp-glass/rp-glow-gold/rp-scroll-thin/rp-grid-bg), `brand.tsx`, y `card.tsx`/`checkbox.tsx`/`badge.tsx` de shadcn/ui.
+- Verifiqué dev.log: confirmé que el error "Module not found: @/components/rp/dashboard/home" era previo a la creación del archivo. Errores restantes son de otros subagentes (team-view, integrations-view, billing-view, settings-view, super-admin-view) — fuera de mi scope.
+- Creé `src/components/rp/dashboard/home.tsx` (1224 líneas, ~41KB, export `Home`, `"use client"`):
+  - **Header**: greeting "Buenas tardes, Ana" con accent dorado, indicador "En servicio" turquesa pulsante, fecha "martes 27 ene 2025", subtexto "Servicio de cena empieza en 3h 12min", botón "Ver reservas" que llama `useNav.getState().go("reservas")`.
+  - **Alerts strip** (2 alertas demo): "3 reservas sin confirmar para esta noche" (amber, action "Revisar"), "Reseña negativa recibida en Ramses Barcelona (2★)" (red/destructive, action "Responder"). Cada una con icono ShieldAlert/AlertTriangle + botón con ChevronRight + DemoBadge.
+  - **Widget settings panel** (3 checkboxes shadcn/ui): "Mostrar Google Rating", "Mostrar No-shows", "Mostrar Recomendaciones IA". useState booleano por cada uno. Labels con htmlFor asociado a ids únicos (tg-rating, tg-noshows, tg-ai). aria-label en cada checkbox. Toggles ocultan/gestionan visibilidad de KPI #6, KPI #5, y widget de Recomendaciones IA respectivamente.
+  - **KPI grid** responsive 1/2/3 cols (sm:grid-cols-2 xl:grid-cols-3): 6 KPI widgets con `KpiCard` component. Cada card: icon (CalendarCheck/Banknote/Percent/ReceiptText/UserX/Star) en cuadro gold/teal tinted, label uppercase mono, número grande font-display + tabular-nums coloreado (gold-soft o teal según spec), trend pill con ArrowUpRight/ArrowDownRight + delta tabular-nums coloreado según "bueno/malo" (no-shows down=good usa teal, resto up usa su color asignado), caption pequeño muted, sparkline SVG inline 76×28px con gradient fill + línea + último punto destacado. Contador "X de 6 widgets" en header. EmptyState si todos ocultos.
+    1. Reservas hoy — 47, +12% vs ayer, teal
+    2. Ingresos hoy — 1.842€, +8%, gold
+    3. Ocupación — 78%, +5pp, teal
+    4. Ticket medio — 38€, +2€, gold
+    5. No-shows — 3, −1, down=good teal
+    6. Google Rating — 4.6★, +0.1, gold
+  - **Layout 2 columnas** (lg:grid-cols-3): main (lg:col-span-2) + aside (1 col). Stack en mobile.
+  - **Reservas de hoy** widget (main, gold): lista de 7 reservas demo clickeables con useState(selected). Cada fila: time mono tabular gold, customer + icon Crown si VIP, table info, pax con icon Users, status pill colored (confirmed=gold "Confirmada", waitlist=muted "Lista de espera", checked-in=teal "Check-in"). Hover + selected state con ring gold. DemoBadge en header. Botón "Ver todo" llama go("reservas").
+  - **Timeline del día** widget (main, teal): timeline vertical con dots colored (default/gold/teal) conectados por línea gradient teal→transparent. 5 eventos: 10:00 Apertura, 13:00 Primer servicio (teal), 14:30 Pico comida (gold), 20:30 Pico cena (gold), 23:30 Cierre. Cada uno con note explicativa.
+  - **Gráfico de rendimiento** widget (main, gold): bar chart SVG inline viewBox 560×200, width 100% responsive. 7 barras para últimos 7 días (Mar-Dom + Lun hoy). Gridlines horizontales con Y-axis labels (0/20/40/60/80), barras gold (hoy teal), valor encima de cada barra, label día + fecha debajo. Stats: media + total en header. Legend con swatches gold/teal (desktop inline + mobile below).
+  - **Recomendaciones de IA** widget (aside, gold, rp-glow-gold): 3 recomendaciones con icono (ReceiptText/Crown/CalendarClock), título, rationale, confidence badge colored (≥85 emerald, ≥75 gold, resto muted), botón "Revisar antes de ejecutar" con icon Zap y aria-label explícito. Disclaimer "IA propone, humano decide" al pie. Se oculta cuando toggle "Mostrar Recomendaciones IA" está off.
+  - **Actividad reciente** widget (aside, teal): 5 eventos con icono colored (CalendarCheck teal, Crown gold, Star gold, Megaphone muted, RefreshCw muted), texto + timestamp "hace X min" en mono tabular. Hover bg.
+  - **Próximas reservas** widget (aside, gold): 4 reservas en próximas 2h con time mono gold, customer + icon Crown si VIP, pax + "en X min" tabular mono.
+  - **Estado de integraciones** widget (aside, teal): 4 integraciones (Stripe, WhatsApp, Google, Resend) con icono, nombre, detail, status pill colored (conectado=teal con CheckCircle2, pendiente=amber con Hourglass).
+- **Sub-componentes auxiliares**: `DemoBadge` (badge amber uppercase "demo"), `WidgetShell` (wrapper rp-glass con header icon+title+action+DemoBadge), `EmptyState` (estado vacío reutilizable), `Sparkline` (SVG con useId sanitized para gradient id único), `KpiCard`, `WidgetSettings`, `AlertsStrip`, `ReservasHoyWidget`, `TimelineWidget`, `PerformanceWidget`, `AiRecommendationsWidget`, `ActivityWidget`, `UpcomingReservationsWidget`, `IntegrationsWidget`.
+- **Sparkline SVG**: usa `React.useId()` sanitizado (replace `:` para compatibilidad SVG url refs), genera polyline + area path con gradient stop (color asignado, opacity 0.32→0), último punto destacado con circle. 6 instancias únicas en página.
+- **Bar chart SVG**: viewBox fijo + width 100% + preserveAspectRatio, gridlines en 5 niveles (0/25/50/75/100%) con labels Y-axis, barras con rx=2, valores encima, labels día+fecha debajo. Today destacado en teal.
+- **React keys**: KPI cards `key={k.id}` (ids reservas/ingresos/ocupacion/ticket/noshows/rating), reservas `key={r.id}` (r1-r7), timeline `key={e.id}` (t1-t5), chart bars `key={d.day}`, AI recs `key={r.id}` (ai1-ai3), activity `key={a.id}` (a1-a5), upcoming `key={u.id}` (u1-u4), integrations `key={it.id}` (i1-i4), alerts `key={a.id}` (al1-al2), gridlines `key={g-${lvl}}`. Sin colisiones.
+- **Accesibilidad**: `<section aria-label>` en cada widget, `<header>` semántico, `<main>` + `<aside>`, `aria-pressed` en reservas seleccionables, `aria-label` en botones y checkboxes, `aria-hidden` en iconos decorativos SVG, `role="img"` + `aria-label` en bar chart, `role="list"` en listas, `role="status"` en EmptyState, focus-visible rings en botones (ring gold/40), labels htmlFor asociados a checkboxes, tabular-nums en todos los números.
+- **Responsive**: mobile 1 col → sm 2 cols → xl 3 cols (KPIs), main+aside stack en mobile (grid-cols-1 lg:grid-cols-3), chart SVG width 100% con viewBox, legend desktop inline + mobile below.
+- **Lint**: `bun run lint` → exit 0, 0 errores, 0 warnings. `bunx tsc --noEmit` → sin errores en dashboard/home.tsx (TSC_DONE sin output de mi archivo).
+- **Dev log**: tras crear archivo, ya no aparece "Module not found: @/components/rp/dashboard/home" en logs recientes. Errores restantes son de views de otros subagentes (team-view, integrations-view, billing-view, settings-view, super-admin-view) — fuera de mi scope.
+
+Stage Summary:
+- Archivo creado: `src/components/rp/dashboard/home.tsx` (1224 líneas, ~41KB, export `Home`, `"use client"`).
+- Vista Home completa con: header greeting + alert strip (2 alertas) + panel de 3 toggles + grid 6 KPIs interactivos + layout 2-col (main: reservas clickeables + timeline + bar chart SVG; aside: AI recs con glow + actividad + próximas + integraciones).
+- 3 useState reales para toggles de visibilidad (Google Rating, No-shows, Recomendaciones IA). KPI grid filtra dinámicamente, AI widget condicional.
+- Sparklines SVG inline (6 instancias únicas con useId sanitizado) + bar chart SVG inline responsive con gridlines, valores, labels día+fecha, highlight "hoy" en teal.
+- 9 widgets con DEMO_BADGE amber visible, todos con `aria-label`, `role` semántico, focus-visible rings.
+- 7 reservas demo clickeables con selected state + status pills (confirmed/waitlist/checked-in), integración con `useNav.getState().go("reservas")`.
+- EmptyState reutilizable para escenarios sin items.
+- Dark theme premium: rp-glass + rp-glow-gold en AI widget, dorado #D4AF37 / turquesa #3DD6C9 consistentes, font-display (Fraunces) para números grandes + tabular-nums para alineación, font-mono (JetBrains) para labels y timestamps.
+- Lint limpio (0 errores, 0 warnings). TypeScript limpio. Sin bloqueadores.
+
+---
+Task ID: PROD-LANDING
+Agent: full-stack-developer
+Task: Construir la landing page de producto de RestoPanel — `src/components/rp/landing/landing.tsx` exportando `Landing`. SaaS Enterprise premium dark theme (gold #D4AF37, turquoise #3DD6C9, glassmorphism), calidad Stripe/Linear/Vercel.
+
+Work Log:
+- Leí `worklog.md` previo: fases 0, 1.1, 1.2, 4 y Producto (PROD-A..E) completas; infraestructura lista.
+- Revisé `nav-store.ts` (View: landing/app; Section: dashboard/reservas/crm/marketing/automatizaciones/reviews/analytics/integraciones/billing/equipo/configuracion/superadmin; `setView(v)`, `go(s)` setea view=app+section).
+- Revisé `brand.tsx` (BrandMark, Logo exports), `primitives.tsx` (Section, GlassCard, Pill, Stat, etc.), `app-shell.tsx` (patrones sidebar/topbar, OrgSelector, lazy loading por sección), `globals.css` (tokens `--gold/--gold-soft/--gold-deep/--teal/--teal-deep`, utilidades `rp-glass/rp-glass-strong/rp-grid-bg/rp-gold-gradient/rp-glow-gold/rp-glow-teal/rp-scroll-thin/rp-divider`, `@media prefers-reduced-motion` que fuerza animation-duration: 0.001ms).
+- Revisé `page.tsx`: renderiza `<Landing />` cuando `useNav.view === "landing"` (default) y `<AppShell />` cuando `app`. Footer global con `mt-auto` para sticky-bottom en viewport corto y natural-push en overflow.
+- Revisé shadcn/ui disponibles: Button, Sheet, Slider, Switch, Accordion, Tabs, Badge, Card — usados los necesarios.
+- Revisé `dev.log`: único error residual es AppShell lazy imports para superadmin views (team-view, settings-view, billing-view, integrations-view, super-admin-view) — responsabilidad de otros agentes PROD-D/PROD-E, NO de esta tarea. Mi archivo no genera errores.
+- Creé `src/components/rp/landing/landing.tsx` (~1100 líneas, 1 export `Landing`):
+  - `"use client";` al inicio (pricing calculator + counters + mobile menu requieren client).
+  - **Helpers**: `useReducedMotion()` (matchMedia), `useInView()` (IntersectionObserver desconecta tras disparar), `useCountUp(target, run, duration)` con ease-out cubic, rAF, respeta reduced-motion.
+  - **DemoBadge**: pill amber con dot, "demo", usado en hero preview, social proof, deep-dives mocks, pricing card, IA copilot mock.
+  - **LandingHeader** (sticky, responsive): logo clickeable a #landing-top, nav desktop (xl:) con 11 links, 3 CTAs (Iniciar sesión ghost, Solicitar demo outline, Crear cuenta primary gold). Mobile: Sheet shadcn con los mismos links + 3 CTAs. Background rp-glass-strong al hacer scroll (scrollY>8), transparente en top.
+  - **Hero** (full viewport): fondo dark con gradientes radiales gold+teal + `rp-grid-bg` opacity-60 + fade-out al fondo. Eyebrow pill gold "SaaS Enterprise para restaurantes" + Sparkles. H1 font-display con `rp-gold-gradient` en "cada servicio". Subtitle exacto del brief. 3 CTAs (Crear cuenta gold, Solicitar demo outline, Ver cómo funciona ghost) → todas setView("app"). Lista de checks teal (sin tarjeta, onboarding 24-48h, migración TheFork+POS).
+  - **HeroPreview** (right side dashboard mock): glass-strong card con boxShadow gold glow. Top bar: "live" dot turquesa con `animate-ping` + "Servicio · viernes 21:14" + DemoBadge. KPI grid 2x2: Reservas hoy 47 (+12%), Ocupación 78% (+5pp), Ticket medio 38€ (+2€), No-shows 3 (-1). Mini reservations list 3 entradas con staggered `rp-fade-in` keyframes (delay 0.2+i*0.12s) y status pills (Confirmada/Pendiente/En mesa). Mini floor plan 6 tables con states (ocupada gold/reservada teal/libre muted) y legend. Floating chip "IA Copilot · Mesa 7 rinde -18%" teal a la izquierda (hidden sm).
+  - **SocialProof**: 6 métricas con demo badge visible ("Reservas gestionadas 1.2M", "Restaurantes activos 3.400", "No-shows reducidos -42%", "Horas ahorradas 180k/mes", "Clientas fidelizadas 2.1M", "Mejora media valoración +0.6★"). Grid responsive 2/3/6 cols. Counters animados via useCountUp disparado por IntersectionObserver (useInView). Cada card con staggered fade-in.
+  - **Problems**: 8 cards GlassCard con icono lucide, título, descripción 1-línea, y "→ Solución: [módulo]" link que llama `useNav.go(section)`: Reservas dispersas→reservas, Mesas vacías→reservas, No-shows→reservas, Datos perdidos→crm, Reseñas sin responder→reviews, Procesos manuales→automatizaciones, Herramientas desconectadas→integraciones, Falta visibilidad rentabilidad→analytics.
+  - **Platform** (id="p-plataforma", scroll-mt-24): 11 module cards en grid 1/2/3/4 cols. Cada card: icono gold en caja gold-tinted, nombre, beneficio 1-línea concreto, StatusPill (Disponible turquesa o Próximamente muted), CTA "Explorar" → `go(section)` (Reservas inteligentes, Plano de mesas, CRM, Marketing, Automatizaciones, Google Reviews, Analytics, IA Copilot, Lista de espera, Marketplace, Integraciones). IA Copilot→dashboard, Lista de espera→reservas, Marketplace→integraciones (mapo a la sección más cercana).
+  - **DeepDiveReservas**: 2-col con copy + mock. Copy describe calendario por turnos, timeline horizontal con drag&drop, confirmaciones automáticas, reglas anti-no-show (depósito/pre-auth/lista espera), reasignación inteligente. Mock: timeline grid (120px lane + 5 cols horas 13:00-15:00) con 3 lanes (Mesa 5/7/12) y 3 bloques coloreados (gold/teal) con span horizontal; footer 3 mini-stats (Confirmadas 47, Pendientes 5, Riesgo no-show 2). DemoBadge visible.
+  - **DeepDiveCRM**: 2-col reversed (mock izquierda, copy derecha con lg:order-2). Copy describe visitas, frecuencia, ticket medio, preferencias, alergias, cumpleaños, etiquetas VIP, consentimiento RGPD. 8 mini-cards en grid 2 cols. Mock: ficha cliente Elena Velasco con avatar EV (gold gradient), badge VIP, 3 mini-stats (Visitas 28, Freq 2,1/mes, Ticket 42€), preferencias chips (Mesa 5 ventana, Vino tinto Rioja, Sin gluten, Cumple 14/03), allergies box amber (Apio · Mariscos anafilaxia), últimas visitas 3 entries.
+  - **DeepDiveIA**: 2-col. Copy + 4 query chips clickeables (¿Qué mesa rinde menos?, ¿No-shows marzo?, ¿VIP sin visita 60d?, ¿Qué turno abrir?). Mock: card con header RestoPanel Copilot + "Conectado a reservas · CRM · analytics". Pregunta card + Respuesta card turquesa con confianza badge (92%/97%/89%/84%), texto concreto, fuentes chips (analytics.facturacion_por_mesa, etc.), acciones botones gold (Reasignar Mesa 7, Lanzar campaña VIP, Abrir 4 mesas extra...). Click en acción → go("dashboard").
+  - **Pricing** (id="p-pricing", scroll-mt-24): interactive calculator. Estado: `plan` (starter/pro/enterprise), `annual` (Switch shadcn), `locals` (Slider shadcn 1-50 para Enterprise, 1-maxLocals para Starter/Pro). PLANS: Starter 69€/mes · 690€/año (1 local, 3 users); Pro 149€/mes · 1490€/año (5 locales, 10 users, highlight "popular"); Enterprise desde 399€/mes · 3990€/año (ilimitado, escala por local). Big price number font-display 5xl/6xl gold que se actualiza en tiempo real con `toLocaleString("es-ES")`. Savings badge "Ahorras X €/año" teal cuando annual (Starter ahorra 138€, Pro 298€, Enterprise 798€+extra). CTA per plan: "Crear cuenta Starter" / "Crear cuenta Pro" → go("billing"); "Solicitar demo Enterprise" → setView("app"). Comparison table 16 filas con check/x iconos y texto, columna Pro destacada gold-tinted, scroll-x en mobile (min-w-[640px]).
+  - **FAQ** (id="p-faq", scroll-mt-24): Accordion shadcn (single collapsible) en rp-glass container, 10 preguntas exactas del brief con respuestas concretas 2-3 frases cada una (no lorem): ¿Qué es un software de gestión?, ¿Cómo reduce no-shows?, ¿Varios restaurantes?, ¿Integraciones?, ¿Cómo funciona CRM?, ¿Importar clientes?, ¿Protección datos?, ¿API?, ¿Cambiar plan?, ¿Cómo funciona prueba?.
+  - **FinalCTA**: sección con glass-strong card centrada, gradientes radiales gold+teal, boxShadow gold glow. Eyebrow gold "Empieza hoy". H2 con rp-gold-gradient en "más ingresos". Subtitle concreto. 2 CTAs (Crear cuenta gold → setView("app"), Solicitar demo outline → setView("app")). 3 checks teal (sin tarjeta, onboarding 24-48h, cancela cuando quieras).
+- **Accesibilidad**: semantic HTML (header, main, section, nav, ul/li, h1/h2/h3), ARIA labels en botones icon-only (Abrir menú, Notificaciones, Cambiar facturación, Número de locales, etc.), aria-label en cada CTA "Explorar módulo X", aria-pressed en plan selector, aria-live="polite" en respuesta IA Copilot, focus-visible heredado de shadcn Button, alt-text implícito en BrandMark SVG (aria-hidden). SheetTrigger/SheetClose envuelven links en SheetClose asChild para cerrar al navegar.
+- **Animaciones respetan prefers-reduced-motion**: useReducedMotion hook + globals.css `@media (prefers-reduced-motion: reduce)` con `animation-duration: 0.001ms !important`. Counters saltan al valor final si reduced. Staggered fades se desactivan. Live dot ping se mantiene pero dura 0.001ms.
+- **Responsive**: mobile-first. Header: nav desktop solo xl:, CTAs lg:, mobile hamburger con Sheet 88% ancho sm:max-w-sm. Hero: 1 col mobile, 2 cols lg. Platform: 1/2/3/4 cols. Pricing: 1 col mobile, 2 cols lg, comparison table scroll-x. Touch targets ≥ 9 (h-9 buttons, h-10 lg).
+- **Premium aesthetic**: dark theme nativo, gold #D4AF37 como acento CTAs/KPIs/highlights, turquoise #3DD6C9 para info/live states/status pills, glassmorphism funcional (rp-glass/rp-glass-strong), gradientes radiales sutiles, grid bg en hero, glow box-shadow en cards premium, font-display Fraunces para headlines, font-mono JetBrains para labels/eyebrows/data, transitions hover -translate-y-0.5 en cards.
+- Añadí keyframe `rp-fade-in` a globals.css utilities (from opacity 0 translateY 6px → opacity 1 translateY 0) para staggered animations del hero preview. Respeta el media query reduced-motion existente.
+- **Lint**: `bun run lint` → 0 errores, 0 warnings (output limpio `$ eslint .`).
+- **Dev log**: único error residual es AppShell lazy imports (team-view, settings-view, billing-view, integrations-view, super-admin-view) — responsabilidad de PROD-D/PROD-E, no de esta tarea. Mi landing.tsx no aparece en ningún error.
+
+Stage Summary:
+- Entregable: `src/components/rp/landing/landing.tsx` (~1100 líneas, 1 export `Landing`).
+- 9 secciones: Header sticky responsive, Hero con dashboard preview vivo, Social proof con counters animados, Problems (8 cards → soluciones navegables), Platform (11 módulos → go(section)), 3 deep dives (Reservas con timeline mock, CRM con customer card mock, IA Copilot con Q&A interactivo), Pricing calculator interactivo (plan+billing+locations slider + comparison table 16 filas), FAQ (10 preguntas con Accordion), Final CTA.
+- Calidad premium Stripe/Linear/Vercel: glassmorphism funcional, gold/turquoise coherentes, tipografía display + mono, animaciones sutiles con reduced-motion respetado, staggered fades, hover micro-interactions.
+- Datos demo claramente badged "demo" en hero preview, social proof, deep-dive mocks, pricing card, IA copilot mock.
+- Navegación: todos los CTAs principales (Crear cuenta, Solicitar demo, Ver cómo funciona, Explorar módulo, → Solución) llaman `useNav.setView("app")` o `useNav.go(section)` según corresponda.
+- Lint limpio. Sin blockers para este entregable. Pendiente de otros agentes: completar los superadmin views que AppShell importe lazy (team-view, settings-view, etc.) para que el dashboard navegable funcione end-to-end.
+
+---
+Task ID: PROD-AUTOMATIONS
+Agent: full-stack-developer
+Task: Construir la vista "Automatizaciones" (visual builder) de RestoPanel — `src/components/rp/automations/automation-builder.tsx` exportando `AutomationBuilder`. Builder visual trigger → conditions → actions con paleta, canvas, panel de config, plantillas, controles e historial de ejecuciones.
+
+Work Log:
+- Leí worklog previo: Fases 0/1.1/1.2/4 + Producto completas. AppShell ya importa `AutomationBuilder` via lazy import en `SectionRenderer` (línea 224). Design tokens en globals.css: dark theme, `--gold` #D4AF37, `--teal` #3DD6C9, glassmorphism (`rp-glass`, `rp-glass-strong`, `rp-glow-gold/teal`, `rp-scroll-thin`). Primitivas en `@/components/rp/primitives` (no usadas directamente para mantener el builder autónomo). Toaster ya montado en layout.tsx. Hook `useToast` disponible.
+- Arquitectura del builder en un único archivo cliente (1610 líneas) con secciones bien delimitadas:
+  1. **Tipos**: `NodeType`, `TriggerEvent` (10 eventos), `ActionType` (10 acciones), `Operator` (10), `WaitUnit`, `WaitAnchor`, `NodeConfig` (campos opcionales + extras `assignee/channel/status`), `FlowNode`, `SimLine`, `Execution`.
+  2. **Catálogo estático**: TRIGGER_EVENTS, CONDITION_FIELDS (10), OPERATORS, WAIT_UNITS, WAIT_ANCHORS, ACTION_TEMPLATES (por tipo), STAFF_CHANNELS, RES_STATUSES.
+  3. **Metadatos**: NODE_TYPE_META (icono + accent + descripción + defaultTitle), ACCENT (gold/teal/emerald/amber/fuchsia — sin azul/índigo), ACTION_META (label + icon + verb dinámico + successMsg), DEFAULT_CONFIG.
+  4. **Plantillas**: 5 (Recordatorio, Reconfirmación T-2h, Cumpleaños, Winback 90d, Solicitud reseña) como factorías `build()` que generan ids frescos en cada carga.
+  5. **Helpers puros**: `nodeSummary`, `nodeDetail`, `buildSimLog` (recorre nodos reales → log creíble con timestamps, niveles INFO/OK/WARN/ERR, jump simulado para Wait, evaluación de condiciones), `buildHistoryLog` (log por estado success/failed/pending).
+  6. **UI compartida**: `DemoBadge`, `LogView` (terminal mono con niveles coloreados), `StatusPill`, `StatusBadge`.
+  7. **Sub-componentes**: `PaletteCard`, `Connector` (gradient gold→teal + chevron), `NodeCard` (role=button, aria-pressed, keyboard, delete-on-hover), `TemplateCard`, `ConfigPanel` (form adaptativo por tipo de nodo), `AutomationBuilder` (orchestrador).
+- **Estado (useState)**: `nodes: FlowNode[]` (init = TEMPLATES[0].build() → Recordatorio de reserva pre-cargado), `selectedId`, `active` (toggle), `currentTemplateId`, `simResult`, `historyOpen`.
+- **Mutaciones**: `addNode(type)` inserta tras nodo seleccionado o al final + toast; `deleteNode` filtra y limpia selección; `updateConfig` mergea patch; `updateTitle`; `loadTemplate` reemplaza nodos + toast; `duplicate`/`save` toasts; `simulate` genera log y abre dialog.
+- **Layout responsivo**: grid `lg:grid-cols-[220px_minmax(0,1fr)_340px]` → paleta (vertical desktop / horizontal-scroll mobile) | canvas (siempre horizontal-scroll) | config. Templates en grid `sm:grid-cols-2 lg:grid-cols-5`. Historial como tabla con `overflow-x-auto`.
+- **Canvas**: nodos 230px en flex row con conectores entre ellos, botón "+" final para añadir acción, header con icono + contador + StatusPill (Activo/Pausado del toggle).
+- **ConfigPanel adaptativo**: título (común) + campos por tipo. Trigger → event select; Condition → field/operator/value; Action → actionType + campo primario según sub-tipo (template+variables para send_*, tag, tarea+assignee, puntos, canal, estado); Wait → duration/unit/anchor; Branch → ifLabel/elseLabel. Todos los cambios se reflejan en el canvas en tiempo real vía updateConfig.
+- **Controles bar**: Switch Activar/Pausar + nombre flujo + Duplicar (outline) + Simular (outline) + Guardar (gold CTA). StatusPill visible en canvas header.
+- **Simulate dialog**: header con icono teal + DemoBadge, chips (pasos, RUN-id, estado success, dry-run), LogView con el log generado, footer Cerrar/Confirmar (teal).
+- **History dialog**: grid 4 stats (Iniciado/Duración/Estado/Disparado), banner de error si failed, LogView con buildHistoryLog.
+- **Accesibilidad**: nodos `role="button"` `tabIndex=0` `aria-pressed` + `aria-label` descriptivo + handler Enter/Space; botón delete real con `stopPropagation`; palette/template cards son `<button>` con aria-label; focus-visible ring gold en todos los interactivos; `sr-only` en cabecera vacía de tabla; Switch con label asociado; DemoBadge con dot aria-hidden.
+- **Demo badge** en: header, templates, historial, simulate dialog, history dialog. Datos demo claramente etiquetados.
+- **Validación**: `bun run lint` → 0 errores, 0 warnings. `bunx eslint` sobre el archivo → exit 0. `bunx tsc --noEmit -p tsconfig.json` → sin errores en el archivo. (Nota: `tsc` single-file reporta falsos positivos porque ignora tsconfig; validación correcta es project-wide.)
+- Dev log: los únicos `Module not found` restantes son de vistas de OTROS agentes (team-view, integrations-view, billing-view, settings-view, super-admin-view, dashboard/home, reservas-view, crm-view, marketing-view, reviews-view, analytics-view). Mi módulo `automation-builder` resuelve correctamente y es cargado lazy por AppShell al navegar a "Automatizaciones".
+
+Stage Summary:
+- Archivo creado: `src/components/rp/automations/automation-builder.tsx` (export `AutomationBuilder`, `"use client"`).
+- 1610 líneas, lint-clean, typecheck-clean.
+- Builder 100% interactivo: añadir/eliminar/seleccionar/configurar nodos actualiza el canvas en tiempo real; 5 plantillas cargan al instante; controles dan feedback (toast + status pill); Simular abre dialog con log creíble generado a partir de los nodos actuales; historial con 5 ejecuciones demo + log modal.
+- Diseño premium dark: glassmorphism, gold/teal/emerald/amber/fuchsia (sin azul/índigo), gradientes en conectores, glows en selección, tipografía mono para datos.
+- Responsive y accesible (role=button, keyboard, focus-visible, aria-labels).
+- Sin blockers. Integración con AppShell ya cableada (lazy import línea 224).
+
+---
+Task ID: PROD-REVIEWS
+Agent: full-stack-developer
+Task: Construir las vistas Reviews (Google Reviews + IA Copilot) y Analytics (KPIs + 5 gráficos SVG) del producto RestoPanel dentro del AppShell premium dark (gold #D4AF37 / teal #3DD6C9 / glassmorphism).
+
+Work Log:
+- Leí worklog.md y revisé primitivas (`rp-glass`, `rp-gold-text`, `rp-teal-text`, `rp-glow-teal`, `rp-scroll-thin`), tokens de marca en globals.css y la estructura del AppShell (lazy imports en líneas 225-226 → `m.ReviewsView` y `m.AnalyticsView`, named exports).
+- Confirmé que `Toaster` ya está montado en layout.tsx y `toast({ title, description })` se exporta desde `@/hooks/use-toast`.
+- Revisé agent-ctx previos (PROD-E) para alinear estilo visual y patrón de demo data con `DemoBadge`.
+
+Archivo 1: `src/components/rp/reviews/reviews-view.tsx` (~770 líneas)
+- **Header summary** (`HeaderSummary`): rating 4.6★ (font-display 5xl gold), 1.247 reseñas, distribución 5★→1★ (905/215/75/32/20) con barras gradiente `gold-deep→gold`, selector de local (Todos / Ramses Madrid / Barcelona / Valencia) con listbox ARIA, tabs de filtro (Todos / 5★ / 4★ / 3★ / 2★ / 1★) y buscador por autor/texto.
+- **Master list** (`ReviewsList`): 7 reseñas demo (María García 5★, James Wilson 4★, Carla Rossi 2★, Pedro Sánchez 5★, Sophie Martin 3★, Ahmed Hassan 1★, Laura Pérez 4★). Cada item: avatar con iniciales, estrellas, fecha, snippet 2 líneas, sentiment pill (positive/neutral/negative con colores emerald/amber/rose), estado Respondida/Pendiente. Click selecciona; scroll vertical max-h-640 con rp-scroll-thin. Estados vacíos.
+- **Detail panel** (`ReviewDetail`): full text, sentimiento + barra de confianza, temas detectados (chips: food quality gold, service teal, ambiance, wait time rose, price, menu). **IA suggested reply**: textarea pre-rellena, botón "Regenerar" (cambia entre 2 variantes con spinner 700ms + toast), botón "Aprobar antes de publicar" → estado confirm inline ("¿Publicar? Sí/Cancelar") → success toast "Respuesta publicada (demo)" + estado Publicado (textarea disabled). Badge "Revisar antes de ejecutar". Historial de respuestas previas si las hay.
+- **Star evolution chart** (`StarEvolutionChart`): SVG line+area, 8 semanas (S1=4.42 → S8=4.61), gradiente gold, y-axis 4.2–4.8, puntos con valor numérico, badge "+0.19★".
+- **Copilot IA mini-panel** (`CopilotPanel`): input + 3 chips de sugerencia ("¿Qué temas aparecen en reseñas negativas?", "¿Comparativa entre locales?", "¿Resumen de esta semana?"). Click en chip → burbuja de respuesta con texto demo detallado, meta-grid (Fuente: Google Reviews (demo) / Actualizado: hace 5 min / Confianza: 85%) y 1-2 action pills "revisar antes de ejecutar" que disparan toast al click. Glow teal.
+
+Archivo 2: `src/components/rp/reviews/analytics-view.tsx` (~700 líneas)
+- **Header**: título + botones Export CSV/PDF (toast "Exportación en cola (demo)") + DemoBadge.
+- **KPI row (6)** (`KpiCard` + `Sparkline`): Ocupación 78% (+4.2pp), Ingresos 142.580€ (+8.3%), Ticket medio 38€ (+1.2%), Reservas 3.742 (+12.5%), No-shows 8.2% (-0.4pp, verde), Clientes nuevos 412 (+6.7%). Cada card: icono lucide, valor font-display, trend pill emerald/rose con TrendingUp/Down, sparkline SVG inline 80×24 con área gradient.
+- **Filters bar** (`FilterSelect`): Periodo (Hoy/Semana/Mes/Trimestre/Año), Local, Canal (Widget/Dashboard/WhatsApp/Teléfono), Segmento (Nuevos/Recurrentes/VIP/Corporativo). Custom dropdown con listbox ARIA, click-outside overlay.
+- **Chart 1 — Ocupación por hora** (`OccupancyHeatmap`): heatmap 24h × 7d, 168 celdas con `heatFor(dayIdx, hour)` generando intensidad 0–1 (pico lunch 13–15h, pico dinner 20–22h, boost viernes/sábado). Labels cada 3h, días Lun–Dom, leyenda Bajo→Alto. Scroll horizontal min-w-640.
+- **Chart 2 — Reservas por canal** (`ChannelDonut`): donut SVG con 4 segmentos (Widget 38% gold, WhatsApp 28% teal, Dashboard 24% gold-soft, Teléfono 10% gold-deep) vía stroke-dasharray/offset. Centro: 3.742 reservas. Leyenda lateral.
+- **Chart 3 — Ingresos vs reservas** (`RevenueVsReservations`): dual-axis line, 30 días. Línea gold (ingresos, eje izq 4k–7k) + área gradient. Línea turquesa dashed (reservas, eje der 120–180). Picos fines de semana.
+- **Chart 4 — Comparativa entre locales** (`LocalesCompare`): grouped bar chart, 3 locales × 2 métricas. Madrid 68.4k€/1.240, Barcelona 52.1k€/980, Valencia 34.0k€/640. Barras gold (ingresos) + teal (reservas) normalizadas 0–100 con etiquetas de valor real.
+- **Chart 5 — Forecast IA** (`ForecastChart`): line + confidence band, 7 días (L–D). Línea teal predicción (72–82%) + banda gradient teal entre upper/lower dashed. Badge "Confianza 78%" + icono Sparkles. Puntos con valor numérico.
+
+Cumplimiento de requisitos:
+- `"use client"` en ambos archivos (primera línea).
+- Todos los datos demo con `DemoBadge` (amber outline, font-mono uppercase).
+- Charts 100% inline SVG, sin librería de charts. Helpers `linePath`, `areaPath`, `bandPath` reutilizables. Ejes, labels, grids, leyendas, gradientes (defs/linearGradient).
+- Master-detail funcional en reviews (click selecciona, estado `aria-pressed`, bordes gold en activo).
+- IA siempre muestra Fuente + Actualizado + Confianza + "Revisar antes de ejecutar" para acciones (Copilot + IA suggested reply).
+- Responsive: `grid lg:grid-cols-[...]`, `flex-wrap`, `overflow-x-auto rp-scroll-thin min-w-[640px]` en todos los charts para scroll horizontal en móvil. KPIs `grid-cols-2 md:grid-cols-3 xl:grid-cols-6`.
+- Accesibilidad: SVGs con `role="img"` + `aria-labelledby` apuntando a `<title>`/`<desc>`. Listboxes con `role="listbox"`/`option`/`aria-selected`. Tabs con `role="tab"`/`aria-selected`. Botones con `aria-label`/`aria-expanded`. `focus-visible:ring-2 ring-[var(--gold)]/40` en interactivos. Sparkline con `aria-label` describiendo tendencia. Texto sr-only implícito vía labels.
+
+Lint & TypeScript:
+- `bun run lint` → 0 errores, 0 warnings (fix: refactor `let cumulative += dash` en donut a bucle `for...of` con array preconstruido para satisfacer regla `react-hooks/immutability`).
+- `bunx tsc --noEmit` → 0 errores en mis 2 archivos (errores restantes son de otros módulos paralelos: reservas-view, integrations-view, landing.tsx, examples/, skills/ — no son de mi responsabilidad).
+
+Stage Summary:
+- 2 archivos creados: `reviews-view.tsx` (~770 líneas) + `analytics-view.tsx` (~700 líneas).
+- 7 gráficos SVG inline distintos (star evolution area+line, 6 sparklines, heatmap 24×7, donut, dual-axis line, grouped bar, forecast con confidence band).
+- 7 reseñas demo con sentimiento, temas, historial y respuestas IA alternativas.
+- 6 KPIs con tendencia y sparkline.
+- 4 filtros custom dropdown + 2 botones de export.
+- Estados interactivos: filtro por rating, búsqueda, selector de local, regenerar respuesta, confirmar/publicar, copilot Q&A, export.
+- Lint: ✅ 0 errores. TypeScript: ✅ 0 errores en mis archivos. Dev log: mis módulos resuelven correctamente (sin errores `Module not found` para reviews-view/analytics-view).
+- Sin blockers. Listo para integración con AppShell cuando los demás agentes paralelos completen sus vistas.
+
+---
+Task ID: PROD-SUPERADMIN
+Agent: full-stack-developer
+Task: Construir las vistas Super Admin, Integraciones, Billing, Team y Settings del producto RestoPanel (SaaS Enterprise para restaurantes), premium dark theme (gold #D4AF37, turquoise #3DD6C9, glassmorphism), renderizadas dentro del AppShell existente.
+
+Work Log:
+- Leí worklog previo y estudié el código existente: AppShell (lazy-loading de las 5 vistas vía React.lazy), primitives.tsx (GlassCard, Pill, Stat, etc.), nav-store.ts, globals.css (tokens --gold, --teal, --gold-soft, --gold-deep, rp-glass, rp-glow-gold/teal, rp-scroll-thin), layout.tsx (Toaster montado), componentes shadcn/ui disponibles (Dialog, AlertDialog, Drawer, Tabs, Select, Switch, Slider, Checkbox, Table, Badge, Separator, etc.).
+- Confirmé que /home/z/my-project/src/components/rp/superadmin/ existía vacío y que AppShell importa los 5 módulos con exports nombrados: SuperAdminView, IntegrationsView, BillingView, TeamView, SettingsView.
+
+File 1 — super-admin-view.tsx (SuperAdminView):
+- Header con título "Super Admin · Plataforma", badge rojo "Nivel plataforma" + DemoBadge + indicador de entorno production.
+- KPI row (8 cards): MRR 48.250€, ARR 579.000€, LTV 3.840€, CAC 412€, ARPU 149€, Churn 2.1%, Conversión 12.4%, Orgs activas 324. Cada uno con TrendPill (up/down con color emerald/rose).
+- SVG MrrChart: línea + área con gradiente gold→teal sobre 12 meses, grid sutil y etiquetas.
+- Tabla Clientes/Organizaciones (10 orgs demo): nombre+avatar, plan (badge color por tier), locales, MRR (gold), status, churn risk, last active. Search por nombre + filtros Select por plan y por estado. Click en fila → Drawer (vaul) lateral derecho con KPIs de la org, riesgo de churn destacado, acciones rápidas.
+- Rankings top 5: por revenue (gold), por reservas (teal), por uso IA (gold). Cada uno con barras de progreso.
+- Uso de IA y API: 4 KPIs (créditos mes, llamadas 24h, tokens, webhooks) + BarChart horizontal top 5 orgs por créditos IA.
+- Costes de infraestructura: breakdown Workers/D1/R2/KV/Queues/AI Gateway con share% y total 4.147€/mes + BarChart gold.
+- Estado de infraestructura: 7 servicios (API, D1, R2, Queues, AI Gateway, Workers, KV) con StatusPill (operational/degraded/down) + latencia + región. Botón "Refrescar" (toast demo). Banner amber con último incidente.
+- WorldMap SVG: continentes estilizados abstractos (paths) + 12 dots con glow radial turquesa y animación pulse.
+- Alertas e incidencias: 4 incidentes demo con severity (alta/media/baja), status (investigando/monitorizando/resuelto/identificado), summary, time.
+- DemoBadge en todas las secciones relevantes.
+
+File 2 — integrations-view.tsx (IntegrationsView):
+- Tabs: Instaladas / Marketplace / Webhooks.
+- Instaladas: 6 integraciones (Stripe, WhatsApp, Google Business Profile, Resend, Slack, Meta) con icon, name, description, StatusPill (connected/pending/not-configured/error), versión, categoría, última sync. Botones: Configurar (Dialog con OAuth state, scopes, categoría, versión, última sync, info cifrado AES-256), Reautenticar, Ver logs, Desconectar (AlertDialog confirm), Completar OAuth (pendientes), Conectar (no configuradas). Cada "conectado" demo lleva DemoBadge visible — NUNCA se muestra conectado sin etiqueta demo.
+- Marketplace: 12 apps (Stripe, WhatsApp, Meta, Google, HubSpot, Salesforce, Zapier, Make, Slack, ERP, TPV, Mailchimp). Search + Select categoría. Cada card: icon teal, name, badges (popular/nuevo/demo), benefit, categoría, botón Instalar (Dialog con requisitos OAuth/credenciales + aviso demo).
+- Webhooks: tabla con endpoint URL, eventos (chips teal), última entrega, estado. Botón Probar (toast). Botón "Nuevo webhook" → Dialog con URL (validación URL), multiselect eventos (12 eventos con Checkbox), secreto HMAC (mín 8 chars) — validación completa con errores inline.
+
+File 3 — billing-view.tsx (BillingView):
+- Card plan actual: Professional · 5 locales · 10 usuarios, próxima renovación 1 ago 2025, 149€/mes +IVA. Botones "Cambiar plan" (Dialog pricing con 3 planes Starter/Professional/Enterprise, seleccionable, prorrata) y "Cancelar suscripción".
+- Card método de pago: tarjeta •••• 4242 Visa 12/27 verificada. Botones "Actualizar" (Dialog Stripe-like con nombre, número formato automático, expiry MM/AA, CVC, validación completa) y "Gestionar en Stripe Portal" (toast demo).
+- Usage: 5 progress bars (Reservas 1247/5000, Emails 320 ilimitado, WhatsApps 89/500, IA credits 412/2000, Almacenamiento 1.2GB/50GB). Bars con color gold/teal o amber→rose si >80%.
+- Facturas: tabla 6 invoices con fecha, número, importe, estado (paid/failed/pending con pill colorida), botón PDF (toast "Descargando factura (demo)"). Filtro Select por estado.
+
+File 4 — team-view.tsx (TeamView):
+- KPIs: miembros, roles, invitaciones pendientes, suspendidos.
+- Members table: 7 miembros (avatar, nombre+email, role badge, locations chips, status pill, last active, actions Editar/Eliminar). Owner lleva Crown icon y no puede eliminarse. Search por nombre/email + Select filtro por rol.
+- Botón "Invitar miembro" → Dialog con email (regex), Select rol, multiselect locales (Checkbox) + validación.
+- Roles section: 12 roles sistema (Owner, Director, Gerente, Maitre, Recepción, Camarero, Cocina, Barra, Marketing, Contabilidad, Auditor, Solo Lectura) con icon, member count, descripción. Botón "Editar permisos" → Dialog con PermissionsMatrix (8 recursos × 4 acciones: ver/crear/editar/eliminar) usando Checkbox, editable, copy de defaults según rol.
+- Botón "Crear rol personalizado" → Dialog con nombre + PermissionsMatrix editable, validación (mín 3 chars nombre, mín 1 permiso).
+- Eliminar miembro → AlertDialog confirm (destructive).
+- Todos los cambios muestran toast "demo".
+
+File 5 — settings-view.tsx (SettingsView):
+- Tabs: General / Reservas / CRM / Reputación / IA / Seguridad con iconos.
+- General: org name, logo upload (mock toast), color pickers primario/acento (input type=color con preview + reset a defaults #D4AF37/#3DD6C9), domain (con badge verificado), locale (Select 6 idiomas), timezone (Select 5 zonas), currency (Select 5 monedas), VAT config (toggle + rate + NIF/CIF).
+- Reservas: duración media (Slider 30-240min), gap entre reservas (Slider 0-60min), capacidad (Input numérico), confirmación auto (Switch), recordatorios (Switch + Select timing), política cancelación (Select), no-show policy (Select), depósitos (Switch + importe Input).
+- CRM: tags default (Input), segmentación (Switch) + regla VIP (Input), consentimiento default (Select opt-in/opt-out/none) + toggle checkbox requerido.
+- Reputación: Google connection status (badge + botón Conectar Google toast demo), auto-reply approval (Switch "siempre requerir" con aviso Lock), umbral sentimiento positivo (Slider 1-5), umbral sentimiento negativo (Slider 1-5).
+- IA: enable IA (Switch), budget mensual (Slider 500-10000cr con % uso actual), fallback determinista (Switch), kill switch (Switch con banner rojo cuando activo).
+- Seguridad: MFA required (Switch), session timeout (Select 15min-12h), IP allowlist (Input con hint formato CIDR), audit log retention (Select 30d-3año) + 3 cards informativas (SSO/SAML, eventos auditados, política contraseñas).
+- Cada tab tiene botón "Guardar cambios" → toast "Configuración guardada (demo)".
+
+Validaciones y patrones comunes:
+- Todos los archivos empiezan con "use client".
+- Demobadge en cada sección demostrativa.
+- Confirm dialogs (AlertDialog) para todas las acciones destructivas: Desconectar integración, Eliminar miembro.
+- Forms validados con errores inline (URL webhook, email invite, número tarjeta, CVC, expiry, role name, permisos mínimos, secret HMAC).
+- Toasts en todos los saves y acciones importantes.
+- Responsive: tablas con overflow-x-auto + rp-scroll-thin; grids que colapsan 1 col en mobile; sticky first column en permissions matrix.
+- Accesibilidad: aria-labels en toggles/inputs, sr-only para iconos decorativos, focus visible en filas clickable, keyboard activable (Enter/Space abre drawer en tabla de orgs).
+- Super Admin marcado claramente como nivel plataforma (badge rojo "Nivel plataforma", entorno production, nota de acceso restringido).
+- Integraciones: nunca se muestra "conectado" sin etiqueta demo (cada card conectada-demo lleva DemoBadge visible; banner explicativo al final del tab Instaladas).
+
+Lint: `bun run lint` ejecutado dos veces — PASSES sin warnings ni errores en mis 5 archivos.
+
+Stage Summary:
+- 5 vistas Enterprise creadas y navegables desde el AppShell (lazy-loaded).
+- Premium dark theme coherente: tokens --gold #D4AF37 y --teal #3DD6C9, glassmorphism (rp-glass/rp-glass-strong), glows gold/teal en cards destacadas, gradientes en charts.
+- Sin blockers. Próximo paso sugerido: integrar las 5 vistas con datos reales (API/Prisma) y reemplazar toasts demo por mutations reales cuando el backend esté disponible.
+
+---
+Task ID: PROD-RESERVAS
+Agent: full-stack-developer
+Task: Construir la vista Reservas de RestoPanel (calendario + plano de mesas interactivo) con tema oscuro premium, glassmorphism, dorado #D4AF37 y turquesa #3DD6C9.
+
+Work Log:
+- Leí worklog.md, primitives.tsx, app-shell.tsx, nav-store.ts, globals.css y los componentes shadcn disponibles (dialog, alert-dialog, select, tabs, switch, badge, button, input, collapsible, tooltip, scroll-area) para reutilizar el design system y los tokens de marca (rp-glass, rp-grid-bg, --gold, --teal, rp-glow-gold, rp-scroll-thin).
+- Verifiqué que AppShell hace lazy import de `@/components/rp/reservas/reservas-view` esperando export `ReservasView` — creé el archivo en esa ruta exacta con `"use client"` y export nombrado.
+- Definí tipos estrictos: TableStatus (free|reserved|occupied|cleaning|blocked), Zone (sala|terraza|barra), ReservationStatus (confirmada|espera|checkin|noshow|cancelada), RpTable, RpReservation.
+- Construí metadata visual: STATUS_META (5 estados con dot/border/bg/text/ring), ZONES, RES_STATUS_META (5 estados), FILTERS. Datos demo: 13 mesas (6 sala + 4 terraza + 3 barra, formas round/square/rect) y 10 reservas con teléfonos, notas y asignaciones coherentes.
+- Layout 60/40 con `grid lg:grid-cols-5` (col-span-3 / col-span-2). En mobile colapsa a 1 columna; el canvas tiene min-width 680px dentro de `overflow-x-auto rp-scroll-thin` para mantener usabilidad.
+- Plano interactivo (la estrella):
+  * Canvas relativo con `rp-grid-bg`, role="tabpanel", aria-label por zona.
+  * Cada mesa es un `<button>` con `aria-label` completo (nombre, comensales, estado, reserva), `aria-pressed`, focus-visible ring dorado.
+  * Status cycling con click: free → reserved → occupied → cleaning → blocked → free. Toast en cada cambio.
+  * Drag & drop nativo HTML5: `draggable={editMode}`, onDragStart/onDragEnd/onCanvasDragOver/onCanvasDrop. Calcula x/y con clamp a los bordes del canvas. Feedback: mesa arrastrada opacity-40, canvas con ring dorado al hacer dragOver, overlay "Suelta para reposicionar".
+  * Toggle "Modo editar plano" (Switch) — al activar: cursor-grab, banner turquesa, los clics NO ciclan estado (solo seleccionan).
+  * Zone selector tipo tablist (Sala principal / Terraza / Barra) con aria-selected y aria-controls.
+  * Legend con 5 estados. Demo badge en header del plano.
+  * Decoración por zona (Ventana/Entrada/Jardín/Acceso/Servicio) + banda de color lateral.
+- Lista de reservas (panel derecho):
+  * Header con icono CalendarPlus + DemoBadge + contador.
+  * Buscador por cliente/teléfono con botón limpiar.
+  * Filtros tipo tablist: Todas / Confirmadas / Lista de espera / Check-in / No-show.
+  * Lista scrollable (max-h-420) con hora, nombre, party size, mesa asignada o "sin asignar" en itálica, status pill con colores de marca, notas truncadas.
+  * Click selecciona y muestra detalles abajo.
+- Details panel adaptativo:
+  * Vacío: placeholder con icono Armchair.
+  * Mesa seleccionada: nombre, status badge, comensales/zona/forma, reserva actual (si la hay) con botón "Ver" que selecciona la reserva, acciones Liberar/Bloquear, lista de reservas sin asignar para asignación directa.
+  * Reserva seleccionada: avatar con iniciales, status, hora+duración, comensales, teléfono, mesa, notas. Acciones condicionales: Confirmar (si espera), Check-in (si confirmada, también ocupa la mesa), Asignar mesa (si sin mesa), Cancelar (destructive).
+- Workflow "Asignar mesa": botón en detalles de reserva → startAssign cambia a la zona de la reserva + setAssigningReservationId. Banner dorado en plano + details panel cambia a "Asignando mesa" con glow gold. Las mesas libres pulsan con ring dorado. Click en mesa libre → assignTableToReservation (mesa→reserved, reserva→confirmada si era espera, toast). Click en mesa no libre → toast destructive. Cancelar disponible.
+- Confirmaciones destructivas (Cancelar reserva, Bloquear mesa, Liberar mesa) vía shadcn AlertDialog con copy específico por tipo. Botón de acción en rojo para cancelar/bloquear.
+- Nueva reserva: Dialog con form (cliente, teléfono, comensales, fecha, hora, zona select, mesa select con solo mesas libres, notas). Submit valida nombre, push a lista, asigna mesa si elegida, toast éxito, resetea form al abrir.
+- Timeline de servicio (Collapsible):
+  * Horario 13:00 → 23:00, 1.5px/min → ~900px wide con scroll horizontal.
+  * Grid de horas con labels font-mono.
+  * Bloques de reserva con lane-packing greedy (sin overlap visual).
+  * Indicador "AHORA" mock a las 14:45 (línea turquesa vertical + dot + label).
+  * Click en bloque selecciona la reserva (sync con lista y details).
+  * DemoBadge en header.
+- Accesibilidad: tablist/tab/tabpanel semántico, aria-label descriptivos en mesas y bloques, aria-pressed en selecciones, focus-visible ring dorado, keyboard navigable (todos los elementos son buttons nativos), contraste AA con la paleta de marca.
+- Diseño: glassmorphism (rp-glass), dorado para acciones primarias y reserved, turquesa para check-in y ocupadas, emerald para libres, amber para limpieza, zinc para bloqueadas. Tipografía tabular-nums en horas y contadores. Spacing consistente (gap-4/gap-6, p-4/p-5).
+- Lint: `bun run lint` → 0 errors, 0 warnings (tuve 1 warning inicial por un eslint-disable innecesario que removí).
+
+Stage Summary:
+- Archivo creado: `/home/z/my-project/src/components/rp/reservas/reservas-view.tsx` (1808 líneas, 1 solo archivo autocontenido).
+- Export: `ReservasView` con `"use client"` en la primera línea.
+- Lint: PASSED (0 errores, 0 warnings).
+- Dev server: el módulo `@/components/rp/reservas/reservas-view` resuelve correctamente tras la creación. Los errores visibles en dev.log son de OTROS módulos aún no construidos (team-view, billing-view, settings-view, super-admin-view, integrations-view, crm-view, marketing-view, automation-builder, reviews-view, analytics-view) — fuera del scope de esta tarea.
+- Bloqueadores: ninguno. La vista es funcional: drag & drop robusto (native HTML5), status cycling con toast, workflow completo de asignación mesa↔reserva, confirmaciones destructivas, timeline interactivo, responsive y accesible.
+- Datos demo badged con "demo" en: header de vista, header del plano, header de lista de reservas, header de timeline, header del diálogo de nueva reserva.
+
+---
+Task ID: PROD-REAL-VERIFY
+Agent: main
+Task: Verificación end-to-end del producto RestoPanel real (SPA navegable).
+
+Work Log:
+- Lint global: 0 errores tras entrega de 7 subagentes.
+- Bug corregido: integrations-view.tsx importaba `Google` de lucide-react (no existe) → cambiado a `Star`. Server pasó de 500 a 200.
+- Dev server persistente (PID 19249); responde 200 sin errores de runtime.
+- Agent Browser (desktop 1440x900): landing carga sin errores; H1 "Software para restaurantes que convierte cada servicio en más ingresos"; header + hero + pricing (#p-pricing) + FAQ (#p-faq) presentes.
+- Navegación landing→dashboard: botón "Crear cuenta" → setView("app") → sidebar con 17 botones de nav + dashboard "Buenas tardes, Ana".
+- Secciones verificadas: Reservas (19 elementos de mesas interactivas), Automatizaciones (45 botones, builder visual), Reviews (bandeja + IA), Analytics (charts), CRM (empty state "Ningún cliente seleccionado" + lista), Super Admin ("KPIs de plataforma").
+- Toggle landing↔app: clic en logo del sidebar vuelve a landing correctamente.
+- Responsive móvil (390x844): hamburger presente; footer al final del contenido (natural push).
+- VLM (glm-5v-turbo): tema dark premium dorado correcto, calidad Stripe/Linear, SIN glitches ni lorem ipsum, hero con CTA fuerte y dashboard preview. "Polished, high-converting landing page design."
+
+Stage Summary:
+- Producto RestoPanel real y navegable completado en la ruta /.
+- 11 vistas funcionales: Landing (header+hero+problemas+plataforma+pricing calculator+FAQ+CTA), Dashboard home (KPIs toggleables + timeline + charts + IA recs), Reservas (plano drag&drop + lista + nueva reserva + asignación mesa), CRM (master-detail + consentimientos + permisos), Marketing (segmentos/campañas/plantillas), Automatizaciones (builder visual trigger→acción + plantillas + simular), Reviews (bandeja + IA reply + copilot), Analytics (6 charts SVG + forecast IA), Integraciones (marketplace + webhooks), Billing (plan + uso + facturas), Team (miembros + roles + permisos matrix), Settings (6 tabs), Super Admin (MRR/ARR/LTV + rankings + infra + mapa + incidencias).
+- Componentes interactivos REALES: pricing calculator (plan+billing+slider+CTA dinámico), dashboard widgets toggleables, floor plan drag&drop + status cycling, automation builder (add/delete/configure nodes), CRM master-detail, reviews IA reply con aprobación.
+- Datos demo claramente etiquetados (badge "demo" en todas las cifras).
+- Estados completos: loading (skeletons en lazy load), empty (CRM sin selección), success (toasts), error (inline forms).
+- Destructive actions con confirmación (AlertDialog); permisos verificados (crm.export disabled sin permiso).
+- Accesibilidad: semantic HTML, ARIA labels, focus visible, keyboard, tabular nums.
+- Responsive real: mobile hamburger, stacking, touch targets.

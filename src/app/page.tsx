@@ -1,325 +1,79 @@
 "use client";
 
-import { SideNav } from "@/components/rp/nav";
-import { usePhase } from "@/components/rp/phase-store";
-import { Hero } from "@/components/rp/hero";
-import {
-  ResumenEjecutivo,
-  SupuestosDecisiones,
-  VisionEstrategica,
-} from "@/components/rp/sections/sections-a";
-import {
-  ArquitecturaMarca,
-  DesignSystem,
-} from "@/components/rp/sections/sections-brand";
-import {
-  ArquitecturaFuncional,
-  ArquitecturaTecnica,
-  ModeloDatos,
-} from "@/components/rp/sections/sections-arch";
-import { FlujosUX, SeguridadCumplimiento } from "@/components/rp/sections/sections-ux";
-import {
-  Roadmap,
-  Backlog,
-  Riesgos,
-  Recomendaciones,
-} from "@/components/rp/sections/sections-plan";
-import { Fase1Hero } from "@/components/rp/sections-fase1/f1-hero";
-import { Fase1Resumen, Fase1Supuestos, Fase1Riesgos } from "@/components/rp/sections-fase1/f1-a";
-import { Fase1Logica, Fase1Fisica, Fase1Diagrama } from "@/components/rp/sections-fase1/f1-b";
-import { Fase1Monorepo, Fase1Tenancy, Fase1ER, Fase1Diccionario, Fase1SQL } from "@/components/rp/sections-fase1/f1-c";
-import { Fase1Auth, Fase1Impersonation, Fase1Realtime } from "@/components/rp/sections-fase1/f1-d";
-import { Fase1Eventos, Fase1Threat, Fase1Observabilidad } from "@/components/rp/sections-fase1/f1-e";
-import { Fase1Testing, Fase1CICD, Fase1Escala, Fase1Costes, Fase1Backlog, Fase1Criterios, Fase1ADRs } from "@/components/rp/sections-fase1/f1-f";
-import { Fase2Hero } from "@/components/rp/sections-fase2/f2-hero";
-import { Fase2Resumen, Fase2Contexto, Fase2Dominios, Fase2Dependencias, Fase2Repo } from "@/components/rp/sections-fase2/f2-a";
-import { Fase2Tenancy, Fase2Eventos, Fase2Automatizaciones, Fase2Integraciones, Fase2API } from "@/components/rp/sections-fase2/f2-b";
-import { Fase2Permisos, Fase2Auditoria, Fase2Notificaciones, Fase2IA, Fase2Analitica } from "@/components/rp/sections-fase2/f2-c";
-import { Fase2Seguridad, Fase2Observabilidad, Fase2Datos, Fase2Contratos } from "@/components/rp/sections-fase2/f2-d";
-import { Fase2ADRs, Fase2Riesgos, Fase2Roadmap, Fase2Criterios } from "@/components/rp/sections-fase2/f2-e";
-import { Fase4Hero } from "@/components/rp/sections-fase4/f4-hero";
-import { Fase4Resumen, Fase4Carpetas, Fase4Cloudflare, Fase4SQL } from "@/components/rp/sections-fase4/f4-a";
-import { Fase4Migraciones, Fase4Tenancy, Fase4Auth, Fase4RBAC } from "@/components/rp/sections-fase4/f4-b";
-import { Fase4Auditoria, Fase4Repositorios, Fase4DO, Fase4Queues, Fase4R2AI } from "@/components/rp/sections-fase4/f4-c";
-import { Fase4Cache, Fase4Billing, Fase4CRM, Fase4Dashboard } from "@/components/rp/sections-fase4/f4-d";
-import { Fase4Tests, Fase4Seguridad, Fase4Observabilidad, Fase4Deploy, Fase4Migracion, Fase4Criterios } from "@/components/rp/sections-fase4/f4-e";
-import { ProductoHero } from "@/components/rp/sections-producto/p-hero";
-import { ProductoResumen, ProductoArquitectura, ProductoDesignSystem, ProductoRutas, ProductoDatos } from "@/components/rp/sections-producto/p-a";
-import { ProductoComponentes, ProductoFlujos, ProductoLanding } from "@/components/rp/sections-producto/p-b";
-import { ProductoPricing, ProductoDashboard, ProductoReservas } from "@/components/rp/sections-producto/p-c";
-import { ProductoCRM, ProductoAutomatizaciones, ProductoReputacion } from "@/components/rp/sections-producto/p-d";
-import { ProductoBilling, ProductoSuperAdmin, ProductoDemo, ProductoTests, ProductoRiesgos, ProductoDeploy } from "@/components/rp/sections-producto/p-e";
-import { BrandMark } from "@/components/rp/nav";
+import { useNav } from "@/components/rp/app/nav-store";
+import { Landing } from "@/components/rp/landing/landing";
+import { AppShell } from "@/components/rp/app/app-shell";
+import { BrandMark } from "@/components/rp/app/brand";
 
 export default function Page() {
-  const { phase } = usePhase();
+  const view = useNav((s) => s.view);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <SideNav />
-
-      <main className="flex-1 lg:ml-72">
-        {phase === "fase0" ? <Fase0 /> : phase === "fase1" ? <Fase1 /> : phase === "fase2" ? <Fase2 /> : phase === "fase4" ? <Fase4 /> : <Producto />}
-      </main>
-
-      <Footer phase={phase} />
+      {view === "landing" ? <Landing /> : <AppShell />}
+      <Footer />
     </div>
   );
 }
 
-function Fase0() {
+function Footer() {
+  const view = useNav((s) => s.view);
+  const setView = useNav((s) => s.setView);
   return (
-    <>
-      <Hero />
-      <ResumenEjecutivo />
-      <SupuestosDecisiones />
-      <VisionEstrategica />
-      <ArquitecturaMarca />
-      <DesignSystem />
-      <ArquitecturaFuncional />
-      <ArquitecturaTecnica />
-      <ModeloDatos />
-      <FlujosUX />
-      <SeguridadCumplimiento />
-      <Roadmap />
-      <Backlog />
-      <Riesgos />
-      <Recomendaciones />
-    </>
-  );
-}
-
-function Fase1() {
-  return (
-    <>
-      <Fase1Hero />
-      <Fase1Resumen />
-      <Fase1Supuestos />
-      <Fase1Riesgos />
-      <Fase1Logica />
-      <Fase1Fisica />
-      <Fase1Diagrama />
-      <Fase1Monorepo />
-      <Fase1Tenancy />
-      <Fase1ER />
-      <Fase1Diccionario />
-      <Fase1SQL />
-      <Fase1Auth />
-      <Fase1Impersonation />
-      <Fase1Realtime />
-      <Fase1Eventos />
-      <Fase1Threat />
-      <Fase1Observabilidad />
-      <Fase1Testing />
-      <Fase1CICD />
-      <Fase1Escala />
-      <Fase1Costes />
-      <Fase1Backlog />
-      <Fase1Criterios />
-      <Fase1ADRs />
-    </>
-  );
-}
-
-function Fase2() {
-  return (
-    <>
-      <Fase2Hero />
-      <Fase2Resumen />
-      <Fase2Contexto />
-      <Fase2Dominios />
-      <Fase2Dependencias />
-      <Fase2Repo />
-      <Fase2Tenancy />
-      <Fase2Eventos />
-      <Fase2Automatizaciones />
-      <Fase2Integraciones />
-      <Fase2API />
-      <Fase2Permisos />
-      <Fase2Auditoria />
-      <Fase2Notificaciones />
-      <Fase2IA />
-      <Fase2Analitica />
-      <Fase2Seguridad />
-      <Fase2Observabilidad />
-      <Fase2Datos />
-      <Fase2Contratos />
-      <Fase2ADRs />
-      <Fase2Riesgos />
-      <Fase2Roadmap />
-      <Fase2Criterios />
-    </>
-  );
-}
-
-function Fase4() {
-  return (
-    <>
-      <Fase4Hero />
-      <Fase4Resumen />
-      <Fase4Carpetas />
-      <Fase4Cloudflare />
-      <Fase4SQL />
-      <Fase4Migraciones />
-      <Fase4Tenancy />
-      <Fase4Auth />
-      <Fase4RBAC />
-      <Fase4Auditoria />
-      <Fase4Repositorios />
-      <Fase4DO />
-      <Fase4Queues />
-      <Fase4R2AI />
-      <Fase4Cache />
-      <Fase4Billing />
-      <Fase4CRM />
-      <Fase4Dashboard />
-      <Fase4Tests />
-      <Fase4Seguridad />
-      <Fase4Observabilidad />
-      <Fase4Deploy />
-      <Fase4Migracion />
-      <Fase4Criterios />
-    </>
-  );
-}
-
-function Producto() {
-  return (
-    <>
-      <ProductoHero />
-      <ProductoResumen />
-      <ProductoArquitectura />
-      <ProductoDesignSystem />
-      <ProductoRutas />
-      <ProductoDatos />
-      <ProductoComponentes />
-      <ProductoFlujos />
-      <ProductoLanding />
-      <ProductoPricing />
-      <ProductoDashboard />
-      <ProductoReservas />
-      <ProductoCRM />
-      <ProductoAutomatizaciones />
-      <ProductoReputacion />
-      <ProductoBilling />
-      <ProductoSuperAdmin />
-      <ProductoDemo />
-      <ProductoTests />
-      <ProductoRiesgos />
-      <ProductoDeploy />
-    </>
-  );
-}
-
-function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" | "producto" }) {
-  const subtitle =
-    phase === "fase0"
-      ? "Fase 0 · Fundación Enterprise"
-      : phase === "fase1"
-      ? "Fase 1.1 · Arquitectura Enterprise"
-      : phase === "fase2"
-      ? "Fase 1.2 · Core Platform"
-      : phase === "fase4"
-      ? "Fase 4 · Núcleo Enterprise (Motor de Restaurantes)"
-      : "RestoPanel · SaaS Enterprise para restaurantes";
-  const desc =
-    phase === "fase0"
-      ? "Documento estratégico-arquitectónico. Borrador V0.1. Pensado para revisión crítica antes de iniciar desarrollo de producto."
-      : phase === "fase1"
-      ? "Especificación técnica implementable y verificable. Spec V1.1. Diseña la fundación arquitectónica multi-tenant sobre Cloudflare antes de escribir la aplicación completa."
-      : phase === "fase2"
-      ? "Diseño del núcleo funcional y técnico de RestoPanel. Spec V1.2. Monolito modular orientado a dominios, con eventos, automatizaciones, integraciones, IA y analítica."
-      : phase === "fase4"
-      ? "Implementación del núcleo Enterprise: organizaciones aisladas, RBAC granular, reservas/mesas/CRM con concurrencia, auditoría inmutable y límites por plan sobre Cloudflare."
-      : "Producto vivo: landing, dashboard, pricing, automatizaciones, CRM y reputación con componentes interactivos reales y datos demo claramente etiquetados.";
-  const deliverables =
-    phase === "fase0"
-      ? ["Product & Brand Brief", "Mapa de dominios + contratos", "Control Plane + Tenant Cells", "Modelo de datos nuclear", "Design System base", "Roadmap y backlog priorizado"]
-      : phase === "fase1"
-      ? ["Arquitectura lógica + física Cloudflare", "Monorepo y reglas de dependencia", "Modelo ER + SQL D1 + diccionario", "RBAC, impersonación y threat model STRIDE", "Escalabilidad por etapas A→D", "ADRs iniciales + backlog técnico"]
-      : phase === "fase2"
-      ? ["14 dominios con ownership y límites", "Sistema de eventos + outbox", "Motor de automatizaciones trigger→acción", "Capa común de integraciones y API pública", "Centro de IA + analítica por eventos", "10 ADRs + roadmap por iteraciones"]
-      : phase === "fase4"
-      ? ["Arquitectura de carpetas + esquema D1 completo", "Contexto multi-tenant + RBAC Enterprise", "Repositorios + Durable Objects + Queues", "R2 + AI Gateway + caché namespaced", "Facturación Stripe + CRM + dashboard", "Tests de aislamiento/RBAC/concurrencia + despliegue"]
-      : ["Landing de conversión + SEO/AEO", "Calculadora de pricing interactiva", "Dashboard con widgets en vivo", "Builder de automatizaciones visual", "Plano de mesas + CRM + reputación", "Super Admin + marketplace + tests"];
-  const status1 =
-    phase === "fase0" ? "Borrador V0.1" : phase === "fase1" ? "Spec V1.1 implementable" : phase === "fase2" ? "Spec V1.2 core design" : phase === "fase4" ? "Spec V4 motor enterprise" : "Producto interactivo";
-  const status2 =
-    phase === "fase0" ? "ADRs críticos pendientes" : phase === "fase1" ? "ADRs iniciales registrados" : phase === "fase2" ? "10 ADRs críticos documentados" : phase === "fase4" ? "Implementación por capas" : "Componentes funcionales";
-  const status3 =
-    phase === "fase0" ? "Puerta de salida no aprobada" : phase === "fase1" ? "Listo para implementación" : phase === "fase2" ? "Listo para implementación del core" : phase === "fase4" ? "Despliegre sin pasos ocultos" : "Datos demo etiquetados";
-  const hash = phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : phase === "fase4" ? "#f4-inicio" : "#p-inicio";
-  const stat =
-    phase === "fase0"
-      ? "14 secciones · 17 dominios · 5 fases · ADR-001/002"
-      : phase === "fase1"
-      ? "24 secciones · 4 etapas de escala · STRIDE · ADR-001…008"
-      : phase === "fase2"
-      ? "23 secciones · 14 dominios · outbox + automatizaciones · ADR-001…010"
-      : phase === "fase4"
-      ? "24 secciones · 7 servicios CF · RBAC Enterprise · SQL + TS ejecutable"
-      : "21 secciones · componentes interactivos · pricing + dashboard + builder";
-  return (
-    <footer className="mt-auto lg:ml-72 border-t border-border/60 rp-glass-strong">
+    <footer className="mt-auto border-t border-border/60 rp-glass-strong">
       <div className="mx-auto max-w-6xl px-5 sm:px-8 py-10">
-        <div className="grid md:grid-cols-3 gap-8">
-          <div>
+        <div className="grid md:grid-cols-4 gap-8">
+          <div className="md:col-span-2">
             <div className="flex items-center gap-2.5">
               <BrandMark className="h-8 w-8" />
               <div className="leading-tight">
                 <div className="font-display text-lg tracking-tight">RestoPanel</div>
                 <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-                  {subtitle}
+                  El sistema operativo del restaurante
                 </div>
               </div>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-xs">{desc}</p>
+            <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-sm">
+              Software para restaurantes que convierte cada servicio en más ingresos. Reservas,
+              mesas, CRM, marketing, reputación e IA en una sola plataforma.
+            </p>
+            <div className="mt-3 flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span className="text-amber-300/90">Datos demo · producto navegable</span>
+            </div>
           </div>
-
           <div>
             <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-              Entregables
+              Producto
             </div>
             <ul className="space-y-1.5 text-sm text-foreground/80">
-              {deliverables.map((d) => (
-                <li key={d}>{d}</li>
-              ))}
+              <li><a href="#p-pricing" className="hover:text-[var(--gold)]">Precios</a></li>
+              <li><a href="#p-plataforma" className="hover:text-[var(--gold)]">Plataforma</a></li>
+              <li><a href="#p-faq" className="hover:text-[var(--gold)]">Preguntas frecuentes</a></li>
+              <li>
+                <button onClick={() => setView("app")} className="hover:text-[var(--gold)]">
+                  Ver dashboard
+                </button>
+              </li>
             </ul>
           </div>
-
           <div>
             <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-              Estado
+              Empresa
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]" />
-                <span className="text-foreground/80">{status1}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
-                <span className="text-foreground/80">{status2}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-                <span className="text-foreground/80">{status3}</span>
-              </div>
-            </div>
-            <a
-              href={hash}
-              className="mt-5 inline-flex items-center gap-2 rounded-lg border border-border/70 px-3 py-1.5 text-xs hover:border-[var(--gold)]/50 transition-colors"
-            >
-              Volver arriba <span aria-hidden>↑</span>
-            </a>
+            <ul className="space-y-1.5 text-sm text-foreground/80">
+              <li>Sobre RestoPanel</li>
+              <li>Blog</li>
+              <li>Centro de ayuda</li>
+              <li>Contacto</li>
+            </ul>
           </div>
         </div>
-
         <div className="mt-8 pt-6 border-t border-border/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-muted-foreground">
-          <div>
-            RestoPanel · La plataforma inteligente para gestionar restaurantes sin límites.
-            Documento interno de arquitectura, no publicidad.
+          <div>© 2025 RestoPanel. Todos los derechos reservados.</div>
+          <div className="font-mono">
+            {view === "landing" ? "Landing" : "Dashboard"} · demo navegable
           </div>
-          <div className="font-mono">{stat}</div>
         </div>
       </div>
     </footer>

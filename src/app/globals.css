@@ -210,6 +210,16 @@
   .rp-divider {
     background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--foreground) 14%, transparent), transparent);
   }
+  @keyframes rp-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     * {
       animation-duration: 0.001ms !important;
