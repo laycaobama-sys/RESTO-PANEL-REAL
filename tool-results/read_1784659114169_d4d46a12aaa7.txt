@@ -1,0 +1,841 @@
+     1→import {
+     2→  Section,
+     3→  GlassCard,
+     4→  Risk,
+     5→  Stat,
+     6→  Pill,
+     7→  H3,
+     8→  Lead,
+     9→  DataTable,
+    10→  GoldList,
+    11→  Callout,
+    12→  Code,
+    13→} from "@/components/rp/primitives";
+    14→import { Mermaid } from "@/components/rp/mermaid";
+    15→
+    16→/* ============================================================ */
+    17→/* 15 — EVENTOS, COLAS Y WEBHOOKS                               */
+    18→/* ============================================================ */
+    19→const EVENT_PIPELINE_CHART = `flowchart LR
+    20→  UC["Caso de uso"] --> TX["Transacción D1<br/>estado + outbox"]
+    21→  TX --> DB[("D1")]
+    22→  DB --> DSP["Dispatcher idempotente"]
+    23→  DSP --> Q["Cloudflare Queue"]
+    24→  Q --> C1["comms"]
+    25→  Q --> C2["audit"]
+    26→  Q --> C3["analytics"]
+    27→  Q --> C4["integrations"]
+    28→  Q --> C5["automation"]
+    29→  C4 --> WH["Webhook saliente<br/>firma HMAC"]
+    30→  Q -.fallo.-> DLQ["Dead-letter queue"]
+    31→  DLQ --> REP["Reproceso manual auditado"]`;
+    32→
+    33→const EVENT_ENVELOPE = `{
+    34→  "event_id": "01HZX...ULID",
+    35→  "event_type": "ReservationCreated",
+    36→  "event_version": 1,
+    37→  "occurred_at": "2025-01-21T19:32:01Z",
+    38→  "organization_id": "01HZORG...",
+    39→  "location_id": "01HZLOC...",
+    40→  "cell_id": "cell-a",
+    41→  "actor_id": "01HZUSR...",
+    42→  "actor_effective_id": null,
+    43→  "correlation_id": "req_01HZ...",
+    44→  "causation_id": null,
+    45→  "source": "reservations",
+    46→  "payload": { "reservation_id": "01HZRES...", "party_size": 4 }
+    47→}`;
+    48→
+    49→type ConsumidorGarantia = {
+    50→  id: string;
+    51→  garantia: string;
+    52→  impl: string;
+    53→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+    54→};
+    55→
+    56→const CONSUMIDOR_GARANTIAS: ConsumidorGarantia[] = [
+    57→  {
+    58→    id: "idem",
+    59→    garantia: "Idempotencia",
+    60→    impl: "event_id + consumer dedup table",
+    61→    riesgo: "alto",
+    62→  },
+    63→  {
+    64→    id: "dupes",
+    65→    garantia: "Tolerancia a duplicados",
+    66→    impl: "operaciones idempotentes por design",
+    67→    riesgo: "alto",
+    68→  },
+    69→  {
+    70→    id: "orden",
+    71→    garantia: "Fuera de orden",
+    72→    impl: "consumidor reconcilia por occurred_at",
+    73→    riesgo: "medio",
+    74→  },
+    75→  {
+    76→    id: "backoff",
+    77→    garantia: "Backoff + jitter",
+    78→    impl: "reintentos exponenciales con jitter",
+    79→    riesgo: "medio",
+    80→  },
+    81→  {
+    82→    id: "maxattempts",
+    83→    garantia: "Límite de reintentos",
+    84→    impl: "max_attempts → DLQ",
+    85→    riesgo: "alto",
+    86→  },
+    87→  {
+    88→    id: "breaker",
+    89→    garantia: "Circuit breaker",
+    90→    impl: "por consumidor y por dependencia",
+    91→    riesgo: "alto",
+    92→  },
+    93→  {
+    94→    id: "dlq",
+    95→    garantia: "Dead-letter queue",
+    96→    impl: "DLQ + reproceso manual auditado",
+    97→    riesgo: "alto",
+    98→  },
+    99→  {
+   100→    id: "trace",
+   101→    garantia: "Trazabilidad",
+   102→    impl: "correlation_id end-to-end",
+   103→    riesgo: "medio",
+   104→  },
+   105→];
+   106→
+   107→export function Fase1Eventos() {
+   108→  return (
+   109→    <Section
+   110→      id="f1-eventos"
+   111→      index="15"
+   112→      eyebrow="Eventos, colas y webhooks"
+   113→      title="Outbox transaccional, consumidores idempotentes, webhooks firmados."
+   114→      intro={
+   115→        <>
+   116→          El pipeline de eventos es el sistema nervioso de la plataforma: cada caso de uso escribe
+   117→          en la <span className="text-foreground">misma transacción D1</span> el nuevo estado de
+   118→          negocio y una fila en <code className="font-mono text-[12px] rp-gold-text">events_outbox</code>;
+   119→          un dispatcher idempotente lee el outbox y publica a Cloudflare Queues; los consumidores
+   120→          (notificaciones, auditoría, analítica, integraciones, automatización) procesan de forma
+   121→          idempotente, con reintentos, circuit breaker y DLQ. Los webhooks salientes se firman con
+   122→          HMAC y se entregan al menos una vez.
+   123→        </>
+   124→      }
+   125→    >
+   126→      {/* Diagrama del pipeline */}
+   127→      <div className="mb-12">
+   128→        <H3 className="mb-3">Pipeline de eventos end-to-end</H3>
+   129→        <Lead className="mb-4">
+   130→          El outbox rompe el anti-patrón del double-write: nunca se publica a la cola sin haber
+   131→          persistido el estado, y nunca se persiste el estado sin haber encolado el evento. El
+   132→          dispatcher es el único proceso autorizado a publicar; los consumidores compiten por la
+   133→          cola sin acoplarse entre sí.
+   134→        </Lead>
+   135→        <Mermaid chart={EVENT_PIPELINE_CHART} />
+   136→      </div>
+   137→
+   138→      {/* Envelope canónico */}
+   139→      <div className="mb-12">
+   140→        <H3 className="mb-3">Envelope canónico de evento</H3>
+   141→        <Lead className="mb-4">
+   142→          Todo evento que sale del outbox lleva esta forma. El <code className="font-mono text-[12px] rp-gold-text">correlation_id</code>{" "}
+   143→          viaja de la request original al evento y, desde ahí, a cada consumidor y a cada webhook
+   144→          saliente, permitiendo reconstruir el journey completo. El <code className="font-mono text-[12px] rp-gold-text">actor_effective_id</code>{" "}
+   145→          cubre impersonación; el <code className="font-mono text-[12px] rp-gold-text">causation_id</code>{" "}
+   146→          distingue causación de correlación.
+   147→        </Lead>
+   148→        <Code lang="json">{EVENT_ENVELOPE}</Code>
+   149→      </div>
+   150→
+   151→      {/* Garantías obligatorias */}
+   152→      <div className="mb-12">
+   153→        <H3 className="mb-3">Consumidores: garantías obligatorias</H3>
+   154→        <Lead className="mb-4">
+   155→          Ningún consumidor puede salir a producción sin implementar estas garantías. La
+   156→          idempotencia no es opcional: la cola entrega <span className="text-foreground">at-least-once</span>,
+   157→          nunca exactly-once; el consumidor debe ser seguro ante duplicados.
+   158→        </Lead>
+   159→        <DataTable
+   160→          head={["Garantía", "Implementación", "Riesgo"]}
+   161→          rows={CONSUMIDOR_GARANTIAS.map((g) => [
+   162→            <span key={`${g.id}-gar`} className="font-mono text-[13px] rp-gold-text">
+   163→              {g.garantia}
+   164→            </span>,
+   165→            <span key={`${g.id}-impl`} className="text-foreground/80">
+   166→              {g.impl}
+   167→            </span>,
+   168→            <Risk key={`${g.id}-risk`} level={g.riesgo} />,
+   169→          ])}
+   170→        />
+   171→      </div>
+   172→
+   173→      {/* Webhooks salientes */}
+   174→      <div className="mb-12 grid gap-6 md:grid-cols-2">
+   175→        <GlassCard variant="gold">
+   176→          <H3>Webhooks salientes</H3>
+   177→          <Lead className="mt-2">
+   178→            Entrega fiable y auditable a sistemas externos. El receptor debe ser idempotente:
+   179→            entregamos al menos una vez, no exactamente una.
+   180→          </Lead>
+   181→          <div className="mt-5">
+   182→            <GoldList
+   183→              items={[
+   184→                <span key="wh-hmac">
+   185→                  Firma <code className="font-mono text-[12px] text-foreground/90">HMAC-SHA256</code> con
+   186→                  secreto rotativo por organización.
+   187→                </span>,
+   188→                <span key="wh-replay">
+   189→                  <code className="font-mono text-[12px] text-foreground/90">timestamp</code> anti
+   190→                  replay con ventana de 5 minutos.
+   191→                </span>,
+   192→                <span key="wh-backoff">
+   193→                  Reintentos con backoff exponencial y jitter.
+   194→                </span>,
+   195→                <span key="wh-aload">
+   196→                  Entrega <span className="text-foreground">at-least-once</span>; el receptor
+   197→                  implementa idempotencia por <code className="font-mono text-[12px] text-foreground/90">event_id</code>.
+   198→                </span>,
+   199→                <span key="wh-reg">
+   200→                  Registro de cada intento en{" "}
+   201→                  <code className="font-mono text-[12px] text-foreground/90">webhook_deliveries</code>{" "}
+   202→                  (status, latency, response).
+   203→                </span>,
+   204→                <span key="wh-pause">
+   205→                  Pausa / kill switch por organización sin afectar a otras.
+   206→                </span>,
+   207→                <span key="wh-sel">
+   208→                  Eventos seleccionables por suscriptor (suscripción explícita, no firehose).
+   209→                </span>,
+   210→                <span key="wh-scope">
+   211→                  Scope por organización: un webhook nunca ve eventos ajenos.
+   212→                </span>,
+   213→              ]}
+   214→            />
+   215→          </div>
+   216→        </GlassCard>
+   217→
+   218→        <GlassCard>
+   219→          <H3>Workflows para procesos largos</H3>
+   220→          <Lead className="mt-2">
+   221→            Cloudflare Workflows orquesta procesos multi-paso durables y reanudables. No
+   222→            reemplazan a Queues para fan-out; los usamos cuando hay estado de orquestación y
+   223→            reanudabilidad.
+   224→          </Lead>
+   225→          <div className="mt-5">
+   226→            <GoldList
+   227→              items={[
+   228→                <span key="wf-onb">Onboarding de organización (provisionamiento multi-paso).</span>,
+   229→                <span key="wf-imp">Importaciones masivas (carta, clientes, reservas).</span>,
+   230→                <span key="wf-exp">Exportaciones (reportes, backups lógicos por tenant).</span>,
+   231→                <span key="wf-camp">Campañas (envíos segmentados, throttling).</span>,
+   232→                <span key="wf-conc">Conciliaciones (billing, facturación, payout).</span>,
+   233→                <span key="wf-mig">Migración entre shards (etapa B en adelante).</span>,
+   234→                <span key="wf-restore">Restauración de backup lógico por tenant.</span>,
+   235→              ]}
+   236→            />
+   237→          </div>
+   238→        </GlassCard>
+   239→      </div>
+   240→
+   241→      {/* Callout atomicidad */}
+   242→      <Callout kind="ok" title="Outbox = atomicidad">
+   243→        El outbox se escribe en la <span className="text-foreground">misma transacción D1</span> que
+   244→        el estado de negocio. El dispatcher lee las filas no publicadas, las envía a Queues y las
+   245→        marca como publicadas. Esto garantiza entrega <span className="text-foreground">at-least-once</span>{" "}
+   246→        sin sufrir <span className="text-foreground">double-write inconsistency</span>: nunca hay
+   247→        estado sin evento, ni evento sin estado. La idempotencia final la garantiza el consumidor
+   248→        con <code className="font-mono text-[12px] rp-gold-text">event_id</code> en su tabla de
+   249→        deduplicación.
+   250→      </Callout>
+   251→    </Section>
+   252→  );
+   253→}
+   254→
+   255→/* ============================================================ */
+   256→/* 16 — SEGURIDAD Y THREAT MODEL                                */
+   257→/* ============================================================ */
+   258→type StrideRow = {
+   259→  id: string;
+   260→  cat: string;
+   261→  amenaza: string;
+   262→  preventivo: string;
+   263→  detectivo: string;
+   264→  recuperacion: string;
+   265→};
+   266→
+   267→const STRIDE_ROWS: StrideRow[] = [
+   268→  {
+   269→    id: "spoof",
+   270→    cat: "Spoofing",
+   271→    amenaza: "Robo de sesión/identidad",
+   272→    preventivo: "MFA, passkeys WebAuthn, cookies Secure+HttpOnly+SameSite",
+   273→    detectivo: "Detección de anomalía de sesión, device fingerprint",
+   274→    recuperacion: "Revocación de sesiones, rotación de tokens",
+   275→  },
+   276→  {
+   277→    id: "tamper",
+   278→    cat: "Tampering",
+   279→    amenaza: "Modificación de datos entre tenants",
+   280→    preventivo: "Tenant Enforcement Layer, constraints compuestos, Zod",
+   281→    detectivo: "Audit log inmutable, reconciliación",
+   282→    recuperacion: "Restore from backup, reproceso desde outbox",
+   283→  },
+   284→  {
+   285→    id: "repud",
+   286→    cat: "Repudiation",
+   287→    amenaza: "Negar una acción",
+   288→    preventivo: "Audit log append-only con actor+timestamp+correlation",
+   289→    detectivo: "Alertas de inconsistencia",
+   290→    recuperacion: "Reconstrucción desde eventos",
+   291→  },
+   292→  {
+   293→    id: "disclo",
+   294→    cat: "Information Disclosure",
+   295→    amenaza: "Fuga entre tenants / PII",
+   296→    preventivo: "RBAC+ABAC, IDOR checks, redacción PII en logs",
+   297→    detectivo: "Tests IDOR en CI, anomaly detection",
+   298→    recuperacion: "Notificación de incidente, rotación, GDPR",
+   299→  },
+   300→  {
+   301→    id: "dos",
+   302→    cat: "Denial of Service",
+   303→    amenaza: "Abuso de API/IA/WhatsApp",
+   304→    preventivo: "Rate limiting, Turnstile, WAF, quotas por plan",
+   305→    detectivo: "SLO burn rate, alertas",
+   306→    recuperacion: "Throttling, kill switch por tenant",
+   307→  },
+   308→  {
+   309→    id: "elev",
+   310→    cat: "Elevation of Privilege",
+   311→    amenaza: "Escalada de rol o scope",
+   312→    preventivo: "Least privilege, deny por defecto, roles custom < creador",
+   313→    detectivo: "Audit de permisos, revisión de roles",
+   314→    recuperacion: "Revocación inmediata, MFA re-required",
+   315→  },
+   316→];
+   317→
+   318→type SuperficieRow = {
+   319→  id: string;
+   320→  sup: string;
+   321→  controles: string;
+   322→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+   323→};
+   324→
+   325→const SUPERFICIE_ROWS: SuperficieRow[] = [
+   326→  {
+   327→    id: "api",
+   328→    sup: "API pública",
+   329→    controles: "rate limit, API keys scoped, firma webhooks",
+   330→    riesgo: "alto",
+   331→  },
+   332→  {
+   333→    id: "widget",
+   334→    sup: "Widget de reserva",
+   335→    controles: "Turnstile, rate limit, sin auth sensible",
+   336→    riesgo: "medio",
+   337→  },
+   338→  {
+   339→    id: "dash",
+   340→    sup: "Dashboard",
+   341→    controles: "MFA, sesión revocable, RBAC+ABAC",
+   342→    riesgo: "alto",
+   343→  },
+   344→  {
+   345→    id: "sadmin",
+   346→    sup: "Super Admin",
+   347→    controles: "MFA reciente, impersonación acotada, kill switch",
+   348→    riesgo: "crítico",
+   349→  },
+   350→  {
+   351→    id: "whin",
+   352→    sup: "Webhooks entrantes",
+   353→    controles: "verificación firma origen, allowlist",
+   354→    riesgo: "alto",
+   355→  },
+   356→  {
+   357→    id: "integ",
+   358→    sup: "Integraciones (Google/WhatsApp/Stripe)",
+   359→    controles: "OAuth scoped, rotación, audit",
+   360→    riesgo: "alto",
+   361→  },
+   362→  {
+   363→    id: "ia",
+   364→    sup: "IA",
+   365→    controles: "kill switch, presupuesto, redacción PII, aprobación humana",
+   366→    riesgo: "alto",
+   367→  },
+   368→];
+   369→
+   370→export function Fase1Threat() {
+   371→  return (
+   372→    <Section
+   373→      id="f1-threat"
+   374→      index="16"
+   375→      eyebrow="Seguridad y threat model"
+   376→      title="STRIDE: controles preventivos, detectivos y de recuperación."
+   377→      intro={
+   378→        <>
+   379→          Threat model inicial usando el marco STRIDE. Para cada categoría identificamos amenazas
+   380→          concretas y trios de controles: <span className="text-foreground">preventivos</span> (que
+   381→          evitan el incidente), <span className="text-foreground">detectivos</span> (que lo
+   382→          descubren si ocurre) y <span className="text-foreground">de recuperación</span> (que lo
+   383→          contienen y reparan). La defensa en profundidad asume que ningún control es suficiente
+   384→          por sí solo.
+   385→        </>
+   386→      }
+   387→    >
+   388→      {/* Tabla STRIDE */}
+   389→      <div className="mb-12">
+   390→        <H3 className="mb-3">Threat model (STRIDE)</H3>
+   391→        <Lead className="mb-4">
+   392→          Cada fila describe una amenaza y su cadena de controles. La columna &ldquo;Recuperación&rdquo;
+   393→          no es opcional: si el control preventivo falla, el sistema debe poder volver a un estado
+   394→          conocido y auditable.
+   395→        </Lead>
+   396→        <DataTable
+   397→          head={["Categoría STRIDE", "Amenaza", "Control preventivo", "Detectivo", "Recuperación"]}
+   398→          rows={STRIDE_ROWS.map((r) => [
+   399→            <span key={`${r.id}-cat`} className="font-mono text-[12px] rp-gold-text">
+   400→              {r.cat}
+   401→            </span>,
+   402→            <span key={`${r.id}-amen`} className="text-foreground/90">
+   403→              {r.amenaza}
+   404→            </span>,
+   405→            <span key={`${r.id}-prev`} className="text-foreground/75">
+   406→              {r.preventivo}
+   407→            </span>,
+   408→            <span key={`${r.id}-det`} className="text-foreground/75">
+   409→              {r.detectivo}
+   410→            </span>,
+   411→            <span key={`${r.id}-rec`} className="text-foreground/75">
+   412→              {r.recuperacion}
+   413→            </span>,
+   414→          ])}
+   415→        />
+   416→      </div>
+   417→
+   418→      {/* Controles transversales */}
+   419→      <div className="mb-12">
+   420→        <GlassCard variant="gold">
+   421→          <H3>Controles transversales de seguridad</H3>
+   422→          <Lead className="mt-2">
+   423→            Aplican a todas las superficies, sin excepción. Su ausencia es bloqueante para salir a
+   424→            producción.
+   425→          </Lead>
+   426→          <div className="mt-5">
+   427→            <GoldList
+   428→              items={[
+   429→                <span key="sec-csp">
+   430→                  <span className="text-foreground">CSP con nonces</span> por request; sin
+   431→                  <code className="font-mono text-[12px] text-foreground/90"> unsafe-inline</code>.
+   432→                </span>,
+   433→                <span key="sec-hsts">
+   434→                  <span className="text-foreground">HSTS</span> con preload y subdomains.
+   435→                </span>,
+   436→                <span key="sec-csrf">
+   437→                  <span className="text-foreground">CSRF tokens</span> para mutaciones vía cookie.
+   438→                </span>,
+   439→                <span key="sec-xss">
+   440→                  Escape <span className="text-foreground">XSS</span> en outputs; sin
+   441→                  <code className="font-mono text-[12px] text-foreground/90"> dangerouslySetInnerHTML</code>{" "}
+   442→                  sin sanitizar.
+   443→                </span>,
+   444→                <span key="sec-sqli">
+   445→                  Consultas parametrizadas (anti <span className="text-foreground">SQLi</span>);
+   446→                  Prisma con binding, sin string interpolation en SQL.
+   447→                </span>,
+   448→                <span key="sec-ssrf">
+   449→                  <span className="text-foreground">Allowlist de destinos</span> para cualquier
+   450→                  fetch servidor-side (anti SSRF).
+   451→                </span>,
+   452→                <span key="sec-zod">
+   453→                  Validación <span className="text-foreground">Zod</span> en la frontera de cada
+   454→                  endpoint (request body, query, params).
+   455→                </span>,
+   456→                <span key="sec-secrets">
+   457→                  Secretos fuera de código, D1, KV, R2 y frontend; solo en Workers Secrets.
+   458→                </span>,
+   459→                <span key="sec-tls">
+   460→                  Cifrado en tránsito (<span className="text-foreground">TLS</span>) y reposo
+   461→                  (<span className="text-foreground">R2 SSE</span>).
+   462→                </span>,
+   463→                <span key="sec-sast">
+   464→                  <span className="text-foreground">SAST + secret scanning + DAST</span> en CI,
+   465→                  obligatorios antes de merge a main.
+   466→                </span>,
+   467→                <span key="sec-supply">
+   468→                  Análisis de dependencias (<span className="text-foreground">supply chain</span>);
+   469→                  bloqueo de versiones con vulnerabilidades conocidas.
+   470→                </span>,
+   471→                <span key="sec-pentest">
+   472→                  <span className="text-foreground">Pentest pre-producción</span> antes del primer
+   473→                  despliegue a entorno productivo.
+   474→                </span>,
+   475→                <span key="sec-sep">
+   476→                  Separación estricta producción vs test: sin datos reales en entornos no productivos.
+   477→                </span>,
+   478→              ]}
+   479→            />
+   480→          </div>
+   481→        </GlassCard>
+   482→      </div>
+   483→
+   484→      {/* Controles por superficie */}
+   485→      <div className="mb-12">
+   486→        <H3 className="mb-3">Controles por superficie</H3>
+   487→        <Lead className="mb-4">
+   488→          Cada superficie expuesta tiene un perfil de controles propio. El Super Admin concentra el
+   489→          riesgo más alto y recibe controles adicionales: MFA reciente, impersonación acotada en el
+   490→          tiempo y kill switch global.
+   491→        </Lead>
+   492→        <DataTable
+   493→          head={["Superficie", "Controles", "Riesgo"]}
+   494→          rows={SUPERFICIE_ROWS.map((s) => [
+   495→            <span key={`${s.id}-sup`} className="font-mono text-[13px] rp-gold-text">
+   496→              {s.sup}
+   497→            </span>,
+   498→            <span key={`${s.id}-ctrl`} className="text-foreground/80">
+   499→              {s.controles}
+   500→            </span>,
+   501→            <Risk key={`${s.id}-risk`} level={s.riesgo} />,
+   502→          ])}
+   503→        />
+   504→      </div>
+   505→
+   506→      {/* Respuesta a incidentes */}
+   507→      <div className="mb-12">
+   508→        <GlassCard>
+   509→          <H3>Respuesta a incidentes</H3>
+   510→          <Lead className="mt-2">
+   511→            Ciclo cerrado Detectar → Contener → Erradicar → Recuperar → Aprender. Cada incidente
+   512→            termina en postmortem sin culpa y en runbook versionado.
+   513→          </Lead>
+   514→          <div className="mt-5 grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
+   515→            <div>
+   516→              <div className="text-[11px] font-mono uppercase tracking-wider rp-gold-text mb-3">
+   517→                Detectar
+   518→              </div>
+   519→              <GoldList
+   520→                items={[
+   521→                  <span key="inc-alerts-slo">Alertas de SLO burn rate.</span>,
+   522→                  <span key="inc-anom">Anomalías de seguridad.</span>,
+   523→                  <span key="inc-sec">Señales SIEM (cuando aplique).</span>,
+   524→                ]}
+   525→              />
+   526→            </div>
+   527→            <div>
+   528→              <div className="text-[11px] font-mono uppercase tracking-wider rp-gold-text mb-3">
+   529→                Contener
+   530→              </div>
+   531→              <GoldList
+   532→                items={[
+   533→                  <span key="inc-kill-tenant">Kill switch por tenant.</span>,
+   534→                  <span key="inc-kill-glob">Kill switch global.</span>,
+   535→                  <span key="inc-revoke">Revocación de sesiones/tokens.</span>,
+   536→                ]}
+   537→              />
+   538→            </div>
+   539→            <div>
+   540→              <div className="text-[11px] font-mono uppercase tracking-wider rp-gold-text mb-3">
+   541→                Erradicar
+   542→              </div>
+   543→              <GoldList
+   544→                items={[
+   545→                  <span key="inc-rotate">Rotación de credenciales.</span>,
+   546→                  <span key="inc-patch">Parcheo de la causa raíz.</span>,
+   547→                  <span key="inc-disable">Desactivar integración comprometida.</span>,
+   548→                ]}
+   549→              />
+   550→            </div>
+   551→            <div>
+   552→              <div className="text-[11px] font-mono uppercase tracking-wider rp-gold-text mb-3">
+   553→                Recuperar
+   554→              </div>
+   555→              <GoldList
+   556→                items={[
+   557→                  <span key="inc-restore">Restore desde backup.</span>,
+   558→                  <span key="inc-replay">Reproceso desde outbox.</span>,
+   559→                  <span key="inc-verify">Verificación de integridad.</span>,
+   560→                ]}
+   561→              />
+   562→            </div>
+   563→            <div>
+   564→              <div className="text-[11px] font-mono uppercase tracking-wider rp-gold-text mb-3">
+   565→                Aprender
+   566→              </div>
+   567→              <GoldList
+   568→                items={[
+   569→                  <span key="inc-pm">Postmortem sin culpa.</span>,
+   570→                  <span key="inc-adr">ADR de la lección aprendida.</span>,
+   571→                  <span key="inc-runbook">Runbook actualizado.</span>,
+   572→                ]}
+   573→              />
+   574→            </div>
+   575→          </div>
+   576→        </GlassCard>
+   577→      </div>
+   578→
+   579→      {/* Callout sin RLS */}
+   580→      <div className="mb-12">
+   581→        <Callout kind="warn" title="Sin RLS nativa">
+   582→          SQLite/D1 <span className="text-foreground">no tiene Row-Level Security</span>. El
+   583→          aislamiento entre tenants vive en la capa de aplicación:{" "}
+   584→          <span className="text-foreground">Tenant Enforcement Layer</span>, constraints
+   585→          compuestos <code className="font-mono text-[12px] rp-gold-text">(organization_id, id)</code>{" "}
+   586→          en cada PK, y tests IDOR automáticos en CI. Esto es el riesgo #1 de information
+   587→          disclosure y queda mitigado, no eliminado, por features de la base de datos. Cada nuevo
+   588→          endpoint que toca datos tenant-scoped debe pasar el gate de tests IDOR antes de merge.
+   589→        </Callout>
+   590→      </div>
+   591→
+   592→      {/* Stats */}
+   593→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   594→        <Stat label="RPO" value="≤ 15min" sub="Recovery Point Objective" accent="gold" />
+   595→        <Stat label="RTO" value="≤ 2h" sub="Recovery Time Objective" accent="gold" />
+   596→        <Stat label="SLO núcleo" value="99.9%" sub="reservas + floor ops por local" accent="teal" />
+   597→        <Stat
+   598→          label="Pentest"
+   599→          value="pre-prod"
+   600→          sub="obligatorio antes de producción"
+   601→          accent="fg"
+   602→        />
+   603→      </div>
+   604→    </Section>
+   605→  );
+   606→}
+   607→
+   608→/* ============================================================ */
+   609→/* 17 — OBSERVABILIDAD                                           */
+   610→/* ============================================================ */
+   611→const OBS_CHART = `flowchart LR
+   612→  W["Workers / DO / Queues"] --> L["Logs estructurados (PII redact)"]
+   613→  W --> M["Métricas"]
+   614→  W --> T["Trazas (correlation_id)"]
+   615→  L --> WH[("Warehouse / R2")]
+   616→  M --> WH
+   617→  T --> WH
+   618→  WH --> DASH["Dashboards"]
+   619→  WH --> ALERT["Alertas (SLO burn)"]
+   620→  ALERT --> ONCALL["On-call / Incidentes"]
+   621→  W --> AUD[("Audit log D1 (append-only)")]
+   622→  AUD --> R2L[("R2 retención larga")]`;
+   623→
+   624→type PilarRow = {
+   625→  id: string;
+   626→  pilar: string;
+   627→  impl: string;
+   628→  notas: string;
+   629→};
+   630→
+   631→const PILAR_ROWS: PilarRow[] = [
+   632→  {
+   633→    id: "logs",
+   634→    pilar: "Logs estructurados",
+   635→    impl: "JSON en Workers; redacción PII por allowlist",
+   636→    notas: "retención por entorno",
+   637→  },
+   638→  {
+   639→    id: "metrics",
+   640→    pilar: "Métricas",
+   641→    impl: "counters, histograms, gauges por dominio",
+   642→    notas: "exportadas a Cloudflare Analytics + warehouse",
+   643→  },
+   644→  {
+   645→    id: "traces",
+   646→    pilar: "Trazas distribuidas",
+   647→    impl: "correlation_id por request; propagado a queues/workflows",
+   648→    notas: "end-to-end",
+   649→  },
+   650→  {
+   651→    id: "audit",
+   652→    pilar: "Audit logs",
+   653→    impl: "append-only en D1; inmutable",
+   654→    notas: "retención larga en R2",
+   655→  },
+   656→  {
+   657→    id: "alerts",
+   658→    pilar: "Alertas",
+   659→    impl: "SLO burn rate, error rate, latencia, coste",
+   660→    notas: "routing por severidad",
+   661→  },
+   662→  {
+   663→    id: "slo",
+   664→    pilar: "SLO/SLA",
+   665→    impl: "99.9% núcleo; error budget",
+   666→    notas: "ventana 28 días",
+   667→  },
+   668→  {
+   669→    id: "status",
+   670→    pilar: "Status page",
+   671→    impl: "pública (app status)",
+   672→    notas: "incidentes comunicados",
+   673→  },
+   674→  {
+   675→    id: "inc",
+   676→    pilar: "Gestión de incidentes",
+   677→    impl: "runbooks, on-call, postmortem",
+   678→    notas: "sin culpa",
+   679→  },
+   680→  {
+   681→    id: "pii",
+   682→    pilar: "Redacción PII",
+   683→    impl: "allowlist de campos seguros; hash de IDs",
+   684→    notas: "nunca loggear secretos",
+   685→  },
+   686→  {
+   687→    id: "ret",
+   688→    pilar: "Retención",
+   689→    impl: "logs 30d, audit 1y+ R2, métricas agregadas",
+   690→    notas: "por jurisdicción",
+   691→  },
+   692→  {
+   693→    id: "cost",
+   694→    pilar: "Coste por org",
+   695→    impl: "taggeo de requests, IA, queues, almacenamiento",
+   696→    notas: "para billing y margen",
+   697→  },
+   698→];
+   699→
+   700→export function Fase1Observabilidad() {
+   701→  return (
+   702→    <Section
+   703→      id="f1-observabilidad"
+   704→      index="17"
+   705→      eyebrow="Observabilidad"
+   706→      title="Logs redactados, métricas, trazas y coste por organización."
+   707→      intro={
+   708→        <>
+   709→          Observabilidad sin franquicias: logs estructurados con redacción PII, métricas por
+   710→          dominio, trazas distribuidas vía <span className="text-foreground">correlation_id</span>,
+   711→          audit log append-only, alertas sobre SLO burn rate, status page pública y gestión de
+   712→          incidentes con postmortem sin culpa. Cada request, evento e inferencia IA se etiqueta
+   713→          con <code className="font-mono text-[12px] rp-gold-text">organization_id</code> para
+   714→          atribuir coste y construir el feed de billing metered.
+   715→        </>
+   716→      }
+   717→    >
+   718→      {/* Pilares */}
+   719→      <div className="mb-12">
+   720→        <H3 className="mb-3">Pilares de observabilidad</H3>
+   721→        <Lead className="mb-4">
+   722→          Once pilares cubren desde el log individual hasta el coste por organización. La
+   723→          honestidad sobre límites es parte del contrato: Workers Logs tiene retención acotada y
+   724→          Analytics Engine tiene límites de cardinalidad, por eso exportamos a warehouse para
+   725→          retención larga y consultas ad-hoc.
+   726→        </Lead>
+   727→        <DataTable
+   728→          head={["Pilar", "Implementación", "Notas"]}
+   729→          rows={PILAR_ROWS.map((p) => [
+   730→            <span key={`${p.id}-p`} className="font-mono text-[13px] rp-gold-text">
+   731→              {p.pilar}
+   732→            </span>,
+   733→            <span key={`${p.id}-i`} className="text-foreground/80">
+   734→              {p.impl}
+   735→            </span>,
+   736→            <span key={`${p.id}-n`} className="text-foreground/65">
+   737→              {p.notas}
+   738→            </span>,
+   739→          ])}
+   740→        />
+   741→      </div>
+   742→
+   743→      {/* Diagrama */}
+   744→      <div className="mb-12">
+   745→        <H3 className="mb-3">Pipeline de observabilidad</H3>
+   746→        <Lead className="mb-4">
+   747→          Workers, Durable Objects y Queues emiten los tres pilares en paralelo. Los logs, métricas
+   748→          y trazas aterrizan en un warehouse (con R2 como capa de retención larga); el audit log
+   749→          es una vía separada y append-only en D1, archivada a R2 para cumplimiento.
+   750→        </Lead>
+   751→        <Mermaid chart={OBS_CHART} />
+   752→      </div>
+   753→
+   754→      {/* Correlation ID */}
+   755→      <div className="mb-12 grid gap-6 md:grid-cols-2">
+   756→        <GlassCard variant="gold">
+   757→          <H3>Correlation ID obligatorio</H3>
+   758→          <Lead className="mt-2">
+   759→            Sin correlation_id no hay observabilidad end-to-end. Es la única forma de seguir un
+   760→            journey a través de Workers, Queues, Workflows, DO y webhooks salientes.
+   761→          </Lead>
+   762→          <div className="mt-5">
+   763→            <GoldList
+   764→              items={[
+   765→                <span key="cid-gen">
+   766→                  Todo request genera un{" "}
+   767→                  <code className="font-mono text-[12px] text-foreground/90">correlation_id</code> en
+   768→                  la frontera.
+   769→                </span>,
+   770→                <span key="cid-prop">
+   771→                  Se propaga a Queues, Workflows, DO y webhooks salientes como header y como campo
+   772→                  del envelope.
+   773→                </span>,
+   774→                <span key="cid-audit">
+   775→                  Se incluye en cada entrada del audit log.
+   776→                </span>,
+   777→                <span key="cid-ai">
+   778→                  Se incluye en <code className="font-mono text-[12px] text-foreground/90">ai_requests</code>{" "}
+   779→                  para auditar inferencias.
+   780→                </span>,
+   781→                <span key="cid-journey">
+   782→                  Permite reconstruir el journey completo de una acción de negocio.
+   783→                </span>,
+   784→                <span key="cid-client">
+   785→                  El cliente puede recibirlo en mensajes de error para soporte (sin PII).
+   786→                </span>,
+   787→              ]}
+   788→            />
+   789→          </div>
+   790→        </GlassCard>
+   791→
+   792→        <GlassCard>
+   793→          <H3>Control de costes por organización</H3>
+   794→          <Lead className="mt-2">
+   795→            Cada unidad de cómputo se atribuye a una organización. Sin esto no hay billing metered
+   796→            ni defensa de margen.
+   797→          </Lead>
+   798→          <div className="mt-5">
+   799→            <GoldList
+   800→              items={[
+   801→                <span key="cost-tag">
+   802→                  Taggeo de cada request/event con{" "}
+   803→                  <code className="font-mono text-[12px] text-foreground/90">organization_id</code>.
+   804→                </span>,
+   805→                <span key="cost-workers">Medición de requests Workers.</span>,
+   806→                <span key="cost-d1">Lecturas/escrituras D1.</span>,
+   807→                <span key="cost-r2">Almacenamiento R2 (por objeto y egress).</span>,
+   808→                <span key="cost-kv">Operaciones KV.</span>,
+   809→                <span key="cost-queue">Mensajes Queue.</span>,
+   810→                <span key="cost-ia">Inferencias IA (tokens, modelo, latencia).</span>,
+   811→                <span key="cost-agg">
+   812→                  Agregación diaria →{" "}
+   813→                  <code className="font-mono text-[12px] text-foreground/90">usage_records</code>.
+   814→                </span>,
+   815→                <span key="cost-ent">
+   816→                  Comparación con entitlements del plan; alertas de overrun.
+   817→                </span>,
+   818→                <span key="cost-feed">
+   819→                  Feed a billing metered y al dashboard de Super Admin.
+   820→                </span>,
+   821→              ]}
+   822→            />
+   823→          </div>
+   824→        </GlassCard>
+   825→      </div>
+   826→
+   827→      {/* Callout SLO */}
+   828→      <Callout kind="info" title="SLO y error budget">
+   829→        SLO <span className="text-foreground">99.9%</span> para servicios núcleo (reservas y floor
+   830→        ops por local). El error budget mensual son{" "}
+   831→        <span className="text-foreground">~43 minutos</span> de fallo permitido. Si el presupuesto
+   832→        se consume más del <span className="text-foreground">50%</span>, se congela el despliegue
+   833→        de features no esenciales hasta restaurar la holgura. El SLO mide{" "}
+   834→        <span className="text-foreground">éxito visible para el usuario</span> (reserva confirmada,
+   835→        mesa asignada, mensaje enviado), no solo uptime del endpoint. Las ventanas son de 28 días
+   836→        para alinearse con ritmos de despliegue y on-call.
+   837→      </Callout>
+   838→    </Section>
+   839→  );
+   840→}
+   841→

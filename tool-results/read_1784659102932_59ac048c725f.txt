@@ -1,0 +1,280 @@
+     1→---
+     2→Task ID: 1
+     3→Agent: main (architect)
+     4→Task: Diseñar y construir el entregable de Fase 0 de RestoPanel como un documento estratégico-arquitectónico navegable y premium en Next.js.
+     5→
+     6→Work Log:
+     7→- Revisé estado del proyecto: Next.js 16 + shadcn/ui completo, dev server activo en :3000.
+     8→- Generé isotipo de marca RestoPanel con image-generation CLI (dorada sobre oscuro, premium operativo) → public/brand/isotipo.png.
+     9→- Definí design tokens de marca en globals.css: dark mode primario, dorado (#D4AF37) como acento, turquesa (#3DD6C9) para info, glassmorphism funcional, grid sutil, glow utilities, scroll-thin, prefers-reduced-motion.
+    10→- Actualicé layout.tsx: metadata RestoPanel, fuentes Fraunces (display) + Inter (UI) + JetBrains Mono (datos), dark theme por defecto, lang es, favicon = isotipo.
+    11→- Construí primitives.tsx: Section, Tag (Imprescindible/Importante/Posterior/Experimental), GlassCard, Stat, Pill, H3, Lead, DataTable, GoldList, KV.
+    12→- Construí nav.tsx: sidebar desktop con scrollspy (IntersectionObserver) + top bar mobile colapsable + BrandMark (SVG inline del isotipo).
+    13→- Construí hero.tsx: hero con isotipo, tesis, KPIs y 6 principios no negociables.
+    14→- Secciones 1-3 (sections-a.tsx): Resumen ejecutivo (tesis, decisiones partida), Supuestos y decisiones clave, Visión estratégica (problemas, segmentos, diferenciadores, modelo, planes, North Star, KPIs, hipótesis).
+    15→- Sección 4 (sections-brand.tsx): Arquitectura de marca — posicionamiento, voz, naming de módulos, 4 variantes de logo, app icons, usos prohibidos, paleta de 12 colores, 3 tipografías, escala tipográfica, kit de marca y plantillas.
+    16→- Sección 5 (sections-brand.tsx): Design System — tokens, breakpoints, estados, motion, a11y WCAG 2.2 AA, catálogo de componentes base + dominio, showcase en vivo, gobierno.
+    17→- Secciones 6-8 (sections-arch.tsx): Arquitectura funcional (6 apps + 17 dominios con owner/riesgo/MVP), Arquitectura técnica (topología Control Plane + Tenant Cells, stack Cloudflare, monorepo, comparativa modular, transversales), Modelo de datos (convenciones, Tenant Enforcement Layer, entidades por dominio).
+    18→- Secciones 9-10 (sections-ux.tsx): 9 flujos UX críticos con actor/pasos/estados/excepciones/automatizaciones/datos/métrica + a11y; Seguridad (15 controles, impersonación, GDPR, respuesta a incidentes, SLO/RPO/RTO).
+    19→- Secciones 11-14 (sections-plan.tsx): Roadmap 5 fases con timeline, Backlog 25 iniciativas priorizadas + DoR/DoD, Riesgos + decisiones pendientes, Recomendaciones finales.
+    20→- Compuse page.tsx: min-h-screen flex-col, SideNav, Hero, 14 secciones, Footer sticky.
+    21→- Pendiente: verificación con Agent Browser + lint.
+    22→
+    23→Stage Summary:
+    24→- Entregable: documento Fase 0 completo de RestoPanel renderizado en la ruta / (única ruta visible).
+    25→- Diseño: dark mode primario, dorado acento, turquesa info, glassmorphism funcional, alta densidad informativa, navegación sticky con scrollspy de 14 secciones, footer sticky al fondo.
+    26→- Contenido: 14 secciones que cubren resumen ejecutivo, supuestos/decisiones, visión estratégica, marca, design system, arquitectura funcional (17 dominios), arquitectura técnica (Cloudflare + control plane/tenant cells), modelo de datos, flujos UX (9 journeys), seguridad/cumplimiento, roadmap (5 fases), backlog (25 iniciativas), riesgos, recomendaciones.
+    27→- Marca: isotipo generado en public/brand/isotipo.png, tokens de marca en CSS, 4 variantes de logo renderizadas, paleta de 12 colores, 3 tipografías.
+    28→- Decisiones clave reflejadas: organization como frontera, D1 canónico, Tenant Enforcement Layer (sin RLS simulada), modular monolith sobre Workers, Workers AI como proveedor primario, sin trial libre, Stripe para billing.
+    29→
+    30→---
+    31→Task ID: 1 (verificación)
+    32→Agent: main (architect)
+    33→Task: Verificación end-to-end con Agent Browser + lint + dev log.
+    34→
+    35→Work Log:
+    36→- ESLint: 4 errores jsx-key corregidos (sections-arch.tsx y sections-plan.tsx) → lint limpio.
+    37→- Agent Browser: página carga en / con 200, sin errores de consola ni de página.
+    38→- Estructura verificada: nav lateral con 14 items + hero + todas las secciones + tablas renderizadas.
+    39→- Interacción verificada: clic en item de índice (#datos) navega y hace scroll correctamente; URL actualiza a /#datos.
+    40→- Responsive verificado: viewport móvil 390x844, nav superior colapsable abre índice correctamente.
+    41→- Footer sticky: en página larga (69k px) el footer queda al final del contenido (natural push, sin overlap).
+    42→- VLM confirmó: tema oscuro premium con dorado renderiza bien, layout balanceado, sin glitches, sidebar con estado activo visible.
+    43→
+    44→Stage Summary:
+    45→- Entregable Fase 0 de RestoPanel verificado y funcional en la ruta /.
+    46→- Listo para revisión del usuario vía Preview Panel.
+    47→
+    48→---
+    49→Task ID: 1.1-INFRA
+    50→Agent: main (architect)
+    51→Task: Infraestructura compartida para Fase 1.1 (Arquitectura Enterprise).
+    52→
+    53→Work Log:
+    54→- Instalé mermaid@11.16.0 y verifiqué zustand ya presente.
+    55→- Creé phase-store.ts (zustand) con toggle Fase 0 / Fase 1.1 (default fase1).
+    56→- Creé mermaid.tsx (client, no SSR, theme dark con tokens de marca, render con fallback de error legible).
+    57→- Extendí primitives.tsx con: Risk (nivel bajo/medio/alto/crítico), Callout (adr/warn/info/ok), Code (bloque de código con header de lenguaje).
+    58→- Reescribí nav.tsx: NAV_FASE0 (15 items) + NAV_FASE1 (24 items), scrollspy reinicializado al cambiar fase, PhaseToggle en sidebar y mobile top bar.
+    59→- Reescribí page.tsx como wrapper client que renderiza Fase0 o Fase1 según phase store, con footer adaptativo.
+    60→- Creé directorio src/components/rp/sections-fase1/ para los 24 componentes de sección (a crear por subagentes en paralelo).
+    61→
+    62→Stage Summary:
+    63→- Infraestructura lista para que 4 subagentes construyan en paralelo los bloques de contenido de Fase 1.1.
+    64→- Bloques: A (f1-hero, f1-a: resumen/supuestos/riesgos), B (f1-b: logica/fisica/diagrama), C (f1-c: monorepo/tenancy/er/diccionario/sql), D (f1-d: auth/impersonation/realtime), E (f1-e: eventos/threat/observabilidad), F (f1-f: testing/cicd/escala/costes/backlog/criterios/adrs).
+    65→- Primitivas disponibles para subagentes: Section, Tag, Risk, GlassCard, Stat, Pill, H3, Lead, DataTable, GoldList, KV, Callout, Code (todas en src/components/rp/primitives.tsx) y Mermaid (src/components/rp/mermaid.tsx).
+    66→
+    67→---
+    68→Task ID: 1.1-A
+    69→Agent: full-stack-developer
+    70→Task: Construir los entregables del bloque A de Fase 1.1 (Arquitectura Enterprise): hero + resumen ejecutivo + supuestos y validación + riesgos y contradicciones.
+    71→
+    72→Work Log:
+    73→- Leí worklog.md previo: infraestructura de Fase 1.1 lista (primitives extendidas con Risk/Callout/Code, nav con 24 items NAV_FASE1, phase-store zustand, page.tsx como wrapper client). Directorio sections-fase1/ vacío esperando a 4 subagentes en paralelo.
+    74→- Revisé primitives.tsx (Section, GlassCard, Stat, DataTable, GoldList, H3, Lead, Risk, Callout, Pill, KV, Code), hero.tsx (patrón de hero Fase 0 con gradientes radiales gold/teal, grid bg, BrandMark), sections-a.tsx (patrones de uso de DataTable con keys en JSX elements), nav.tsx (BrandMark export), globals.css (tokens rp-glass, rp-glow-gold, rp-glow-teal, rp-grid-bg, rp-gold-gradient).
+    75→- Creé src/components/rp/sections-fase1/f1-hero.tsx exportando Fase1Hero:
+    76→  - Hero (id="f1-inicio") con gradientes radiales gold/teal, grid bg, BrandMark, lg:ml-72 para sidebar.
+    77→  - Pills: "Fase 1.1 · Arquitectura Enterprise" (gold), "Spec V1.1" (teal), "Implementable" (outline).
+    78→  - Título font-display con rp-gold-gradient: "Arquitectura fundacional multi-tenant sobre Cloudflare."
+    79→  - Subtitle exacto del brief.
+    80→  - CTAs a #f1-resumen y #f1-escala.
+    81→  - 4 stats: Entregables 24 / Dominios 17 / Etapa objetivo 100k+ / ADRs iniciales 8.
+    82→  - Glass card derecha (rp-glow-teal) con 5 hechos arquitectónicos + BrandMark + estado "Spec V1.1 · implementable".
+    83→  - Strip de 6 principios no negociables numerados 01-06 (aislamiento, navegador no decide tenant, D1 canónico, contratos sin dependencias circulares, idempotencia, medir antes de optimizar).
+    84→- Creé src/components/rp/sections-fase1/f1-a.tsx exportando Fase1Resumen, Fase1Supuestos, Fase1Riesgos:
+    85→  - Fase1Resumen (id="f1-resumen", index 01): GlassCard gold con tesis (escalar 1→100k vía sharding evolutivo, sin microservicios prematuros ni RLS simulada) + 3 Stats (1.1 / V1.1 / A→D) + dos cards (entrega 24 entregables vs no-asume) + DataTable "Decisiones técnicas de partida" (7 filas: Cloudflare plataforma completa, multi-tenant por celdas, modular monolith, Tenant Enforcement Layer, Workers AI primario, Stripe billing, sin trial) con Risk en columna Riesgo.
+    86→  - Fase1Supuestos (id="f1-supuestos", index 02): dos cards — "Supuestos operativos" DataTable (6 filas con D1 carga/shard, Workers AI, WhatsApp Cloud API, Google Business Profile, D1 10GB/shard, Stripe multi-divisa) + "Requisitos pendientes de validación" GoldList (8 items) + Callout warn "Validación obligatoria".
+    87→  - Fase1Riesgos (id="f1-riesgos", index 03): DataTable "Registro de riesgos" (8 filas con Risk en Impacto: D1 100k crítico, RLS nativa crítico, DO única copia alto, coste IA alto, WhatsApp medio, microservicios prematuros medio, Time Travel backup alto, KV autoritativo crítico) + Callout warn "Contradicción detectada" (tensión D1 vs 100k, resuelta por sharding honesto) + Callout adr ADR-003 "Sharding obligatorio desde Etapa B".
+    88→- Honestidad técnica sobre Cloudflare D1: ~10GB por base, sin RLS nativa (SQLite), Time Travel como punto-en-tiempo no backup de conservación, sharding obligatorio desde Etapa B, KV no autoritativo para permisos/entitlements. No se afirma que D1 escala solo a 100k — siempre se referencia sharding por celdas.
+    89→- Lint: bunx eslint sobre f1-hero.tsx y f1-a.tsx → 0 errores, 0 warnings. bun run lint (global) → 0 errores (ESLint no flaggea módulos faltantes; los errores de dev.log son module-not-found de f1-b…f1-f, responsabilidad de otros subagentes B-F, no de este bloque A).
+    90→
+    91→Stage Summary:
+    92→- Bloque A de Fase 1.1 completo: f1-hero.tsx (Fase1Hero) + f1-a.tsx (Fase1Resumen, Fase1Supuestos, Fase1Riesgos).
+    93→- 3 secciones navegables vía NAV_FASE1 (items 00-03) + hero con id f1-inicio.
+    94→- Contenido técnicamente honesto: D1 sharding, sin RLS simulada, modular monolith, Workers AI primario, ADR-003 registrado.
+    95→- Lint limpio en archivos propios. Sin blockers para este bloque.
+    96→- Pendiente de otros subagentes: f1-b (logica/fisica/diagrama), f1-c (monorepo/tenancy/er/diccionario/sql), f1-d (auth/impersonation/realtime), f1-e (eventos/threat/observabilidad), f1-f (testing/cicd/escala/costes/backlog/criterios/adrs). Hasta que existan, page.tsx no compila por module-not-found, pero eso no afecta a la calidad de los archivos del bloque A.
+    97→
+    98→---
+    99→Task ID: 1.1-C
+   100→Agent: full-stack-developer
+   101→Task: Construir el bloque C de Fase 1.1 (monorepo + tenancy + ER + diccionario + SQL D1) como 5 componentes en `src/components/rp/sections-fase1/f1-c.tsx`.
+   102→
+   103→Work Log:
+   104→- Leí worklog previo: Fase 0 completa + infra Fase 1.1 (phase-store, mermaid, primitives con Risk/Callout/Code, nav con 24 items, dir sections-fase1 listo).
+   105→- Creé `src/components/rp/sections-fase1/f1-c.tsx` con 5 componentes exportados:
+   106→  - `Fase1Monorepo` (id=f1-monorepo, 07): árbol monorepo corregido en Code text con packages/{contracts,tenancy,storage,audit,observability,config}, workers/{api,webhooks,cron,queues,workflows,realtime}, database/migrations/{control-plane,tenant-cell}, infra/cloudflare, docs/adr. GlassCard gold "Reglas PERMITIDAS" + GlassCard destructive "Reglas PROHIBIDAS" (GoldList). DataTable "Contratos entre módulos" (Comando/Query/Evento/Interfaz/Read model). GlassCard gold con 20 eventos de dominio del catálogo inicial. GlassCard de Versionado. Callout ok sobre CI (eslint-plugin-boundaries + dependency-cruiser).
+   107→  - `Fase1Tenancy` (id=f1-tenancy, 08): Mermaid flowchart TB con jerarquía Organization → Restaurant → Location → users/reservations/customers/menus/analytics + flecha multi-org. DataTable "Aislamiento multi-tenant" con 11 filas (Mecanismo/Implementación/Riesgo con Tag). GlassCard gold "Pruebas automáticas anti-fuga" (5 items). Callout warn "D1 sin RLS nativa" (no simular RLS).
+   108→  - `Fase1ER` (id=f1-er, 09): Mermaid erDiagram con 20 relaciones cubriendo organizations, restaurants, locations, floors, zones, tables, reservations, customers, history, preferences, tags, members, roles, subscriptions, plans, menus, items, ai_requests, audit_logs. DataTable "Convenciones de modelo" (9 filas).
+   109→  - `Fase1Diccionario` (id=f1-diccionario, 10): 14 DataTables agrupados por dominio (Plataforma/Billing, Identidad, Restaurantes, Reservas, CRM, Carta, Personal, Analítica, IA, Marketing, Reputación, Mensajería, Notificaciones, Integraciones). ~60 filas. Columnas: Tabla (mono gold) / Propósito / PK-Índices / Tenant / Sensible / Volumen. Callout info sobre particionado a R2.
+   110→  - `Fase1SQL` (id=f1-sql, 11): Code lang=sql con esquema D1/SQLite completo: 17 tablas control plane + 17 tablas tenant con PK compuesta (organization_id, id) + events_outbox append-only. Incluye `idx_res_idem` UNIQUE por org (idempotencia), FK compuestas, índices liderando con organization_id, sin SERIAL, sin triggers complejos. GlassCard gold "Patrones clave del SQL". Callout warn "Sin RLS, sin GENERATED always complejas".
+   111→- Verifiqué SQL válido para SQLite/D1: TEXT para ULID/timestamps ISO-8601 UTC, INTEGER minor units para money, partial UNIQUE index con WHERE idem_key IS NOT NULL, JSON como TEXT validado con Zod en app.
+   112→- Lint: `bun run lint` limpio, sin errores ni warnings en mi archivo. Dev log reporta Module not found para f1-f (otro agente paralelo), no para f1-c.
+   113→- React keys: cada JSX en arrays `rows` tiene key semántica por columna (t/p/k/ten/s/v) sin colisiones.
+   114→- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/1.1-C-full-stack-developer.md`.
+   115→
+   116→Stage Summary:
+   117→- Archivo: `src/components/rp/sections-fase1/f1-c.tsx` (~720 líneas).
+   118→- 5 componentes exportados con los nombres exactos que page.tsx importa.
+   119→- Contenido exhaustivo en español, dark theme premium (dorado #D4AF37, turquesa #3DD6C9, glassmorphism).
+   120→- SQL D1/SQLite técnicamente preciso: PK compuestas anti cross-tenant, FK compuestas, idem_key UNIQUE por org, sin RLS simulada, sin GENERATED complejas.
+   121→- Lint limpio. Sin bloqueadores. Otros agentes paralelos (f1-d, f1-e, f1-f) aún pendientes de crear.
+   122→
+   123→---
+   124→Task ID: 1.1-B
+   125→Agent: full-stack-developer
+   126→Task: Construir bloque B de Fase 1.1 — `src/components/rp/sections-fase1/f1-b.tsx` con tres secciones: `Fase1Logica` (04), `Fase1Fisica` (05), `Fase1Diagrama` (06).
+   127→
+   128→Work Log:
+   129→- Leí worklog previo: infra de Fase 1.1 lista (mermaid.tsx, primitives extendidas con Risk/Callout/Code, phase-store, nav con 24 items, page.tsx que importa bloques A–F). Agentes A y B trabajan en paralelo; f1-hero y f1-a ya creados.
+   130→- Revisé `primitives.tsx` (firma exacta de Section/GlassCard/Stat/Pill/H3/Lead/DataTable/GoldList/KV/Risk/Callout/Code) y `mermaid.tsx` (client, theme dark+gold+teal, fallback de error).
+   131→- Revisé `f1-a.tsx` para alinear convenciones: imports vía `@/components/rp/primitives`, tono editorial, uso de GoldList/H3/Lead dentro de GlassCard.
+   132→- Verifiqué sintaxis mental de los 3 charts Mermaid proporcionados:
+   133→  - Chart lógica: subgraphs con strings citadas (comas/paréntesis OK dentro de quotes), cylinders `[(D1)]` para infra — válido.
+   134→  - Chart física: edge label `|route org→cell|` con unicode arrow, diamond `{"Org → Shard Router"}`, multi-line `<br/>` — válido.
+   135→  - Chart diagrama: edge label citado `|"transacción: estado + outbox"|`, cylinder multi-line `D1[("D1 shard<br/>tenant cell")]`, re-referencia `DO --> D1` — válido.
+   136→- Implementé `f1-b.tsx` con tres exports:
+   137→  - `Fase1Logica`: Mermaid de capas (Apps→Dominio→Infra), DataTable "Dominios y dependencias permitidas" (15 filas; Dominio en mono gold, Depende de en texto muted, Expuesto a en Pills teal con nota mono muted para anotaciones de adaptadores), GlassCard gold "Regla de inversión de dependencias" con dos columnas (Principio + Casos de swap reales: NotificationSender/PaymentGateway/ChatModel/ObjectStore).
+   138→  - `Fase1Fisica`: Mermaid de topología Control Plane + Tenant Cells + Dedicated Cell, DataTable "Servicio Cloudflare → rol y límites" (10 filas con `<Risk level>` en cuarta columna), Callout warn "D1 no es infinito" (10GB, sharding para 100k, Time Travel ≠ backup, R2 durable), GlassCard "Convenciones físicas" con GoldList en 2 columnas.
+   139→  - `Fase1Diagrama`: Mermaid LR integrando request+tenant+datos+eventos, GlassCard teal "Leyenda de flujo" con 5 invariantes (WAF→Auth→Tenant→RBAC→Entitlement, org_id servidor, outbox+queues, idempotencia, DO efímero vs D1 durable), Stat row 4 métricas (latencia p95 <300ms gold, SLO 99.9% teal, RPO ≤15min fg, RTO ≤2h fg).
+   140→- Manejo de keys en DataTables: cada celda usa key `${id}-${field}` (ej. `${d.id}-name`, `${s.svc}-risk`); Pills internas usan `${d.id}-exp-${token.trim()}`. Cumple regla lint de keys estables y únicas por fila.
+   141→- `bun run lint` → limpio, 0 errores en mis archivos.
+   142→- Dev log: "✓ Compiled in 546ms" confirma que mi módulo resuelve. Errores residuales en log son de f1-c/d/e/f (otros agentes en paralelo), no míos.
+   143→- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/1.1-B-full-stack-developer.md`.
+   144→
+   145→Stage Summary:
+   146→- Archivo creado: `src/components/rp/sections-fase1/f1-b.tsx` (~440 líneas, 3 exports).
+   147→- 3 diagramas Mermaid válidos integrados con theme dark+gold+teal del proyecto.
+   148→- 2 DataTables (15 + 10 filas) con keys estables y únicas por celda.
+   149→- 1 Callout warn (D1), 3 GlassCard (gold inversión de dependencias, teal leyenda de flujo, default convenciones físicas), 4 Stats (latencia/SLO/RPO/RTO).
+   150→- Contenido 100% en español, técnicamente preciso sobre primitivas Cloudflare (D1 ~10GB, DO = unidad de partición, KV consistencia eventual + 1MB/valor, R2 egress gratuito, Time Travel = point-in-time no backup).
+   151→- Lint limpio. Sin blockers. Bloque B listo para integración cuando los bloques C/D/E/F terminen.
+   152→
+   153→---
+   154→Task ID: 1.1-E
+   155→Agent: full-stack-developer
+   156→Task: Construir el bloque E de Fase 1.1 (Arquitectura Enterprise) como 3 componentes en `src/components/rp/sections-fase1/f1-e.tsx`: `Fase1Eventos`, `Fase1Threat`, `Fase1Observabilidad`.
+   157→
+   158→Work Log:
+   159→- Leí worklog previo: infra Fase 1.1 lista (mermaid.tsx, primitives con Risk/Callout/Code, phase-store, nav con 24 items, page.tsx wrapper client). Bloques A, B, C ya entregados por subagentes paralelos. Pendiente: D, E (este), F.
+   160→- Revisé `primitives.tsx` (firma exacta de Section/GlassCard/Stat/Pill/H3/Lead/DataTable/GoldList/KV/Risk/Callout/Code), `mermaid.tsx` (client, theme dark+gold+teal, fallback de error) y `f1-b.tsx` (patrones de uso de DataTable con keys estables y GlassCard con GoldList).
+   161→- Creé `src/components/rp/sections-fase1/f1-e.tsx` con tres exports:
+   162→  - **Fase1Eventos** (id=f1-eventos, index 15): Mermaid flowchart LR pipeline eventos; Code lang=json con envelope canónico (ULID, correlation_id, causation_id, actor_effective_id, payload); DataTable "Consumidores: garantías obligatorias" 8 filas con Risk alto/medio; GlassCard gold "Webhooks salientes" 8 items (HMAC-SHA256 rotativo, anti replay 5min, backoff, at-least-once, webhook_deliveries, kill switch, eventos seleccionables, scope por org); GlassCard "Workflows para procesos largos" 7 items (onboarding, importaciones, exportaciones, campañas, conciliaciones, migración shards, restauración backup); Callout ok "Outbox = atomicidad".
+   163→  - **Fase1Threat** (id=f1-threat, index 16): DataTable "Threat model (STRIDE)" 5 columnas × 6 filas (Spoofing/Tampering/Repudiation/Info Disclosure/DoS/Elevation); GlassCard gold "Controles transversales de seguridad" 13 items (CSP, HSTS, CSRF, XSS, SQLi parametrizadas, SSRF allowlist, Zod, secretos fuera de código/D1/KV/R2/FE, TLS+R2 SSE, SAST+DAST+secret scanning, supply chain, pentest pre-prod, separación prod/test); DataTable "Controles por superficie" 7 filas con Risk (API alto, Widget medio, Dashboard alto, Super Admin crítico, Webhooks entrantes alto, Integraciones alto, IA alto); GlassCard "Respuesta a incidentes" grid 5 columnas (Detectar/Contener/Erradicar/Recuperar/Aprender); Callout warn "Sin RLS nativa" (SQLite/D1 sin RLS, mitigado en app layer); Stat row 4 (RPO ≤15min, RTO ≤2h, SLO núcleo 99.9%, Pentest pre-prod).
+   164→  - **Fase1Observabilidad** (id=f1-observabilidad, index 17): DataTable "Pilares de observabilidad" 11 filas (logs, métricas, trazas, audit, alertas, SLO/SLA, status page, incidentes, redacción PII, retención, coste por org); Mermaid flowchart LR pipeline observabilidad (Workers/DO/Queues → Logs/Métricas/Trazas → Warehouse+R2 → Dashboards/Alertas → On-call; vía separada Audit log D1 → R2 retención larga); GlassCard gold "Correlation ID obligatorio" 6 items; GlassCard "Control de costes por organización" 10 items (taggeo org_id, medición de Workers/D1/R2/KV/Queue/IA, agregación diaria → usage_records, entitlements, feed billing+Super Admin); Callout info "SLO y error budget" (99.9% núcleo, ~43 min error budget, freeze non-essential deploys >50% consumo, ventana 28 días).
+   165→- Honestidad técnica Cloudflare: Workers Logs retención acotada, Analytics Engine límites de cardinalidad → warehouse para retención larga; sin distributed tracing nativo → correlation_id propagation como estrategia; D1 sin RLS → Tenant Enforcement Layer + constraints compuestos + tests IDOR en CI.
+   166→- React keys: cada celda en arrays `rows` usa key `${id}-${field}` (ej. `${g.id}-gar`, `${r.id}-prev`, `${p.id}-i`); items de GoldList usan key semántica (`wh-hmac`, `cid-gen`, `cost-tag`, `inc-alerts-slo`). Sin colisiones.
+   167→- Lint: `bunx eslint src/components/rp/sections-fase1/f1-e.tsx` → 0 errores, 0 warnings. `bun run lint` global → limpio. Dev log confirma `f1-e` resuelve; único module-not-found restante es `f1-f` (otro subagente paralelo, no mi responsabilidad).
+   168→- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/1.1-E-full-stack-developer.md`.
+   169→
+   170→Stage Summary:
+   171→- Archivo creado: `src/components/rp/sections-fase1/f1-e.tsx` (~580 líneas, 3 exports).
+   172→- 2 diagramas Mermaid válidos integrados con theme dark+gold+teal del proyecto.
+   173→- 4 DataTables (8 + 6 + 7 + 11 filas) con keys estables y únicas por celda.
+   174→- 6 GlassCards (gold webhooks, default workflows, gold controles transversales, default respuesta a incidentes con grid 5 cols, gold correlation ID, default control de costes).
+   175→- 3 Callouts (ok outbox atomicidad, warn sin RLS nativa, info SLO y error budget).
+   176→- 1 Stat row (RPO/RTO/SLO/Pentest), 1 Code block (JSON envelope canónico).
+   177→- Contenido 100% en español, técnicamente preciso sobre primitivas Cloudflare.
+   178→- Lint limpio. Sin bloqueadores. Pendiente de otros subagentes: f1-d (auth/impersonation/realtime) y f1-f (testing/cicd/escala/costes/backlog/criterios/adrs).
+   179→
+   180→---
+   181→Task ID: 1.1-D
+   182→Agent: full-stack-developer
+   183→Task: Construir el bloque D de Fase 1.1 (Arquitectura Enterprise): autenticación y permisos, impersonación segura y estrategia de tiempo real, como 3 componentes en `src/components/rp/sections-fase1/f1-d.tsx`.
+   184→
+   185→Work Log:
+   186→- Leí worklog previo: infra Fase 1.1 lista (primitives extendidas, Mermaid client con theme dark+gold+teal, phase-store, nav 24 items, page.tsx importa `Fase1Auth, Fase1Impersonation, Fase1Realtime` de f1-d). Bloques A, B, C ya creados.
+   187→- Revisé `primitives.tsx` (firmas Section/Tag/Risk/GlassCard/Stat/Pill/H3/Lead/DataTable/GoldList/Callout/Code) y `mermaid.tsx` (client, securityLevel loose, theme dark con gold/teal).
+   188→- Revisé `f1-b.tsx` y `f1-c.tsx` para alinear patrones: imports vía `@/components/rp/primitives`, helper `Mono`, keys por fila del DataTable en estilo `key="rol"`, etc.
+   189→- Creé `src/components/rp/sections-fase1/f1-d.tsx` con tres exports:
+   190→  - `Fase1Auth` (id=f1-auth, 12): 4 Stats + DataTable "Roles del sistema" (12 filas con Tag Imprescindible/Importante en Prioridad, Pill teal en Scope) + GlassCard gold "Roles personalizados" (GoldList 6) + DataTable "Permisos granulares" (10 filas) + GlassCard default "Modelo RBAC + ABAC" (GoldList 5 con spans keyificados) + Mermaid sequence diagram auth flow (Usuario→Worker→Auth→Sesiones D1→RBAC/ABAC→Dominio) + GlassCard gold "MFA, Passkeys, recuperación" (GoldList 9).
+   191→  - `Fase1Impersonation` (id=f1-impersonation, 13): DataTable "Requisitos de impersonación" (12 filas con Risk en columna Riesgo) + Mermaid state diagram `stateDiagram-v2` (Solicitada→Verificada→ActivaLectura↔ActivaEscritura→Revocada→[*], labels entre comillas para soportar `+`/`/`) + GlassCard gold "Lo que la impersonación NUNCA permite" (GoldList 7) + Callout ok "Trazabilidad dual" (actor_real + actor_efectivo, audit_log append-only).
+   192→  - `Fase1Realtime` (id=f1-realtime, 14): DataTable "Casos de tiempo real" (7 filas con Risk en columna Riesgo, Canónico en mono gold) + GlassCard gold "Relación DO ↔ D1" (GoldList 6) + Mermaid sequence diagram de prevención de doble reserva (C1 happy path + C2 conflicto) + Callout warn "Cloudflare Realtime, post-validación" + GlassCard default "Recuperación tras desconexión" (GoldList 6).
+   193→- React keys: cada celda de las 4 DataTables usa key semántico por posición (rol/scope/desc/prio, recurso/accion/scope/notas, req/impl/risk, caso/particion/canon/risk), sin colisiones dentro de la misma fila.
+   194→- Mermaid: 3 charts válidos (sequence, state, sequence) integrados con theme dark+gold+teal del proyecto.
+   195→- Lint: `bun run lint` → 0 errores, 0 warnings en f1-d.tsx. Dev log solo reporta module-not-found para f1-f (otro agente paralelo), no para f1-d.
+   196→- Escribí registro de trabajo en `/home/z/my-project/agent-ctx/1.1-D-full-stack-developer.md`.
+   197→
+   198→Stage Summary:
+   199→- Archivo: `src/components/rp/sections-fase1/f1-d.tsx` (~470 líneas, 3 exports).
+   200→- 3 secciones navegables vía NAV_FASE1 (items 12, 13, 14).
+   201→- 4 DataTables (41 filas totales), 3 Mermaid, 5 GlassCard (2 gold + 3 default), 2 Callout (ok + warn), 4 Stats.
+   202→- Contenido 100% en español, técnicamente preciso sobre Cloudflare (DO = unidad de partición, hibernación, D1 canónico, DO efímero, doble reserva con DO lock + D1 UNIQUE (org_id, location_id, slot, idem_key), Cloudflare Realtime post-validación, WebSockets vía DO).
+   203→- Lint limpio. Sin blockers. Bloque D listo para integración cuando los bloques E y F terminen.
+   204→
+   205→---
+   206→Task ID: 1.1-F
+   207→Agent: full-stack-developer
+   208→Task: Construir el bloque F final de Fase 1.1 — `src/components/rp/sections-fase1/f1-f.tsx` con 7 secciones: `Fase1Testing` (18), `Fase1CICD` (19), `Fase1Escala` (20), `Fase1Costes` (21), `Fase1Backlog` (22), `Fase1Criterios` (23), `Fase1ADRs` (24).
+   209→
+   210→Work Log:
+   211→- Leí worklog previo: Fase 0 completa + infra Fase 1.1 lista (phase-store, mermaid, primitives con Risk/Callout/Code/KV, nav 24 items NAV_FASE1, page.tsx importa bloques A–F). Bloques A, B, C ya creados; D y E pendientes (paralelo, no mi responsabilidad).
+   212→- Revisé primitives.tsx (firmas exactas), mermaid.tsx (theme dark+gold+teal), f1-a.tsx y f1-b.tsx (patrones: Mono helper, keys `${id}-${field}` por celda, Risk en columna con key `${s.svc}-risk`).
+   213→- Creé `src/components/rp/sections-fase1/f1-f.tsx` (~770 líneas, 7 exports):
+   214→  - **Fase1Testing** (18): DataTable "Pirámide de tests" 8 filas (Unit/Integración/Contrato/IDOR/E2E/Carga/Seguridad/Visuales-a11y, tool en rp-teal-text mono); GlassCard gold "Tests anti-fuga obligatorios" (6 items: 404/403 cross-tenant, mutación, cache poisoning, webhook falsificado, fuzzer, CI rojo bloquea merge); Callout ok "Definition of Done incluye tests" (6 items).
+   215→  - **Fase1CICD** (19): Mermaid flowchart LR Dev→PR→CI→PREV→REV→STG→E2E→PROD→OBS (9 nodos con `<br/>`); DataTable "Entornos" 4 filas (local/preview/staging/production, Risk en columna Riesgo: bajo/medio/medio/crítico); GlassCard gold "Reglas de CI/CD" (10 items); Callout warn "Separación producción/test estricta" (4 items).
+   216→  - **Fase1Escala** (20): 4 GlassCard gold (Etapa A/B/C/D) con header "Etapa X · rango" + Risk badge + dl grid 2x4 con KV (Arquitectura, Estrategia D1, Particionado, Cuellos, Observabilidad, Cambios, Costes, Señales); Callout adr ADR-004 "Crecimiento evolutivo, no big-bang".
+   217→  - **Fase1Costes** (21): DataTable "Factores de coste" 9 filas (Workers/D1/R2/KV/Queues/DO/AI/Stripe/externos); GlassCard gold "Coste dominante por etapa" (4 items); Callout warn "Estimación inicial, no compromiso" (usage_records tagged, margen por org, presupuesto IA); 4 Stats (margen >70%, coste por org trackeado, FinOps Etapa C+, presupuesto IA por plan).
+   218→  - **Fase1Backlog** (22): DataTable "Backlog técnico" 18 filas (B1-001 a B1-018) con ID mono gold, dominio mono muted, Risk en columna Riesgo, etapa como Pill teal; GlassCard gold "Definition of Ready" (6 items).
+   219→  - **Fase1Criterios** (23): DataTable "Criterios de aceptación" 15 filas con Estado = Check component (✓ Sí en emerald) y Verificación en mono muted; Callout ok "Puerta de salida de Fase 1.1".
+   220→  - **Fase1ADRs** (24): 8 GlassCard gold (ADR-001 a ADR-008) cada uno con id Mono gold + Risk badge, H3 title, Estado mono teal, dl con Contexto/Decisión/Consecuencias (dt mono uppercase rp-teal-text); Callout info final "Preguntas bloqueantes (máx. 10)" con ordered list de 10 preguntas.
+   221→- Helpers locales: `Mono({children})` para código inline dorado, `Check()` para "✓ Sí" en verde.
+   222→- React keys: cada celda JSX usa key `${id}-${field}` (ej. `${b.id}-risk`, `${e.env}-risk`, `${t.nivel}-tool`, `crit-${i}-e`, `preg-${i}`). GlassCard mapeadas usan key `etapa-${e.id}` y `a.id`. Sin colisiones.
+   223→- Mermaid: verifiqué sintaxis del flowchart CI/CD — 9 nodos con strings citados, `<br/>` multi-línea, flechas `-->`. Válido con securityLevel loose.
+   224→- Honestidad técnica Cloudflare: costes usage-based sin cifras inventadas; factores por etapa (A: Workers+D1 bajo; B: D1+Queues+AI; C: R2+AI+Queues; D: FinOps obligatorio). D1 ~10GB en ADR-003. Sin prometer escala sin sharding.
+   225→- Lint: `bunx eslint src/components/rp/sections-fase1/f1-f.tsx` → 0 errores, 0 warnings. `bun run lint` global → 0 errores.
+   226→- Dev log: "Module not found" para f1-d, f1-e, f1-f son stale (anteriores a mi creación). Mi f1-f ahora existe y resuelve. f1-d y f1-e siguen pendientes (otros agentes). "✓ Compiled in 546ms" es compilation cacheada previa.
+   227→
+   228→Stage Summary:
+   229→- Archivo: `src/components/rp/sections-fase1/f1-f.tsx` (~770 líneas, 7 exports).
+   230→- 1 diagrama Mermaid (CI/CD pipeline LR 9 nodos).
+   231→- 5 DataTables (8 + 4 + 9 + 18 + 15 = 54 filas) con keys estables y únicas por celda.
+   232→- 8 ADR cards en GlassCard gold (ADR-001…008) con Contexto/Decisión/Consecuencias/Riesgo.
+   233→- 4 GlassCard gold para etapas de escala A→D con KV grid 2x4.
+   234→- 5 Callout (ok DoD, warn separación prod/test, adr ADR-004, ok puerta salida, info preguntas bloqueantes).
+   235→- 4 Stats (margen/coste/FinOps/IA).
+   236→- Contenido 100% en español, dark theme premium (dorado #D4AF37, turquesa #3DD6C9, glassmorphism).
+   237→- Lint limpio. Sin blockers para este bloque. Pendiente de otros agentes: f1-d (auth/impersonation/realtime) y f1-e (eventos/threat/observabilidad) — su ausencia impide que page.tsx compile, pero no afecta la calidad de f1-f.
+   238→
+   239→---
+   240→Task ID: 1.1-VERIFY
+   241→Agent: main (architect)
+   242→Task: Verificación end-to-end de Fase 1.1 con Agent Browser + lint + dev log.
+   243→
+   244→Work Log:
+   245→- Lint global: 0 errores tras la entrega de los 6 subagentes (A-F).
+   246→- Dev server: reiniciado de forma persistente (setsid + next dev directo, PID 5150); responde 200.
+   247→- Agent Browser (desktop 1440x900): página carga sin errores de consola ni de página; título correcto.
+   248→- Fase 1.1 renderiza por defecto (store phase=fase1): hero "Arquitectura fundacional multi-tenant sobre Cloudflare" + 24 items de índice (00-24).
+   249→- Mermaid: 3 SVGs renderizados en secciones de arquitectura (lógica/física/diagrama); ER diagrama SVG en #f1-er; SQL block en #f1-sql. Sin errores de render Mermaid.
+   250→- Toggle de fase: botón "Fase 0" cambia el contenido al hero "RestoPanel el sistema operativo del restaurante moderno" y el índice a 15 items; botón "Fase 1.1" vuelve. Navegación lateral scrollspy funcional.
+   251→- Responsive móvil (390x844): nav superior colapsable con botón "Índice" presente; footer al final del contenido (natural push, sin overlap ni gap flotante).
+   252→- VLM (glm-5v-turbo) confirmó: tema dark premium dorado correcto, sidebar con 24 items visible, sin glitches ni overlap, se percibe como spec técnica profesional (Sharding, D1, RBAC, STRIDE, ADRs) no plantilla genérica.
+   253→
+   254→Stage Summary:
+   255→- Fase 1.1 (Arquitectura Enterprise) completa y verificada en la ruta /.
+   256→- 24 secciones entregadas por 6 subagentes paralelos (A-F), todas con lint limpio.
+   257→- Contenido cubre los 25 entregables obligatorios: resumen, supuestos, riesgos/contradicciones, arq lógica+ física+diagrama, monorepo+dependencias, multi-tenant, ER Mermaid, diccionario, SQL D1, auth/RBAC, impersonación, realtime, eventos/colas/webhooks, threat model STRIDE, observabilidad, testing, CI/CD, escalabilidad A→D, costes, backlog, criterios, 8 ADRs + 10 preguntas bloqueantes.
+   258→- Honestidad técnica mantenida: D1 sin RLS nativa (Tenant Enforcement Layer), sharding obligatorio desde Etapa B, ~10GB por base D1, Time Travel ≠ backup, Cloudflare Realtime post-validación.
+   259→- Toggle Fase 0 / Fase 1.1 operativo; footer sticky; Mermaid renderiza.
+   260→
+   261→---
+   262→Task ID: 1.2-INFRA
+   263→Agent: main (architect)
+   264→Task: Infraestructura compartida para Fase 1.2 (Core Platform) — extender el documento a 3 fases.
+   265→
+   266→Work Log:
+   267→- Extendí phase-store.ts: Phase ahora = "fase0" | "fase1" | "fase2"; default fase2.
+   268→- Añadí NAV_FASE2 (24 items: f2-inicio → f2-criterios) a nav.tsx.
+   269→- SideNav: items resuelve a NAV_FASE2 cuando phase=fase2; scrollspy reinicializado al cambiar fase.
+   270→- PhaseToggle reescrito a 3 vías (F0 / F1.1 / F1.2) con helper btn().
+   271→- Header links (sidebar + mobile) y subtítulo reconocen las 3 fases; estado del documento adaptativo.
+   272→- Creé f2-hero.tsx (Fase2Hero): hero con isotipo, 6 principios, stats (14 dominios / 23 entregables / 10 ADRs / 8 iteraciones) y card "Core Platform" con capacidades.
+   273→- Actualicé page.tsx: switch ternario fase0/fase1/fase2; función Fase2() con 24 secciones; Footer reescrito para 3 fases con subtítulo/desc/entregables/estado adaptativos.
+   274→- Creé directorio src/components/rp/sections-fase2/ para los 5 archivos de bloque (a crear por subagentes en paralelo).
+   275→
+   276→Stage Summary:
+   277→- Infraestructura lista para 5 subagentes paralelos (bloques A-E) de Fase 1.2.
+   278→- Primitivas disponibles: Section, Tag, Risk, GlassCard, Stat, Pill, H3, Lead, DataTable, GoldList, KV, Callout, Code (primitives.tsx) + Mermaid (mermaid.tsx).
+   279→- Bloques: A (f2-a: resumen/contexto/dominios/dependencias/repo), B (f2-b: tenancy/eventos/automatizaciones/integraciones/api), C (f2-c: permisos/auditoria/notificaciones/ia/analitica), D (f2-d: seguridad/observabilidad/datos/contratos), E (f2-e: adrs/riesgos/roadmap/criterios).
+   280→

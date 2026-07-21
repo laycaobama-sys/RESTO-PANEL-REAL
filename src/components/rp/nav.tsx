@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { usePhase } from "./phase-store";
+import { usePhase, type Phase } from "./phase-store";
 
 export const NAV_FASE0 = [
   { id: "inicio", label: "Inicio", n: "00" },
@@ -50,9 +50,36 @@ export const NAV_FASE1 = [
   { id: "f1-adrs", label: "ADRs iniciales", n: "24" },
 ];
 
+export const NAV_FASE2 = [
+  { id: "f2-inicio", label: "Inicio", n: "00" },
+  { id: "f2-resumen", label: "Resumen y decisiones", n: "01" },
+  { id: "f2-contexto", label: "Contexto y contenedores", n: "02" },
+  { id: "f2-dominios", label: "Mapa de dominios", n: "03" },
+  { id: "f2-dependencias", label: "Matriz de dependencias", n: "04" },
+  { id: "f2-repo", label: "Estructura del repositorio", n: "05" },
+  { id: "f2-tenancy", label: "Modelo multiempresa", n: "06" },
+  { id: "f2-eventos", label: "Sistema de eventos", n: "07" },
+  { id: "f2-automatizaciones", label: "Motor de automatizaciones", n: "08" },
+  { id: "f2-integraciones", label: "Integraciones y webhooks", n: "09" },
+  { id: "f2-api", label: "API pública", n: "10" },
+  { id: "f2-permisos", label: "Diseño de permisos", n: "11" },
+  { id: "f2-auditoria", label: "Auditoría", n: "12" },
+  { id: "f2-notificaciones", label: "Centro de notificaciones", n: "13" },
+  { id: "f2-ia", label: "Centro de IA", n: "14" },
+  { id: "f2-analitica", label: "Analítica y métricas", n: "15" },
+  { id: "f2-seguridad", label: "Seguridad y cumplimiento", n: "16" },
+  { id: "f2-observabilidad", label: "Observabilidad y HA", n: "17" },
+  { id: "f2-datos", label: "Modelo de datos ER", n: "18" },
+  { id: "f2-contratos", label: "Contratos TypeScript", n: "19" },
+  { id: "f2-adrs", label: "ADRs críticos", n: "20" },
+  { id: "f2-riesgos", label: "Riesgos y trade-offs", n: "21" },
+  { id: "f2-roadmap", label: "Roadmap por iteraciones", n: "22" },
+  { id: "f2-criterios", label: "Criterios de aceptación", n: "23" },
+];
+
 export function SideNav() {
   const { phase, setPhase } = usePhase();
-  const items = phase === "fase0" ? NAV_FASE0 : NAV_FASE1;
+  const items = phase === "fase0" ? NAV_FASE0 : phase === "fase1" ? NAV_FASE1 : NAV_FASE2;
   const [active, setActive] = React.useState(items[0].id);
   const [open, setOpen] = React.useState(false);
 
@@ -78,7 +105,7 @@ export function SideNav() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-50 rp-glass-strong border-b border-border/60">
         <div className="flex items-center justify-between px-4 h-14">
-          <a href={phase === "fase0" ? "#inicio" : "#f1-inicio"} className="flex items-center gap-2">
+          <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : "#f2-inicio"} className="flex items-center gap-2">
             <BrandMark className="h-7 w-7" />
             <span className="font-display text-lg tracking-tight">RestoPanel</span>
           </a>
@@ -121,12 +148,12 @@ export function SideNav() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-40 h-screen w-72 flex-col border-r border-border/60 rp-glass-strong">
-        <a href={phase === "fase0" ? "#inicio" : "#f1-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
+        <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : "#f2-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
           <BrandMark className="h-8 w-8" />
           <div className="leading-tight">
             <div className="font-display text-lg tracking-tight">RestoPanel</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-              {phase === "fase0" ? "Fase 0 · Fundación" : "Fase 1.1 · Arquitectura"}
+              {phase === "fase0" ? "Fase 0 · Fundación" : phase === "fase1" ? "Fase 1.1 · Arquitectura" : "Fase 1.2 · Core Platform"}
             </div>
           </div>
         </a>
@@ -175,7 +202,7 @@ export function SideNav() {
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)] animate-pulse" />
             <span className="text-foreground/80">
-              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : "Spec V1.1 · implementable"}
+              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : phase === "fase1" ? "Spec V1.1 · implementable" : "Spec V1.2 · core design"}
             </span>
           </div>
         </div>
@@ -186,30 +213,22 @@ export function SideNav() {
 
 function PhaseToggle({ compact = false }: { compact?: boolean }) {
   const { phase, setPhase } = usePhase();
+  const btn = (p: Phase, label: string) => (
+    <button
+      onClick={() => setPhase(p)}
+      className={cn(
+        "rounded-md px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider transition-colors",
+        phase === p ? "bg-[var(--gold)] text-black" : "text-muted-foreground hover:text-foreground"
+      )}
+    >
+      {label}
+    </button>
+  );
   return (
     <div className={cn("inline-flex rounded-lg border border-border/60 p-0.5 bg-background/40", compact && "scale-90")}>
-      <button
-        onClick={() => setPhase("fase0")}
-        className={cn(
-          "rounded-md px-3 py-1 text-xs font-mono uppercase tracking-wider transition-colors",
-          phase === "fase0"
-            ? "bg-[var(--gold)] text-black"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        Fase 0
-      </button>
-      <button
-        onClick={() => setPhase("fase1")}
-        className={cn(
-          "rounded-md px-3 py-1 text-xs font-mono uppercase tracking-wider transition-colors",
-          phase === "fase1"
-            ? "bg-[var(--gold)] text-black"
-            : "text-muted-foreground hover:text-foreground"
-        )}
-      >
-        Fase 1.1
-      </button>
+      {btn("fase0", "F0")}
+      {btn("fase1", "F1.1")}
+      {btn("fase2", "F1.2")}
     </div>
   );
 }

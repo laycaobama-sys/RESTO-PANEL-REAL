@@ -1,0 +1,930 @@
+     1→import * as React from "react";
+     2→import {
+     3→  Section,
+     4→  GlassCard,
+     5→  Stat,
+     6→  Pill,
+     7→  H3,
+     8→  Lead,
+     9→  Risk,
+    10→  DataTable,
+    11→  GoldList,
+    12→  KV,
+    13→  Callout,
+    14→} from "@/components/rp/primitives";
+    15→import { Mermaid } from "@/components/rp/mermaid";
+    16→
+    17→/* ============================================================ */
+    18→/*  Helpers                                                      */
+    19→/* ============================================================ */
+    20→function Mono({ children }: { children: React.ReactNode }) {
+    21→  return (
+    22→    <code className="font-mono text-xs rp-gold-text whitespace-nowrap">
+    23→      {children}
+    24→    </code>
+    25→  );
+    26→}
+    27→
+    28→function Check() {
+    29→  return <span className="text-emerald-300 font-mono">✓ Sí</span>;
+    30→}
+    31→
+    32→/* ============================================================ */
+    33→/*  18 — TESTING                                                 */
+    34→/* ============================================================ */
+    35→const TEST_PYRAMID = [
+    36→  {
+    37→    nivel: "Unit",
+    38→    cubre: "casos de uso, validación Zod, repositorios (mock)",
+    39→    cuando: "cada commit",
+    40→    tool: "vitest",
+    41→  },
+    42→  {
+    43→    nivel: "Integración",
+    44→    cubre: "dominio + D1 local (Miniflare), outbox, queues",
+    45→    cuando: "cada PR",
+    46→    tool: "vitest + miniflare",
+    47→  },
+    48→  {
+    49→    nivel: "Contrato",
+    50→    cubre: "esquemas de eventos/commands entre módulos",
+    51→    cuando: "cada PR",
+    52→    tool: "zod + consumer contract tests",
+    53→  },
+    54→  {
+    55→    nivel: "IDOR / tenant",
+    56→    cubre: "negativo: org A no alcanza recurso de org B",
+    57→    cuando: "cada PR (obligatorio)",
+    58→    tool: "vitest + fixtures multi-tenant",
+    59→  },
+    60→  {
+    61→    nivel: "E2E",
+    62→    cubre: "flujos críticos: alta, reserva, check-in, billing",
+    63→    cuando: "nocturno + pre-prod",
+    64→    tool: "playwright",
+    65→  },
+    66→  {
+    67→    nivel: "Carga",
+    68→    cubre: "reservas concurrentes, DO contención",
+    69→    cuando: "pre-escalado",
+    70→    tool: "k6",
+    71→  },
+    72→  {
+    73→    nivel: "Seguridad",
+    74→    cubre: "SAST, secret scan, DAST, dependencias",
+    75→    cuando: "CI + pre-prod",
+    76→    tool: "CodeQL, snyk, owasp",
+    77→  },
+    78→  {
+    79→    nivel: "Visuales/a11y",
+    80→    cubre: "componentes DS; contraste AA",
+    81→    cuando: "cada PR",
+    82→    tool: "storybook + axe",
+    83→  },
+    84→];
+    85→
+    86→export function Fase1Testing() {
+    87→  return (
+    88→    <Section
+    89→      id="f1-testing"
+    90→      index="18"
+    91→      eyebrow="Estrategia de testing"
+    92→      title="Unit, integración, contrato, E2E y tests negativos de tenant."
+    93→      intro="La estrategia es risk-based: cada capa de tests existe para cubrir una clase de fallo distinta. Los tests negativos de IDOR y aislamiento cross-tenant no son opcionales ni se delegan a revisión manual: son obligatorios en CI y bloquean el merge si fallan. Una pirámide sana prioriza volumen en unit, integración con D1 local, contrato entre módulos, y E2E solo para flujos críticos."
+    94→    >
+    95→      <H3 className="mb-4">Pirámide de tests</H3>
+    96→      <DataTable
+    97→        head={["Nivel", "Qué cubre", "Cuándo", "Herramienta"]}
+    98→        rows={TEST_PYRAMID.map((t) => [
+    99→          <span key={`${t.nivel}-nivel`} className="font-medium">
+   100→            {t.nivel}
+   101→          </span>,
+   102→          <span key={`${t.nivel}-cubre`}>{t.cubre}</span>,
+   103→          <span
+   104→            key={`${t.nivel}-cuando`}
+   105→            className="font-mono text-xs text-muted-foreground"
+   106→          >
+   107→            {t.cuando}
+   108→          </span>,
+   109→          <span key={`${t.nivel}-tool`} className="font-mono text-xs rp-teal-text">
+   110→            {t.tool}
+   111→          </span>,
+   112→        ])}
+   113→      />
+   114→
+   115→      <div className="mt-10 grid lg:grid-cols-2 gap-5">
+   116→        <GlassCard variant="gold">
+   117→          <div className="flex items-center gap-2 mb-4">
+   118→            <Pill tone="gold">obligatorio</Pill>
+   119→            <H3>Tests anti-fuga obligatorios</H3>
+   120→          </div>
+   121→          <Lead className="mb-4">
+   122→            Por cada endpoint tenant: suite de tests negativos en CI. Rojo bloquea merge.
+   123→          </Lead>
+   124→          <GoldList
+   125→            items={[
+   126→              "Por cada endpoint tenant: test que usuario de org A recibe 404/403 al pedir recurso de org B.",
+   127→              "Test de mutación cross-tenant: intentar alterar recurso de org B desde sesión de org A devuelve error y no altera datos.",
+   128→              "Test de cache poisoning: mutar estado en org A no afecta cache de org B (claves con organization_id).",
+   129→              "Test de webhook falsificado: petición firmada con secreto incorrecto o rotado se rechaza y se audita.",
+   130→              "Fuzzer de tenant en staging periódico: tráfico aleatorio intentando acceder a recursos ajenos; cualquier 200 inesperado abre incidente.",
+   131→              "CI rojo bloquea merge: ningún PR entra a main con tests negativos de tenant en rojo.",
+   132→            ]}
+   133→          />
+   134→        </GlassCard>
+   135→
+   136→        <Callout kind="ok" title="Definition of Done incluye tests">
+   137→          <p>Una iniciativa está Done cuando:</p>
+   138→          <ul className="mt-2 space-y-1.5 list-disc list-inside">
+   139→            <li>Tests unit + integration + contract + IDOR en verde.</li>
+   140→            <li>E2E para los flujos críticos afectados.</li>
+   141→            <li>a11y AA verificado en componentes nuevos.</li>
+   142→            <li>Performance budget cumplido (latencia p95, bundle size).</li>
+   143→            <li>Runbook actualizado si toca operatividad.</li>
+   144→            <li>Changelog redactado.</li>
+   145→          </ul>
+   146→        </Callout>
+   147→      </div>
+   148→    </Section>
+   149→  );
+   150→}
+   151→
+   152→/* ============================================================ */
+   153→/*  19 — CI/CD Y ENTORNOS                                        */
+   154→/* ============================================================ */
+   155→const CICD_CHART = `flowchart LR
+   156→  DEV["Dev local<br/>Miniflare + D1 local"] --> PR["PR abierto"]
+   157→  PR --> CI["CI: lint + typecheck + tests + IDOR + SAST"]
+   158→  CI --> PREV["Preview deploy<br/>(por PR)"]
+   159→  PREV --> REV["Review + aprobación"]
+   160→  REV --> STG["Staging<br/>(datos sintéticos)"]
+   161→  STG --> E2E["E2E + carga + DAST"]
+   162→  E2E --> PROD["Production<br/>(migraciones + deploy canary)"]
+   163→  PROD --> OBS["Observabilidad + SLO"]`;
+   164→
+   165→const ENTORNOS = [
+   166→  {
+   167→    env: "local",
+   168→    proposito: "desarrollo",
+   169→    datos: "sintéticos fixtures",
+   170→    secretos: ".dev.vars (no secretos reales)",
+   171→    risk: "bajo" as const,
+   172→  },
+   173→  {
+   174→    env: "preview",
+   175→    proposito: "revisión por PR",
+   176→    datos: "sintéticos",
+   177→    secretos: "sandbox (Stripe test, WhatsApp test)",
+   178→    risk: "medio" as const,
+   179→  },
+   180→  {
+   181→    env: "staging",
+   182→    proposito: "validación pre-prod",
+   183→    datos: "sintéticos + anonimizados",
+   184→    secretos: "sandbox aislados",
+   185→    risk: "medio" as const,
+   186→  },
+   187→  {
+   188→    env: "production",
+   189→    proposito: "real",
+   190→    datos: "reales",
+   191→    secretos: "rotativos, auditados, mínimos",
+   192→    risk: "crítico" as const,
+   193→  },
+   194→];
+   195→
+   196→export function Fase1CICD() {
+   197→  return (
+   198→    <Section
+   199→      id="f1-cicd"
+   200→      index="19"
+   201→      eyebrow="CI/CD y entornos"
+   202→      title="Pipelines por paquete, preview deploys, merges solo en verde."
+   203→      intro="Cuatro entornos con propósito, datos y secretos distintos. Las migraciones D1 son forward-only: nunca se hace downgrade de esquema; un rollback es redeploy de la versión anterior más una migración correctiva. Cada PR genera un preview deploy aislado. Merge a main requiere verde completo (lint, typecheck, tests unit+integration+contract+IDOR, SAST) y revisión humana."
+   204→    >
+   205→      <H3 className="mb-4">Pipeline CI/CD</H3>
+   206→      <Mermaid chart={CICD_CHART} />
+   207→
+   208→      <div className="mt-10">
+   209→        <H3 className="mb-4">Entornos</H3>
+   210→        <DataTable
+   211→          head={["Entorno", "Propósito", "Datos", "Secretos", "Riesgo"]}
+   212→          rows={ENTORNOS.map((e) => [
+   213→            <span key={`${e.env}-env`} className="font-medium">
+   214→              {e.env}
+   215→            </span>,
+   216→            <span key={`${e.env}-prop`}>{e.proposito}</span>,
+   217→            <span key={`${e.env}-datos`}>{e.datos}</span>,
+   218→            <span
+   219→              key={`${e.env}-sec`}
+   220→              className="font-mono text-xs text-muted-foreground"
+   221→            >
+   222→              {e.secretos}
+   223→            </span>,
+   224→            <Risk key={`${e.env}-risk`} level={e.risk} />,
+   225→          ])}
+   226→        />
+   227→      </div>
+   228→
+   229→      <div className="mt-10 grid lg:grid-cols-2 gap-5">
+   230→        <GlassCard variant="gold">
+   231→          <div className="flex items-center gap-2 mb-4">
+   232→            <Pill tone="gold">reglas</Pill>
+   233→            <H3>Reglas de CI/CD</H3>
+   234→          </div>
+   235→          <GoldList
+   236→            items={[
+   237→              "Pipeline por paquete afectado (Turborepo cache).",
+   238→              "Lint + typecheck estricto en cada cambio.",
+   239→              "Tests unit + integration + contract + IDOR obligatorios.",
+   240→              "SAST + secret scan en cada PR.",
+   241→              "Preview deploy por PR aislado.",
+   242→              "Merge requiere verde completo + revisión humana.",
+   243→              "Migraciones forward-only aplicadas en deploy.",
+   244→              "Deploy canary/gradual en producción.",
+   245→              "Rollback = deploy anterior + migración correctiva (no downgrade de esquema).",
+   246→              "Feature flags para desacoplar deploy de release.",
+   247→            ]}
+   248→          />
+   249→        </GlassCard>
+   250→
+   251→        <Callout kind="warn" title="Separación producción/test estricta">
+   252→          <ul className="space-y-1.5 list-disc list-inside">
+   253→            <li>Credenciales de producción nunca en entornos de test.</li>
+   254→            <li>Datos reales nunca en staging (anonimizados o sintéticos).</li>
+   255→            <li>Accesos a producción con MFA + just-in-time + audit log.</li>
+   256→            <li>Impersonación de producción solo con MFA reciente y motivo registrado.</li>
+   257→          </ul>
+   258→        </Callout>
+   259→      </div>
+   260→    </Section>
+   261→  );
+   262→}
+   263→
+   264→/* ============================================================ */
+   265→/*  20 — ESCALABILIDAD POR ETAPAS                                */
+   266→/* ============================================================ */
+   267→type Etapa = {
+   268→  id: "A" | "B" | "C" | "D";
+   269→  rango: string;
+   270→  risk: "bajo" | "medio" | "alto" | "crítico";
+   271→  arquitectura: string;
+   272→  d1: string;
+   273→  particionado: string;
+   274→  cuellos: string;
+   275→  observabilidad: string;
+   276→  cambios: string;
+   277→  costes: string;
+   278→  senales: string;
+   279→};
+   280→
+   281→const ETAPAS: Etapa[] = [
+   282→  {
+   283→    id: "A",
+   284→    rango: "1–100 restaurantes",
+   285→    risk: "bajo",
+   286→    arquitectura: "1 Tenant Cell compartida + Control Plane.",
+   287→    d1: "1 sola base D1 (shard-0) + control-plane-db.",
+   288→    particionado: "sin sharding; organization_id en todas las queries.",
+   289→    cuellos: "ninguno esperado.",
+   290→    observabilidad: "métricas básicas + audit.",
+   291→    cambios: "construir fundación.",
+   292→    costes: "Workers requests, D1 reads/writes, R2 storage (bajo).",
+   293→    senales:
+   294→      ">80 restaurantes O shard-0 > 6GB O escrituras D1 p95 degradando.",
+   295→  },
+   296→  {
+   297→    id: "B",
+   298→    rango: "100–1.000 restaurantes",
+   299→    risk: "medio",
+   300→    arquitectura:
+   301→      "múltiples Tenant Cells (shard-A, shard-B, ...); org→shard router.",
+   302→    d1: "sharding por organization_id; ~1 base D1 por celda; cada celda cientos de orgs.",
+   303→    particionado: "por organización (hash o rango).",
+   304→    cuellos: "contención de DO en picos de servicio; queues throughput.",
+   305→    observabilidad: "SLO por celda, burn rate, coste por org.",
+   306→    cambios:
+   307→      "router org→shard; migración entre shards; archival de eventos a R2.",
+   308→    costes: "D1 reads/writes escala, Queues, Workers AI.",
+   309→    senales:
+   310→      "alguna celda > 6GB O > 800 orgs O latencia p95 > objetivo.",
+   311→  },
+   312→  {
+   313→    id: "C",
+   314→    rango: "1.000–10.000 restaurantes",
+   315→    risk: "alto",
+   316→    arquitectura:
+   317→      "decenas de celdas; réplicas de lectura D1; DO por (location+date); dedicated cells para Enterprise.",
+   318→    d1: "muchas bases; balanceo de carga; archival agresivo; read replicas para analytics.",
+   319→    particionado: "por organización + archival por periodo.",
+   320→    cuellos:
+   321→      "analytics cross-cell; conciliación de facturación; Google/WhatsApp cuotas.",
+   322→    observabilidad:
+   323→      "trazas distribuidas cross-cell; warehouse de métricas; coste por org maduro.",
+   324→    cambios:
+   325→      "agregados reconstruibles; read replicas; migración dedicada Enterprise.",
+   326→    costes:
+   327→      "almacenamiento R2 (backups/archivo), Workers AI, Queues, egress.",
+   328→    senales:
+   329→      ">8.000 orgs O migración dedicada frecuente O coste por org subiendo.",
+   330→  },
+   331→  {
+   332→    id: "D",
+   333→    rango: "10.000–100.000+ restaurantes",
+   334→    risk: "crítico",
+   335→    arquitectura:
+   336→      "cientos de celdas; posiblemente regiones; control plane distribuido.",
+   337→    d1: "sharding maduro; celdas dedicadas comunes; archival por periodo a R2 + warehouse.",
+   338→    particionado: "por organización + región.",
+   339→    cuellos:
+   340→      "gobernanza multi-región; consistencia de control plane; coste.",
+   341→    observabilidad:
+   342→      "observabilidad multi-región; SLO por región; FinOps.",
+   343→    cambios:
+   344→      "multi-región opcional; API pública madura; marketplace.",
+   345→    costes: "escala total; FinOps obligatorio.",
+   346→    senales:
+   347→      "demanda de multi-región O partners vía API O celdas > umbral.",
+   348→  },
+   349→];
+   350→
+   351→export function Fase1Escala() {
+   352→  return (
+   353→    <Section
+   354→      id="f1-escala"
+   355→      index="20"
+   356→      eyebrow="Escalabilidad por etapas"
+   357→      title="De 1 a 100.000 restaurantes sin reescrituras traumáticas."
+   358→      intro="Cuatro etapas evolutivas: cada una define arquitectura, estrategia D1, particionado, cuellos esperados, observabilidad, cambios requeridos, costes dominantes y señales que indican el paso a la siguiente. El sistema no se diseña para la Etapa D desde el día 1, pero tampoco se toman decisiones en la Etapa A que bloqueen el escalado posterior."
+   359→    >
+   360→      <div className="grid lg:grid-cols-2 gap-5">
+   361→        {ETAPAS.map((e) => (
+   362→          <GlassCard key={`etapa-${e.id}`} variant="gold">
+   363→            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+   364→              <div className="flex items-baseline gap-3">
+   365→                <span className="font-mono text-xs rp-gold-text uppercase tracking-[0.2em]">
+   366→                  Etapa {e.id}
+   367→                </span>
+   368→                <H3>{e.rango}</H3>
+   369→              </div>
+   370→              <Risk level={e.risk} />
+   371→            </div>
+   372→            <dl className="grid sm:grid-cols-2 gap-x-6 gap-y-0">
+   373→              <KV k="Arquitectura" v={e.arquitectura} />
+   374→              <KV k="Estrategia D1" v={e.d1} />
+   375→              <KV k="Particionado" v={e.particionado} />
+   376→              <KV k="Cuellos de botella" v={e.cuellos} />
+   377→              <KV k="Observabilidad" v={e.observabilidad} />
+   378→              <KV k="Cambios requeridos" v={e.cambios} />
+   379→              <KV k="Costes dominantes" v={e.costes} />
+   380→              <KV k="Señales para avanzar" v={e.senales} />
+   381→            </dl>
+   382→          </GlassCard>
+   383→        ))}
+   384→      </div>
+   385→
+   386→      <div className="mt-8">
+   387→        <Callout kind="adr" id="ADR-004" title="Crecimiento evolutivo, no big-bang">
+   388→          No se diseña infra innecesariamente compleja desde el inicio, pero se evitan
+   389→          decisiones que bloqueen el escalado: sharding por organization_id desde Etapa B,
+   390→          contratos estables entre módulos, archival planificado desde Etapa A. Cada
+   391→          transición de etapa abre ADRs específicos (sharding, archival, read replicas,
+   392→          multi-región) que documentan el contexto, la decisión y las consecuencias
+   393→          irreversibles asumidas.
+   394→        </Callout>
+   395→      </div>
+   396→    </Section>
+   397→  );
+   398→}
+   399→
+   400→/* ============================================================ */
+   401→/*  21 — COSTES Y FACTORES                                       */
+   402→/* ============================================================ */
+   403→const COST_FACTORS = [
+   404→  {
+   405→    factor: "Requests Workers",
+   406→    impacta: "por org, por etapa",
+   407→    notas: "crece con uso",
+   408→  },
+   409→  {
+   410→    factor: "Lecturas/escrituras D1",
+   411→    impacta: "por org",
+   412→    notas: "crece con reservas/eventos",
+   413→  },
+   414→  {
+   415→    factor: "Almacenamiento R2",
+   416→    impacta: "por org",
+   417→    notas: "crece con archivos + backups + archivo",
+   418→  },
+   419→  {
+   420→    factor: "Operaciones KV",
+   421→    impacta: "por org",
+   422→    notas: "bajo si se usa bien",
+   423→  },
+   424→  {
+   425→    factor: "Mensajes Queue",
+   426→    impacta: "por org",
+   427→    notas: "crece con eventos",
+   428→  },
+   429→  {
+   430→    factor: "DO + WebSockets",
+   431→    impacta: "por org",
+   432→    notas: "cuidado con conexiones; hibernación",
+   433→  },
+   434→  {
+   435→    factor: "Workers AI",
+   436→    impacta: "por org",
+   437→    notas: "medido por ai_request; presupuesto por plan",
+   438→  },
+   439→  {
+   440→    factor: "Stripe",
+   441→    impacta: "% transacción",
+   442→    notas: "sobre suscripción",
+   443→  },
+   444→  {
+   445→    factor: "Resend/WhatsApp/Google",
+   446→    impacta: "por uso",
+   447→    notas: "externos",
+   448→  },
+   449→];
+   450→
+   451→export function Fase1Costes() {
+   452→  return (
+   453→    <Section
+   454→      id="f1-costes"
+   455→      index="21"
+   456→      eyebrow="Costes y factores"
+   457→      title="Modelo de coste dominante por etapa y por organización."
+   458→      intro="El coste de RestoPanel es usage-based: se compone de primitivas Cloudflare (Workers requests, D1 reads/writes, R2 storage, KV ops, Queues, DO, Workers AI) más proveedores externos (Stripe, Resend, WhatsApp, Google). La estimación es de orden de magnitud; el coste real se valida por etapa con usage_records etiquetados por organización y se compara contra revenue por org en Super Admin."
+   459→    >
+   460→      <H3 className="mb-4">Factores de coste</H3>
+   461→      <DataTable
+   462→        head={["Factor", "Impacta a", "Notas"]}
+   463→        rows={COST_FACTORS.map((c) => [
+   464→          <span key={`${c.factor}-f`} className="font-medium">
+   465→            {c.factor}
+   466→          </span>,
+   467→          <span
+   468→            key={`${c.factor}-imp`}
+   469→            className="font-mono text-xs rp-teal-text"
+   470→          >
+   471→            {c.impacta}
+   472→          </span>,
+   473→          <span key={`${c.factor}-notas`} className="text-muted-foreground">
+   474→            {c.notas}
+   475→          </span>,
+   476→        ])}
+   477→      />
+   478→
+   479→      <div className="mt-10 grid lg:grid-cols-2 gap-5">
+   480→        <GlassCard variant="gold">
+   481→          <div className="flex items-center gap-2 mb-4">
+   482→            <Pill tone="gold">por etapa</Pill>
+   483→            <H3>Coste dominante por etapa</H3>
+   484→          </div>
+   485→          <GoldList
+   486→            items={[
+   487→              <span key="cost-A">
+   488→                <Mono>Etapa A</Mono>: Workers + D1 (bajo).
+   489→              </span>,
+   490→              <span key="cost-B">
+   491→                <Mono>Etapa B</Mono>: D1 reads/writes + Queues + AI.
+   492→              </span>,
+   493→              <span key="cost-C">
+   494→                <Mono>Etapa C</Mono>: R2 storage (backups/archivo) + AI + Queues.
+   495→              </span>,
+   496→              <span key="cost-D">
+   497→                <Mono>Etapa D</Mono>: escala total; FinOps obligatorio; multi-región opcional.
+   498→              </span>,
+   499→            ]}
+   500→          />
+   501→        </GlassCard>
+   502→
+   503→        <Callout kind="warn" title="Estimación inicial, no compromiso">
+   504→          Las cifras son de orden de magnitud; el coste real se valida por etapa con{" "}
+   505→          <Mono>usage_records</Mono> etiquetados por organización. El margen por org se
+   506→          monitorea en Super Admin; si coste/org &gt; revenue/org, se actúa (rate limit,
+   507→          presets, pricing). Workers AI tiene presupuesto por plan: un pico de uso de IA
+   508→          que supere el revenue metered de la org dispara rate limit y fallback
+   509→          determinista.
+   510→        </Callout>
+   511→      </div>
+   512→
+   513→      <div className="mt-8 grid grid-cols-2 lg:grid-cols-4 gap-4">
+   514→        <Stat
+   515→          label="Margen objetivo"
+   516→          value="> 70%"
+   517→          sub="Etapa A"
+   518→          accent="gold"
+   519→        />
+   520→        <Stat
+   521→          label="Coste por org"
+   522→          value="trackeado"
+   523→          sub="Super Admin"
+   524→          accent="teal"
+   525→        />
+   526→        <Stat
+   527→          label="FinOps"
+   528→          value="Etapa C+"
+   529→          sub="warehouse de métricas"
+   530→          accent="fg"
+   531→        />
+   532→        <Stat
+   533→          label="Presupuesto IA"
+   534→          value="por plan"
+   535→          sub="rate limit + fallback"
+   536→          accent="gold"
+   537→        />
+   538→      </div>
+   539→    </Section>
+   540→  );
+   541→}
+   542→
+   543→/* ============================================================ */
+   544→/*  22 — BACKLOG TÉCNICO PRIORIZADO                              */
+   545→/* ============================================================ */
+   546→type BacklogItem = {
+   547→  id: string;
+   548→  iniciativa: string;
+   549→  dominio: string;
+   550→  risk: "bajo" | "medio" | "alto" | "crítico";
+   551→  etapa: "A" | "B" | "C" | "D";
+   552→};
+   553→
+   554→const BACKLOG: BacklogItem[] = [
+   555→  { id: "B1-001", iniciativa: "Tenant Enforcement Layer + tests IDOR", dominio: "tenancy", risk: "alto", etapa: "A" },
+   556→  { id: "B1-002", iniciativa: "Auth: MFA + passkeys + sesiones revocables", dominio: "identity", risk: "alto", etapa: "A" },
+   557→  { id: "B1-003", iniciativa: "Organizations + routing org→shard", dominio: "tenancy", risk: "alto", etapa: "A" },
+   558→  { id: "B1-004", iniciativa: "RBAC + ABAC + roles custom", dominio: "permissions", risk: "medio", etapa: "A" },
+   559→  { id: "B1-005", iniciativa: "Reservas + disponibilidad + slot holds (DO)", dominio: "reservations", risk: "alto", etapa: "A" },
+   560→  { id: "B1-006", iniciativa: "Plano de sala + mesas + sync tiempo real", dominio: "floor", risk: "alto", etapa: "A" },
+   561→  { id: "B1-007", iniciativa: "Outbox + Queues + DLQ + dispatcher idempotente", dominio: "events", risk: "alto", etapa: "A" },
+   562→  { id: "B1-008", iniciativa: "Audit log append-only + retención R2", dominio: "audit", risk: "medio", etapa: "A" },
+   563→  { id: "B1-009", iniciativa: "Impersonación segura + banner + kill switch", dominio: "super-admin", risk: "crítico", etapa: "A" },
+   564→  { id: "B1-010", iniciativa: "Billing + entitlements + Stripe sync", dominio: "billing", risk: "medio", etapa: "A" },
+   565→  { id: "B1-011", iniciativa: "Observabilidad: logs redact + correlation_id + SLO", dominio: "observability", risk: "medio", etapa: "A" },
+   566→  { id: "B1-012", iniciativa: "Backups cifrados R2 + pruebas restauración", dominio: "storage", risk: "alto", etapa: "A" },
+   567→  { id: "B1-013", iniciativa: "Migración entre shards (Etapa B)", dominio: "tenancy", risk: "alto", etapa: "B" },
+   568→  { id: "B1-014", iniciativa: "Archival de eventos a R2 por periodo", dominio: "analytics", risk: "medio", etapa: "B" },
+   569→  { id: "B1-015", iniciativa: "Read replicas D1 para analytics", dominio: "analytics", risk: "medio", etapa: "C" },
+   570→  { id: "B1-016", iniciativa: "Agregados reconstruibles cross-cell", dominio: "analytics", risk: "alto", etapa: "C" },
+   571→  { id: "B1-017", iniciativa: "Celdas dedicadas Enterprise", dominio: "tenancy", risk: "alto", etapa: "C" },
+   572→  { id: "B1-018", iniciativa: "API pública v1 + webhooks firmados", dominio: "integrations", risk: "alto", etapa: "D" },
+   573→];
+   574→
+   575→export function Fase1Backlog() {
+   576→  return (
+   577→    <Section
+   578→      id="f1-backlog"
+   579→      index="22"
+   580→      eyebrow="Backlog técnico priorizado"
+   581→      title="Para comenzar la implementación sin decisiones críticas pendientes."
+   582→      intro="18 iniciativas priorizadas para la Etapa A con dependencias claras y riesgos explícitos. La Etapa A (B1-001 a B1-012) construye la fundación: tenancy, identidad, reservas, sala, eventos, audit, impersonación, billing, observabilidad y backups. Las iniciativas B1-013 a B1-018 preparan el escalado a Etapas B, C y D."
+   583→    >
+   584→      <H3 className="mb-4">Backlog técnico</H3>
+   585→      <DataTable
+   586→        head={["ID", "Iniciativa", "Dominio", "Riesgo", "Etapa"]}
+   587→        rows={BACKLOG.map((b) => [
+   588→          <span key={`${b.id}-id`} className="font-mono text-xs rp-gold-text">
+   589→            {b.id}
+   590→          </span>,
+   591→          <span key={`${b.id}-ini`}>{b.iniciativa}</span>,
+   592→          <span
+   593→            key={`${b.id}-dom`}
+   594→            className="font-mono text-xs text-muted-foreground"
+   595→          >
+   596→            {b.dominio}
+   597→          </span>,
+   598→          <Risk key={`${b.id}-risk`} level={b.risk} />,
+   599→          <span key={`${b.id}-etapa`}>
+   600→            <Pill tone="teal">{b.etapa}</Pill>
+   601→          </span>,
+   602→        ])}
+   603→      />
+   604→
+   605→      <div className="mt-10">
+   606→        <GlassCard variant="gold">
+   607→          <div className="flex items-center gap-2 mb-4">
+   608→            <Pill tone="gold">DoR</Pill>
+   609→            <H3>Definition of Ready</H3>
+   610→          </div>
+   611→          <Lead className="mb-4">
+   612→            Una iniciativa entra a sprint solo cuando cumple:
+   613→          </Lead>
+   614→          <GoldList
+   615→            items={[
+   616→              "Owner asignado a la iniciativa.",
+   617→              "Contrato Zod definido (commands, queries, eventos) y revisado.",
+   618→              "Diseño aprobado y accesible en docs/adr o docs/design.",
+   619→              "Dependencias resueltas o explícitamente aplazadas con ADR.",
+   620→              "Métrica acordada (latencia, coste, SLO, adopción).",
+   621→              "Riesgos de seguridad y tenancy identificados y mitigan o aceptan.",
+   622→            ]}
+   623→          />
+   624→        </GlassCard>
+   625→      </div>
+   626→    </Section>
+   627→  );
+   628→}
+   629→
+   630→/* ============================================================ */
+   631→/*  23 — CRITERIOS DE ACEPTACIÓN                                */
+   632→/* ============================================================ */
+   633→const CRITERIOS: { criterio: string; verificacion: string }[] = [
+   634→  {
+   635→    criterio: "Cada módulo tiene responsabilidad y límites definidos",
+   636→    verificacion: "secciones arq lógica + monorepo",
+   637→  },
+   638→  {
+   639→    criterio: "No existen dependencias circulares",
+   640→    verificacion: "eslint boundaries + dependency-cruiser en CI",
+   641→  },
+   642→  {
+   643→    criterio: "Todas las consultas protegidas por contexto de tenant",
+   644→    verificacion: "Tenant Enforcement Layer + tests IDOR",
+   645→  },
+   646→  {
+   647→    criterio: "Estrategia verificable contra fugas de datos",
+   648→    verificacion: "tests negativos cross-tenant + fuzzer",
+   649→  },
+   650→  {
+   651→    criterio: "Modelo D1 con claves, índices y migraciones",
+   652→    verificacion: "SQL inicial + migraciones forward-only",
+   653→  },
+   654→  {
+   655→    criterio: "Flujos críticos idempotentes",
+   656→    verificacion: "idem_key unique + dispatcher idempotente",
+   657→  },
+   658→  {
+   659→    criterio: "Prevención de dobles reservas definida",
+   660→    verificacion: "DO lock + D1 unique constraint",
+   661→  },
+   662→  {
+   663→    criterio: "RBAC y permisos personalizados documentados",
+   664→    verificacion: "sección auth + roles custom",
+   665→  },
+   666→  {
+   667→    criterio: "Impersonación temporal, visible y auditable",
+   668→    verificacion: "sección impersonación + state diagram",
+   669→  },
+   670→  {
+   671→    criterio: "Existe un threat model",
+   672→    verificacion: "STRIDE + controles",
+   673→  },
+   674→  {
+   675→    criterio: "Planes de backup y restauración probados",
+   676→    verificacion: "R2 cifrado + pruebas de restauración",
+   677→  },
+   678→  {
+   679→    criterio: "Estrategia concreta de escalado de D1",
+   680→    verificacion: "sharding por etapas A→D",
+   681→  },
+   682→  {
+   683→    criterio: "Observabilidad y control de costes definidos",
+   684→    verificacion: "sección observabilidad + costes",
+   685→  },
+   686→  {
+   687→    criterio: "Diagramas y decisiones coherentes",
+   688→    verificacion: "Mermaid + ADRs alineados",
+   689→  },
+   690→  {
+   691→    criterio: "Backlog permite iniciar implementación",
+   692→    verificacion: "sin decisiones críticas pendientes",
+   693→  },
+   694→];
+   695→
+   696→export function Fase1Criterios() {
+   697→  return (
+   698→    <Section
+   699→      id="f1-criterios"
+   700→      index="23"
+   701→      eyebrow="Criterios de aceptación"
+   702→      title="La fase se considera completada cuando…"
+   703→      intro="Quince criterios verificables cierran la Fase 1.1. Cada uno tiene un estado (✓ Sí) y una verificación explícita que apunta a la sección, artefacto o control de CI que lo respalda. Ningún criterio queda implícito: todos tienen evidencia navegable."
+   704→    >
+   705→      <H3 className="mb-4">Criterios de aceptación</H3>
+   706→      <DataTable
+   707→        head={["Criterio", "Estado", "Verificación"]}
+   708→        rows={CRITERIOS.map((c, i) => [
+   709→          <span key={`crit-${i}-c`} className="font-medium">
+   710→            {c.criterio}
+   711→          </span>,
+   712→          <Check key={`crit-${i}-e`} />,
+   713→          <span
+   714→            key={`crit-${i}-v`}
+   715→            className="font-mono text-xs text-muted-foreground"
+   716→          >
+   717→            {c.verificacion}
+   718→          </span>,
+   719→        ])}
+   720→      />
+   721→
+   722→      <div className="mt-8">
+   723→        <Callout kind="ok" title="Puerta de salida de Fase 1.1">
+   724→          Con los 15 criterios cumplidos y los ADRs iniciales (ADR-001 a ADR-008) firmados,
+   725→          la Fase 1.1 habilita el inicio de implementación del MVP (Fase 2) sin decisiones
+   726→          arquitectónicas críticas pendientes. Las preguntas bloqueantes restantes se
+   727→          convierten en hipótesis a validar durante la Etapa A, no en bloqueadores de
+   728→          implementación.
+   729→        </Callout>
+   730→      </div>
+   731→    </Section>
+   732→  );
+   733→}
+   734→
+   735→/* ============================================================ */
+   736→/*  24 — ADRS INICIALES                                          */
+   737→/* ============================================================ */
+   738→type ADRCard = {
+   739→  id: string;
+   740→  title: string;
+   741→  estado: string;
+   742→  contexto: string;
+   743→  decision: string;
+   744→  consecuencias: string;
+   745→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+   746→};
+   747→
+   748→const ADRS: ADRCard[] = [
+   749→  {
+   750→    id: "ADR-001",
+   751→    title: "IDs opacos ULID",
+   752→    estado: "Decidido",
+   753→    contexto:
+   754→      "IDs predecibles permiten enumeración y ataques de enumeración de recursos.",
+   755→    decision: "ULID (text) en todas las tablas; sin autoincrement exponible.",
+   756→    consecuencias:
+   757→      "joins por ULID; índices compuestos; generación en app.",
+   758→    riesgo: "bajo",
+   759→  },
+   760→  {
+   761→    id: "ADR-002",
+   762→    title: "Tenant Enforcement Layer (sin RLS)",
+   763→    estado: "Decidido",
+   764→    contexto:
+   765→      "D1/SQLite no tiene RLS nativa como PostgreSQL; no se puede delegar el aislamiento al motor.",
+   766→    decision:
+   767→      "aislamiento de aplicación: repositorios exigen org_id; constraints compuestos (org_id,id); FK compuestas; tests IDOR obligatorios.",
+   768→    consecuencias:
+   769→      "disciplina de repos estricta; CI bloquea; no confianza en el DB para aislar solo.",
+   770→    riesgo: "alto",
+   771→  },
+   772→  {
+   773→    id: "ADR-003",
+   774→    title: "Sharding D1 por celdas desde Etapa B",
+   775→    estado: "Decidido",
+   776→    contexto:
+   777→      "D1 ~10GB por base; 100k restaurantes no caben en una sola base.",
+   778→    decision:
+   779→      "sharding por organization_id en tenant cells; router org→shard; migración entre shards; celdas dedicadas Enterprise.",
+   780→    consecuencias:
+   781→      "queries cross-org globales via agregados/events; migración sin downtime requerida; archival planificado.",
+   782→    riesgo: "alto",
+   783→  },
+   784→  {
+   785→    id: "ADR-004",
+   786→    title: "Crecimiento evolutivo (modular monolith primero)",
+   787→    estado: "Decidido",
+   788→    contexto:
+   789→      "microservicios prematuros = coste y complejidad sin beneficio medido.",
+   790→    decision:
+   791→      "modular monolith sobre Workers con dominios aislados; extracción a servicio solo con cuello medido + ADR.",
+   792→    consecuencias:
+   793→      "velocidad alta; contratos ya definen futura extracción; observabilidad madura requerida antes de extraer.",
+   794→    riesgo: "medio",
+   795→  },
+   796→  {
+   797→    id: "ADR-005",
+   798→    title: "D1 canónico; DO coordinación, no persistencia canónica",
+   799→    estado: "Decidido",
+   800→    contexto:
+   801→      "DO es unidad de partición con almacenamiento, pero no debe ser la única copia de estado de negocio.",
+   802→    decision:
+   803→      "D1 conserva reservas/mesas/clientes; DO coordina concurrencia y estado efímero; DO reconstruye desde D1.",
+   804→    consecuencias:
+   805→      "doble escritura evitada via outbox; reconexión re-sync desde D1.",
+   806→    riesgo: "medio",
+   807→  },
+   808→  {
+   809→    id: "ADR-006",
+   810→    title: "Workers AI como motor primario, fallback determinista",
+   811→    estado: "Decidido",
+   812→    contexto:
+   813→      "soberanía de coste y latencia en el borde; sin dependencia de OpenAI/Anthropic por defecto.",
+   814→    decision:
+   815→      "Workers AI primario; proveedores intercambiables via interfaz; fallback determinista obligatorio; aprobación humana para acciones sensibles.",
+   816→    consecuencias:
+   817→      "prompts versionados; presupuesto por org; kill switch.",
+   818→    riesgo: "medio",
+   819→  },
+   820→  {
+   821→    id: "ADR-007",
+   822→    title: "Outbox transaccional para eventos",
+   823→    estado: "Decidido",
+   824→    contexto: "double-write (DB + publish) causa inconsistencia.",
+   825→    decision:
+   826→      "outbox en la misma transacción D1 que el estado; dispatcher idempotente publica a Queues; consumidores idempotentes con DLQ.",
+   827→    consecuencias:
+   828→      "at-least-once; idempotencia obligatoria; reproceso manual auditado.",
+   829→    riesgo: "medio",
+   830→  },
+   831→  {
+   832→    id: "ADR-008",
+   833→    title: "Stripe como fuente de verdad de facturación",
+   834→    estado: "Decidido",
+   835→    contexto: "billing complejo y sensible.",
+   836→    decision:
+   837→      "Stripe mantiene suscripciones/cobros; RestoPanel refleja entitlements y usage metered; reconciliación periódica.",
+   838→    consecuencias:
+   839→      "sync webhook-driven; entitlements en D1; disputes e impuestos en Stripe.",
+   840→    riesgo: "bajo",
+   841→  },
+   842→];
+   843→
+   844→const PREGUNTAS_BLOQUEANTES = [
+   845→  "¿Cuál es la carga real esperada por restaurante (reservas/día, eventos, CRM) para dimensionar el shard size?",
+   846→  "¿Qué techo real de escrituras concurrentes por D1 observamos en Etapa A antes de requerir sharding?",
+   847→  "¿Workers AI cubre latencia p95 y calidad para los casos de IA del MVP?",
+   848→  "¿Cuotas y políticas de WhatsApp Cloud API por plantilla y mercado?",
+   849→  "¿Disponibilidad y permisos reales de Google Business Profile API por región?",
+   850→  "¿Jurisdicciones objetivo y retención legal aplicable (GDPR, LOPD, otras)?",
+   851→  "¿Modelo de pricing y límites por plan que sostienen el coste por org?",
+   852→  "¿SLA comercial comprometido con clientes Enterprise (RPO/RTO/SLO contractual)?",
+   853→  "¿Política de residencia de datos: multi-región obligatoria para algún segmento?",
+   854→  "¿Estrategia de adquisición de dominio propio y verificación de email/WhatsApp?",
+   855→];
+   856→
+   857→export function Fase1ADRs() {
+   858→  return (
+   859→    <Section
+   860→      id="f1-adrs"
+   861→      index="24"
+   862→      eyebrow="ADRs iniciales"
+   863→      title="Decisiones irreversibles documentadas con contexto y consecuencias."
+   864→      intro="Ocho ADRs iniciales fijan las decisiones costosas de revertir. Cada uno registra contexto, decisión, consecuencias y riesgo. No son trofeos: son compromisos. Cualquier revisión futura requiere un ADR nuevo que explicite por qué cambia el contexto y qué consecuencias irreversibles adicionales se asumen."
+   865→    >
+   866→      <div className="grid lg:grid-cols-2 gap-5">
+   867→        {ADRS.map((a) => (
+   868→          <GlassCard key={a.id} variant="gold">
+   869→            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+   870→              <Mono>{a.id}</Mono>
+   871→              <Risk level={a.riesgo} />
+   872→            </div>
+   873→            <H3 className="mb-1">{a.title}</H3>
+   874→            <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-4">
+   875→              Estado:{" "}
+   876→              <span className="rp-teal-text">{a.estado}</span>
+   877→            </div>
+   878→            <dl className="space-y-3">
+   879→              <div>
+   880→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   881→                  Contexto
+   882→                </dt>
+   883→                <dd className="text-sm text-foreground/85 mt-1 leading-relaxed">
+   884→                  {a.contexto}
+   885→                </dd>
+   886→              </div>
+   887→              <div>
+   888→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   889→                  Decisión
+   890→                </dt>
+   891→                <dd className="text-sm text-foreground/85 mt-1 leading-relaxed">
+   892→                  {a.decision}
+   893→                </dd>
+   894→              </div>
+   895→              <div>
+   896→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   897→                  Consecuencias
+   898→                </dt>
+   899→                <dd className="text-sm text-foreground/85 mt-1 leading-relaxed">
+   900→                  {a.consecuencias}
+   901→                </dd>
+   902→              </div>
+   903→            </dl>
+   904→          </GlassCard>
+   905→        ))}
+   906→      </div>
+   907→
+   908→      <div className="mt-8">
+   909→        <Callout kind="info" title="Preguntas bloqueantes (máx. 10)">
+   910→          <p className="mb-3">
+   911→            Incógnitas que no bloquean el inicio de la implementación pero deben responderse
+   912→            durante la Etapa A. Cada respuesta se convierte en un ADR de revisión o en una
+   913→            hipótesis validada.
+   914→          </p>
+   915→          <ol className="space-y-2 list-decimal list-inside">
+   916→            {PREGUNTAS_BLOQUEANTES.map((p, i) => (
+   917→              <li
+   918→                key={`preg-${i}`}
+   919→                className="text-sm text-foreground/85 leading-relaxed"
+   920→              >
+   921→                {p}
+   922→              </li>
+   923→            ))}
+   924→          </ol>
+   925→        </Callout>
+   926→      </div>
+   927→    </Section>
+   928→  );
+   929→}
+   930→
