@@ -1,0 +1,1488 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { Button } from "@/components/ui/button";
+     6→import { Input } from "@/components/ui/input";
+     7→import { Textarea } from "@/components/ui/textarea";
+     8→import { Switch } from "@/components/ui/switch";
+     9→import { Badge } from "@/components/ui/badge";
+    10→import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+    11→import {
+    12→  Tooltip,
+    13→  TooltipContent,
+    14→  TooltipProvider,
+    15→  TooltipTrigger,
+    16→} from "@/components/ui/tooltip";
+    17→import {
+    18→  Dialog,
+    19→  DialogContent,
+    20→  DialogDescription,
+    21→  DialogFooter,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→} from "@/components/ui/dialog";
+    25→import {
+    26→  Select,
+    27→  SelectContent,
+    28→  SelectItem,
+    29→  SelectTrigger,
+    30→  SelectValue,
+    31→} from "@/components/ui/select";
+    32→import {
+    33→  Search,
+    34→  Users,
+    35→  Mail,
+    36→  Phone,
+    37→  CalendarPlus,
+    38→  Send,
+    39→  Download,
+    40→  X,
+    41→  Plus,
+    42→  Crown,
+    43→  Gift,
+    44→  AlertTriangle,
+    45→  RefreshCw,
+    46→  ShieldCheck,
+    47→  ShieldOff,
+    48→  Lock,
+    49→  Sparkles,
+    50→  MapPin,
+    51→  Utensils,
+    52→  Soup,
+    53→  History,
+    54→  StickyNote,
+    55→  Megaphone,
+    56→  CircleUserRound,
+    57→  Inbox,
+    58→} from "lucide-react";
+    59→
+    60→/* ------------------------------------------------------------------ */
+    61→/* Types                                                              */
+    62→/* ------------------------------------------------------------------ */
+    63→
+    64→type TagId = "VIP" | "recurrente" | "cumpleaños" | "riesgo" | "nuevo" | "inactivo";
+    65→
+    66→type ConsentChannel = "email" | "whatsapp" | "sms";
+    67→
+    68→interface VisitEntry {
+    69→  id: string;
+    70→  date: string;
+    71→  partySize: number;
+    72→  table: string;
+    73→  ticket: number | null;
+    74→  notes: string;
+    75→}
+    76→
+    77→interface Customer {
+    78→  id: string;
+    79→  name: string;
+    80→  email: string;
+    81→  phone: string;
+    82→  visits: number;
+    83→  ltv: number;
+    84→  tags: TagId[];
+    85→  lastVisit: string;
+    86→  birthday: string;
+    87→  favoriteTable: string;
+    88→  allergens: string[];
+    89→  dietary: string;
+    90→  acquisition: string;
+    91→  consents: Record<ConsentChannel, boolean>;
+    92→  notes: string;
+    93→  history: VisitEntry[];
+    94→}
+    95→
+    96→type FilterTab = "todos" | "VIP" | "riesgo" | "cumpleaños";
+    97→
+    98→type Role = "owner" | "manager" | "hostess";
+    99→
+   100→interface Permissions {
+   101→  "crm.export": boolean;
+   102→  "crm.message": boolean;
+   103→  "crm.reservation.create": boolean;
+   104→  "crm.consent.edit": boolean;
+   105→  "crm.tag.edit": boolean;
+   106→  "crm.note.edit": boolean;
+   107→}
+   108→
+   109→const ROLE_PERMISSIONS: Record<Role, Permissions> = {
+   110→  owner: {
+   111→    "crm.export": true,
+   112→    "crm.message": true,
+   113→    "crm.reservation.create": true,
+   114→    "crm.consent.edit": true,
+   115→    "crm.tag.edit": true,
+   116→    "crm.note.edit": true,
+   117→  },
+   118→  manager: {
+   119→    "crm.export": true,
+   120→    "crm.message": true,
+   121→    "crm.reservation.create": true,
+   122→    "crm.consent.edit": true,
+   123→    "crm.tag.edit": true,
+   124→    "crm.note.edit": true,
+   125→  },
+   126→  hostess: {
+   127→    "crm.export": false,
+   128→    "crm.message": true,
+   129→    "crm.reservation.create": true,
+   130→    "crm.consent.edit": false,
+   131→    "crm.tag.edit": false,
+   132→    "crm.note.edit": true,
+   133→  },
+   134→};
+   135→
+   136→/* ------------------------------------------------------------------ */
+   137→/* Demo data                                                          */
+   138→/* ------------------------------------------------------------------ */
+   139→
+   140→const DEMO_CUSTOMERS: Customer[] = [
+   141→  {
+   142→    id: "c1",
+   143→    name: "Elena Marín",
+   144→    email: "elena.marin@example.com",
+   145→    phone: "+34 612 884 102",
+   146→    visits: 18,
+   147→    ltv: 4820,
+   148→    tags: ["VIP", "recurrente"],
+   149→    lastVisit: "Hace 6 días",
+   150→    birthday: "23 de marzo",
+   151→    favoriteTable: "Mesa 12 · Ventana",
+   152→    allergens: ["Frutos secos"],
+   153→    dietary: "Sin gluten opcional",
+   154→    acquisition: "Referido por Javier Soler",
+   155→    consents: { email: true, whatsapp: true, sms: false },
+   156→    notes: "Prefiere agua con gas. Siempre pregunta por la carta de vinos Ribera.",
+   157→    history: [
+   158→      { id: "v1", date: "12 mar 2025", partySize: 2, table: "Mesa 12", ticket: 168, notes: "Cena romántica, pidieron maridaje." },
+   159→      { id: "v2", date: "28 feb 2025", partySize: 4, table: "Mesa 7", ticket: 312, notes: "Aniversario, postres de cortesía." },
+   160→      { id: "v3", date: "09 feb 2025", partySize: 2, table: "Mesa 12", ticket: 142, notes: "Visita exprés. Excelente feedback." },
+   161→      { id: "v4", date: "21 ene 2025", partySize: 6, table: "Mesa 3", ticket: 528, notes: "Cena de equipo. Factura empresa." },
+   162→      { id: "v5", date: "04 ene 2025", partySize: 2, table: "Mesa 12", ticket: 124, notes: "Reyes, tarde tranquila." },
+   163→    ],
+   164→  },
+   165→  {
+   166→    id: "c2",
+   167→    name: "Javier Soler",
+   168→    email: "javier.soler@example.com",
+   169→    phone: "+34 670 221 994",
+   170→    visits: 12,
+   171→    ltv: 2980,
+   172→    tags: ["recurrente"],
+   173→    lastVisit: "Hace 2 semanas",
+   174→    birthday: "9 de julio",
+   175→    favoriteTable: "Mesa 5 · Barra",
+   176→    allergens: [],
+   177→    dietary: "Omnívoro",
+   178→    acquisition: "Instagram Ads",
+   179→    consents: { email: true, whatsapp: false, sms: false },
+   180→    notes: "Suele venir los jueves. Le gustan los platos de temporada.",
+   181→    history: [
+   182→      { id: "v1", date: "06 mar 2025", partySize: 2, table: "Mesa 5", ticket: 96, notes: "Barra, maridaje por copas." },
+   183→      { id: "v2", date: "20 feb 2025", partySize: 3, table: "Mesa 5", ticket: 138, notes: "Cumpleaños amigo, postre sorpresa." },
+   184→      { id: "v3", date: "30 ene 2025", partySize: 2, table: "Mesa 5", ticket: 88, notes: "Cena rápida pre-cine." },
+   185→      { id: "v4", date: "12 ene 2025", partySize: 4, table: "Mesa 9", ticket: 214, notes: "Trajo a Elena Marín." },
+   186→    ],
+   187→  },
+   188→  {
+   189→    id: "c3",
+   190→    name: "Marta Iborra",
+   191→    email: "marta.iborra@example.com",
+   192→    phone: "+34 699 010 558",
+   193→    visits: 5,
+   194→    ltv: 690,
+   195→    tags: ["riesgo"],
+   196→    lastVisit: "Hace 3 semanas (no-show)",
+   197→    birthday: "17 de noviembre",
+   198→    favoriteTable: "—",
+   199→    allergens: ["Marisco"],
+   200→    dietary: "Pescatariana",
+   201→    acquisition: "Google Maps",
+   202→    consents: { email: true, whatsapp: true, sms: false },
+   203→    notes: "Dos no-shows en 3 meses. Considerar overbooking controlado o confirmación doble.",
+   204→    history: [
+   205→      { id: "v1", date: "22 feb 2025", partySize: 2, table: "—", ticket: null, notes: "No-show sin previo aviso." },
+   206→      { id: "v2", date: "11 ene 2025", partySize: 4, table: "Mesa 4", ticket: 198, notes: "Cena normal." },
+   207→      { id: "v3", date: "05 dic 2024", partySize: 2, table: "—", ticket: null, notes: "No-show. Reagendado luego." },
+   208→      { id: "v4", date: "18 oct 2024", partySize: 2, table: "Mesa 8", ticket: 78, notes: "Almuerzo de trabajo." },
+   209→    ],
+   210→  },
+   211→  {
+   212→    id: "c4",
+   213→    name: "David Puig",
+   214→    email: "david.puig@example.com",
+   215→    phone: "+34 655 778 220",
+   216→    visits: 22,
+   217→    ltv: 6340,
+   218→    tags: ["VIP", "cumpleaños"],
+   219→    lastVisit: "Hace 4 días",
+   220→    birthday: "26 de marzo",
+   221→    favoriteTable: "Mesa 1 · Privado",
+   222→    allergens: ["Apio"],
+   223→    dietary: "Omnívoro",
+   224→    acquisition: "Walk-in recurrente",
+   225→    consents: { email: true, whatsapp: true, sms: true },
+   226→    notes: "Cliente top. Cumpleaños este mes — preparar detalle y upgrade de mesa.",
+   227→    history: [
+   228→      { id: "v1", date: "14 mar 2025", partySize: 6, table: "Mesa 1", ticket: 642, notes: "Cena de celebración." },
+   229→      { id: "v2", date: "01 mar 2025", partySize: 4, table: "Mesa 1", ticket: 388, notes: "Maridaje largo." },
+   230→      { id: "v3", date: "15 feb 2025", partySize: 2, table: "Mesa 1", ticket: 196, notes: "Cena íntima." },
+   231→      { id: "v4", date: "29 ene 2025", partySize: 8, table: "Mesa 1", ticket: 920, notes: "Mesa redonda empresa." },
+   232→      { id: "v5", date: "10 ene 2025", partySize: 4, table: "Mesa 1", ticket: 412, notes: "Cena estándar." },
+   233→    ],
+   234→  },
+   235→  {
+   236→    id: "c5",
+   237→    name: "Lucía Ferrer",
+   238→    email: "lucia.ferrer@example.com",
+   239→    phone: "+34 622 449 770",
+   240→    visits: 1,
+   241→    ltv: 64,
+   242→    tags: ["nuevo"],
+   243→    lastVisit: "Hace 3 días",
+   244→    birthday: "2 de junio",
+   245→    favoriteTable: "Mesa 9 · Centro",
+   246→    allergens: ["Lactosa"],
+   247→    dietary: "Vegetariana",
+   248→    acquisition: "Reserva online (web)",
+   249→    consents: { email: true, whatsapp: false, sms: false },
+   250→    notes: "Primera visita. Pidió info sobre menú degustación vegetariano.",
+   251→    history: [
+   252→      { id: "v1", date: "15 mar 2025", partySize: 2, table: "Mesa 9", ticket: 64, notes: "Primera visita, encantada con el servicio." },
+   253→    ],
+   254→  },
+   255→  {
+   256→    id: "c6",
+   257→    name: "Andrés Vidal",
+   258→    email: "andres.vidal@example.com",
+   259→    phone: "+34 688 220 113",
+   260→    visits: 4,
+   261→    ltv: 412,
+   262→    tags: ["riesgo", "inactivo"],
+   263→    lastVisit: "Hace 95 días",
+   264→    birthday: "30 de septiembre",
+   265→    favoriteTable: "Mesa 6 · Centro",
+   266→    allergens: [],
+   267→    dietary: "Omnívoro",
+   268→    acquisition: "Referido",
+   269→    consents: { email: true, whatsapp: false, sms: false },
+   270→    notes: "Sin actividad >90 días. Candidato a campaña de recuperación.",
+   271→    history: [
+   272→      { id: "v1", date: "09 dic 2024", partySize: 3, table: "Mesa 6", ticket: 138, notes: "Cena normal." },
+   273→      { id: "v2", date: "20 nov 2024", partySize: 2, table: "Mesa 6", ticket: 92, notes: "Cena rápida." },
+   274→      { id: "v3", date: "05 nov 2024", partySize: 4, table: "Mesa 6", ticket: 184, notes: "Aniversario." },
+   275→      { id: "v4", date: "18 oct 2024", partySize: 2, table: "Mesa 6", ticket: 88, notes: "Cena de pareja." },
+   276→    ],
+   277→  },
+   278→  {
+   279→    id: "c7",
+   280→    name: "Carmen Ruiz",
+   281→    email: "carmen.ruiz@example.com",
+   282→    phone: "+34 644 998 030",
+   283→    visits: 31,
+   284→    ltv: 9120,
+   285→    tags: ["VIP", "cumpleaños", "recurrente"],
+   286→    lastVisit: "Ayer",
+   287→    birthday: "21 de marzo",
+   288→    favoriteTable: "Mesa 12 · Ventana",
+   289→    allergens: ["Gluten"],
+   290→    dietary: "Celíaca",
+   291→    acquisition: "Walk-in recurrente",
+   292→    consents: { email: true, whatsapp: true, sms: true },
+   293→    notes: "Cliente histórico. Siempre recibe bienvenida personalizada del encargado.",
+   294→    history: [
+   295→      { id: "v1", date: "16 mar 2025", partySize: 2, table: "Mesa 12", ticket: 184, notes: "Cena habitual." },
+   296→      { id: "v2", date: "02 mar 2025", partySize: 4, table: "Mesa 12", ticket: 356, notes: "Trajo invitados." },
+   297→      { id: "v3", date: "14 feb 2025", partySize: 2, table: "Mesa 12", ticket: 198, notes: "San Valentín." },
+   298→      { id: "v4", date: "28 ene 2025", partySize: 6, table: "Mesa 12", ticket: 542, notes: "Cumpleaños familiar." },
+   299→      { id: "v5", date: "10 ene 2025", partySize: 2, table: "Mesa 12", ticket: 144, notes: "Cena estándar." },
+   300→    ],
+   301→  },
+   302→  {
+   303→    id: "c8",
+   304→    name: "Pablo Navarro",
+   305→    email: "pablo.navarro@example.com",
+   306→    phone: "+34 611 220 445",
+   307→    visits: 9,
+   308→    ltv: 1248,
+   309→    tags: ["recurrente"],
+   310→    lastVisit: "Hace 10 días",
+   311→    birthday: "5 de agosto",
+   312→    favoriteTable: "Barra · 3",
+   313→    allergens: [],
+   314→    dietary: "Omnívoro",
+   315→    acquisition: "Reserva online",
+   316→    consents: { email: true, whatsapp: false, sms: false },
+   317→    notes: "Suele tomar algo en barra antes de mesa.",
+   318→    history: [
+   319→      { id: "v1", date: "07 mar 2025", partySize: 2, table: "Barra · 3", ticket: 96, notes: "Vermut + cena ligera." },
+   320→      { id: "v2", date: "22 feb 2025", partySize: 2, table: "Mesa 8", ticket: 118, notes: "Cena estándar." },
+   321→      { id: "v3", date: "08 feb 2025", partySize: 3, table: "Mesa 8", ticket: 162, notes: "Cumpleaños." },
+   322→      { id: "v4", date: "19 ene 2025", partySize: 2, table: "Barra · 3", ticket: 78, notes: "Tarde tapeo." },
+   323→    ],
+   324→  },
+   325→  {
+   326→    id: "c9",
+   327→    name: "Sofía Castro",
+   328→    email: "sofia.castro@example.com",
+   329→    phone: "+34 677 332 118",
+   330→    visits: 2,
+   331→    ltv: 128,
+   332→    tags: ["nuevo"],
+   333→    lastVisit: "Hace 1 semana",
+   334→    birthday: "12 de diciembre",
+   335→    favoriteTable: "Mesa 10 · Terraza",
+   336→    allergens: ["Huevo"],
+   337→    dietary: "Omnívoro",
+   338→    acquisition: "Google Maps",
+   339→    consents: { email: true, whatsapp: true, sms: false },
+   340→    notes: "Prefiere terraza. Interesada en eventos privados.",
+   341→    history: [
+   342→      { id: "v1", date: "10 mar 2025", partySize: 4, table: "Mesa 10", ticket: 88, notes: "Almuerzo, pidió info eventos." },
+   343→      { id: "v2", date: "22 feb 2025", partySize: 2, table: "Mesa 10", ticket: 40, notes: "Café y postre." },
+   344→    ],
+   345→  },
+   346→  {
+   347→    id: "c10",
+   348→    name: "Marcos Llopis",
+   349→    email: "marcos.llopis@example.com",
+   350→    phone: "+34 656 887 002",
+   351→    visits: 6,
+   352→    ltv: 540,
+   353→    tags: ["riesgo"],
+   354→    lastVisit: "Hace 5 semanas",
+   355→    birthday: "3 de mayo",
+   356→    favoriteTable: "Mesa 2 · Centro",
+   357→    allergens: ["Soja"],
+   358→    dietary: "Omnívoro",
+   359→    acquisition: "Instagram Ads",
+   360→    consents: { email: false, whatsapp: false, sms: false },
+   361→    notes: "Revocó todos los consentimientos. No contactar por canales digitales.",
+   362→    history: [
+   363→      { id: "v1", date: "09 feb 2025", partySize: 2, table: "Mesa 2", ticket: 72, notes: "Cena normal." },
+   364→      { id: "v2", date: "21 ene 2025", partySize: 3, table: "Mesa 2", ticket: 118, notes: "Cena con amigos." },
+   365→      { id: "v3", date: "07 ene 2025", partySize: 2, table: "Mesa 2", ticket: 64, notes: "Cena rápida." },
+   366→      { id: "v4", date: "20 dic 2024", partySize: 4, table: "Mesa 2", ticket: 168, notes: "Cena navideña." },
+   367→    ],
+   368→  },
+   369→];
+   370→
+   371→const ALL_TAGS: { id: TagId; label: string; tone: TagTone }[] = [
+   372→  { id: "VIP", label: "VIP", tone: "gold" },
+   373→  { id: "recurrente", label: "Recurrente", tone: "teal" },
+   374→  { id: "cumpleaños", label: "Cumpleaños", tone: "purple" },
+   375→  { id: "riesgo", label: "Riesgo", tone: "red" },
+   376→  { id: "nuevo", label: "Nuevo", tone: "blue" },
+   377→  { id: "inactivo", label: "Inactivo", tone: "muted" },
+   378→];
+   379→
+   380→type TagTone = "gold" | "teal" | "purple" | "red" | "blue" | "muted";
+   381→
+   382→const TAG_TONE_CLASS: Record<TagTone, string> = {
+   383→  gold: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   384→  teal: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   385→  purple: "border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300",
+   386→  red: "border-destructive/45 bg-destructive/10 text-destructive",
+   387→  blue: "border-sky-400/40 bg-sky-400/10 text-sky-300",
+   388→  muted: "border-foreground/20 bg-foreground/5 text-muted-foreground",
+   389→};
+   390→
+   391→function initials(name: string): string {
+   392→  return name
+   393→    .split(" ")
+   394→    .slice(0, 2)
+   395→    .map((p) => p[0])
+   396→    .join("")
+   397→    .toUpperCase();
+   398→}
+   399→
+   400→function formatEur(n: number): string {
+   401→  return n.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+   402→}
+   403→
+   404→/* ------------------------------------------------------------------ */
+   405→/* Demo badge                                                         */
+   406→/* ------------------------------------------------------------------ */
+   407→
+   408→function DemoBadge({ className }: { className?: string }) {
+   409→  return (
+   410→    <span
+   411→      className={cn(
+   412→        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
+   413→        className
+   414→      )}
+   415→    >
+   416→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+   417→      demo
+   418→    </span>
+   419→  );
+   420→}
+   421→
+   422→/* ------------------------------------------------------------------ */
+   423→/* Tag chip                                                           */
+   424→/* ------------------------------------------------------------------ */
+   425→
+   426→function TagChip({
+   427→  tag,
+   428→  onRemove,
+   429→  removable = false,
+   430→  disabled = false,
+   431→}: {
+   432→  tag: TagId;
+   433→  onRemove?: () => void;
+   434→  removable?: boolean;
+   435→  disabled?: boolean;
+   436→}) {
+   437→  const def = ALL_TAGS.find((t) => t.id === tag)!;
+   438→  return (
+   439→    <span
+   440→      className={cn(
+   441→        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider",
+   442→        TAG_TONE_CLASS[def.tone]
+   443→      )}
+   444→    >
+   445→      {tag === "VIP" && <Crown className="h-3 w-3" aria-hidden />}
+   446→      {tag === "cumpleaños" && <Gift className="h-3 w-3" aria-hidden />}
+   447→      {tag === "riesgo" && <AlertTriangle className="h-3 w-3" aria-hidden />}
+   448→      {def.label}
+   449→      {removable && !disabled && (
+   450→        <button
+   451→          type="button"
+   452→          onClick={onRemove}
+   453→          className="ml-0.5 rounded-sm hover:bg-foreground/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+   454→          aria-label={`Quitar etiqueta ${def.label}`}
+   455→        >
+   456→          <X className="h-3 w-3" />
+   457→        </button>
+   458→      )}
+   459→    </span>
+   460→  );
+   461→}
+   462→
+   463→/* ------------------------------------------------------------------ */
+   464→/* Section header                                                     */
+   465→/* ------------------------------------------------------------------ */
+   466→
+   467→function SectionLabel({
+   468→  icon: Icon,
+   469→  children,
+   470→}: {
+   471→  icon: React.ElementType;
+   472→  children: React.ReactNode;
+   473→}) {
+   474→  return (
+   475→    <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   476→      <Icon className="h-3.5 w-3.5 text-[var(--gold)]" aria-hidden />
+   477→      {children}
+   478→    </div>
+   479→  );
+   480→}
+   481→
+   482→/* ------------------------------------------------------------------ */
+   483→/* Consent row                                                        */
+   484→/* ------------------------------------------------------------------ */
+   485→
+   486→function ConsentRow({
+   487→  channel,
+   488→  granted,
+   489→  canEdit,
+   490→  onToggle,
+   491→}: {
+   492→  channel: ConsentChannel;
+   493→  granted: boolean;
+   494→  canEdit: boolean;
+   495→  onToggle: (next: boolean) => void;
+   496→}) {
+   497→  const channelLabel: Record<ConsentChannel, string> = {
+   498→    email: "Email",
+   499→    whatsapp: "WhatsApp",
+   500→    sms: "SMS",
+   501→  };
+   502→  const channelDesc: Record<ConsentChannel, string> = {
+   503→    email: "Boletines, ofertas y confirmaciones por correo.",
+   504→    whatsapp: "Mensajes transaccionales y promociones por WhatsApp.",
+   505→    sms: "Recordatorios cortos por SMS (coste por envío).",
+   506→  };
+   507→
+   508→  const tooltipText = canEdit
+   509→    ? `${channelDesc[channel]} Estado: ${granted ? "otorgado" : "revocado"}.`
+   510→    : `Sin permiso para modificar consentimientos (${channelLabel[channel]}). Solicita al Owner o Manager.`;
+   511→
+   512→  return (
+   513→    <TooltipProvider delayDuration={150}>
+   514→      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2.5">
+   515→        <div className="min-w-0 flex-1">
+   516→          <div className="flex items-center gap-2">
+   517→            <span className="text-sm font-medium">{channelLabel[channel]}</span>
+   518→            {granted ? (
+   519→              <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px] uppercase">
+   520→                <ShieldCheck className="h-3 w-3" aria-hidden /> Otorgado
+   521→              </Badge>
+   522→            ) : (
+   523→              <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive text-[10px] uppercase">
+   524→                <ShieldOff className="h-3 w-3" aria-hidden /> Revocado
+   525→              </Badge>
+   526→            )}
+   527→          </div>
+   528→          <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
+   529→            {channelDesc[channel]}
+   530→          </p>
+   531→        </div>
+   532→        <Tooltip>
+   533→          <TooltipTrigger asChild>
+   534→            <span tabIndex={0} className="inline-flex">
+   535→              <Switch
+   536→                checked={granted}
+   537→                disabled={!canEdit}
+   538→                onCheckedChange={onToggle}
+   539→                aria-label={`${granted ? "Revocar" : "Otorgar"} consentimiento ${channelLabel[channel]}`}
+   540→                aria-describedby={`consent-${channel}-desc`}
+   541→              />
+   542→            </span>
+   543→          </TooltipTrigger>
+   544→          <TooltipContent side="left" className="max-w-[220px]">
+   545→            <span id={`consent-${channel}-desc`}>{tooltipText}</span>
+   546→          </TooltipContent>
+   547→        </Tooltip>
+   548→      </div>
+   549→    </TooltipProvider>
+   550→  );
+   551→}
+   552→
+   553→/* ------------------------------------------------------------------ */
+   554→/* Customer list item                                                 */
+   555→/* ------------------------------------------------------------------ */
+   556→
+   557→function CustomerListItem({
+   558→  customer,
+   559→  selected,
+   560→  onSelect,
+   561→}: {
+   562→  customer: Customer;
+   563→  selected: boolean;
+   564→  onSelect: () => void;
+   565→}) {
+   566→  return (
+   567→    <li>
+   568→      <button
+   569→        type="button"
+   570→        onClick={onSelect}
+   571→        aria-current={selected ? "true" : undefined}
+   572→        aria-label={`Seleccionar cliente ${customer.name}, ${customer.visits} visitas`}
+   573→        className={cn(
+   574→          "group w-full text-left rounded-xl border p-3 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+   575→          selected
+   576→            ? "border-[var(--gold)]/60 bg-[var(--gold)]/[0.07] rp-glow-gold"
+   577→            : "border-border/50 bg-foreground/[0.02] hover:border-[var(--gold)]/30 hover:bg-foreground/[0.04]"
+   578→        )}
+   579→      >
+   580→        <div className="flex items-center gap-3">
+   581→          <Avatar className="h-10 w-10 border border-border/60">
+   582→            <AvatarFallback
+   583→              className={cn(
+   584→                "text-xs font-medium",
+   585→                selected
+   586→                  ? "bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] text-black"
+   587→                  : "bg-foreground/10 text-foreground/80"
+   588→              )}
+   589→            >
+   590→              {initials(customer.name)}
+   591→            </AvatarFallback>
+   592→          </Avatar>
+   593→          <div className="min-w-0 flex-1">
+   594→            <div className="flex items-center gap-2">
+   595→              <span className="truncate text-sm font-medium">{customer.name}</span>
+   596→            </div>
+   597→            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+   598→              <span>{customer.visits} visitas</span>
+   599→              <span className="h-1 w-1 rounded-full bg-muted-foreground/50" aria-hidden />
+   600→              <span className="truncate">{customer.lastVisit}</span>
+   601→            </div>
+   602→          </div>
+   603→        </div>
+   604→        {customer.tags.length > 0 && (
+   605→          <div className="mt-2.5 flex flex-wrap gap-1">
+   606→            {customer.tags.map((t) => (
+   607→              <TagChip key={t} tag={t} />
+   608→            ))}
+   609→          </div>
+   610→        )}
+   611→      </button>
+   612→    </li>
+   613→  );
+   614→}
+   615→
+   616→/* ------------------------------------------------------------------ */
+   617→/* Empty state                                                        */
+   618→/* ------------------------------------------------------------------ */
+   619→
+   620→function EmptySelection() {
+   621→  return (
+   622→    <div className="rp-glass flex h-full min-h-[420px] flex-col items-center justify-center rounded-2xl p-8 text-center">
+   623→      <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border/60 bg-foreground/[0.03]">
+   624→        <CircleUserRound className="h-8 w-8 text-muted-foreground" aria-hidden />
+   625→      </div>
+   626→      <h3 className="mt-5 font-display text-xl font-medium tracking-tight">
+   627→        Ningún cliente seleccionado
+   628→      </h3>
+   629→      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+   630→        Selecciona un cliente de la lista para ver su perfil completo: historial de
+   631→        visitas, preferencias, consentimientos y notas internas.
+   632→      </p>
+   633→      <Button className="mt-5" variant="outline" disabled>
+   634→        <Inbox className="h-4 w-4" aria-hidden />
+   635→        Selecciona un cliente
+   636→      </Button>
+   637→      <p className="mt-3 text-[11px] text-muted-foreground">
+   638→        Tip: usa la búsqueda o los filtros para encontrar clientes por etiqueta.
+   639→      </p>
+   640→    </div>
+   641→  );
+   642→}
+   643→
+   644→function EmptyResults({ query }: { query: string }) {
+   645→  return (
+   646→    <li className="rounded-xl border border-dashed border-border/60 bg-foreground/[0.02] p-6 text-center">
+   647→      <Search className="mx-auto h-5 w-5 text-muted-foreground" aria-hidden />
+   648→      <p className="mt-2 text-sm text-muted-foreground">
+   649→        {query
+   650→          ? `Sin resultados para "${query}".`
+   651→          : "No hay clientes que coincidan con el filtro seleccionado."}
+   652→      </p>
+   653→    </li>
+   654→  );
+   655→}
+   656→
+   657→/* ------------------------------------------------------------------ */
+   658→/* Add tag dialog                                                     */
+   659→/* ------------------------------------------------------------------ */
+   660→
+   661→function AddTagDialog({
+   662→  open,
+   663→  onOpenChange,
+   664→  existingTags,
+   665→  onAdd,
+   666→}: {
+   667→  open: boolean;
+   668→  onOpenChange: (v: boolean) => void;
+   669→  existingTags: TagId[];
+   670→  onAdd: (t: TagId) => void;
+   671→}) {
+   672→  const available = ALL_TAGS.filter((t) => !existingTags.includes(t.id));
+   673→  return (
+   674→    <Dialog open={open} onOpenChange={onOpenChange}>
+   675→      <DialogContent className="sm:max-w-md">
+   676→        <DialogHeader>
+   677→          <DialogTitle>Añadir etiqueta</DialogTitle>
+   678→          <DialogDescription>
+   679→            Selecciona una etiqueta de la lista para añadirla al cliente.
+   680→          </DialogDescription>
+   681→        </DialogHeader>
+   682→        {available.length === 0 ? (
+   683→          <p className="text-sm text-muted-foreground">
+   684→            El cliente ya tiene todas las etiquetas disponibles.
+   685→          </p>
+   686→        ) : (
+   687→          <ul className="flex flex-wrap gap-2">
+   688→            {available.map((t) => (
+   689→              <li key={t.id}>
+   690→                <button
+   691→                  type="button"
+   692→                  onClick={() => {
+   693→                    onAdd(t.id);
+   694→                    onOpenChange(false);
+   695→                  }}
+   696→                  className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-foreground/[0.03] px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider text-foreground/80 transition-colors hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/10 hover:text-[var(--gold-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+   697→                >
+   698→                  <Plus className="h-3 w-3" aria-hidden />
+   699→                  {t.label}
+   700→                </button>
+   701→              </li>
+   702→            ))}
+   703→          </ul>
+   704→        )}
+   705→        <DialogFooter>
+   706→          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+   707→            Cancelar
+   708→          </Button>
+   709→        </DialogFooter>
+   710→      </DialogContent>
+   711→    </Dialog>
+   712→  );
+   713→}
+   714→
+   715→/* ------------------------------------------------------------------ */
+   716→/* Send message dialog (validated form)                              */
+   717→/* ------------------------------------------------------------------ */
+   718→
+   719→function SendMessageDialog({
+   720→  open,
+   721→  onOpenChange,
+   722→  customer,
+   723→  canSend,
+   724→}: {
+   725→  open: boolean;
+   726→  onOpenChange: (v: boolean) => void;
+   727→  customer: Customer;
+   728→  canSend: boolean;
+   729→}) {
+   730→  const [channel, setChannel] = React.useState<ConsentChannel>("email");
+   731→  const [subject, setSubject] = React.useState("");
+   732→  const [body, setBody] = React.useState("");
+   733→  const [errors, setErrors] = React.useState<{ subject?: string; body?: string; channel?: string }>({});
+   734→  const [sent, setSent] = React.useState(false);
+   735→
+   736→  React.useEffect(() => {
+   737→    if (open) {
+   738→      setChannel("email");
+   739→      setSubject("");
+   740→      setBody("");
+   741→      setErrors({});
+   742→      setSent(false);
+   743→    }
+   744→  }, [open, customer.id]);
+   745→
+   746→  const channelConsented = customer.consents[channel];
+   747→
+   748→  function validate(): boolean {
+   749→    const e: typeof errors = {};
+   750→    if (!channelConsented) {
+   751→      e.channel = `El cliente ha revocado el consentimiento para ${channel}.`;
+   752→    }
+   753→    if (channel === "email" && !subject.trim()) {
+   754→      e.subject = "El asunto es obligatorio para email.";
+   755→    }
+   756→    if (!body.trim()) {
+   757→      e.body = "El cuerpo del mensaje no puede estar vacío.";
+   758→    }
+   759→    setErrors(e);
+   760→    return Object.keys(e).length === 0;
+   761→  }
+   762→
+   763→  function handleSubmit(ev: React.FormEvent) {
+   764→    ev.preventDefault();
+   765→    if (!canSend) return;
+   766→    if (!validate()) return;
+   767→    setSent(true);
+   768→    setTimeout(() => onOpenChange(false), 1200);
+   769→  }
+   770→
+   771→  return (
+   772→    <Dialog open={open} onOpenChange={onOpenChange}>
+   773→      <DialogContent className="sm:max-w-lg">
+   774→        <DialogHeader>
+   775→          <DialogTitle>Enviar mensaje a {customer.name}</DialogTitle>
+   776→          <DialogDescription>
+   777→            El canal seleccionado respeta los consentimientos del cliente.
+   778→          </DialogDescription>
+   779→        </DialogHeader>
+   780→        {sent ? (
+   781→          <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm text-emerald-300">
+   782→            <ShieldCheck className="mr-1.5 inline h-4 w-4" aria-hidden />
+   783→            Mensaje encolado para envío (demo). Auditoría registrada.
+   784→          </div>
+   785→        ) : (
+   786→          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+   787→            <div className="space-y-2">
+   788→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   789→                Canal
+   790→              </label>
+   791→              <Select value={channel} onValueChange={(v) => setChannel(v as ConsentChannel)}>
+   792→                <SelectTrigger aria-label="Canal de mensaje">
+   793→                  <SelectValue />
+   794→                </SelectTrigger>
+   795→                <SelectContent>
+   796→                  <SelectItem value="email">Email</SelectItem>
+   797→                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+   798→                  <SelectItem value="sms">SMS</SelectItem>
+   799→                </SelectContent>
+   800→              </Select>
+   801→              {!channelConsented && (
+   802→                <p className="text-[11px] text-destructive flex items-center gap-1.5">
+   803→                  <ShieldOff className="h-3 w-3" aria-hidden />
+   804→                  Consentimiento revocado para este canal. Selecciona otro canal o solicita consentimiento.
+   805→                </p>
+   806→              )}
+   807→              {errors.channel && (
+   808→                <p className="text-[11px] text-destructive" role="alert">{errors.channel}</p>
+   809→              )}
+   810→            </div>
+   811→            {channel === "email" && (
+   812→              <div className="space-y-2">
+   813→                <label htmlFor="msg-subject" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   814→                  Asunto <span className="text-destructive">*</span>
+   815→                </label>
+   816→                <Input
+   817→                  id="msg-subject"
+   818→                  value={subject}
+   819→                  onChange={(e) => setSubject(e.target.value)}
+   820→                  placeholder="Ej. Detalle de tu próxima reserva"
+   821→                  aria-invalid={!!errors.subject}
+   822→                  aria-describedby={errors.subject ? "msg-subject-err" : undefined}
+   823→                />
+   824→                {errors.subject && (
+   825→                  <p id="msg-subject-err" className="text-[11px] text-destructive" role="alert">
+   826→                    {errors.subject}
+   827→                  </p>
+   828→                )}
+   829→              </div>
+   830→            )}
+   831→            <div className="space-y-2">
+   832→              <label htmlFor="msg-body" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   833→                Mensaje <span className="text-destructive">*</span>
+   834→              </label>
+   835→              <Textarea
+   836→                id="msg-body"
+   837→                value={body}
+   838→                onChange={(e) => setBody(e.target.value)}
+   839→                placeholder={`Hola ${customer.name.split(" ")[0]}, …`}
+   840→                rows={5}
+   841→                aria-invalid={!!errors.body}
+   842→                aria-describedby={errors.body ? "msg-body-err" : undefined}
+   843→              />
+   844→              {errors.body && (
+   845→                <p id="msg-body-err" className="text-[11px] text-destructive" role="alert">
+   846→                  {errors.body}
+   847→                </p>
+   848→              )}
+   849→            </div>
+   850→            <DialogFooter>
+   851→              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+   852→                Cancelar
+   853→              </Button>
+   854→              <Button type="submit" disabled={!canSend}>
+   855→                <Send className="h-4 w-4" aria-hidden />
+   856→                Enviar
+   857→              </Button>
+   858→            </DialogFooter>
+   859→          </form>
+   860→        )}
+   861→      </DialogContent>
+   862→    </Dialog>
+   863→  );
+   864→}
+   865→
+   866→/* ------------------------------------------------------------------ */
+   867→/* New reservation dialog (validated form)                           */
+   868→/* ------------------------------------------------------------------ */
+   869→
+   870→function NewReservationDialog({
+   871→  open,
+   872→  onOpenChange,
+   873→  customer,
+   874→  canCreate,
+   875→}: {
+   876→  open: boolean;
+   877→  onOpenChange: (v: boolean) => void;
+   878→  customer: Customer;
+   879→  canCreate: boolean;
+   880→}) {
+   881→  const [date, setDate] = React.useState("");
+   882→  const [time, setTime] = React.useState("");
+   883→  const [party, setParty] = React.useState("2");
+   884→  const [errors, setErrors] = React.useState<{ date?: string; time?: string; party?: string }>({});
+   885→  const [created, setCreated] = React.useState(false);
+   886→
+   887→  React.useEffect(() => {
+   888→    if (open) {
+   889→      setDate("");
+   890→      setTime("");
+   891→      setParty("2");
+   892→      setErrors({});
+   893→      setCreated(false);
+   894→    }
+   895→  }, [open, customer.id]);
+   896→
+   897→  function validate(): boolean {
+   898→    const e: typeof errors = {};
+   899→    if (!date) e.date = "La fecha es obligatoria.";
+   900→    if (!time) e.time = "La hora es obligatoria.";
+   901→    const p = Number(party);
+   902→    if (!party || Number.isNaN(p) || p < 1 || p > 20) {
+   903→      e.party = "Entre 1 y 20 comensales.";
+   904→    }
+   905→    setErrors(e);
+   906→    return Object.keys(e).length === 0;
+   907→  }
+   908→
+   909→  function handleSubmit(ev: React.FormEvent) {
+   910→    ev.preventDefault();
+   911→    if (!canCreate) return;
+   912→    if (!validate()) return;
+   913→    setCreated(true);
+   914→    setTimeout(() => onOpenChange(false), 1200);
+   915→  }
+   916→
+   917→  return (
+   918→    <Dialog open={open} onOpenChange={onOpenChange}>
+   919→      <DialogContent className="sm:max-w-md">
+   920→        <DialogHeader>
+   921→          <DialogTitle>Nueva reserva · {customer.name}</DialogTitle>
+   922→          <DialogDescription>
+   923→            Crea una reserva para este cliente. La mesa se asignará desde el plano.
+   924→          </DialogDescription>
+   925→        </DialogHeader>
+   926→        {created ? (
+   927→          <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm text-emerald-300">
+   928→            <ShieldCheck className="mr-1.5 inline h-4 w-4" aria-hidden />
+   929→            Reserva creada (demo) para {party} comensales el {date} a las {time}.
+   930→          </div>
+   931→        ) : (
+   932→          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+   933→            <div className="grid grid-cols-2 gap-3">
+   934→              <div className="space-y-2">
+   935→                <label htmlFor="res-date" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   936→                  Fecha <span className="text-destructive">*</span>
+   937→                </label>
+   938→                <Input
+   939→                  id="res-date"
+   940→                  type="date"
+   941→                  value={date}
+   942→                  onChange={(e) => setDate(e.target.value)}
+   943→                  aria-invalid={!!errors.date}
+   944→                  aria-describedby={errors.date ? "res-date-err" : undefined}
+   945→                />
+   946→                {errors.date && (
+   947→                  <p id="res-date-err" className="text-[11px] text-destructive" role="alert">
+   948→                    {errors.date}
+   949→                  </p>
+   950→                )}
+   951→              </div>
+   952→              <div className="space-y-2">
+   953→                <label htmlFor="res-time" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   954→                  Hora <span className="text-destructive">*</span>
+   955→                </label>
+   956→                <Input
+   957→                  id="res-time"
+   958→                  type="time"
+   959→                  value={time}
+   960→                  onChange={(e) => setTime(e.target.value)}
+   961→                  aria-invalid={!!errors.time}
+   962→                  aria-describedby={errors.time ? "res-time-err" : undefined}
+   963→                />
+   964→                {errors.time && (
+   965→                  <p id="res-time-err" className="text-[11px] text-destructive" role="alert">
+   966→                    {errors.time}
+   967→                  </p>
+   968→                )}
+   969→              </div>
+   970→            </div>
+   971→            <div className="space-y-2">
+   972→              <label htmlFor="res-party" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   973→                Comensales <span className="text-destructive">*</span>
+   974→              </label>
+   975→              <Input
+   976→                id="res-party"
+   977→                type="number"
+   978→                min={1}
+   979→                max={20}
+   980→                value={party}
+   981→                onChange={(e) => setParty(e.target.value)}
+   982→                aria-invalid={!!errors.party}
+   983→                aria-describedby={errors.party ? "res-party-err" : undefined}
+   984→              />
+   985→              {errors.party && (
+   986→                <p id="res-party-err" className="text-[11px] text-destructive" role="alert">
+   987→                  {errors.party}
+   988→                </p>
+   989→              )}
+   990→            </div>
+   991→            <DialogFooter>
+   992→              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+   993→                Cancelar
+   994→              </Button>
+   995→              <Button type="submit" disabled={!canCreate}>
+   996→                <CalendarPlus className="h-4 w-4" aria-hidden />
+   997→                Crear reserva
+   998→              </Button>
+   999→            </DialogFooter>
+  1000→          </form>
+  1001→        )}
+  1002→      </DialogContent>
+  1003→    </Dialog>
+  1004→  );
+  1005→}
+  1006→
+  1007→/* ------------------------------------------------------------------ */
+  1008→/* Customer profile                                                   */
+  1009→/* ------------------------------------------------------------------ */
+  1010→
+  1011→function CustomerProfile({
+  1012→  customer,
+  1013→  perms,
+  1014→  onTagsChange,
+  1015→  onConsentChange,
+  1016→  onNotesChange,
+  1017→  onNewReservation,
+  1018→  onSendMessage,
+  1019→}: {
+  1020→  customer: Customer;
+  1021→  perms: Permissions;
+  1022→  onTagsChange: (tags: TagId[]) => void;
+  1023→  onConsentChange: (channel: ConsentChannel, granted: boolean) => void;
+  1024→  onNotesChange: (notes: string) => void;
+  1025→  onNewReservation: () => void;
+  1026→  onSendMessage: () => void;
+  1027→}) {
+  1028→  const [addTagOpen, setAddTagOpen] = React.useState(false);
+  1029→  const [reservationOpen, setReservationOpen] = React.useState(false);
+  1030→  const [messageOpen, setMessageOpen] = React.useState(false);
+  1031→  const [notesDraft, setNotesDraft] = React.useState(customer.notes);
+  1032→
+  1033→  React.useEffect(() => {
+  1034→    setNotesDraft(customer.notes);
+  1035→  }, [customer.id, customer.notes]);
+  1036→
+  1037→  const canExport = perms["crm.export"];
+  1038→  const canMessage = perms["crm.message"];
+  1039→  const canReserve = perms["crm.reservation.create"];
+  1040→  const canEditTags = perms["crm.tag.edit"];
+  1041→  const canEditConsents = perms["crm.consent.edit"];
+  1042→  const canEditNotes = perms["crm.note.edit"];
+  1043→
+  1044→  return (
+  1045→    <div className="space-y-5">
+  1046→      {/* Header */}
+  1047→      <section
+  1048→        className="rp-glass-strong rounded-2xl p-5 sm:p-6"
+  1049→        aria-labelledby="profile-name"
+  1050→      >
+  1051→        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+  1052→          <Avatar className="h-16 w-16 border border-[var(--gold)]/40">
+  1053→            <AvatarFallback className="bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] text-lg font-medium text-black">
+  1054→              {initials(customer.name)}
+  1055→            </AvatarFallback>
+  1056→          </Avatar>
+  1057→          <div className="min-w-0 flex-1">
+  1058→            <div className="flex flex-wrap items-center gap-2">
+  1059→              <h2 id="profile-name" className="font-display text-2xl font-medium tracking-tight">
+  1060→                {customer.name}
+  1061→              </h2>
+  1062→              {customer.tags.includes("VIP") && (
+  1063→                <Badge className="border border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)] uppercase">
+  1064→                  <Crown className="h-3 w-3" aria-hidden /> VIP
+  1065→                </Badge>
+  1066→              )}
+  1067→            </div>
+  1068→            <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+  1069→              <span className="inline-flex items-center gap-1.5">
+  1070→                <Mail className="h-3.5 w-3.5" aria-hidden />
+  1071→                <a href={`mailto:${customer.email}`} className="hover:text-foreground hover:underline">
+  1072→                  {customer.email}
+  1073→                </a>
+  1074→              </span>
+  1075→              <span className="inline-flex items-center gap-1.5">
+  1076→                <Phone className="h-3.5 w-3.5" aria-hidden />
+  1077→                <a href={`tel:${customer.phone.replace(/\s/g, "")}`} className="hover:text-foreground hover:underline">
+  1078→                  {customer.phone}
+  1079→                </a>
+  1080→              </span>
+  1081→            </div>
+  1082→            <div className="mt-3 flex flex-wrap items-center gap-2">
+  1083→              {customer.tags.map((t) => (
+  1084→                <TagChip
+  1085→                  key={t}
+  1086→                  tag={t}
+  1087→                  removable={canEditTags}
+  1088→                  disabled={!canEditTags}
+  1089→                  onRemove={() => onTagsChange(customer.tags.filter((x) => x !== t))}
+  1090→                />
+  1091→              ))}
+  1092→              {canEditTags && (
+  1093→                <button
+  1094→                  type="button"
+  1095→                  onClick={() => setAddTagOpen(true)}
+  1096→                  className="inline-flex items-center gap-1 rounded-md border border-dashed border-border/60 px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground transition-colors hover:border-[var(--gold)]/40 hover:text-[var(--gold-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+  1097→                  aria-label="Añadir etiqueta"
+  1098→                >
+  1099→                  <Plus className="h-3 w-3" aria-hidden />
+  1100→                  Añadir
+  1101→                </button>
+  1102→              )}
+  1103→            </div>
+  1104→          </div>
+  1105→          <div className="sm:text-right">
+  1106→            <div className="text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+  1107→              Valor de vida (LTV)
+  1108→            </div>
+  1109→            <div className="mt-1 font-display text-3xl font-light rp-gold-text sm:text-4xl">
+  1110→              {formatEur(customer.ltv)}
+  1111→            </div>
+  1112→            <div className="mt-1 text-[11px] text-muted-foreground">
+  1113→              {customer.visits} visitas · {customer.lastVisit}
+  1114→            </div>
+  1115→          </div>
+  1116→        </div>
+  1117→
+  1118→        {/* Actions */}
+  1119→        <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border/50 pt-4">
+  1120→          <Button onClick={() => setReservationOpen(true)} disabled={!canReserve} className="min-h-11">
+  1121→            <CalendarPlus className="h-4 w-4" aria-hidden />
+  1122→            Nueva reserva
+  1123→          </Button>
+  1124→          <Button variant="outline" onClick={() => setMessageOpen(true)} disabled={!canMessage} className="min-h-11">
+  1125→            <Send className="h-4 w-4" aria-hidden />
+  1126→            Enviar mensaje
+  1127→          </Button>
+  1128→          <TooltipProvider delayDuration={150}>
+  1129→            <Tooltip>
+  1130→              <TooltipTrigger asChild>
+  1131→                <span tabIndex={0} className="inline-flex">
+  1132→                  <Button
+  1133→                    variant="outline"
+  1134→                    disabled={!canExport}
+  1135→                    aria-label="Exportar ficha de cliente"
+  1136→                    aria-describedby="export-tip"
+  1137→                    className="min-h-11"
+  1138→                  >
+  1139→                    <Download className="h-4 w-4" aria-hidden />
+  1140→                    Exportar
+  1141→                  </Button>
+  1142→                </span>
+  1143→              </TooltipTrigger>
+  1144→              <TooltipContent side="top" className="max-w-[260px]">
+  1145→                <span id="export-tip">
+  1146→                  {canExport
+  1147→                    ? "Exporta la ficha (PDF/CSV). Se audita como evento crm.export."
+  1148→                    : "Sin permiso crm.export. Solicita al Owner o Manager para exportar."}
+  1149→                </span>
+  1150→              </TooltipContent>
+  1151→            </Tooltip>
+  1152→          </TooltipProvider>
+  1153→        </div>
+  1154→      </section>
+  1155→
+  1156→      {/* Two-column body */}
+  1157→      <div className="grid gap-5 lg:grid-cols-2">
+  1158→        {/* Visit history */}
+  1159→        <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="history-h">
+  1160→          <div className="flex items-center justify-between">
+  1161→            <SectionLabel icon={History}>Historial de visitas</SectionLabel>
+  1162→            <DemoBadge />
+  1163→          </div>
+  1164→          <h3 id="history-h" className="sr-only">Historial de visitas</h3>
+  1165→          <ul className="mt-4 space-y-3">
+  1166→            {customer.history.map((v) => (
+  1167→              <li
+  1168→                key={v.id}
+  1169→                className={cn(
+  1170→                  "rounded-lg border border-border/50 bg-foreground/[0.02] p-3",
+  1171→                  v.ticket === null && "border-destructive/30 bg-destructive/[0.04]"
+  1172→                )}
+  1173→              >
+  1174→                <div className="flex items-start justify-between gap-3">
+  1175→                  <div className="min-w-0">
+  1176→                    <div className="flex items-center gap-2 text-sm">
+  1177→                      <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+  1178→                      <span className="font-medium">{v.date}</span>
+  1179→                      <span className="text-muted-foreground">·</span>
+  1180→                      <span className="text-muted-foreground">{v.partySize} pax</span>
+  1181→                    </div>
+  1182→                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+  1183→                      Mesa: <span className="text-foreground/80">{v.table}</span>
+  1184→                    </div>
+  1185→                  </div>
+  1186→                  {v.ticket === null ? (
+  1187→                    <Badge variant="outline" className="border-destructive/45 bg-destructive/10 text-destructive">
+  1188→                      <AlertTriangle className="h-3 w-3" aria-hidden /> No-show
+  1189→                    </Badge>
+  1190→                  ) : (
+  1191→                    <span className="font-mono text-sm rp-gold-text">{formatEur(v.ticket)}</span>
+  1192→                  )}
+  1193→                </div>
+  1194→                {v.notes && (
+  1195→                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{v.notes}</p>
+  1196→                )}
+  1197→              </li>
+  1198→            ))}
+  1199→          </ul>
+  1200→        </section>
+  1201→
+  1202→        {/* Preferences + acquisition */}
+  1203→        <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="prefs-h">
+  1204→          <div className="flex items-center justify-between">
+  1205→            <SectionLabel icon={Sparkles}>Preferencias y datos</SectionLabel>
+  1206→            <DemoBadge />
+  1207→          </div>
+  1208→          <h3 id="prefs-h" className="sr-only">Preferencias y datos</h3>
+  1209→          <dl className="mt-4 divide-y divide-border/40">
+  1210→            <div className="flex items-start justify-between gap-3 py-3">
+  1211→              <dt className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+  1212→                <MapPin className="h-3.5 w-3.5" aria-hidden /> Mesa favorita
+  1213→              </dt>
+  1214→              <dd className="text-sm text-foreground/90 text-right">{customer.favoriteTable}</dd>
+  1215→            </div>
+  1216→            <div className="flex items-start justify-between gap-3 py-3">
+  1217→              <dt className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+  1218→                <Soup className="h-3.5 w-3.5" aria-hidden /> Alérgenos
+  1219→              </dt>
+  1220→              <dd className="text-sm text-foreground/90 text-right">
+  1221→                {customer.allergens.length ? customer.allergens.join(", ") : "Ninguno declarado"}
+  1222→              </dd>
+  1223→            </div>
+  1224→            <div className="flex items-start justify-between gap-3 py-3">
+  1225→              <dt className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+  1226→                <Utensils className="h-3.5 w-3.5" aria-hidden /> Dieta
+  1227→              </dt>
+  1228→              <dd className="text-sm text-foreground/90 text-right">{customer.dietary}</dd>
+  1229→            </div>
+  1230→            <div className="flex items-start justify-between gap-3 py-3">
+  1231→              <dt className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+  1232→                <Gift className="h-3.5 w-3.5" aria-hidden /> Cumpleaños
+  1233→              </dt>
+  1234→              <dd className="text-sm text-foreground/90 text-right">{customer.birthday}</dd>
+  1235→            </div>
+  1236→            <div className="flex items-start justify-between gap-3 py-3">
+  1237→              <dt className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+  1238→                <Megaphone className="h-3.5 w-3.5" aria-hidden /> Fuente de captación
+  1239→              </dt>
+  1240→              <dd className="text-sm text-foreground/90 text-right">{customer.acquisition}</dd>
+  1241→            </div>
+  1242→          </dl>
+  1243→        </section>
+  1244→
+  1245→        {/* Consents */}
+  1246→        <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="consent-h">
+  1247→          <div className="flex items-center justify-between">
+  1248→            <SectionLabel icon={ShieldCheck}>Consentimientos</SectionLabel>
+  1249→            <DemoBadge />
+  1250→          </div>
+  1251→          <h3 id="consent-h" className="sr-only">Consentimientos</h3>
+  1252→          <p className="mt-2 text-[11px] text-muted-foreground leading-relaxed">
+  1253→            Cada canal requiere consentimiento explícito y versionado. Revocar un canal
+  1254→            bloquea el envío de mensajes por ese canal.
+  1255→          </p>
+  1256→          <div className="mt-3 space-y-2">
+  1257→            {(["email", "whatsapp", "sms"] as ConsentChannel[]).map((ch) => (
+  1258→              <ConsentRow
+  1259→                key={ch}
+  1260→                channel={ch}
+  1261→                granted={customer.consents[ch]}
+  1262→                canEdit={canEditConsents}
+  1263→                onToggle={(next) => onConsentChange(ch, next)}
+  1264→              />
+  1265→            ))}
+  1266→          </div>
+  1267→          {!canEditConsents && (
+  1268→            <p className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-amber-300">
+  1269→              <Lock className="h-3 w-3" aria-hidden />
+  1270→              Sin permiso para editar consentimientos.
+  1271→            </p>
+  1272→          )}
+  1273→        </section>
+  1274→
+  1275→        {/* Internal notes */}
+  1276→        <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="notes-h">
+  1277→          <div className="flex items-center justify-between">
+  1278→            <SectionLabel icon={StickyNote}>Notas internas</SectionLabel>
+  1279→            <DemoBadge />
+  1280→          </div>
+  1281→          <h3 id="notes-h" className="sr-only">Notas internas</h3>
+  1282→          <Textarea
+  1283→            value={notesDraft}
+  1284→            onChange={(e) => setNotesDraft(e.target.value)}
+  1285→            disabled={!canEditNotes}
+  1286→            rows={6}
+  1287→            placeholder="Notas internas del equipo (no visibles para el cliente)…"
+  1288→            className="mt-4 resize-none"
+  1289→            aria-label="Notas internas"
+  1290→          />
+  1291→            <div className="mt-2 flex items-center justify-between">
+  1292→            <p className="text-[11px] text-muted-foreground">
+  1293→              {canEditNotes ? "Visibles solo para el equipo del local." : "Solo lectura para tu rol."}
+  1294→            </p>
+  1295→            <Button
+  1296→              size="sm"
+  1297→              variant="outline"
+  1298→              className="min-h-9"
+  1299→              disabled={!canEditNotes || notesDraft === customer.notes}
+  1300→              onClick={() => onNotesChange(notesDraft)}
+  1301→              aria-label="Guardar notas"
+  1302→            >
+  1303→              <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+  1304→              Guardar
+  1305→            </Button>
+  1306→          </div>
+  1307→        </section>
+  1308→      </div>
+  1309→
+  1310→      {/* Dialogs */}
+  1311→      <AddTagDialog
+  1312→        open={addTagOpen}
+  1313→        onOpenChange={setAddTagOpen}
+  1314→        existingTags={customer.tags}
+  1315→        onAdd={(t) => onTagsChange([...customer.tags, t])}
+  1316→      />
+  1317→      <NewReservationDialog
+  1318→        open={reservationOpen}
+  1319→        onOpenChange={setReservationOpen}
+  1320→        customer={customer}
+  1321→        canCreate={canReserve}
+  1322→      />
+  1323→      <SendMessageDialog
+  1324→        open={messageOpen}
+  1325→        onOpenChange={setMessageOpen}
+  1326→        customer={customer}
+  1327→        canSend={canMessage}
+  1328→      />
+  1329→    </div>
+  1330→  );
+  1331→}
+  1332→
+  1333→/* ------------------------------------------------------------------ */
+  1334→/* Main CRM view                                                      */
+  1335→/* ------------------------------------------------------------------ */
+  1336→
+  1337→export function CrmView() {
+  1338→  const [customers, setCustomers] = React.useState<Customer[]>(DEMO_CUSTOMERS);
+  1339→  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  1340→  const [query, setQuery] = React.useState("");
+  1341→  const [filter, setFilter] = React.useState<FilterTab>("todos");
+  1342→  const [role, setRole] = React.useState<Role>("owner");
+  1343→
+  1344→  const perms = ROLE_PERMISSIONS[role];
+  1345→  const selected = customers.find((c) => c.id === selectedId) ?? null;
+  1346→
+  1347→  const filtered = React.useMemo(() => {
+  1348→    const q = query.trim().toLowerCase();
+  1349→    return customers.filter((c) => {
+  1350→      const matchesQuery =
+  1351→        !q ||
+  1352→        c.name.toLowerCase().includes(q) ||
+  1353→        c.email.toLowerCase().includes(q) ||
+  1354→        c.phone.toLowerCase().includes(q);
+  1355→      const matchesFilter =
+  1356→        filter === "todos" ||
+  1357→        (filter === "VIP" && c.tags.includes("VIP")) ||
+  1358→        (filter === "riesgo" && c.tags.includes("riesgo")) ||
+  1359→        (filter === "cumpleaños" && c.tags.includes("cumpleaños"));
+  1360→      return matchesQuery && matchesFilter;
+  1361→    });
+  1362→  }, [customers, query, filter]);
+  1363→
+  1364→  function updateCustomer(id: string, patch: Partial<Customer>) {
+  1365→    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  1366→  }
+  1367→
+  1368→  return (
+  1369→    <div className="space-y-5">
+  1370→      {/* Page header */}
+  1371→      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+  1372→        <div>
+  1373→          <div className="flex items-center gap-2">
+  1374→            <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
+  1375→              Clientes
+  1376→            </h1>
+  1377→            <DemoBadge />
+  1378→          </div>
+  1379→          <p className="mt-1 text-sm text-muted-foreground">
+  1380→            CRM unificado: historial, preferencias, consentimientos y notas del equipo.
+  1381→          </p>
+  1382→        </div>
+  1383→        <div className="flex items-center gap-2">
+  1384→          <span className="hidden sm:inline text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1385→            Rol simulado
+  1386→          </span>
+  1387→          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+  1388→            <SelectTrigger className="w-full sm:w-[150px] min-h-11" aria-label="Rol simulado para permisos">
+  1389→              <SelectValue />
+  1390→            </SelectTrigger>
+  1391→            <SelectContent>
+  1392→              <SelectItem value="owner">Owner</SelectItem>
+  1393→              <SelectItem value="manager">Manager</SelectItem>
+  1394→              <SelectItem value="hostess">Hostess</SelectItem>
+  1395→            </SelectContent>
+  1396→          </Select>
+  1397→        </div>
+  1398→      </header>
+  1399→
+  1400→      <div className="grid gap-5 lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]">
+  1401→        {/* Left: customer list */}
+  1402→        <aside className="rp-glass flex flex-col rounded-2xl p-4" aria-label="Lista de clientes">
+  1403→          <div className="relative">
+  1404→            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+  1405→            <Input
+  1406→              value={query}
+  1407→              onChange={(e) => setQuery(e.target.value)}
+  1408→              placeholder="Buscar por nombre, email o teléfono…"
+  1409→              className="pl-9 min-h-11"
+  1410→              aria-label="Buscar clientes"
+  1411→            />
+  1412→          </div>
+  1413→
+  1414→          <div
+  1415→            role="tablist"
+  1416→            aria-label="Filtrar clientes por etiqueta"
+  1417→            className="mt-3 flex flex-wrap gap-1 rounded-lg border border-border/60 bg-foreground/[0.03] p-1"
+  1418→          >
+  1419→            {([
+  1420→              { id: "todos", label: "Todos" },
+  1421→              { id: "VIP", label: "VIP" },
+  1422→              { id: "riesgo", label: "Riesgo" },
+  1423→              { id: "cumpleaños", label: "Cumpleaños" },
+  1424→            ] as { id: FilterTab; label: string }[]).map((t) => (
+  1425→              <button
+  1426→                key={t.id}
+  1427→                role="tab"
+  1428→                aria-selected={filter === t.id}
+  1429→                onClick={() => setFilter(t.id)}
+  1430→                className={cn(
+  1431→                  "flex-1 rounded-md px-2 py-2 min-h-9 text-xs font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+  1432→                  filter === t.id
+  1433→                    ? "bg-[var(--gold)] text-black"
+  1434→                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+  1435→                )}
+  1436→              >
+  1437→                {t.label}
+  1438→              </button>
+  1439→            ))}
+  1440→          </div>
+  1441→
+  1442→          <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+  1443→            <span>{filtered.length} clientes</span>
+  1444→            <DemoBadge />
+  1445→          </div>
+  1446→
+  1447→          <ul className="mt-2 max-h-[60vh] lg:max-h-[calc(100vh-340px)] min-h-[280px] space-y-2 overflow-y-auto rp-scroll-thin pr-1">
+  1448→            {filtered.length === 0 ? (
+  1449→              <EmptyResults query={query} />
+  1450→            ) : (
+  1451→              filtered.map((c) => (
+  1452→                <CustomerListItem
+  1453→                  key={c.id}
+  1454→                  customer={c}
+  1455→                  selected={c.id === selectedId}
+  1456→                  onSelect={() => setSelectedId(c.id)}
+  1457→                />
+  1458→              ))
+  1459→            )}
+  1460→          </ul>
+  1461→        </aside>
+  1462→
+  1463→        {/* Right: customer profile */}
+  1464→        <div className="min-w-0">
+  1465→          {selected ? (
+  1466→            <CustomerProfile
+  1467→              key={selected.id}
+  1468→              customer={selected}
+  1469→              perms={perms}
+  1470→              onTagsChange={(tags) => updateCustomer(selected.id, { tags })}
+  1471→              onConsentChange={(ch, granted) =>
+  1472→                updateCustomer(selected.id, {
+  1473→                  consents: { ...selected.consents, [ch]: granted },
+  1474→                })
+  1475→              }
+  1476→              onNotesChange={(notes) => updateCustomer(selected.id, { notes })}
+  1477→              onNewReservation={() => {}}
+  1478→              onSendMessage={() => {}}
+  1479→            />
+  1480→          ) : (
+  1481→            <EmptySelection />
+  1482→          )}
+  1483→        </div>
+  1484→      </div>
+  1485→    </div>
+  1486→  );
+  1487→}
+  1488→

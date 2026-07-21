@@ -1,0 +1,1882 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Switch } from "@/components/ui/switch";
+    10→import {
+    11→  Select,
+    12→  SelectContent,
+    13→  SelectItem,
+    14→  SelectTrigger,
+    15→  SelectValue,
+    16→} from "@/components/ui/select";
+    17→import {
+    18→  Dialog,
+    19→  DialogClose,
+    20→  DialogContent,
+    21→  DialogDescription,
+    22→  DialogFooter,
+    23→  DialogHeader,
+    24→  DialogTitle,
+    25→} from "@/components/ui/dialog";
+    26→import {
+    27→  AlertDialog,
+    28→  AlertDialogAction,
+    29→  AlertDialogCancel,
+    30→  AlertDialogContent,
+    31→  AlertDialogDescription,
+    32→  AlertDialogFooter,
+    33→  AlertDialogHeader,
+    34→  AlertDialogTitle,
+    35→} from "@/components/ui/alert-dialog";
+    36→import {
+    37→  Collapsible,
+    38→  CollapsibleContent,
+    39→  CollapsibleTrigger,
+    40→} from "@/components/ui/collapsible";
+    41→import { Label } from "@/components/ui/label";
+    42→import { Textarea } from "@/components/ui/textarea";
+    43→import {
+    44→  Plus,
+    45→  Search,
+    46→  Pencil,
+    47→  Users,
+    48→  Clock,
+    49→  Phone,
+    50→  MapPin,
+    51→  CheckCircle2,
+    52→  LogIn,
+    53→  XCircle,
+    54→  ChevronDown,
+    55→  Lock,
+    56→  Eraser,
+    57→  Hourglass,
+    58→  X,
+    59→  Armchair,
+    60→  Hand,
+    61→  CalendarPlus,
+    62→} from "lucide-react";
+    63→
+    64→/* =========================================================
+    65→ * Types
+    66→ * =======================================================*/
+    67→export type TableStatus =
+    68→  | "free"
+    69→  | "reserved"
+    70→  | "occupied"
+    71→  | "cleaning"
+    72→  | "blocked";
+    73→export type Zone = "sala" | "terraza" | "barra";
+    74→export type ReservationStatus =
+    75→  | "confirmada"
+    76→  | "espera"
+    77→  | "checkin"
+    78→  | "noshow"
+    79→  | "cancelada";
+    80→
+    81→export interface RpTable {
+    82→  id: string;
+    83→  name: string;
+    84→  seats: number;
+    85→  x: number;
+    86→  y: number;
+    87→  status: TableStatus;
+    88→  shape: "round" | "square" | "rect";
+    89→  w?: number;
+    90→  h?: number;
+    91→  zone: Zone;
+    92→  reservationId?: string;
+    93→}
+    94→
+    95→export interface RpReservation {
+    96→  id: string;
+    97→  customerName: string;
+    98→  phone: string;
+    99→  partySize: number;
+   100→  time: string; // "HH:mm"
+   101→  durationMin: number;
+   102→  status: ReservationStatus;
+   103→  tableId?: string;
+   104→  notes?: string;
+   105→  zone: Zone;
+   106→}
+   107→
+   108→interface NewReservationForm {
+   109→  customerName: string;
+   110→  phone: string;
+   111→  partySize: number;
+   112→  date: string;
+   113→  time: string;
+   114→  tableId?: string;
+   115→  zone: Zone;
+   116→  notes: string;
+   117→}
+   118→
+   119→/* =========================================================
+   120→ * Constants & metadata
+   121→ * =======================================================*/
+   122→const STATUS_NEXT: Record<TableStatus, TableStatus> = {
+   123→  free: "reserved",
+   124→  reserved: "occupied",
+   125→  occupied: "cleaning",
+   126→  cleaning: "blocked",
+   127→  blocked: "free",
+   128→};
+   129→
+   130→const STATUS_META: Record<
+   131→  TableStatus,
+   132→  { label: string; dot: string; border: string; bg: string; text: string; ring: string }
+   133→> = {
+   134→  free: {
+   135→    label: "Libre",
+   136→    dot: "bg-emerald-400",
+   137→    border: "border-emerald-400/55",
+   138→    bg: "bg-emerald-400/10",
+   139→    text: "text-emerald-300",
+   140→    ring: "ring-emerald-400/70",
+   141→  },
+   142→  reserved: {
+   143→    label: "Reservada",
+   144→    dot: "bg-[var(--gold)]",
+   145→    border: "border-[var(--gold)]/60",
+   146→    bg: "bg-[var(--gold)]/12",
+   147→    text: "text-[var(--gold-soft)]",
+   148→    ring: "ring-[var(--gold)]/80",
+   149→  },
+   150→  occupied: {
+   151→    label: "Ocupada",
+   152→    dot: "bg-[var(--teal)]",
+   153→    border: "border-[var(--teal)]/60",
+   154→    bg: "bg-[var(--teal)]/12",
+   155→    text: "text-[var(--teal)]",
+   156→    ring: "ring-[var(--teal)]/80",
+   157→  },
+   158→  cleaning: {
+   159→    label: "Limpieza",
+   160→    dot: "bg-amber-400",
+   161→    border: "border-amber-400/55",
+   162→    bg: "bg-amber-400/10",
+   163→    text: "text-amber-300",
+   164→    ring: "ring-amber-400/70",
+   165→  },
+   166→  blocked: {
+   167→    label: "Bloqueada",
+   168→    dot: "bg-zinc-500",
+   169→    border: "border-zinc-500/55",
+   170→    bg: "bg-zinc-500/10",
+   171→    text: "text-zinc-400",
+   172→    ring: "ring-zinc-500/70",
+   173→  },
+   174→};
+   175→
+   176→const ZONES: { id: Zone; label: string; hint: string }[] = [
+   177→  { id: "sala", label: "Sala principal", hint: "Interior" },
+   178→  { id: "terraza", label: "Terraza", hint: "Exterior" },
+   179→  { id: "barra", label: "Barra", hint: "Mostrador" },
+   180→];
+   181→
+   182→const RES_STATUS_META: Record<ReservationStatus, { label: string; cls: string }> = {
+   183→  confirmada: {
+   184→    label: "Confirmada",
+   185→    cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   186→  },
+   187→  espera: {
+   188→    label: "Lista de espera",
+   189→    cls: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   190→  },
+   191→  checkin: {
+   192→    label: "Check-in",
+   193→    cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   194→  },
+   195→  noshow: {
+   196→    label: "No-show",
+   197→    cls: "border-destructive/40 bg-destructive/10 text-destructive",
+   198→  },
+   199→  cancelada: {
+   200→    label: "Cancelada",
+   201→    cls: "border-zinc-500/40 bg-zinc-500/10 text-zinc-400",
+   202→  },
+   203→};
+   204→
+   205→const FILTERS: { id: "todas" | ReservationStatus; label: string }[] = [
+   206→  { id: "todas", label: "Todas" },
+   207→  { id: "confirmada", label: "Confirmadas" },
+   208→  { id: "espera", label: "Lista de espera" },
+   209→  { id: "checkin", label: "Check-in" },
+   210→  { id: "noshow", label: "No-show" },
+   211→];
+   212→
+   213→/* =========================================================
+   214→ * Demo data
+   215→ * =======================================================*/
+   216→const INITIAL_TABLES: RpTable[] = [
+   217→  // Sala principal
+   218→  { id: "M1", name: "M1", seats: 4, x: 60, y: 60, status: "reserved", shape: "round", zone: "sala", reservationId: "r1" },
+   219→  { id: "M2", name: "M2", seats: 4, x: 220, y: 60, status: "occupied", shape: "round", zone: "sala", reservationId: "r2" },
+   220→  { id: "M3", name: "M3", seats: 6, x: 380, y: 60, status: "free", shape: "rect", w: 150, h: 90, zone: "sala" },
+   221→  { id: "M4", name: "M4", seats: 2, x: 60, y: 240, status: "free", shape: "square", zone: "sala" },
+   222→  { id: "M5", name: "M5", seats: 4, x: 220, y: 240, status: "cleaning", shape: "round", zone: "sala" },
+   223→  { id: "M6", name: "M6", seats: 4, x: 380, y: 240, status: "blocked", shape: "square", zone: "sala" },
+   224→  // Terraza
+   225→  { id: "T1", name: "T1", seats: 4, x: 60, y: 60, status: "reserved", shape: "round", zone: "terraza", reservationId: "r3" },
+   226→  { id: "T2", name: "T2", seats: 2, x: 220, y: 70, status: "free", shape: "square", zone: "terraza" },
+   227→  { id: "T3", name: "T3", seats: 6, x: 60, y: 220, status: "occupied", shape: "rect", w: 150, h: 90, zone: "terraza", reservationId: "r4" },
+   228→  { id: "T4", name: "T4", seats: 4, x: 260, y: 230, status: "free", shape: "round", zone: "terraza" },
+   229→  // Barra
+   230→  { id: "B1", name: "B1", seats: 2, x: 50, y: 120, status: "occupied", shape: "square", zone: "barra", reservationId: "r7" },
+   231→  { id: "B2", name: "B2", seats: 2, x: 160, y: 120, status: "occupied", shape: "square", zone: "barra" },
+   232→  { id: "B3", name: "B3", seats: 2, x: 270, y: 120, status: "free", shape: "square", zone: "barra" },
+   233→];
+   234→
+   235→const INITIAL_RESERVATIONS: RpReservation[] = [
+   236→  { id: "r1", customerName: "Elena Vidal", phone: "+34 612 334 211", partySize: 4, time: "13:30", durationMin: 120, status: "confirmada", tableId: "M1", zone: "sala", notes: "Aniversario · mesa ventana" },
+   237→  { id: "r2", customerName: "Marc Puig", phone: "+34 670 891 220", partySize: 4, time: "14:00", durationMin: 120, status: "checkin", tableId: "M2", zone: "sala", notes: "" },
+   238→  { id: "r3", customerName: "Sofía Ruiz", phone: "+34 655 220 119", partySize: 4, time: "14:30", durationMin: 90, status: "confirmada", tableId: "T1", zone: "terraza", notes: "Cliente VIP" },
+   239→  { id: "r4", customerName: "Jordi Soler", phone: "+34 622 119 887", partySize: 6, time: "13:45", durationMin: 150, status: "checkin", tableId: "T3", zone: "terraza", notes: "Cumpleaños, traen tarta" },
+   240→  { id: "r5", customerName: "Núria Camps", phone: "+34 690 113 445", partySize: 2, time: "15:00", durationMin: 60, status: "espera", zone: "sala", notes: "Sin asignar" },
+   241→  { id: "r6", customerName: "Pau Riera", phone: "+34 644 332 100", partySize: 3, time: "20:30", durationMin: 120, status: "confirmada", zone: "sala", notes: "" },
+   242→  { id: "r7", customerName: "Laia Font", phone: "+34 633 445 998", partySize: 2, time: "21:00", durationMin: 90, status: "checkin", tableId: "B1", zone: "barra", notes: "Cena rápida en barra" },
+   243→  { id: "r8", customerName: "Arnau Bosch", phone: "+34 611 220 333", partySize: 5, time: "21:30", durationMin: 150, status: "espera", zone: "terraza", notes: "Prefiere terraza" },
+   244→  { id: "r9", customerName: "Carla Vives", phone: "+34 699 001 223", partySize: 2, time: "13:00", durationMin: 60, status: "noshow", zone: "sala", notes: "No avisó" },
+   245→  { id: "r10", customerName: "Bruno Serra", phone: "+34 688 220 110", partySize: 4, time: "22:00", durationMin: 120, status: "confirmada", zone: "sala", notes: "Cena tarde" },
+   246→];
+   247→
+   248→/* =========================================================
+   249→ * Helpers
+   250→ * =======================================================*/
+   251→function timeToMin(t: string): number {
+   252→  const [h, m] = t.split(":").map(Number);
+   253→  return h * 60 + m;
+   254→}
+   255→
+   256→function tableW(t: RpTable): number {
+   257→  if (t.shape === "round") return 84;
+   258→  if (t.shape === "square") return 76;
+   259→  return t.w ?? 140;
+   260→}
+   261→function tableH(t: RpTable): number {
+   262→  if (t.shape === "round") return 84;
+   263→  if (t.shape === "square") return 76;
+   264→  return t.h ?? 96;
+   265→}
+   266→
+   267→function shapeLabel(s: RpTable["shape"]): string {
+   268→  if (s === "rect") return "rectangular";
+   269→  if (s === "round") return "redonda";
+   270→  return "cuadrada";
+   271→}
+   272→
+   273→function initials(name: string): string {
+   274→  return name
+   275→    .split(" ")
+   276→    .map((p) => p[0])
+   277→    .filter(Boolean)
+   278→    .slice(0, 2)
+   279→    .join("")
+   280→    .toUpperCase();
+   281→}
+   282→
+   283→function DemoBadge({ className }: { className?: string }) {
+   284→  return (
+   285→    <Badge
+   286→      variant="outline"
+   287→      className={cn(
+   288→        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
+   289→        className
+   290→      )}
+   291→    >
+   292→      demo
+   293→    </Badge>
+   294→  );
+   295→}
+   296→
+   297→/* =========================================================
+   298→ * Main view
+   299→ * =======================================================*/
+   300→export function ReservasView() {
+   301→  const { toast } = useToast();
+   302→  const [tables, setTables] = React.useState<RpTable[]>(INITIAL_TABLES);
+   303→  const [reservations, setReservations] =
+   304→    React.useState<RpReservation[]>(INITIAL_RESERVATIONS);
+   305→  const [zone, setZone] = React.useState<Zone>("sala");
+   306→  const [editMode, setEditMode] = React.useState(false);
+   307→  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
+   308→  const [selectedReservationId, setSelectedReservationId] = React.useState<string | null>(null);
+   309→  const [assigningReservationId, setAssigningReservationId] = React.useState<string | null>(null);
+   310→  const [draggedId, setDraggedId] = React.useState<string | null>(null);
+   311→  const [dragOver, setDragOver] = React.useState(false);
+   312→  const [newDialogOpen, setNewDialogOpen] = React.useState(false);
+   313→  const [timelineOpen, setTimelineOpen] = React.useState(true);
+   314→  const [resFilter, setResFilter] = React.useState<"todas" | ReservationStatus>("todas");
+   315→  const [search, setSearch] = React.useState("");
+   316→  const [confirmState, setConfirmState] = React.useState<
+   317→    null | { kind: "block-table" | "cancel-res" | "free-table"; id: string }
+   318→  >(null);
+   319→  const canvasRef = React.useRef<HTMLDivElement>(null);
+   320→
+   321→  /* ----- derived ----- */
+   322→  const visibleTables = tables.filter((t) => t.zone === zone);
+   323→  const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
+   324→  const selectedReservation =
+   325→    reservations.find((r) => r.id === selectedReservationId) ?? null;
+   326→  const assigningReservation =
+   327→    reservations.find((r) => r.id === assigningReservationId) ?? null;
+   328→  const filteredReservations = reservations.filter((r) => {
+   329→    if (resFilter !== "todas" && r.status !== resFilter) return false;
+   330→    if (search.trim()) {
+   331→      const q = search.trim().toLowerCase();
+   332→      if (
+   333→        !r.customerName.toLowerCase().includes(q) &&
+   334→        !r.phone.toLowerCase().includes(q)
+   335→      )
+   336→        return false;
+   337→    }
+   338→    return true;
+   339→  });
+   340→  const unassignedReservations = reservations.filter(
+   341→    (r) => !r.tableId && r.status !== "cancelada"
+   342→  );
+   343→
+   344→  /* ----- table handlers ----- */
+   345→  function cycleTableStatus(t: RpTable) {
+   346→    const next = STATUS_NEXT[t.status];
+   347→    setTables((ts) =>
+   348→      ts.map((x) => (x.id === t.id ? { ...x, status: next } : x))
+   349→    );
+   350→    toast({
+   351→      title: `Mesa ${t.name}`,
+   352→      description: `${STATUS_META[t.status].label} → ${STATUS_META[next].label}`,
+   353→    });
+   354→  }
+   355→
+   356→  function onTableClick(t: RpTable) {
+   357→    setSelectedTableId(t.id);
+   358→    setSelectedReservationId(null);
+   359→    if (assigningReservationId) {
+   360→      if (t.status === "free") {
+   361→        assignTableToReservation(t.id, assigningReservationId);
+   362→        setAssigningReservationId(null);
+   363→      } else {
+   364→        toast({
+   365→          title: "Mesa no disponible",
+   366→          description: "Elige una mesa libre (verde).",
+   367→          variant: "destructive",
+   368→        });
+   369→      }
+   370→      return;
+   371→    }
+   372→    if (editMode) return; // no cycling in edit mode
+   373→    cycleTableStatus(t);
+   374→  }
+   375→
+   376→  function assignTableToReservation(tableId: string, reservationId: string) {
+   377→    const t = tables.find((x) => x.id === tableId);
+   378→    const r = reservations.find((x) => x.id === reservationId);
+   379→    if (!t || !r) return;
+   380→    setTables((ts) =>
+   381→      ts.map((x) =>
+   382→        x.id === tableId
+   383→          ? { ...x, status: "reserved", reservationId }
+   384→          : x
+   385→      )
+   386→    );
+   387→    setReservations((rs) =>
+   388→      rs.map((x) =>
+   389→        x.id === reservationId
+   390→          ? {
+   391→              ...x,
+   392→              tableId,
+   393→              status: x.status === "espera" ? "confirmada" : x.status,
+   394→            }
+   395→          : x
+   396→      )
+   397→    );
+   398→    toast({
+   399→      title: "Mesa asignada",
+   400→      description: `${r.customerName} → ${t.name}`,
+   401→    });
+   402→  }
+   403→
+   404→  function freeTable(tableId: string) {
+   405→    const t = tables.find((x) => x.id === tableId);
+   406→    if (!t) return;
+   407→    const prevResId = t.reservationId;
+   408→    setTables((ts) =>
+   409→      ts.map((x) =>
+   410→        x.id === tableId
+   411→          ? { ...x, status: "free", reservationId: undefined }
+   412→          : x
+   413→      )
+   414→    );
+   415→    if (prevResId) {
+   416→      setReservations((rs) =>
+   417→        rs.map((r) =>
+   418→          r.id === prevResId ? { ...r, tableId: undefined } : r
+   419→        )
+   420→      );
+   421→    }
+   422→    toast({ title: `Mesa ${t.name} liberada` });
+   423→  }
+   424→
+   425→  function blockTable(tableId: string) {
+   426→    const t = tables.find((x) => x.id === tableId);
+   427→    if (!t) return;
+   428→    setTables((ts) =>
+   429→      ts.map((x) => (x.id === tableId ? { ...x, status: "blocked" } : x))
+   430→    );
+   431→    toast({ title: `Mesa ${t.name} bloqueada` });
+   432→  }
+   433→
+   434→  /* ----- reservation handlers ----- */
+   435→  function confirmReservation(resId: string) {
+   436→    const r = reservations.find((x) => x.id === resId);
+   437→    if (!r) return;
+   438→    setReservations((rs) =>
+   439→      rs.map((x) =>
+   440→        x.id === resId && x.status === "espera"
+   441→          ? { ...x, status: "confirmada" }
+   442→          : x
+   443→      )
+   444→    );
+   445→    toast({ title: "Reserva confirmada", description: r.customerName });
+   446→  }
+   447→
+   448→  function checkinReservation(resId: string) {
+   449→    const r = reservations.find((x) => x.id === resId);
+   450→    if (!r) return;
+   451→    setReservations((rs) =>
+   452→      rs.map((x) => (x.id === resId ? { ...x, status: "checkin" } : x))
+   453→    );
+   454→    if (r.tableId) {
+   455→      setTables((ts) =>
+   456→        ts.map((t) =>
+   457→          t.id === r.tableId
+   458→            ? { ...t, status: "occupied", reservationId: resId }
+   459→            : t
+   460→        )
+   461→      );
+   462→    }
+   463→    toast({
+   464→      title: "Check-in realizado",
+   465→      description: `${r.customerName} · ${r.partySize} comensales`,
+   466→    });
+   467→  }
+   468→
+   469→  function cancelReservation(resId: string) {
+   470→    const r = reservations.find((x) => x.id === resId);
+   471→    if (!r) return;
+   472→    setReservations((rs) =>
+   473→      rs.map((x) =>
+   474→        x.id === resId ? { ...x, status: "cancelada" } : x
+   475→      )
+   476→    );
+   477→    if (r.tableId) {
+   478→      setTables((ts) =>
+   479→        ts.map((t) =>
+   480→          t.id === r.tableId
+   481→            ? { ...t, status: "free", reservationId: undefined }
+   482→            : t
+   483→        )
+   484→      );
+   485→    }
+   486→    toast({
+   487→      title: "Reserva cancelada",
+   488→      description: r.customerName,
+   489→      variant: "destructive",
+   490→    });
+   491→  }
+   492→
+   493→  function startAssign(resId: string) {
+   494→    const r = reservations.find((x) => x.id === resId);
+   495→    if (r) setZone(r.zone);
+   496→    setAssigningReservationId(resId);
+   497→  }
+   498→
+   499→  /* ----- drag & drop (mouse) ----- */
+   500→  function onDragStart(e: React.DragEvent, t: RpTable) {
+   501→    if (!editMode) {
+   502→      e.preventDefault();
+   503→      return;
+   504→    }
+   505→    e.dataTransfer.setData("text/plain", t.id);
+   506→    e.dataTransfer.effectAllowed = "move";
+   507→    setDraggedId(t.id);
+   508→  }
+   509→
+   510→  function onDragEnd() {
+   511→    setDraggedId(null);
+   512→    setDragOver(false);
+   513→  }
+   514→
+   515→  function onCanvasDragOver(e: React.DragEvent) {
+   516→    if (!editMode || !draggedId) return;
+   517→    e.preventDefault();
+   518→    e.dataTransfer.dropEffect = "move";
+   519→    if (!dragOver) setDragOver(true);
+   520→  }
+   521→
+   522→  function onCanvasDragLeave(e: React.DragEvent) {
+   523→    if (e.currentTarget === e.target) setDragOver(false);
+   524→  }
+   525→
+   526→  function onCanvasDrop(e: React.DragEvent) {
+   527→    if (!editMode || !draggedId) return;
+   528→    e.preventDefault();
+   529→    const rect = canvasRef.current?.getBoundingClientRect();
+   530→    if (!rect) return;
+   531→    const t = tables.find((x) => x.id === draggedId);
+   532→    if (!t) return;
+   533→    const w = tableW(t);
+   534→    const h = tableH(t);
+   535→    const x = Math.max(
+   536→      4,
+   537→      Math.min(e.clientX - rect.left - w / 2, rect.width - w - 4)
+   538→    );
+   539→    const y = Math.max(
+   540→      4,
+   541→      Math.min(e.clientY - rect.top - h / 2, rect.height - h - 4)
+   542→    );
+   543→    const nx = Math.round(x);
+   544→    const ny = Math.round(y);
+   545→    setTables((ts) =>
+   546→      ts.map((x2) => (x2.id === draggedId ? { ...x2, x: nx, y: ny } : x2))
+   547→    );
+   548→    setDragOver(false);
+   549→    setDraggedId(null);
+   550→    toast({
+   551→      title: `${t.name} reposicionada`,
+   552→      description: `x ${nx} · y ${ny}`,
+   553→    });
+   554→  }
+   555→
+   556→  /* ----- drag & drop (touch) -----
+   557→   * Native HTML5 drag-and-drop does NOT fire on touch devices, so we add
+   558→   * touch handlers that move the table in real time when editMode is on. */
+   559→  const touchDragRef = React.useRef<
+   560→    | { id: string; offsetX: number; offsetY: number }
+   561→    | null
+   562→  >(null);
+   563→
+   564→  function onTableTouchStart(e: React.TouchEvent, t: RpTable) {
+   565→    if (!editMode) return;
+   566→    if (e.touches.length !== 1) return;
+   567→    const rect = canvasRef.current?.getBoundingClientRect();
+   568→    if (!rect) return;
+   569→    const touch = e.touches[0];
+   570→    touchDragRef.current = {
+   571→      id: t.id,
+   572→      offsetX: touch.clientX - rect.left - t.x,
+   573→      offsetY: touch.clientY - rect.top - t.y,
+   574→    };
+   575→    setDraggedId(t.id);
+   576→    setDragOver(true);
+   577→  }
+   578→
+   579→  function onCanvasTouchMove(e: React.TouchEvent) {
+   580→    if (!editMode || !touchDragRef.current) return;
+   581→    if (e.touches.length !== 1) return;
+   582→    e.preventDefault(); // stop page scroll while dragging
+   583→    const rect = canvasRef.current?.getBoundingClientRect();
+   584→    if (!rect) return;
+   585→    const touch = e.touches[0];
+   586→    const drag = touchDragRef.current;
+   587→    const t = tables.find((x) => x.id === drag.id);
+   588→    if (!t) return;
+   589→    const w = tableW(t);
+   590→    const h = tableH(t);
+   591→    const x = Math.max(
+   592→      4,
+   593→      Math.min(touch.clientX - rect.left - drag.offsetX, rect.width - w - 4)
+   594→    );
+   595→    const y = Math.max(
+   596→      4,
+   597→      Math.min(touch.clientY - rect.top - drag.offsetY, rect.height - h - 4)
+   598→    );
+   599→    setTables((ts) =>
+   600→      ts.map((x2) => (x2.id === drag.id ? { ...x2, x: Math.round(x), y: Math.round(y) } : x2))
+   601→    );
+   602→  }
+   603→
+   604→  function onCanvasTouchEnd() {
+   605→    if (!touchDragRef.current) return;
+   606→    const t = tables.find((x) => x.id === touchDragRef.current!.id);
+   607→    touchDragRef.current = null;
+   608→    setDraggedId(null);
+   609→    setDragOver(false);
+   610→    if (t) {
+   611→      toast({
+   612→        title: `${t.name} reposicionada`,
+   613→        description: `x ${t.x} · y ${t.y}`,
+   614→      });
+   615→    }
+   616→  }
+   617→
+   618→  /* ----- new reservation ----- */
+   619→  function submitNewReservation(form: NewReservationForm) {
+   620→    const id = `r${reservations.length + 1}_${Date.now().toString(36).slice(-4)}`;
+   621→    const newRes: RpReservation = {
+   622→      id,
+   623→      customerName: form.customerName.trim(),
+   624→      phone: form.phone.trim(),
+   625→      partySize: form.partySize,
+   626→      time: form.time,
+   627→      durationMin: 90,
+   628→      status: "confirmada",
+   629→      tableId: form.tableId,
+   630→      zone: form.zone,
+   631→      notes: form.notes.trim() || undefined,
+   632→    };
+   633→    setReservations((rs) => [newRes, ...rs]);
+   634→    if (form.tableId) {
+   635→      setTables((ts) =>
+   636→        ts.map((t) =>
+   637→          t.id === form.tableId
+   638→            ? { ...t, status: "reserved", reservationId: id }
+   639→            : t
+   640→        )
+   641→      );
+   642→    }
+   643→    setNewDialogOpen(false);
+   644→    toast({
+   645→      title: "Reserva creada",
+   646→      description: `${newRes.customerName} · ${newRes.time} · ${newRes.partySize} pax`,
+   647→    });
+   648→  }
+   649→
+   650→  function handleConfirm() {
+   651→    if (!confirmState) return;
+   652→    const { kind, id } = confirmState;
+   653→    if (kind === "block-table") blockTable(id);
+   654→    else if (kind === "cancel-res") cancelReservation(id);
+   655→    else if (kind === "free-table") freeTable(id);
+   656→    setConfirmState(null);
+   657→  }
+   658→
+   659→  /* ----- render ----- */
+   660→  return (
+   661→    <div className="space-y-6">
+   662→      {/* Header */}
+   663→      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   664→        <div>
+   665→          <div className="flex items-center gap-2">
+   666→            <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
+   667→              Reservas
+   668→            </h1>
+   669→            <DemoBadge />
+   670→          </div>
+   671→          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+   672→            Plano de mesas interactivo, lista de reservas y línea de tiempo del
+   673→            servicio. Datos demo · navegable.
+   674→          </p>
+   675→        </div>
+   676→        <Button
+   677→          onClick={() => setNewDialogOpen(true)}
+   678→          className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] shrink-0 min-h-11"
+   679→        >
+   680→          <Plus className="h-4 w-4" /> Nueva reserva
+   681→        </Button>
+   682→      </header>
+   683→
+   684→      {/* Main grid: stacks on móvil/tablet, 60/40 split from lg+ */}
+   685→      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+   686→        {/* LEFT: Floor plan (60%) */}
+   687→        <section className="space-y-4" aria-label="Plano de mesas">
+   688→          {/* Zone selector + edit toggle */}
+   689→          <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
+   690→            <div
+   691→              className="flex flex-wrap items-center gap-1.5"
+   692→              role="tablist"
+   693→              aria-label="Zona del plano"
+   694→            >
+   695→              {ZONES.map((z) => (
+   696→                <button
+   697→                  key={z.id}
+   698→                  role="tab"
+   699→                  aria-selected={zone === z.id}
+   700→                  aria-controls="floor-plan-canvas"
+   701→                  onClick={() => setZone(z.id)}
+   702→                  className={cn(
+   703→                    "rounded-md px-3 py-2 min-h-11 text-sm font-medium border transition-colors",
+   704→                    zone === z.id
+   705→                      ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+   706→                      : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   707→                  )}
+   708→                >
+   709→                  <MapPin className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />
+   710→                  {z.label}
+   711→                </button>
+   712→              ))}
+   713→            </div>
+   714→            <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+   715→              <Switch
+   716→                checked={editMode}
+   717→                onCheckedChange={setEditMode}
+   718→                aria-label="Modo editar plano"
+   719→              />
+   720→              <span
+   721→                className={cn(
+   722→                  "flex items-center gap-1.5",
+   723→                  editMode ? "text-[var(--gold-soft)]" : "text-muted-foreground"
+   724→                )}
+   725→              >
+   726→                <Pencil className="h-3.5 w-3.5" />
+   727→                Modo editar plano
+   728→              </span>
+   729→            </label>
+   730→          </div>
+   731→
+   732→          {/* Canvas card */}
+   733→          <div className="rp-glass rounded-2xl overflow-hidden">
+   734→            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+   735→              <div className="flex items-center gap-2">
+   736→                <Armchair className="h-4 w-4 text-[var(--gold)]" />
+   737→                <span className="text-sm font-medium">
+   738→                  {ZONES.find((z) => z.id === zone)?.label}
+   739→                </span>
+   740→                <DemoBadge />
+   741→              </div>
+   742→              <div className="text-[11px] font-mono text-muted-foreground tabular-nums">
+   743→                {visibleTables.length} mesas ·{" "}
+   744→                <span className="text-emerald-300">
+   745→                  {visibleTables.filter((t) => t.status === "free").length}{" "}
+   746→                  libres
+   747→                </span>
+   748→              </div>
+   749→            </div>
+   750→
+   751→            {/* Assignment mode banner */}
+   752→            {assigningReservation && (
+   753→              <div className="px-4 py-2 bg-[var(--gold)]/10 border-b border-[var(--gold)]/30 flex items-center justify-between gap-3">
+   754→                <div className="flex items-center gap-2 text-sm text-[var(--gold-soft)] min-w-0">
+   755→                  <Hand className="h-4 w-4 shrink-0" />
+   756→                  <span className="truncate">
+   757→                    Modo asignación: haz clic en una mesa libre (verde) para{" "}
+   758→                    <strong className="font-medium">
+   759→                      {assigningReservation.customerName}
+   760→                    </strong>
+   761→                    .
+   762→                  </span>
+   763→                </div>
+   764→                <Button
+   765→                  size="sm"
+   766→                  variant="ghost"
+   767→                  className="shrink-0 h-8"
+   768→                  onClick={() => setAssigningReservationId(null)}
+   769→                >
+   770→                  <X className="h-3.5 w-3.5" /> Cancelar
+   771→                </Button>
+   772→              </div>
+   773→            )}
+   774→
+   775→            {/* Edit mode banner */}
+   776→            {editMode && (
+   777→              <div className="px-4 py-2 bg-[var(--teal)]/10 border-b border-[var(--teal)]/30 flex items-center gap-2 text-sm text-[var(--teal)]">
+   778→                <Pencil className="h-4 w-4" />
+   779→                <span>
+   780→                  Arrastra las mesas para reposicionarlas. Los clics no cambian
+   781→                  el estado.
+   782→                </span>
+   783→              </div>
+   784→            )}
+   785→
+   786→            <div className="overflow-x-auto rp-scroll-thin">
+   787→              <div
+   788→                ref={canvasRef}
+   789→                id="floor-plan-canvas"
+   790→                role="tabpanel"
+   791→                aria-label={`Plano de la zona ${
+   792→                  ZONES.find((z) => z.id === zone)?.label
+   793→                }`}
+   794→                onDragOver={onCanvasDragOver}
+   795→                onDragLeave={onCanvasDragLeave}
+   796→                onDrop={onCanvasDrop}
+   797→                onTouchMove={onCanvasTouchMove}
+   798→                onTouchEnd={onCanvasTouchEnd}
+   799→                onTouchCancel={onCanvasTouchEnd}
+   800→                className={cn(
+   801→                  "relative rp-grid-bg touch-pan-y",
+   802→                  dragOver && "ring-2 ring-inset ring-[var(--gold)]/60"
+   803→                )}
+   804→                style={{ minWidth: 680, height: 460 }}
+   805→              >
+   806→                <ZoneDecor zone={zone} />
+   807→
+   808→                {/* Tables */}
+   809→                {visibleTables.map((t) => {
+   810→                  const meta = STATUS_META[t.status];
+   811→                  const w = tableW(t);
+   812→                  const h = tableH(t);
+   813→                  const isDragging = draggedId === t.id;
+   814→                  const isSelected = selectedTableId === t.id;
+   815→                  const isAssignTarget =
+   816→                    !!assigningReservationId && t.status === "free";
+   817→                  return (
+   818→                    <button
+   819→                      key={t.id}
+   820→                      type="button"
+   821→                      draggable={editMode}
+   822→                      onDragStart={(e) => onDragStart(e, t)}
+   823→                      onDragEnd={onDragEnd}
+   824→                      onTouchStart={(e) => onTableTouchStart(e, t)}
+   825→                      onClick={() => onTableClick(t)}
+   826→                      aria-label={`Mesa ${t.name}, ${t.seats} comensales, estado ${meta.label}${
+   827→                        t.reservationId ? `, reserva ${t.reservationId}` : ""
+   828→                      }`}
+   829→                      aria-pressed={isSelected}
+   830→                      className={cn(
+   831→                        "absolute flex flex-col items-center justify-center gap-0.5 border-2 transition-all select-none",
+   832→                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-[var(--gold)]",
+   833→                        meta.border,
+   834→                        meta.bg,
+   835→                        meta.text,
+   836→                        t.shape === "round" ? "rounded-full" : "rounded-xl",
+   837→                        isSelected &&
+   838→                          "scale-110 z-20 ring-2 ring-offset-2 ring-offset-background " +
+   839→                            meta.ring,
+   840→                        !editMode &&
+   841→                          !assigningReservationId &&
+   842→                          "hover:scale-105 cursor-pointer",
+   843→                        editMode && "cursor-grab active:cursor-grabbing",
+   844→                        isDragging && "opacity-40",
+   845→                        isAssignTarget &&
+   846→                          "animate-pulse ring-2 ring-[var(--gold)] cursor-pointer",
+   847→                        assigningReservationId &&
+   848→                          !isAssignTarget &&
+   849→                          "opacity-60"
+   850→                      )}
+   851→                      style={{ left: t.x, top: t.y, width: w, height: h }}
+   852→                    >
+   853→                      <span className="font-mono text-xs font-semibold">
+   854→                        {t.name}
+   855→                      </span>
+   856→                      <span className="text-[10px] flex items-center gap-0.5 opacity-80">
+   857→                        <Users className="h-2.5 w-2.5" />
+   858→                        {t.seats}
+   859→                      </span>
+   860→                      <span
+   861→                        className={cn(
+   862→                          "h-1.5 w-1.5 rounded-full mt-0.5",
+   863→                          meta.dot
+   864→                        )}
+   865→                      />
+   866→                    </button>
+   867→                  );
+   868→                })}
+   869→
+   870→                {/* Drop hint overlay */}
+   871→                {dragOver && (
+   872→                  <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-[var(--gold)]/60 rounded-2xl bg-[var(--gold)]/5 flex items-center justify-center">
+   873→                    <div className="text-xs font-mono uppercase tracking-wider text-[var(--gold-soft)] bg-background/80 px-3 py-1.5 rounded-md">
+   874→                      Suelta para reposicionar la mesa
+   875→                    </div>
+   876→                  </div>
+   877→                )}
+   878→
+   879→                {/* Empty zone */}
+   880→                {visibleTables.length === 0 && (
+   881→                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+   882→                    No hay mesas en esta zona.
+   883→                  </div>
+   884→                )}
+   885→              </div>
+   886→            </div>
+   887→
+   888→            {/* Legend */}
+   889→            <div className="px-4 py-3 border-t border-border/40 flex flex-wrap items-center gap-x-4 gap-y-2">
+   890→              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
+   891→                Leyenda:
+   892→              </span>
+   893→              {(Object.keys(STATUS_META) as TableStatus[]).map((s) => (
+   894→                <div key={s} className="flex items-center gap-1.5">
+   895→                  <span
+   896→                    className={cn("h-2.5 w-2.5 rounded-full", STATUS_META[s].dot)}
+   897→                  />
+   898→                  <span className="text-xs text-muted-foreground">
+   899→                    {STATUS_META[s].label}
+   900→                  </span>
+   901→                </div>
+   902→              ))}
+   903→              {!editMode && !assigningReservationId && (
+   904→                <span className="text-[11px] text-muted-foreground/70 ml-auto hidden sm:inline">
+   905→                  Clic en mesa = cambia estado
+   906→                </span>
+   907→              )}
+   908→            </div>
+   909→          </div>
+   910→        </section>
+   911→
+   912→        {/* RIGHT: Reservations list + details (40%) */}
+   913→        <section
+   914→          className="space-y-4"
+   915→          aria-label="Lista de reservas y detalles"
+   916→        >
+   917→          {/* Reservations list */}
+   918→          <div className="rp-glass rounded-2xl overflow-hidden">
+   919→            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+   920→              <div className="flex items-center gap-2">
+   921→                <CalendarPlus className="h-4 w-4 text-[var(--gold)]" />
+   922→                <span className="text-sm font-medium">Reservas de hoy</span>
+   923→                <DemoBadge />
+   924→              </div>
+   925→              <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
+   926→                {filteredReservations.length}
+   927→              </span>
+   928→            </div>
+   929→
+   930→            {/* Search + filters */}
+   931→            <div className="p-3 space-y-2.5 border-b border-border/40">
+   932→              <div className="flex items-center gap-2 rounded-md border border-border/60 px-2.5 py-2 min-h-11 bg-input/30">
+   933→                <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+   934→                <input
+   935→                  type="search"
+   936→                  value={search}
+   937→                  onChange={(e) => setSearch(e.target.value)}
+   938→                  placeholder="Buscar por cliente o teléfono…"
+   939→                  aria-label="Buscar reservas"
+   940→                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+   941→                />
+   942→                {search && (
+   943→                  <button
+   944→                    onClick={() => setSearch("")}
+   945→                    aria-label="Limpiar búsqueda"
+   946→                    className="text-muted-foreground hover:text-foreground -mr-1 p-1"
+   947→                  >
+   948→                    <X className="h-3.5 w-3.5" />
+   949→                  </button>
+   950→                )}
+   951→              </div>
+   952→              <div
+   953→                className="flex flex-wrap gap-1.5"
+   954→                role="tablist"
+   955→                aria-label="Filtrar reservas por estado"
+   956→              >
+   957→                {FILTERS.map((f) => (
+   958→                  <button
+   959→                    key={f.id}
+   960→                    role="tab"
+   961→                    aria-selected={resFilter === f.id}
+   962→                    aria-controls="reservations-list"
+   963→                    onClick={() => setResFilter(f.id)}
+   964→                    className={cn(
+   965→                      "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
+   966→                      resFilter === f.id
+   967→                        ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+   968→                        : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   969→                    )}
+   970→                  >
+   971→                    {f.label}
+   972→                  </button>
+   973→                ))}
+   974→              </div>
+   975→            </div>
+   976→
+   977→            {/* List */}
+   978→            <div
+   979→              id="reservations-list"
+   980→              role="tabpanel"
+   981→              className="max-h-[420px] overflow-y-auto rp-scroll-thin divide-y divide-border/40"
+   982→            >
+   983→              {filteredReservations.length === 0 ? (
+   984→                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+   985→                  No hay reservas con estos filtros.
+   986→                </div>
+   987→              ) : (
+   988→                filteredReservations.map((r) => {
+   989→                  const table = tables.find((t) => t.id === r.tableId);
+   990→                  const isSelected = selectedReservationId === r.id;
+   991→                  const meta = RES_STATUS_META[r.status];
+   992→                  return (
+   993→                    <button
+   994→                      key={r.id}
+   995→                      onClick={() => {
+   996→                        setSelectedReservationId(r.id);
+   997→                        setSelectedTableId(null);
+   998→                      }}
+   999→                      aria-pressed={isSelected}
+  1000→                      className={cn(
+  1001→                        "w-full text-left px-4 py-3 transition-colors",
+  1002→                        isSelected ? "bg-[var(--gold)]/10" : "hover:bg-foreground/[0.03]"
+  1003→                      )}
+  1004→                    >
+  1005→                      <div className="flex items-center justify-between gap-2">
+  1006→                        <div className="flex items-center gap-2.5 min-w-0">
+  1007→                          <div className="flex items-center gap-1 text-sm font-medium shrink-0">
+  1008→                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+  1009→                            <span className="font-mono tabular-nums">
+  1010→                              {r.time}
+  1011→                            </span>
+  1012→                          </div>
+  1013→                          <span className="truncate">{r.customerName}</span>
+  1014→                        </div>
+  1015→                        <span
+  1016→                          className={cn(
+  1017→                            "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
+  1018→                            meta.cls
+  1019→                          )}
+  1020→                        >
+  1021→                          {meta.label}
+  1022→                        </span>
+  1023→                      </div>
+  1024→                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+  1025→                        <span className="flex items-center gap-1">
+  1026→                          <Users className="h-3 w-3" />
+  1027→                          {r.partySize}
+  1028→                        </span>
+  1029→                        <span className="flex items-center gap-1">
+  1030→                          <MapPin className="h-3 w-3" />
+  1031→                          {table ? (
+  1032→                            table.name
+  1033→                          ) : (
+  1034→                            <span className="italic opacity-80">
+  1035→                              sin asignar
+  1036→                            </span>
+  1037→                          )}
+  1038→                        </span>
+  1039→                        {r.notes && (
+  1040→                          <span className="ml-auto truncate opacity-70 hidden sm:inline">
+  1041→                            {r.notes}
+  1042→                          </span>
+  1043→                        )}
+  1044→                      </div>
+  1045→                    </button>
+  1046→                  );
+  1047→                })
+  1048→              )}
+  1049→            </div>
+  1050→          </div>
+  1051→
+  1052→          {/* Details panel */}
+  1053→          <DetailsPanel
+  1054→            assigning={assigningReservation}
+  1055→            selectedTable={selectedTable}
+  1056→            selectedReservation={selectedReservation}
+  1057→            tableOfReservation={
+  1058→              selectedReservation
+  1059→                ? tables.find((t) => t.id === selectedReservation.tableId) ?? null
+  1060→                : null
+  1061→            }
+  1062→            reservationOfTable={
+  1063→              selectedTable
+  1064→                ? reservations.find(
+  1065→                    (r) => r.id === selectedTable.reservationId
+  1066→                  ) ?? null
+  1067→                : null
+  1068→            }
+  1069→            unassignedReservations={unassignedReservations}
+  1070→            onAssignTable={assignTableToReservation}
+  1071→            onFreeTable={(id) => setConfirmState({ kind: "free-table", id })}
+  1072→            onBlockTable={(id) => setConfirmState({ kind: "block-table", id })}
+  1073→            onConfirmRes={confirmReservation}
+  1074→            onCheckinRes={checkinReservation}
+  1075→            onCancelRes={(id) => setConfirmState({ kind: "cancel-res", id })}
+  1076→            onStartAssign={startAssign}
+  1077→            onCancelAssign={() => setAssigningReservationId(null)}
+  1078→            onSelectReservation={(id) => {
+  1079→              setSelectedReservationId(id);
+  1080→              setSelectedTableId(null);
+  1081→            }}
+  1082→          />
+  1083→        </section>
+  1084→      </div>
+  1085→
+  1086→      {/* Service timeline (collapsible) */}
+  1087→      <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
+  1088→        <div className="rp-glass rounded-2xl overflow-hidden">
+  1089→          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+  1090→            <div className="flex items-center gap-2">
+  1091→              <Hourglass className="h-4 w-4 text-[var(--teal)]" />
+  1092→              <span className="text-sm font-medium">
+  1093→                Línea de tiempo del servicio
+  1094→              </span>
+  1095→              <DemoBadge />
+  1096→            </div>
+  1097→            <CollapsibleTrigger asChild>
+  1098→              <Button
+  1099→                variant="ghost"
+  1100→                size="sm"
+  1101→                className="h-8 w-8 p-0"
+  1102→                aria-label={timelineOpen ? "Contraer" : "Expandir"}
+  1103→              >
+  1104→                <ChevronDown
+  1105→                  className={cn(
+  1106→                    "h-4 w-4 transition-transform",
+  1107→                    timelineOpen && "rotate-180"
+  1108→                  )}
+  1109→                />
+  1110→              </Button>
+  1111→            </CollapsibleTrigger>
+  1112→          </div>
+  1113→          <CollapsibleContent>
+  1114→            <div className="p-4">
+  1115→              <TimelineContent
+  1116→                reservations={reservations}
+  1117→                tables={tables}
+  1118→                selectedId={selectedReservationId}
+  1119→                onSelect={(id) => {
+  1120→                  setSelectedReservationId(id);
+  1121→                  setSelectedTableId(null);
+  1122→                }}
+  1123→              />
+  1124→            </div>
+  1125→          </CollapsibleContent>
+  1126→        </div>
+  1127→      </Collapsible>
+  1128→
+  1129→      {/* New reservation dialog */}
+  1130→      <NewReservationDialog
+  1131→        open={newDialogOpen}
+  1132→        onOpenChange={setNewDialogOpen}
+  1133→        tables={tables}
+  1134→        onSubmit={submitNewReservation}
+  1135→      />
+  1136→
+  1137→      {/* Confirm dialog */}
+  1138→      <AlertDialog
+  1139→        open={!!confirmState}
+  1140→        onOpenChange={(o) => !o && setConfirmState(null)}
+  1141→      >
+  1142→        <AlertDialogContent>
+  1143→          <AlertDialogHeader>
+  1144→            <AlertDialogTitle>
+  1145→              {confirmState?.kind === "cancel-res" &&
+  1146→                "¿Cancelar esta reserva?"}
+  1147→              {confirmState?.kind === "block-table" &&
+  1148→                "¿Bloquear esta mesa?"}
+  1149→              {confirmState?.kind === "free-table" && "¿Liberar esta mesa?"}
+  1150→            </AlertDialogTitle>
+  1151→            <AlertDialogDescription>
+  1152→              {confirmState?.kind === "cancel-res" &&
+  1153→                "La reserva pasará a estado cancelada y su mesa quedará libre. Esta acción no se puede deshacer."}
+  1154→              {confirmState?.kind === "block-table" &&
+  1155→                "La mesa quedará fuera de servicio hasta que la restaures manualmente."}
+  1156→              {confirmState?.kind === "free-table" &&
+  1157→                "La mesa pasará a libre y se desvinculará de su reserva actual."}
+  1158→            </AlertDialogDescription>
+  1159→          </AlertDialogHeader>
+  1160→          <AlertDialogFooter>
+  1161→            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+  1162→            <AlertDialogAction
+  1163→              className={cn(
+  1164→                confirmState?.kind !== "free-table" &&
+  1165→                  "bg-destructive text-white hover:bg-destructive/90"
+  1166→              )}
+  1167→              onClick={handleConfirm}
+  1168→            >
+  1169→              Confirmar
+  1170→            </AlertDialogAction>
+  1171→          </AlertDialogFooter>
+  1172→        </AlertDialogContent>
+  1173→      </AlertDialog>
+  1174→    </div>
+  1175→  );
+  1176→}
+  1177→
+  1178→/* =========================================================
+  1179→ * Zone decoration on the canvas
+  1180→ * =======================================================*/
+  1181→function ZoneDecor({ zone }: { zone: Zone }) {
+  1182→  if (zone === "sala") {
+  1183→    return (
+  1184→      <>
+  1185→        <span className="absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+  1186→          Ventana
+  1187→        </span>
+  1188→        <span className="absolute bottom-3 left-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+  1189→          Entrada
+  1190→        </span>
+  1191→        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--gold)]/15" />
+  1192→      </>
+  1193→    );
+  1194→  }
+  1195→  if (zone === "terraza") {
+  1196→    return (
+  1197→      <>
+  1198→        <span className="absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+  1199→          Jardín
+  1200→        </span>
+  1201→        <span className="absolute bottom-3 left-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+  1202→          Acceso
+  1203→        </span>
+  1204→        <div className="absolute left-0 right-0 top-0 h-1.5 bg-[var(--teal)]/15" />
+  1205→      </>
+  1206→    );
+  1207→  }
+  1208→  return (
+  1209→    <>
+  1210→      <span className="absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+  1211→        Servicio
+  1212→      </span>
+  1213→      <span className="absolute bottom-3 left-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+  1214→        Acceso
+  1215→      </span>
+  1216→      <div className="absolute left-0 right-0 bottom-0 h-1.5 bg-[var(--gold-soft)]/15" />
+  1217→    </>
+  1218→  );
+  1219→}
+  1220→
+  1221→/* =========================================================
+  1222→ * Details panel (table or reservation)
+  1223→ * =======================================================*/
+  1224→function DetailsPanel(props: {
+  1225→  assigning: RpReservation | null;
+  1226→  selectedTable: RpTable | null;
+  1227→  selectedReservation: RpReservation | null;
+  1228→  tableOfReservation: RpTable | null;
+  1229→  reservationOfTable: RpReservation | null;
+  1230→  unassignedReservations: RpReservation[];
+  1231→  onAssignTable: (tableId: string, reservationId: string) => void;
+  1232→  onFreeTable: (id: string) => void;
+  1233→  onBlockTable: (id: string) => void;
+  1234→  onConfirmRes: (id: string) => void;
+  1235→  onCheckinRes: (id: string) => void;
+  1236→  onCancelRes: (id: string) => void;
+  1237→  onStartAssign: (id: string) => void;
+  1238→  onCancelAssign: () => void;
+  1239→  onSelectReservation: (id: string) => void;
+  1240→}) {
+  1241→  const {
+  1242→    assigning,
+  1243→    selectedTable,
+  1244→    selectedReservation,
+  1245→    tableOfReservation,
+  1246→    reservationOfTable,
+  1247→    unassignedReservations,
+  1248→    onAssignTable,
+  1249→    onFreeTable,
+  1250→    onBlockTable,
+  1251→    onConfirmRes,
+  1252→    onCheckinRes,
+  1253→    onCancelRes,
+  1254→    onStartAssign,
+  1255→    onCancelAssign,
+  1256→    onSelectReservation,
+  1257→  } = props;
+  1258→
+  1259→  /* --- Assignment mode banner --- */
+  1260→  if (assigning) {
+  1261→    return (
+  1262→      <div className="rp-glass rounded-2xl p-5 rp-glow-gold">
+  1263→        <div className="flex items-center gap-2 mb-3">
+  1264→          <Hand className="h-4 w-4 text-[var(--gold)]" />
+  1265→          <h3 className="font-medium">Asignando mesa</h3>
+  1266→        </div>
+  1267→        <div className="text-sm text-muted-foreground">
+  1268→          Reserva de{" "}
+  1269→          <span className="text-foreground font-medium">
+  1270→            {assigning.customerName}
+  1271→          </span>{" "}
+  1272→          ({assigning.partySize} pax · {assigning.time}).
+  1273→        </div>
+  1274→        <div className="mt-3 text-sm text-[var(--gold-soft)]">
+  1275→          Haz clic en una mesa libre (verde) en el plano para confirmar.
+  1276→        </div>
+  1277→        <Button
+  1278→          variant="outline"
+  1279→          size="sm"
+  1280→          className="mt-4 w-full"
+  1281→          onClick={onCancelAssign}
+  1282→        >
+  1283→          <X className="h-4 w-4" /> Cancelar asignación
+  1284→        </Button>
+  1285→      </div>
+  1286→    );
+  1287→  }
+  1288→
+  1289→  /* --- Table details --- */
+  1290→  if (selectedTable) {
+  1291→    const meta = STATUS_META[selectedTable.status];
+  1292→    return (
+  1293→      <div className="rp-glass rounded-2xl p-5">
+  1294→        <div className="flex items-center justify-between mb-4">
+  1295→          <div className="flex items-center gap-2">
+  1296→            <Armchair className="h-4 w-4 text-[var(--gold)]" />
+  1297→            <h3 className="font-display text-xl font-medium">
+  1298→              {selectedTable.name}
+  1299→            </h3>
+  1300→          </div>
+  1301→          <span
+  1302→            className={cn(
+  1303→              "text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border",
+  1304→              meta.border,
+  1305→              meta.bg,
+  1306→              meta.text
+  1307→            )}
+  1308→          >
+  1309→            {meta.label}
+  1310→          </span>
+  1311→        </div>
+  1312→        <dl className="space-y-0 text-sm">
+  1313→          <Row k="Comensales" v={<span className="tabular-nums">{selectedTable.seats}</span>} />
+  1314→          <Row k="Zona" v={ZONES.find((z) => z.id === selectedTable.zone)?.label ?? selectedTable.zone} />
+  1315→          <Row k="Forma" v={shapeLabel(selectedTable.shape)} />
+  1316→        </dl>
+  1317→
+  1318→        {reservationOfTable && (
+  1319→          <div className="mt-4 p-3 rounded-md border border-[var(--gold)]/30 bg-[var(--gold)]/5">
+  1320→            <div className="text-[11px] font-mono uppercase tracking-wider text-[var(--gold-soft)] mb-1">
+  1321→              Reserva actual
+  1322→            </div>
+  1323→            <div className="flex items-center justify-between gap-2">
+  1324→              <div className="min-w-0">
+  1325→                <div className="text-sm font-medium truncate">
+  1326→                  {reservationOfTable.customerName}
+  1327→                </div>
+  1328→                <div className="text-xs text-muted-foreground flex items-center gap-2 mt-0.5">
+  1329→                  <Clock className="h-3 w-3" />
+  1330→                  {reservationOfTable.time}
+  1331→                  <Users className="h-3 w-3" />
+  1332→                  {reservationOfTable.partySize}
+  1333→                </div>
+  1334→              </div>
+  1335→              <Button
+  1336→                size="sm"
+  1337→                variant="outline"
+  1338→                className="shrink-0 h-8"
+  1339→                onClick={() => onSelectReservation(reservationOfTable.id)}
+  1340→              >
+  1341→                Ver
+  1342→              </Button>
+  1343→            </div>
+  1344→          </div>
+  1345→        )}
+  1346→
+  1347→        {/* Actions */}
+  1348→        <div className="mt-4 grid grid-cols-2 gap-2">
+  1349→          <Button
+  1350→            size="sm"
+  1351→            variant="outline"
+  1352→            className="min-h-11"
+  1353→            onClick={() => onFreeTable(selectedTable.id)}
+  1354→            disabled={selectedTable.status === "free"}
+  1355→          >
+  1356→            <Eraser className="h-3.5 w-3.5" /> Liberar
+  1357→          </Button>
+  1358→          <Button
+  1359→            size="sm"
+  1360→            variant="outline"
+  1361→            className="min-h-11 text-destructive hover:text-destructive"
+  1362→            onClick={() => onBlockTable(selectedTable.id)}
+  1363→            disabled={selectedTable.status === "blocked"}
+  1364→          >
+  1365→            <Lock className="h-3.5 w-3.5" /> Bloquear
+  1366→          </Button>
+  1367→        </div>
+  1368→
+  1369→        {/* Unassigned reservations to assign */}
+  1370→        {selectedTable.status !== "occupied" &&
+  1371→          unassignedReservations.length > 0 && (
+  1372→            <div className="mt-4">
+  1373→              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+  1374→                Asignar reserva
+  1375→              </div>
+  1376→              <div className="space-y-1 max-h-40 overflow-y-auto rp-scroll-thin">
+  1377→                {unassignedReservations.map((r) => (
+  1378→                  <button
+  1379→                    key={r.id}
+  1380→                    onClick={() => onAssignTable(selectedTable.id, r.id)}
+  1381→                    className="w-full flex items-center justify-between gap-2 rounded-md border border-border/60 px-2.5 py-1.5 text-left text-xs hover:bg-foreground/5 transition-colors"
+  1382→                  >
+  1383→                    <span className="flex items-center gap-2 min-w-0">
+  1384→                      <span className="font-mono tabular-nums text-muted-foreground">
+  1385→                        {r.time}
+  1386→                      </span>
+  1387→                      <span className="truncate">{r.customerName}</span>
+  1388→                    </span>
+  1389→                    <span className="flex items-center gap-1 text-muted-foreground shrink-0">
+  1390→                      <Users className="h-3 w-3" />
+  1391→                      {r.partySize}
+  1392→                    </span>
+  1393→                  </button>
+  1394→                ))}
+  1395→              </div>
+  1396→            </div>
+  1397→          )}
+  1398→      </div>
+  1399→    );
+  1400→  }
+  1401→
+  1402→  /* --- Reservation details --- */
+  1403→  if (selectedReservation) {
+  1404→    const meta = RES_STATUS_META[selectedReservation.status];
+  1405→    const table = tableOfReservation;
+  1406→    return (
+  1407→      <div className="rp-glass rounded-2xl p-5">
+  1408→        <div className="flex items-center justify-between mb-4 gap-3">
+  1409→          <div className="flex items-center gap-2.5 min-w-0">
+  1410→            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium shrink-0">
+  1411→              {initials(selectedReservation.customerName)}
+  1412→            </div>
+  1413→            <div className="min-w-0">
+  1414→              <h3 className="font-display text-lg font-medium leading-tight truncate">
+  1415→                {selectedReservation.customerName}
+  1416→              </h3>
+  1417→              <div className="text-xs text-muted-foreground font-mono uppercase tracking-wider">
+  1418→                {selectedReservation.id.toUpperCase()}
+  1419→              </div>
+  1420→            </div>
+  1421→          </div>
+  1422→          <span
+  1423→            className={cn(
+  1424→              "text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border shrink-0",
+  1425→              meta.cls
+  1426→            )}
+  1427→          >
+  1428→            {meta.label}
+  1429→          </span>
+  1430→        </div>
+  1431→        <dl className="space-y-0 text-sm">
+  1432→          <Row
+  1433→            k={
+  1434→              <span className="flex items-center gap-1.5">
+  1435→                <Clock className="h-3.5 w-3.5" /> Hora
+  1436→              </span>
+  1437→            }
+  1438→            v={
+  1439→              <span className="font-mono tabular-nums">
+  1440→                {selectedReservation.time} · {selectedReservation.durationMin}min
+  1441→              </span>
+  1442→            }
+  1443→          />
+  1444→          <Row
+  1445→            k={
+  1446→              <span className="flex items-center gap-1.5">
+  1447→                <Users className="h-3.5 w-3.5" /> Comensales
+  1448→              </span>
+  1449→            }
+  1450→            v={<span className="tabular-nums">{selectedReservation.partySize}</span>}
+  1451→          />
+  1452→          <Row
+  1453→            k={
+  1454→              <span className="flex items-center gap-1.5">
+  1455→                <Phone className="h-3.5 w-3.5" /> Teléfono
+  1456→              </span>
+  1457→            }
+  1458→            v={<span className="font-mono">{selectedReservation.phone}</span>}
+  1459→          />
+  1460→          <Row
+  1461→            k={
+  1462→              <span className="flex items-center gap-1.5">
+  1463→                <MapPin className="h-3.5 w-3.5" /> Mesa
+  1464→              </span>
+  1465→            }
+  1466→            v={
+  1467→              table ? (
+  1468→                table.name
+  1469→              ) : (
+  1470→                <span className="italic text-muted-foreground">sin asignar</span>
+  1471→              )
+  1472→            }
+  1473→          />
+  1474→        </dl>
+  1475→        {selectedReservation.notes && (
+  1476→          <div className="mt-3 p-2.5 rounded-md bg-foreground/[0.04] border border-border/40 text-xs text-muted-foreground">
+  1477→            <span className="font-mono uppercase text-[10px] tracking-wider mr-1.5">
+  1478→              Notas
+  1479→            </span>
+  1480→            {selectedReservation.notes}
+  1481→          </div>
+  1482→        )}
+  1483→
+  1484→        <div className="mt-4 grid grid-cols-2 gap-2">
+  1485→          {selectedReservation.status === "espera" && (
+  1486→            <Button
+  1487→              size="sm"
+  1488→              className="min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+  1489→              onClick={() => onConfirmRes(selectedReservation.id)}
+  1490→            >
+  1491→              <CheckCircle2 className="h-3.5 w-3.5" /> Confirmar
+  1492→            </Button>
+  1493→          )}
+  1494→          {selectedReservation.status === "confirmada" && (
+  1495→            <Button
+  1496→              size="sm"
+  1497→              className="min-h-11 bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+  1498→              onClick={() => onCheckinRes(selectedReservation.id)}
+  1499→            >
+  1500→              <LogIn className="h-3.5 w-3.5" /> Check-in
+  1501→            </Button>
+  1502→          )}
+  1503→          {!selectedReservation.tableId &&
+  1504→            selectedReservation.status !== "cancelada" && (
+  1505→              <Button
+  1506→                size="sm"
+  1507→                variant="outline"
+  1508→                className="min-h-11"
+  1509→                onClick={() => onStartAssign(selectedReservation.id)}
+  1510→              >
+  1511→                <MapPin className="h-3.5 w-3.5" /> Asignar mesa
+  1512→              </Button>
+  1513→            )}
+  1514→          {selectedReservation.status !== "cancelada" && (
+  1515→            <Button
+  1516→              size="sm"
+  1517→              variant="outline"
+  1518→              className="min-h-11 text-destructive hover:text-destructive"
+  1519→              onClick={() => onCancelRes(selectedReservation.id)}
+  1520→            >
+  1521→              <XCircle className="h-3.5 w-3.5" /> Cancelar
+  1522→            </Button>
+  1523→          )}
+  1524→        </div>
+  1525→      </div>
+  1526→    );
+  1527→  }
+  1528→
+  1529→  /* --- Empty state --- */
+  1530→  return (
+  1531→    <div className="rp-glass rounded-2xl p-8 text-center">
+  1532→      <div className="mx-auto h-12 w-12 rounded-full bg-foreground/5 flex items-center justify-center mb-3">
+  1533→        <Armchair className="h-5 w-5 text-muted-foreground" />
+  1534→      </div>
+  1535→      <h3 className="font-medium text-sm">
+  1536→        Selecciona una mesa o reserva
+  1537→      </h3>
+  1538→      <p className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto">
+  1539→        Haz clic en una mesa del plano para ver detalles y acciones, o en una
+  1540→        reserva de la lista.
+  1541→      </p>
+  1542→    </div>
+  1543→  );
+  1544→}
+  1545→
+  1546→function Row({ k, v }: { k: React.ReactNode; v: React.ReactNode }) {
+  1547→  return (
+  1548→    <div className="flex justify-between items-center py-1.5 border-b border-border/40 last:border-0">
+  1549→      <dt className="text-muted-foreground">{k}</dt>
+  1550→      <dd className="font-medium text-right">{v}</dd>
+  1551→    </div>
+  1552→  );
+  1553→}
+  1554→
+  1555→/* =========================================================
+  1556→ * Service timeline
+  1557→ * =======================================================*/
+  1558→function TimelineContent({
+  1559→  reservations,
+  1560→  tables,
+  1561→  selectedId,
+  1562→  onSelect,
+  1563→}: {
+  1564→  reservations: RpReservation[];
+  1565→  tables: RpTable[];
+  1566→  selectedId: string | null;
+  1567→  onSelect: (id: string) => void;
+  1568→}) {
+  1569→  const START = 13 * 60; // 13:00
+  1570→  const END = 23 * 60; // 23:00
+  1571→  const PX_PER_MIN = 1.5;
+  1572→  const width = (END - START) * PX_PER_MIN;
+  1573→
+  1574→  const hours: number[] = [];
+  1575→  for (let h = 13; h <= 23; h++) hours.push(h);
+  1576→
+  1577→  // greedy lane packing
+  1578→  const lanesEnd: number[] = [];
+  1579→  const placed = reservations
+  1580→    .filter((r) => r.status !== "cancelada")
+  1581→    .map((r) => {
+  1582→      const start = timeToMin(r.time);
+  1583→      const end = start + r.durationMin;
+  1584→      let lane = lanesEnd.findIndex((l) => l <= start);
+  1585→      if (lane === -1) {
+  1586→        lane = lanesEnd.length;
+  1587→        lanesEnd.push(end);
+  1588→      } else {
+  1589→        lanesEnd[lane] = end;
+  1590→      }
+  1591→      return { r, start, end, lane };
+  1592→    })
+  1593→    .sort((a, b) => a.start - b.start);
+  1594→
+  1595→  const laneCount = Math.max(1, lanesEnd.length);
+  1596→  const rowH = 38;
+  1597→  const totalH = 26 + laneCount * rowH + 8;
+  1598→
+  1599→  // mock "now" indicator at 14:45
+  1600→  const nowMin = 14 * 60 + 45;
+  1601→  const nowX = (nowMin - START) * PX_PER_MIN;
+  1602→  const showNow = nowMin >= START && nowMin <= END;
+  1603→
+  1604→  return (
+  1605→    <div className="overflow-x-auto rp-scroll-thin -mx-1">
+  1606→      <div
+  1607→        className="relative"
+  1608→        style={{ width, minWidth: "100%", height: totalH }}
+  1609→      >
+  1610→        {/* hour grid */}
+  1611→        {hours.map((h) => {
+  1612→          const x = (h * 60 - START) * PX_PER_MIN;
+  1613→          return (
+  1614→            <div
+  1615→              key={h}
+  1616→              className="absolute top-0 bottom-0 border-l border-border/30"
+  1617→              style={{ left: x }}
+  1618→            >
+  1619→              <span className="absolute top-0 left-1 text-[10px] font-mono text-muted-foreground">
+  1620→                {String(h).padStart(2, "0")}:00
+  1621→              </span>
+  1622→            </div>
+  1623→          );
+  1624→        })}
+  1625→
+  1626→        {/* now indicator */}
+  1627→        {showNow && (
+  1628→          <div
+  1629→            className="absolute top-0 bottom-0 w-px bg-[var(--teal)] z-10"
+  1630→            style={{ left: nowX }}
+  1631→            aria-hidden
+  1632→          >
+  1633→            <div className="absolute top-0 -translate-x-1/2 h-2 w-2 rounded-full bg-[var(--teal)]" />
+  1634→            <div className="absolute top-0 -translate-x-1/2 -translate-y-full text-[9px] font-mono text-[var(--teal)] whitespace-nowrap bg-background/80 px-1 rounded">
+  1635→              AHORA
+  1636→            </div>
+  1637→          </div>
+  1638→        )}
+  1639→
+  1640→        {/* reservation blocks */}
+  1641→        {placed.map(({ r, start, end, lane }) => {
+  1642→          const x = (start - START) * PX_PER_MIN;
+  1643→          const w = (end - start) * PX_PER_MIN;
+  1644→          const y = 22 + lane * rowH;
+  1645→          const table = tables.find((t) => t.id === r.tableId);
+  1646→          const isSelected = selectedId === r.id;
+  1647→          const meta = RES_STATUS_META[r.status];
+  1648→          return (
+  1649→            <button
+  1650→              key={r.id}
+  1651→              onClick={() => onSelect(r.id)}
+  1652→              aria-pressed={isSelected}
+  1653→              aria-label={`${r.customerName} · ${r.time} · ${r.partySize} comensales${
+  1654→                table ? ` · mesa ${table.name}` : ""
+  1655→              }`}
+  1656→              className={cn(
+  1657→                "absolute h-8 rounded-md border px-2 text-left text-[11px] flex items-center gap-1.5 overflow-hidden transition-all",
+  1658→                meta.cls,
+  1659→                isSelected
+  1660→                  ? "ring-2 ring-[var(--gold)] z-10 brightness-110"
+  1661→                  : "hover:brightness-125"
+  1662→              )}
+  1663→              style={{ left: x, width: Math.max(w - 2, 60), top: y }}
+  1664→              title={`${r.customerName} · ${r.time} · ${r.partySize} pax${
+  1665→                table ? ` · ${table.name}` : ""
+  1666→              }`}
+  1667→            >
+  1668→              <span className="font-mono tabular-nums opacity-80 shrink-0">
+  1669→                {r.time}
+  1670→              </span>
+  1671→              <span className="truncate font-medium">{r.customerName}</span>
+  1672→              <span className="ml-auto flex items-center gap-1 opacity-80 shrink-0">
+  1673→                <Users className="h-3 w-3" />
+  1674→                {r.partySize}
+  1675→                {table && (
+  1676→                  <span className="font-mono ml-0.5">{table.name}</span>
+  1677→                )}
+  1678→              </span>
+  1679→            </button>
+  1680→          );
+  1681→        })}
+  1682→      </div>
+  1683→    </div>
+  1684→  );
+  1685→}
+  1686→
+  1687→/* =========================================================
+  1688→ * New reservation dialog
+  1689→ * =======================================================*/
+  1690→function NewReservationDialog({
+  1691→  open,
+  1692→  onOpenChange,
+  1693→  tables,
+  1694→  onSubmit,
+  1695→}: {
+  1696→  open: boolean;
+  1697→  onOpenChange: (o: boolean) => void;
+  1698→  tables: RpTable[];
+  1699→  onSubmit: (form: NewReservationForm) => void;
+  1700→}) {
+  1701→  const today = new Date().toISOString().slice(0, 10);
+  1702→  const empty: NewReservationForm = {
+  1703→    customerName: "",
+  1704→    phone: "",
+  1705→    partySize: 2,
+  1706→    date: today,
+  1707→    time: "20:30",
+  1708→    tableId: undefined,
+  1709→    zone: "sala",
+  1710→    notes: "",
+  1711→  };
+  1712→  const [form, setForm] = React.useState<NewReservationForm>(empty);
+  1713→
+  1714→  React.useEffect(() => {
+  1715→    if (open) setForm(empty);
+  1716→  }, [open]);
+  1717→
+  1718→  const freeTables = tables.filter((t) => t.status === "free");
+  1719→
+  1720→  function submit(e: React.FormEvent) {
+  1721→    e.preventDefault();
+  1722→    if (!form.customerName.trim()) return;
+  1723→    onSubmit(form);
+  1724→  }
+  1725→
+  1726→  return (
+  1727→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1728→      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto rp-scroll-thin">
+  1729→        <DialogHeader>
+  1730→          <DialogTitle className="flex items-center gap-2">
+  1731→            <Plus className="h-4 w-4 text-[var(--gold)]" /> Nueva reserva
+  1732→            <DemoBadge />
+  1733→          </DialogTitle>
+  1734→          <DialogDescription>
+  1735→            Crea una reserva y, opcionalmente, asígnala a una mesa libre.
+  1736→          </DialogDescription>
+  1737→        </DialogHeader>
+  1738→        <form onSubmit={submit} className="space-y-3">
+  1739→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1740→            <Field label="Cliente">
+  1741→              <Input
+  1742→                className="min-h-11"
+  1743→                value={form.customerName}
+  1744→                onChange={(e) =>
+  1745→                  setForm((f) => ({ ...f, customerName: e.target.value }))
+  1746→                }
+  1747→                placeholder="Nombre y apellidos"
+  1748→                required
+  1749→                autoFocus
+  1750→              />
+  1751→            </Field>
+  1752→            <Field label="Teléfono">
+  1753→              <Input
+  1754→                className="min-h-11"
+  1755→                value={form.phone}
+  1756→                onChange={(e) =>
+  1757→                  setForm((f) => ({ ...f, phone: e.target.value }))
+  1758→                }
+  1759→                placeholder="+34 600 000 000"
+  1760→                type="tel"
+  1761→              />
+  1762→            </Field>
+  1763→          </div>
+  1764→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  1765→            <Field label="Comensales">
+  1766→              <Input
+  1767→                className="min-h-11"
+  1768→                type="number"
+  1769→                min={1}
+  1770→                max={30}
+  1771→                value={form.partySize}
+  1772→                onChange={(e) =>
+  1773→                  setForm((f) => ({
+  1774→                    ...f,
+  1775→                    partySize: Math.max(1, Number(e.target.value) || 1),
+  1776→                  }))
+  1777→                }
+  1778→              />
+  1779→            </Field>
+  1780→            <Field label="Fecha">
+  1781→              <Input
+  1782→                className="min-h-11"
+  1783→                type="date"
+  1784→                value={form.date}
+  1785→                onChange={(e) =>
+  1786→                  setForm((f) => ({ ...f, date: e.target.value }))
+  1787→                }
+  1788→              />
+  1789→            </Field>
+  1790→            <Field label="Hora">
+  1791→              <Input
+  1792→                className="min-h-11"
+  1793→                type="time"
+  1794→                value={form.time}
+  1795→                onChange={(e) =>
+  1796→                  setForm((f) => ({ ...f, time: e.target.value }))
+  1797→                }
+  1798→              />
+  1799→            </Field>
+  1800→          </div>
+  1801→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1802→            <Field label="Zona">
+  1803→              <Select
+  1804→                value={form.zone}
+  1805→                onValueChange={(v) => setForm((f) => ({ ...f, zone: v as Zone }))}
+  1806→              >
+  1807→                <SelectTrigger className="w-full min-h-11">
+  1808→                  <SelectValue />
+  1809→                </SelectTrigger>
+  1810→                <SelectContent>
+  1811→                  {ZONES.map((z) => (
+  1812→                    <SelectItem key={z.id} value={z.id}>
+  1813→                      {z.label}
+  1814→                    </SelectItem>
+  1815→                  ))}
+  1816→                </SelectContent>
+  1817→              </Select>
+  1818→            </Field>
+  1819→            <Field label="Mesa (opcional)">
+  1820→              <Select
+  1821→                value={form.tableId ?? "none"}
+  1822→                onValueChange={(v) =>
+  1823→                  setForm((f) => ({
+  1824→                    ...f,
+  1825→                    tableId: v === "none" ? undefined : v,
+  1826→                  }))
+  1827→                }
+  1828→              >
+  1829→                <SelectTrigger className="w-full min-h-11">
+  1830→                  <SelectValue placeholder="Sin asignar" />
+  1831→                </SelectTrigger>
+  1832→                <SelectContent>
+  1833→                  <SelectItem value="none">Sin asignar</SelectItem>
+  1834→                  {freeTables.map((t) => (
+  1835→                    <SelectItem key={t.id} value={t.id}>
+  1836→                      {t.name} · {t.seats} pax ·{" "}
+  1837→                      {ZONES.find((z) => z.id === t.zone)?.label}
+  1838→                    </SelectItem>
+  1839→                  ))}
+  1840→                </SelectContent>
+  1841→              </Select>
+  1842→            </Field>
+  1843→          </div>
+  1844→          <Field label="Notas">
+  1845→            <Textarea
+  1846→              value={form.notes}
+  1847→              onChange={(e) =>
+  1848→                setForm((f) => ({ ...f, notes: e.target.value }))
+  1849→              }
+  1850→              placeholder="Alergias, preferencias, ocasión especial…"
+  1851→              rows={2}
+  1852→            />
+  1853→          </Field>
+  1854→          <DialogFooter>
+  1855→            <DialogClose asChild>
+  1856→              <Button type="button" variant="outline" className="min-h-11">
+  1857→                Cancelar
+  1858→              </Button>
+  1859→            </DialogClose>
+  1860→            <Button
+  1861→              type="submit"
+  1862→              className="min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+  1863→              disabled={!form.customerName.trim()}
+  1864→            >
+  1865→              <CheckCircle2 className="h-4 w-4" /> Crear reserva
+  1866→            </Button>
+  1867→          </DialogFooter>
+  1868→        </form>
+  1869→      </DialogContent>
+  1870→    </Dialog>
+  1871→  );
+  1872→}
+  1873→
+  1874→function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  1875→  return (
+  1876→    <div className="space-y-1.5">
+  1877→      <Label className="text-xs text-muted-foreground">{label}</Label>
+  1878→      {children}
+  1879→    </div>
+  1880→  );
+  1881→}
+  1882→

@@ -38,27 +38,28 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
-  Plus,
-  Search,
-  Pencil,
-  Users,
-  Clock,
-  Phone,
-  MapPin,
-  CheckCircle2,
-  LogIn,
-  XCircle,
-  ChevronDown,
-  Lock,
-  Eraser,
-  Hourglass,
-  X,
-  Armchair,
-  Hand,
-  CalendarPlus,
+  Plus, Search, Pencil, Users, Clock, Phone, MapPin, CheckCircle2,
+  LogIn, XCircle, ChevronDown, Lock, Eraser, Hourglass, X, Armchair,
+  Hand, CalendarPlus, StickyNote, CreditCard, Wallet, Globe, Star,
+  MessageCircle, Instagram, Smartphone, UserRound, Filter, Calendar,
+  CheckCheck, Armchair as ChairIcon, Sparkles, TrendingUp, UserX,
+  Ban, CircleDot, Sliders,
 } from "lucide-react";
 
 /* =========================================================
@@ -70,13 +71,24 @@ export type TableStatus =
   | "occupied"
   | "cleaning"
   | "blocked";
-export type Zone = "sala" | "terraza" | "barra";
+export type Zone = "sala" | "terraza" | "barra" | "vip";
 export type ReservationStatus =
+  | "pendiente"
   | "confirmada"
+  | "reconfirmada"
+  | "sentada"
   | "espera"
-  | "checkin"
-  | "noshow"
-  | "cancelada";
+  | "finalizada"
+  | "cancelada"
+  | "noshow";
+export type Channel =
+  | "web"
+  | "google"
+  | "whatsapp"
+  | "instagram"
+  | "telefono"
+  | "walkin";
+export type Guarantee = "tarjeta" | "prepago" | "ninguna";
 
 export interface RpTable {
   id: string;
@@ -103,6 +115,12 @@ export interface RpReservation {
   tableId?: string;
   notes?: string;
   zone: Zone;
+  channel: Channel;
+  guarantee: Guarantee;
+  /** URL of customer photo. If absent, render initials avatar. */
+  photo?: string;
+  /** epoch ms — used to detect newly-added reservations for entry animation */
+  createdAt: number;
 }
 
 interface NewReservationForm {
@@ -113,6 +131,8 @@ interface NewReservationForm {
   time: string;
   tableId?: string;
   zone: Zone;
+  channel: Channel;
+  guarantee: Guarantee;
   notes: string;
 }
 
@@ -174,40 +194,110 @@ const STATUS_META: Record<
 };
 
 const ZONES: { id: Zone; label: string; hint: string }[] = [
-  { id: "sala", label: "Sala principal", hint: "Interior" },
+  { id: "sala", label: "Sala", hint: "Interior" },
   { id: "terraza", label: "Terraza", hint: "Exterior" },
+  { id: "vip", label: "VIP", hint: "Reservado" },
   { id: "barra", label: "Barra", hint: "Mostrador" },
 ];
 
-const RES_STATUS_META: Record<ReservationStatus, { label: string; cls: string }> = {
+const ZONE_PILL: Record<Zone, string> = {
+  sala: "border-border/60 bg-foreground/[0.04] text-muted-foreground",
+  terraza: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+  vip: "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]",
+  barra: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-300",
+};
+
+const RES_STATUS_META: Record<
+  ReservationStatus,
+  { label: string; cls: string; dot: string }
+> = {
+  pendiente: {
+    label: "Pendiente",
+    cls: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+    dot: "bg-amber-400",
+  },
   confirmada: {
     label: "Confirmada",
     cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+    dot: "bg-[var(--gold)]",
+  },
+  reconfirmada: {
+    label: "Reconfirmada",
+    cls: "border-[var(--gold)]/60 bg-[var(--gold)]/15 text-[var(--gold-soft)]",
+    dot: "bg-[var(--gold-soft)]",
+  },
+  sentada: {
+    label: "Sentada",
+    cls: "border-[var(--teal)]/50 bg-[var(--teal)]/15 text-[var(--teal)]",
+    dot: "bg-[var(--teal)]",
   },
   espera: {
-    label: "Lista de espera",
-    cls: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+    label: "En espera",
+    cls: "border-orange-400/40 bg-orange-400/10 text-orange-300",
+    dot: "bg-orange-400",
   },
-  checkin: {
-    label: "Check-in",
-    cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
-  },
-  noshow: {
-    label: "No-show",
-    cls: "border-destructive/40 bg-destructive/10 text-destructive",
+  finalizada: {
+    label: "Finalizada",
+    cls: "border-zinc-500/40 bg-zinc-500/10 text-zinc-400",
+    dot: "bg-zinc-500",
   },
   cancelada: {
     label: "Cancelada",
-    cls: "border-zinc-500/40 bg-zinc-500/10 text-zinc-400",
+    cls: "border-destructive/40 bg-destructive/10 text-destructive",
+    dot: "bg-destructive",
+  },
+  noshow: {
+    label: "No-show",
+    cls: "border-rose-500/40 bg-rose-500/10 text-rose-300",
+    dot: "bg-rose-500",
   },
 };
 
-const FILTERS: { id: "todas" | ReservationStatus; label: string }[] = [
+const CHANNEL_META: Record<
+  Channel,
+  { label: string; icon: React.ElementType; cls: string }
+> = {
+  web: { label: "Web", icon: Globe, cls: "text-sky-300" },
+  google: { label: "Google", icon: Star, cls: "text-amber-300" },
+  whatsapp: { label: "WhatsApp", icon: MessageCircle, cls: "text-emerald-300" },
+  instagram: { label: "Instagram", icon: Instagram, cls: "text-fuchsia-300" },
+  telefono: { label: "Teléfono", icon: Smartphone, cls: "text-[var(--teal)]" },
+  walkin: { label: "Walk-in", icon: UserRound, cls: "text-muted-foreground" },
+};
+
+const GUARANTEE_META: Record<
+  Guarantee,
+  { label: string; icon: React.ElementType; cls: string }
+> = {
+  tarjeta: { label: "Tarjeta", icon: CreditCard, cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]" },
+  prepago: { label: "Prepago", icon: Wallet, cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]" },
+  ninguna: { label: "—", icon: CircleDot, cls: "border-border/40 bg-foreground/[0.04] text-muted-foreground" },
+};
+
+const STATUS_FILTERS: { id: "todas" | ReservationStatus; label: string }[] = [
   { id: "todas", label: "Todas" },
-  { id: "confirmada", label: "Confirmadas" },
-  { id: "espera", label: "Lista de espera" },
-  { id: "checkin", label: "Check-in" },
+  { id: "pendiente", label: "Pendiente" },
+  { id: "confirmada", label: "Confirmada" },
+  { id: "sentada", label: "Sentada" },
   { id: "noshow", label: "No-show" },
+];
+
+const ZONE_FILTERS: { id: "todas" | Zone; label: string }[] = [
+  { id: "todas", label: "Todas" },
+  { id: "sala", label: "Sala" },
+  { id: "terraza", label: "Terraza" },
+  { id: "vip", label: "VIP" },
+  { id: "barra", label: "Barra" },
+];
+
+const CHANNEL_FILTERS: { id: "todos" | Channel; label: string }[] = [
+  { id: "todos", label: "Todos los canales" },
+  { id: "web", label: "Web" },
+  { id: "google", label: "Google" },
+  { id: "whatsapp", label: "WhatsApp" },
+  { id: "instagram", label: "Instagram" },
+  { id: "telefono", label: "Teléfono" },
+  { id: "walkin", label: "Walk-in" },
 ];
 
 /* =========================================================
@@ -226,23 +316,27 @@ const INITIAL_TABLES: RpTable[] = [
   { id: "T2", name: "T2", seats: 2, x: 220, y: 70, status: "free", shape: "square", zone: "terraza" },
   { id: "T3", name: "T3", seats: 6, x: 60, y: 220, status: "occupied", shape: "rect", w: 150, h: 90, zone: "terraza", reservationId: "r4" },
   { id: "T4", name: "T4", seats: 4, x: 260, y: 230, status: "free", shape: "round", zone: "terraza" },
+  // VIP
+  { id: "V1", name: "V1", seats: 8, x: 80, y: 80, status: "reserved", shape: "round", zone: "vip", reservationId: "r6" },
+  { id: "V2", name: "V2", seats: 6, x: 260, y: 100, status: "free", shape: "rect", w: 140, h: 90, zone: "vip" },
   // Barra
   { id: "B1", name: "B1", seats: 2, x: 50, y: 120, status: "occupied", shape: "square", zone: "barra", reservationId: "r7" },
   { id: "B2", name: "B2", seats: 2, x: 160, y: 120, status: "occupied", shape: "square", zone: "barra" },
   { id: "B3", name: "B3", seats: 2, x: 270, y: 120, status: "free", shape: "square", zone: "barra" },
 ];
 
+const NOW = Date.now();
 const INITIAL_RESERVATIONS: RpReservation[] = [
-  { id: "r1", customerName: "Elena Vidal", phone: "+34 612 334 211", partySize: 4, time: "13:30", durationMin: 120, status: "confirmada", tableId: "M1", zone: "sala", notes: "Aniversario · mesa ventana" },
-  { id: "r2", customerName: "Marc Puig", phone: "+34 670 891 220", partySize: 4, time: "14:00", durationMin: 120, status: "checkin", tableId: "M2", zone: "sala", notes: "" },
-  { id: "r3", customerName: "Sofía Ruiz", phone: "+34 655 220 119", partySize: 4, time: "14:30", durationMin: 90, status: "confirmada", tableId: "T1", zone: "terraza", notes: "Cliente VIP" },
-  { id: "r4", customerName: "Jordi Soler", phone: "+34 622 119 887", partySize: 6, time: "13:45", durationMin: 150, status: "checkin", tableId: "T3", zone: "terraza", notes: "Cumpleaños, traen tarta" },
-  { id: "r5", customerName: "Núria Camps", phone: "+34 690 113 445", partySize: 2, time: "15:00", durationMin: 60, status: "espera", zone: "sala", notes: "Sin asignar" },
-  { id: "r6", customerName: "Pau Riera", phone: "+34 644 332 100", partySize: 3, time: "20:30", durationMin: 120, status: "confirmada", zone: "sala", notes: "" },
-  { id: "r7", customerName: "Laia Font", phone: "+34 633 445 998", partySize: 2, time: "21:00", durationMin: 90, status: "checkin", tableId: "B1", zone: "barra", notes: "Cena rápida en barra" },
-  { id: "r8", customerName: "Arnau Bosch", phone: "+34 611 220 333", partySize: 5, time: "21:30", durationMin: 150, status: "espera", zone: "terraza", notes: "Prefiere terraza" },
-  { id: "r9", customerName: "Carla Vives", phone: "+34 699 001 223", partySize: 2, time: "13:00", durationMin: 60, status: "noshow", zone: "sala", notes: "No avisó" },
-  { id: "r10", customerName: "Bruno Serra", phone: "+34 688 220 110", partySize: 4, time: "22:00", durationMin: 120, status: "confirmada", zone: "sala", notes: "Cena tarde" },
+  { id: "r1", customerName: "Elena Vidal", phone: "+34 612 334 211", partySize: 4, time: "13:30", durationMin: 120, status: "confirmada", tableId: "M1", zone: "sala", channel: "web", guarantee: "tarjeta", notes: "Aniversario · mesa ventana", createdAt: NOW - 60000 },
+  { id: "r2", customerName: "Marc Puig", phone: "+34 670 891 220", partySize: 4, time: "14:00", durationMin: 120, status: "sentada", tableId: "M2", zone: "sala", channel: "telefono", guarantee: "ninguna", notes: "", createdAt: NOW - 120000 },
+  { id: "r3", customerName: "Sofía Ruiz", phone: "+34 655 220 119", partySize: 4, time: "14:30", durationMin: 90, status: "reconfirmada", tableId: "T1", zone: "terraza", channel: "google", guarantee: "tarjeta", notes: "Cliente VIP · alérgica al gluten", createdAt: NOW - 90000 },
+  { id: "r4", customerName: "Jordi Soler", phone: "+34 622 119 887", partySize: 6, time: "13:45", durationMin: 150, status: "sentada", tableId: "T3", zone: "terraza", channel: "whatsapp", guarantee: "prepago", notes: "Cumpleaños, traen tarta", createdAt: NOW - 150000 },
+  { id: "r5", customerName: "Núria Camps", phone: "+34 690 113 445", partySize: 2, time: "15:00", durationMin: 60, status: "espera", zone: "sala", channel: "walkin", guarantee: "ninguna", notes: "Sin asignar", createdAt: NOW - 30000 },
+  { id: "r6", customerName: "Pau Riera", phone: "+34 644 332 100", partySize: 8, time: "20:30", durationMin: 180, status: "confirmada", tableId: "V1", zone: "vip", channel: "telefono", guarantee: "prepago", notes: "Cena de empresa · menú degustación", createdAt: NOW - 200000 },
+  { id: "r7", customerName: "Laia Font", phone: "+34 633 445 998", partySize: 2, time: "21:00", durationMin: 90, status: "sentada", tableId: "B1", zone: "barra", channel: "instagram", guarantee: "ninguna", notes: "Cena rápida en barra", createdAt: NOW - 100000 },
+  { id: "r8", customerName: "Arnau Bosch", phone: "+34 611 220 333", partySize: 5, time: "21:30", durationMin: 150, status: "pendiente", zone: "terraza", channel: "web", guarantee: "tarjeta", notes: "Prefiere terraza · 2 niños", createdAt: NOW - 45000 },
+  { id: "r9", customerName: "Carla Vives", phone: "+34 699 001 223", partySize: 2, time: "13:00", durationMin: 60, status: "noshow", zone: "sala", channel: "web", guarantee: "tarjeta", notes: "No avisó · cargo aplicado", createdAt: NOW - 300000 },
+  { id: "r10", customerName: "Bruno Serra", phone: "+34 688 220 110", partySize: 4, time: "22:00", durationMin: 120, status: "confirmada", zone: "sala", channel: "google", guarantee: "tarjeta", notes: "Cena tarde · ventana", createdAt: NOW - 80000 },
 ];
 
 /* =========================================================
@@ -254,13 +348,13 @@ function timeToMin(t: string): number {
 }
 
 function tableW(t: RpTable): number {
-  if (t.shape === "round") return 84;
-  if (t.shape === "square") return 76;
-  return t.w ?? 140;
+  if (t.shape === "round") return 92;
+  if (t.shape === "square") return 80;
+  return t.w ?? 150;
 }
 function tableH(t: RpTable): number {
-  if (t.shape === "round") return 84;
-  if (t.shape === "square") return 76;
+  if (t.shape === "round") return 92;
+  if (t.shape === "square") return 80;
   return t.h ?? 96;
 }
 
@@ -294,11 +388,49 @@ function DemoBadge({ className }: { className?: string }) {
   );
 }
 
+/** Animated number counter — uses requestAnimationFrame, transform/opacity only. */
+function useAnimatedNumber(value: number, duration = 350) {
+  const reduce = useReducedMotion();
+  const [display, setDisplay] = React.useState(value);
+  const fromRef = React.useRef(value);
+  const rafRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    if (reduce) {
+      setDisplay(value);
+      return;
+    }
+    const from = fromRef.current;
+    const to = value;
+    if (from === to) return;
+    const start = performance.now();
+    function tick(now: number) {
+      const t = Math.min(1, (now - start) / duration);
+      // easeOutCubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(Math.round(from + (to - from) * eased));
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = to;
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      fromRef.current = value;
+    };
+  }, [value, duration, reduce]);
+
+  return display;
+}
+
 /* =========================================================
  * Main view
  * =======================================================*/
 export function ReservasView() {
   const { toast } = useToast();
+  const reduce = useReducedMotion();
   const [tables, setTables] = React.useState<RpTable[]>(INITIAL_TABLES);
   const [reservations, setReservations] =
     React.useState<RpReservation[]>(INITIAL_RESERVATIONS);
@@ -311,8 +443,15 @@ export function ReservasView() {
   const [dragOver, setDragOver] = React.useState(false);
   const [newDialogOpen, setNewDialogOpen] = React.useState(false);
   const [timelineOpen, setTimelineOpen] = React.useState(true);
-  const [resFilter, setResFilter] = React.useState<"todas" | ReservationStatus>("todas");
+
+  // Quick filters
+  const [datePreset, setDatePreset] = React.useState<"hoy" | "manana" | "fecha">("hoy");
+  const [zoneFilter, setZoneFilter] = React.useState<"todas" | Zone>("todas");
+  const [statusFilter, setStatusFilter] = React.useState<"todas" | ReservationStatus>("todas");
+  const [channelFilter, setChannelFilter] = React.useState<"todos" | Channel>("todos");
   const [search, setSearch] = React.useState("");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
+
   const [confirmState, setConfirmState] = React.useState<
     null | { kind: "block-table" | "cancel-res" | "free-table"; id: string }
   >(null);
@@ -325,21 +464,54 @@ export function ReservasView() {
     reservations.find((r) => r.id === selectedReservationId) ?? null;
   const assigningReservation =
     reservations.find((r) => r.id === assigningReservationId) ?? null;
-  const filteredReservations = reservations.filter((r) => {
-    if (resFilter !== "todas" && r.status !== resFilter) return false;
-    if (search.trim()) {
-      const q = search.trim().toLowerCase();
-      if (
-        !r.customerName.toLowerCase().includes(q) &&
-        !r.phone.toLowerCase().includes(q)
-      )
-        return false;
-    }
-    return true;
-  });
+
+  const filteredReservations = React.useMemo(() => {
+    return reservations.filter((r) => {
+      if (statusFilter !== "todas" && r.status !== statusFilter) return false;
+      if (zoneFilter !== "todas" && r.zone !== zoneFilter) return false;
+      if (channelFilter !== "todos" && r.channel !== channelFilter) return false;
+      if (search.trim()) {
+        const q = search.trim().toLowerCase();
+        if (
+          !r.customerName.toLowerCase().includes(q) &&
+          !r.phone.toLowerCase().includes(q)
+        )
+          return false;
+      }
+      return true;
+    });
+  }, [reservations, statusFilter, zoneFilter, channelFilter, search]);
+
   const unassignedReservations = reservations.filter(
-    (r) => !r.tableId && r.status !== "cancelada"
+    (r) => !r.tableId && r.status !== "cancelada" && r.status !== "finalizada"
   );
+
+  // KPIs for occupancy strip
+  const totalTables = tables.length;
+  const occupiedTables = tables.filter(
+    (t) => t.status === "occupied" || t.status === "reserved"
+  ).length;
+  const occupancyPct = totalTables === 0 ? 0 : Math.round((occupiedTables / totalTables) * 100);
+  const totalPax = reservations
+    .filter((r) => r.status !== "cancelada" && r.status !== "noshow")
+    .reduce((sum, r) => sum + r.partySize, 0);
+  const noShowCount = reservations.filter((r) => r.status === "noshow").length;
+  const confirmedToday = reservations.filter(
+    (r) => r.status === "confirmada" || r.status === "reconfirmada" || r.status === "sentada"
+  ).length;
+
+  // Animated counters
+  const animOccupancy = useAnimatedNumber(occupancyPct);
+  const animPax = useAnimatedNumber(totalPax);
+  const animConfirmed = useAnimatedNumber(confirmedToday);
+  const animNoShow = useAnimatedNumber(noShowCount);
+
+  // Active filter count for mobile badge
+  const activeFilterCount =
+    (statusFilter !== "todas" ? 1 : 0) +
+    (zoneFilter !== "todas" ? 1 : 0) +
+    (channelFilter !== "todos" ? 1 : 0) +
+    (search.trim() ? 1 : 0);
 
   /* ----- table handlers ----- */
   function cycleTableStatus(t: RpTable) {
@@ -390,7 +562,7 @@ export function ReservasView() {
           ? {
               ...x,
               tableId,
-              status: x.status === "espera" ? "confirmada" : x.status,
+              status: x.status === "espera" || x.status === "pendiente" ? "confirmada" : x.status,
             }
           : x
       )
@@ -432,25 +604,30 @@ export function ReservasView() {
   }
 
   /* ----- reservation handlers ----- */
+  function setReservationStatus(resId: string, status: ReservationStatus) {
+    setReservations((rs) =>
+      rs.map((x) => (x.id === resId ? { ...x, status } : x))
+    );
+  }
+
   function confirmReservation(resId: string) {
     const r = reservations.find((x) => x.id === resId);
     if (!r) return;
-    setReservations((rs) =>
-      rs.map((x) =>
-        x.id === resId && x.status === "espera"
-          ? { ...x, status: "confirmada" }
-          : x
-      )
-    );
+    setReservationStatus(resId, "confirmada");
     toast({ title: "Reserva confirmada", description: r.customerName });
   }
 
-  function checkinReservation(resId: string) {
+  function reconfirmReservation(resId: string) {
     const r = reservations.find((x) => x.id === resId);
     if (!r) return;
-    setReservations((rs) =>
-      rs.map((x) => (x.id === resId ? { ...x, status: "checkin" } : x))
-    );
+    setReservationStatus(resId, "reconfirmada");
+    toast({ title: "Reserva reconfirmada", description: r.customerName });
+  }
+
+  function seatReservation(resId: string) {
+    const r = reservations.find((x) => x.id === resId);
+    if (!r) return;
+    setReservationStatus(resId, "sentada");
     if (r.tableId) {
       setTables((ts) =>
         ts.map((t) =>
@@ -461,19 +638,51 @@ export function ReservasView() {
       );
     }
     toast({
-      title: "Check-in realizado",
+      title: "Cliente sentado",
       description: `${r.customerName} · ${r.partySize} comensales`,
+    });
+  }
+
+  function finishReservation(resId: string) {
+    const r = reservations.find((x) => x.id === resId);
+    if (!r) return;
+    setReservationStatus(resId, "finalizada");
+    if (r.tableId) {
+      setTables((ts) =>
+        ts.map((t) =>
+          t.id === r.tableId
+            ? { ...t, status: "cleaning" }
+            : t
+        )
+      );
+    }
+    toast({ title: "Servicio finalizado", description: r.customerName });
+  }
+
+  function noshowReservation(resId: string) {
+    const r = reservations.find((x) => x.id === resId);
+    if (!r) return;
+    setReservationStatus(resId, "noshow");
+    if (r.tableId) {
+      setTables((ts) =>
+        ts.map((t) =>
+          t.id === r.tableId
+            ? { ...t, status: "free", reservationId: undefined }
+            : t
+        )
+      );
+    }
+    toast({
+      title: "Marcar como No-show",
+      description: r.customerName,
+      variant: "destructive",
     });
   }
 
   function cancelReservation(resId: string) {
     const r = reservations.find((x) => x.id === resId);
     if (!r) return;
-    setReservations((rs) =>
-      rs.map((x) =>
-        x.id === resId ? { ...x, status: "cancelada" } : x
-      )
-    );
+    setReservationStatus(resId, "cancelada");
     if (r.tableId) {
       setTables((ts) =>
         ts.map((t) =>
@@ -553,9 +762,7 @@ export function ReservasView() {
     });
   }
 
-  /* ----- drag & drop (touch) -----
-   * Native HTML5 drag-and-drop does NOT fire on touch devices, so we add
-   * touch handlers that move the table in real time when editMode is on. */
+  /* ----- drag & drop (touch) ----- */
   const touchDragRef = React.useRef<
     | { id: string; offsetX: number; offsetY: number }
     | null
@@ -625,10 +832,13 @@ export function ReservasView() {
       partySize: form.partySize,
       time: form.time,
       durationMin: 90,
-      status: "confirmada",
+      status: "pendiente",
       tableId: form.tableId,
       zone: form.zone,
+      channel: form.channel,
+      guarantee: form.guarantee,
       notes: form.notes.trim() || undefined,
+      createdAt: Date.now(),
     };
     setReservations((rs) => [newRes, ...rs]);
     if (form.tableId) {
@@ -656,7 +866,19 @@ export function ReservasView() {
     setConfirmState(null);
   }
 
+  function clearFilters() {
+    setStatusFilter("todas");
+    setZoneFilter("todas");
+    setChannelFilter("todos");
+    setSearch("");
+  }
+
   /* ----- render ----- */
+  // Shared transition defaults that respect prefers-reduced-motion
+  const t = reduce
+    ? { duration: 0 }
+    : { duration: 0.2, ease: "easeOut" as const };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -681,10 +903,62 @@ export function ReservasView() {
         </Button>
       </header>
 
-      {/* Main grid: stacks on móvil/tablet, 60/40 split from lg+ */}
+      {/* KPI strip — occupancy counters animate on change */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiCard
+          icon={Armchair}
+          label="Ocupación"
+          value={`${animOccupancy}%`}
+          caption={`${occupiedTables}/${totalTables} mesas`}
+          tone="gold"
+        />
+        <KpiCard
+          icon={CalendarPlus}
+          label="Confirmadas"
+          value={String(animConfirmed)}
+          caption="hoy + próximamente"
+          tone="teal"
+        />
+        <KpiCard
+          icon={Users}
+          label="Comensales"
+          value={String(animPax)}
+          caption="pax totales"
+          tone="gold"
+        />
+        <KpiCard
+          icon={UserX}
+          label="No-shows"
+          value={String(animNoShow)}
+          caption="últimos 7d"
+          tone="muted"
+        />
+      </div>
+
+      {/* Quick filters bar — desktop inline, mobile via Sheet */}
+      <QuickFiltersBar
+        datePreset={datePreset}
+        onDatePreset={setDatePreset}
+        zoneFilter={zoneFilter}
+        onZoneFilter={setZoneFilter}
+        statusFilter={statusFilter}
+        onStatusFilter={setStatusFilter}
+        channelFilter={channelFilter}
+        onChannelFilter={setChannelFilter}
+        search={search}
+        onSearch={setSearch}
+        onClear={clearFilters}
+        activeCount={activeFilterCount}
+        onOpenMobile={() => setMobileFiltersOpen(true)}
+      />
+
+      {/* Main grid: list first on mobile, floor plan + list side-by-side on lg+ */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
-        {/* LEFT: Floor plan (60%) */}
-        <section className="space-y-4" aria-label="Plano de mesas">
+        {/* LEFT (desktop) / BOTTOM (mobile): Floor plan (60%) */}
+        <section
+          className="space-y-4 order-2 lg:order-1"
+          aria-label="Plano de mesas"
+        >
           {/* Zone selector + edit toggle */}
           <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
             <div
@@ -805,65 +1079,86 @@ export function ReservasView() {
               >
                 <ZoneDecor zone={zone} />
 
-                {/* Tables */}
-                {visibleTables.map((t) => {
-                  const meta = STATUS_META[t.status];
-                  const w = tableW(t);
-                  const h = tableH(t);
-                  const isDragging = draggedId === t.id;
-                  const isSelected = selectedTableId === t.id;
+                {/* Tables — motion.div for assignment pulse */}
+                {visibleTables.map((tbl) => {
+                  const meta = STATUS_META[tbl.status];
+                  const w = tableW(tbl);
+                  const h = tableH(tbl);
+                  const isDragging = draggedId === tbl.id;
+                  const isSelected = selectedTableId === tbl.id;
                   const isAssignTarget =
-                    !!assigningReservationId && t.status === "free";
+                    !!assigningReservationId && tbl.status === "free";
+                  const linkedRes = tbl.reservationId
+                    ? reservations.find((r) => r.id === tbl.reservationId)
+                    : null;
                   return (
-                    <button
-                      key={t.id}
+                    <motion.button
+                      key={tbl.id}
                       type="button"
+                      // animate pulse when freshly assigned (reservationId changes)
+                      animate={
+                        reduce
+                          ? undefined
+                          : isAssignTarget
+                            ? { scale: [1, 1.06, 1] }
+                            : { scale: 1 }
+                      }
+                      transition={
+                        reduce
+                          ? { duration: 0 }
+                          : isAssignTarget
+                            ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+                            : { duration: 0.18 }
+                      }
                       draggable={editMode}
-                      onDragStart={(e) => onDragStart(e, t)}
+                      onDragStart={(e) => onDragStart(e, tbl)}
                       onDragEnd={onDragEnd}
-                      onTouchStart={(e) => onTableTouchStart(e, t)}
-                      onClick={() => onTableClick(t)}
-                      aria-label={`Mesa ${t.name}, ${t.seats} comensales, estado ${meta.label}${
-                        t.reservationId ? `, reserva ${t.reservationId}` : ""
+                      onTouchStart={(e) => onTableTouchStart(e, tbl)}
+                      onClick={() => onTableClick(tbl)}
+                      aria-label={`Mesa ${tbl.name}, ${tbl.seats} comensales, estado ${meta.label}${
+                        tbl.reservationId ? `, reserva ${tbl.reservationId}` : ""
                       }`}
                       aria-pressed={isSelected}
                       className={cn(
-                        "absolute flex flex-col items-center justify-center gap-0.5 border-2 transition-all select-none",
+                        "absolute flex flex-col items-center justify-center gap-0.5 border-2 transition-[transform,color,background-color,border-color] select-none px-1.5",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-[var(--gold)]",
                         meta.border,
                         meta.bg,
                         meta.text,
-                        t.shape === "round" ? "rounded-full" : "rounded-xl",
+                        tbl.shape === "round" ? "rounded-full" : "rounded-xl",
                         isSelected &&
-                          "scale-110 z-20 ring-2 ring-offset-2 ring-offset-background " +
-                            meta.ring,
+                          "z-20 ring-2 ring-offset-2 ring-offset-background ring-[var(--gold)]",
                         !editMode &&
                           !assigningReservationId &&
                           "hover:scale-105 cursor-pointer",
                         editMode && "cursor-grab active:cursor-grabbing",
                         isDragging && "opacity-40",
-                        isAssignTarget &&
-                          "animate-pulse ring-2 ring-[var(--gold)] cursor-pointer",
                         assigningReservationId &&
                           !isAssignTarget &&
                           "opacity-60"
                       )}
-                      style={{ left: t.x, top: t.y, width: w, height: h }}
+                      style={{ left: tbl.x, top: tbl.y, width: w, height: h }}
                     >
-                      <span className="font-mono text-xs font-semibold">
-                        {t.name}
+                      <span className="font-mono text-xs font-semibold leading-none">
+                        {tbl.name}
                       </span>
-                      <span className="text-[10px] flex items-center gap-0.5 opacity-80">
+                      <span className="text-[10px] flex items-center gap-0.5 opacity-80 leading-none mt-0.5">
                         <Users className="h-2.5 w-2.5" />
-                        {t.seats}
+                        {tbl.seats}
                       </span>
+                      {/* Customer name on reserved/occupied tables */}
+                      {linkedRes && (
+                        <span className="text-[9px] font-medium truncate max-w-full px-0.5 mt-0.5 opacity-90 leading-tight">
+                          {linkedRes.customerName.split(" ")[0]}
+                        </span>
+                      )}
                       <span
                         className={cn(
                           "h-1.5 w-1.5 rounded-full mt-0.5",
                           meta.dot
                         )}
                       />
-                    </button>
+                    </motion.button>
                   );
                 })}
 
@@ -909,9 +1204,9 @@ export function ReservasView() {
           </div>
         </section>
 
-        {/* RIGHT: Reservations list + details (40%) */}
+        {/* RIGHT (desktop) / TOP (mobile): Reservations list + details (40%) */}
         <section
-          className="space-y-4"
+          className="space-y-4 order-1 lg:order-2 min-w-0 overflow-hidden"
           aria-label="Lista de reservas y detalles"
         >
           {/* Reservations list */}
@@ -919,7 +1214,7 @@ export function ReservasView() {
             <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
               <div className="flex items-center gap-2">
                 <CalendarPlus className="h-4 w-4 text-[var(--gold)]" />
-                <span className="text-sm font-medium">Reservas de hoy</span>
+                <span className="text-sm font-medium">Reservas</span>
                 <DemoBadge />
               </div>
               <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
@@ -927,159 +1222,145 @@ export function ReservasView() {
               </span>
             </div>
 
-            {/* Search + filters */}
-            <div className="p-3 space-y-2.5 border-b border-border/40">
-              <div className="flex items-center gap-2 rounded-md border border-border/60 px-2.5 py-2 min-h-11 bg-input/30">
-                <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <input
-                  type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por cliente o teléfono…"
-                  aria-label="Buscar reservas"
-                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
-                />
-                {search && (
-                  <button
-                    onClick={() => setSearch("")}
-                    aria-label="Limpiar búsqueda"
-                    className="text-muted-foreground hover:text-foreground -mr-1 p-1"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-              <div
-                className="flex flex-wrap gap-1.5"
-                role="tablist"
-                aria-label="Filtrar reservas por estado"
-              >
-                {FILTERS.map((f) => (
-                  <button
-                    key={f.id}
-                    role="tab"
-                    aria-selected={resFilter === f.id}
-                    aria-controls="reservations-list"
-                    onClick={() => setResFilter(f.id)}
-                    className={cn(
-                      "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
-                      resFilter === f.id
-                        ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
-                        : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                    )}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* List */}
+            {/* List — column header (desktop only) */}
             <div
               id="reservations-list"
               role="tabpanel"
-              className="max-h-[420px] overflow-y-auto rp-scroll-thin divide-y divide-border/40"
+              className="max-h-[560px] overflow-auto rp-scroll-thin"
             >
               {filteredReservations.length === 0 ? (
-                <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                <div className="px-4 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                  <Search className="h-5 w-5 opacity-40" />
                   No hay reservas con estos filtros.
                 </div>
               ) : (
-                filteredReservations.map((r) => {
-                  const table = tables.find((t) => t.id === r.tableId);
-                  const isSelected = selectedReservationId === r.id;
-                  const meta = RES_STATUS_META[r.status];
-                  return (
-                    <button
-                      key={r.id}
-                      onClick={() => {
-                        setSelectedReservationId(r.id);
-                        setSelectedTableId(null);
-                      }}
-                      aria-pressed={isSelected}
-                      className={cn(
-                        "w-full text-left px-4 py-3 transition-colors",
-                        isSelected ? "bg-[var(--gold)]/10" : "hover:bg-foreground/[0.03]"
-                      )}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="flex items-center gap-1 text-sm font-medium shrink-0">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-mono tabular-nums">
-                              {r.time}
-                            </span>
-                          </div>
-                          <span className="truncate">{r.customerName}</span>
-                        </div>
-                        <span
-                          className={cn(
-                            "text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0",
-                            meta.cls
-                          )}
-                        >
-                          {meta.label}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
-                          {r.partySize}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3 w-3" />
-                          {table ? (
-                            table.name
-                          ) : (
-                            <span className="italic opacity-80">
-                              sin asignar
-                            </span>
-                          )}
-                        </span>
-                        {r.notes && (
-                          <span className="ml-auto truncate opacity-70 hidden sm:inline">
-                            {r.notes}
-                          </span>
-                        )}
-                      </div>
-                    </button>
-                  );
-                })
+                <>
+                  {/* Desktop column header */}
+                  <div className="hidden lg:grid grid-cols-[68px_1fr_56px_72px_88px_96px_104px_36px_72px] min-w-[640px] gap-2 px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                    <span>Hora</span>
+                    <span>Cliente</span>
+                    <span className="text-right">Pax</span>
+                    <span>Mesa</span>
+                    <span>Zona</span>
+                    <span>Canal</span>
+                    <span>Estado</span>
+                    <span className="text-center">Notas</span>
+                    <span className="text-right">Garantía</span>
+                  </div>
+                  <ul className="divide-y divide-border/40">
+                    <AnimatePresence initial={false}>
+                      {filteredReservations.map((r, idx) => {
+                        const table = tables.find((tt) => tt.id === r.tableId);
+                        const isSelected = selectedReservationId === r.id;
+                        const meta = RES_STATUS_META[r.status];
+                        const channel = CHANNEL_META[r.channel];
+                        const guarantee = GUARANTEE_META[r.guarantee];
+                        const ChannelIcon = channel.icon;
+                        const GuaranteeIcon = guarantee.icon;
+                        const zoneLabel = ZONES.find((z) => z.id === r.zone)?.label ?? r.zone;
+                        // Only animate entry for items created within last 3s
+                        const isNew = Date.now() - r.createdAt < 3000;
+                        return (
+                          <motion.li
+                            key={r.id}
+                            initial={
+                              reduce
+                                ? false
+                                : isNew
+                                  ? { opacity: 0, y: -8 }
+                                  : idx < 8
+                                    ? { opacity: 0, y: -4 }
+                                    : false
+                            }
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={reduce ? undefined : { opacity: 0, y: -6 }}
+                            transition={
+                              reduce
+                                ? { duration: 0 }
+                                : { duration: 0.2, ease: "easeOut", delay: isNew ? 0 : Math.min(idx, 6) * 0.025 }
+                            }
+                          >
+                            <ReservationRow
+                              r={r}
+                              table={table}
+                              isSelected={isSelected}
+                              meta={meta}
+                              channelLabel={channel.label}
+                              ChannelIcon={ChannelIcon}
+                              channelCls={channel.cls}
+                              guaranteeLabel={guarantee.label}
+                              GuaranteeIcon={GuaranteeIcon}
+                              guaranteeCls={guarantee.cls}
+                              zoneLabel={zoneLabel}
+                              reduce={!!reduce}
+                              onSelect={() => {
+                                setSelectedReservationId(r.id);
+                                setSelectedTableId(null);
+                              }}
+                            />
+                          </motion.li>
+                        );
+                      })}
+                    </AnimatePresence>
+                  </ul>
+                </>
               )}
             </div>
           </div>
 
-          {/* Details panel */}
-          <DetailsPanel
-            assigning={assigningReservation}
-            selectedTable={selectedTable}
-            selectedReservation={selectedReservation}
-            tableOfReservation={
-              selectedReservation
-                ? tables.find((t) => t.id === selectedReservation.tableId) ?? null
-                : null
-            }
-            reservationOfTable={
-              selectedTable
-                ? reservations.find(
-                    (r) => r.id === selectedTable.reservationId
-                  ) ?? null
-                : null
-            }
-            unassignedReservations={unassignedReservations}
-            onAssignTable={assignTableToReservation}
-            onFreeTable={(id) => setConfirmState({ kind: "free-table", id })}
-            onBlockTable={(id) => setConfirmState({ kind: "block-table", id })}
-            onConfirmRes={confirmReservation}
-            onCheckinRes={checkinReservation}
-            onCancelRes={(id) => setConfirmState({ kind: "cancel-res", id })}
-            onStartAssign={startAssign}
-            onCancelAssign={() => setAssigningReservationId(null)}
-            onSelectReservation={(id) => {
-              setSelectedReservationId(id);
-              setSelectedTableId(null);
-            }}
-          />
+          {/* Details panel — slides in (desktop right, mobile bottom-sheet-like) */}
+          <AnimatePresence mode="wait">
+            {(selectedReservation || selectedTable || assigningReservation) && (
+              <motion.div
+                key={
+                  assigningReservation
+                    ? `assign-${assigningReservation.id}`
+                    : selectedReservation
+                      ? `res-${selectedReservation.id}`
+                      : `tbl-${selectedTable?.id}`
+                }
+                initial={reduce ? false : { opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={reduce ? undefined : { opacity: 0, x: 20 }}
+                transition={t}
+              >
+                <DetailsPanel
+                  assigning={assigningReservation}
+                  selectedTable={selectedTable}
+                  selectedReservation={selectedReservation}
+                  tableOfReservation={
+                    selectedReservation
+                      ? tables.find((tt) => tt.id === selectedReservation.tableId) ?? null
+                      : null
+                  }
+                  reservationOfTable={
+                    selectedTable
+                      ? reservations.find(
+                          (r) => r.id === selectedTable.reservationId
+                        ) ?? null
+                      : null
+                  }
+                  unassignedReservations={unassignedReservations}
+                  onAssignTable={assignTableToReservation}
+                  onFreeTable={(id) => setConfirmState({ kind: "free-table", id })}
+                  onBlockTable={(id) => setConfirmState({ kind: "block-table", id })}
+                  onConfirmRes={confirmReservation}
+                  onReconfirmRes={reconfirmReservation}
+                  onSeatRes={seatReservation}
+                  onFinishRes={finishReservation}
+                  onNoshowRes={noshowReservation}
+                  onCancelRes={(id) => setConfirmState({ kind: "cancel-res", id })}
+                  onStartAssign={startAssign}
+                  onCancelAssign={() => setAssigningReservationId(null)}
+                  onSelectReservation={(id) => {
+                    setSelectedReservationId(id);
+                    setSelectedTableId(null);
+                  }}
+                  reduce={!!reduce}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </section>
       </div>
 
@@ -1134,6 +1415,135 @@ export function ReservasView() {
         onSubmit={submitNewReservation}
       />
 
+      {/* Mobile filters Sheet */}
+      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rp-scroll-thin">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Sliders className="h-4 w-4 text-[var(--gold)]" /> Filtros
+            </SheetTitle>
+            <SheetDescription>
+              Refina la lista de reservas por fecha, zona, estado y canal.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="px-4 pb-6 space-y-5">
+            <FilterGroup label="Fecha">
+              <div className="flex gap-1.5 flex-wrap">
+                {(["hoy", "manana", "fecha"] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setDatePreset(p)}
+                    className={cn(
+                      "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors capitalize",
+                      datePreset === p
+                        ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+                        : "border-border/60 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {p === "hoy" ? "Hoy" : p === "manana" ? "Mañana" : "Elegir fecha"}
+                  </button>
+                ))}
+              </div>
+            </FilterGroup>
+            <FilterGroup label="Zona">
+              <div className="flex gap-1.5 flex-wrap">
+                {ZONE_FILTERS.map((z) => (
+                  <button
+                    key={z.id}
+                    onClick={() => setZoneFilter(z.id)}
+                    className={cn(
+                      "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors",
+                      zoneFilter === z.id
+                        ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+                        : "border-border/60 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {z.label}
+                  </button>
+                ))}
+              </div>
+            </FilterGroup>
+            <FilterGroup label="Estado">
+              <div className="flex gap-1.5 flex-wrap">
+                {STATUS_FILTERS.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setStatusFilter(s.id)}
+                    className={cn(
+                      "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors",
+                      statusFilter === s.id
+                        ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+                        : "border-border/60 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </FilterGroup>
+            <FilterGroup label="Canal">
+              <div className="flex gap-1.5 flex-wrap">
+                {CHANNEL_FILTERS.filter((c) => c.id !== "todos").map((c) => {
+                  const Icon = CHANNEL_META[c.id as Channel].icon;
+                  const isActive = channelFilter === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setChannelFilter(c.id as Channel)}
+                      className={cn(
+                        "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors flex items-center gap-1.5",
+                        isActive
+                          ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+                          : "border-border/60 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </FilterGroup>
+            <FilterGroup label="Buscar">
+              <div className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 min-h-11 bg-input/30">
+                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                <input
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Nombre o teléfono…"
+                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch("")}
+                    aria-label="Limpiar"
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </FilterGroup>
+            <div className="flex gap-2 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1 min-h-11"
+                onClick={clearFilters}
+              >
+                <Eraser className="h-4 w-4" /> Limpiar
+              </Button>
+              <Button
+                className="flex-1 min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+                onClick={() => setMobileFiltersOpen(false)}
+              >
+                Ver {filteredReservations.length} reservas
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {/* Confirm dialog */}
       <AlertDialog
         open={!!confirmState}
@@ -1176,6 +1586,479 @@ export function ReservasView() {
 }
 
 /* =========================================================
+ * KPI card with animated number
+ * =======================================================*/
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  caption,
+  tone,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  caption: string;
+  tone: "gold" | "teal" | "muted";
+}) {
+  const toneCls =
+    tone === "gold"
+      ? "text-[var(--gold)]"
+      : tone === "teal"
+        ? "text-[var(--teal)]"
+        : "text-muted-foreground";
+  return (
+    <div className="rp-glass rounded-xl p-4 flex items-center gap-3">
+      <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center bg-foreground/[0.04]", toneCls)}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
+          {label}
+        </div>
+        <div className="text-xl font-display font-medium tabular-nums leading-tight">
+          {value}
+        </div>
+        <div className="text-[11px] text-muted-foreground truncate">{caption}</div>
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+ * Quick filters bar
+ * =======================================================*/
+function QuickFiltersBar(props: {
+  datePreset: "hoy" | "manana" | "fecha";
+  onDatePreset: (p: "hoy" | "manana" | "fecha") => void;
+  zoneFilter: "todas" | Zone;
+  onZoneFilter: (z: "todas" | Zone) => void;
+  statusFilter: "todas" | ReservationStatus;
+  onStatusFilter: (s: "todas" | ReservationStatus) => void;
+  channelFilter: "todos" | Channel;
+  onChannelFilter: (c: "todos" | Channel) => void;
+  search: string;
+  onSearch: (s: string) => void;
+  onClear: () => void;
+  activeCount: number;
+  onOpenMobile: () => void;
+}) {
+  const {
+    datePreset, onDatePreset,
+    zoneFilter, onZoneFilter,
+    statusFilter, onStatusFilter,
+    channelFilter, onChannelFilter,
+    search, onSearch, onClear, activeCount, onOpenMobile,
+  } = props;
+
+  return (
+    <div className="rp-glass rounded-2xl p-3 space-y-3">
+      {/* Top row: date segmented + search + mobile filters button */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Date segmented control */}
+        <div className="flex items-center rounded-md border border-border/60 p-0.5 bg-input/20" role="radiogroup" aria-label="Fecha">
+          {(["hoy", "manana", "fecha"] as const).map((p) => (
+            <button
+              key={p}
+              role="radio"
+              aria-checked={datePreset === p}
+              onClick={() => onDatePreset(p)}
+              className={cn(
+                "min-h-9 rounded px-3 py-1 text-xs transition-colors flex items-center gap-1.5",
+                datePreset === p
+                  ? "bg-[var(--gold)] text-black font-medium"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Calendar className="h-3 w-3" />
+              {p === "hoy" ? "Hoy" : p === "manana" ? "Mañana" : "Fecha"}
+            </button>
+          ))}
+        </div>
+
+        {/* Search (grows) */}
+        <div className="flex-1 min-w-[180px] flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 min-h-11 bg-input/30">
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Buscar por cliente o teléfono…"
+            aria-label="Buscar reservas"
+            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+          />
+          {search && (
+            <button
+              onClick={() => onSearch("")}
+              aria-label="Limpiar búsqueda"
+              className="text-muted-foreground hover:text-foreground -mr-1 p-1"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Channel dropdown (desktop) */}
+        <div className="hidden sm:block">
+          <Select
+            value={channelFilter}
+            onValueChange={(v) => onChannelFilter(v as "todos" | Channel)}
+          >
+            <SelectTrigger className="w-[170px] min-h-11" aria-label="Canal">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CHANNEL_FILTERS.map((c) => {
+                const Icon = c.id === "todos" ? Sliders : CHANNEL_META[c.id as Channel].icon;
+                return (
+                  <SelectItem key={c.id} value={c.id}>
+                    <span className="flex items-center gap-2">
+                      <Icon className="h-3.5 w-3.5" />
+                      {c.label}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Mobile: Filtros button */}
+        <Button
+          variant="outline"
+          className="lg:hidden min-h-11 shrink-0 relative"
+          onClick={onOpenMobile}
+        >
+          <Filter className="h-4 w-4" />
+          Filtros
+          {activeCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--gold)] text-black text-[10px] font-mono flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
+        </Button>
+
+        {/* Clear all (desktop) */}
+        {activeCount > 0 && (
+          <Button
+            variant="ghost"
+            className="hidden lg:flex min-h-11 text-muted-foreground hover:text-foreground"
+            onClick={onClear}
+          >
+            <Eraser className="h-3.5 w-3.5" /> Limpiar
+          </Button>
+        )}
+      </div>
+
+      {/* Bottom row: zone + status pills (desktop + tablet) */}
+      <div className="hidden sm:flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-1.5" role="tablist" aria-label="Zona">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Zona</span>
+          {ZONE_FILTERS.map((z) => (
+            <button
+              key={z.id}
+              role="tab"
+              aria-selected={zoneFilter === z.id}
+              onClick={() => onZoneFilter(z.id)}
+              className={cn(
+                "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
+                zoneFilter === z.id
+                  ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+                  : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+              )}
+            >
+              {z.label}
+            </button>
+          ))}
+        </div>
+        <div className="h-5 w-px bg-border/60" />
+        <div className="flex items-center gap-1.5" role="tablist" aria-label="Estado">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Estado</span>
+          {STATUS_FILTERS.map((s) => (
+            <button
+              key={s.id}
+              role="tab"
+              aria-selected={statusFilter === s.id}
+              onClick={() => onStatusFilter(s.id)}
+              className={cn(
+                "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
+                statusFilter === s.id
+                  ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+                  : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+              )}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">{label}</div>
+      {children}
+    </div>
+  );
+}
+
+/* =========================================================
+ * Reservation row — desktop grid + mobile stacked card
+ * Shows all 10 fields:
+ *   Hora · Nombre · Fotografía · Personas · Mesa · Zona · Canal · Estado · Notas · Garantía
+ * =======================================================*/
+function ReservationRow(props: {
+  r: RpReservation;
+  table?: RpTable;
+  isSelected: boolean;
+  meta: typeof RES_STATUS_META[ReservationStatus];
+  channelLabel: string;
+  ChannelIcon: React.ElementType;
+  channelCls: string;
+  guaranteeLabel: string;
+  GuaranteeIcon: React.ElementType;
+  guaranteeCls: string;
+  zoneLabel: string;
+  reduce: boolean;
+  onSelect: () => void;
+}) {
+  const {
+    r, table, isSelected, meta,
+    channelLabel, ChannelIcon, channelCls,
+    guaranteeLabel, GuaranteeIcon, guaranteeCls,
+    zoneLabel, reduce, onSelect,
+  } = props;
+
+  return (
+    <button
+      onClick={onSelect}
+      aria-pressed={isSelected}
+      className={cn(
+        "w-full text-left transition-colors",
+        isSelected ? "bg-[var(--gold)]/10" : "hover:bg-foreground/[0.03]"
+      )}
+    >
+      {/* ===== Desktop: grid row with all 10 columns ===== */}
+      <div className="hidden lg:grid grid-cols-[68px_1fr_56px_72px_88px_96px_104px_36px_72px] min-w-[640px] gap-2 items-center px-4 py-2.5 text-sm">
+        {/* Hora */}
+        <span className="font-mono tabular-nums text-foreground/90 flex items-center gap-1">
+          <Clock className="h-3 w-3 text-muted-foreground" />
+          {r.time}
+        </span>
+
+        {/* Nombre + Fotografía (avatar) */}
+        <span className="flex items-center gap-2 min-w-0">
+          <Avatar name={r.customerName} photo={r.photo} />
+          <span className="truncate font-medium">{r.customerName}</span>
+        </span>
+
+        {/* Personas */}
+        <span className="text-right tabular-nums text-muted-foreground">
+          {r.partySize}<span className="text-[10px] opacity-70 ml-0.5">pax</span>
+        </span>
+
+        {/* Mesa */}
+        <span className="font-mono tabular-nums">
+          {table ? (
+            <span className="text-foreground">{table.name}</span>
+          ) : (
+            <span className="text-muted-foreground/70">—</span>
+          )}
+        </span>
+
+        {/* Zona pill */}
+        <span className={cn(
+          "inline-flex items-center justify-center px-2 py-0.5 rounded border text-[11px] capitalize",
+          ZONE_PILL[r.zone]
+        )}>
+          {zoneLabel}
+        </span>
+
+        {/* Canal */}
+        <span className={cn("flex items-center gap-1.5 text-xs", channelCls)}>
+          <ChannelIcon className="h-3.5 w-3.5 shrink-0" />
+          <span className="truncate">{channelLabel}</span>
+        </span>
+
+        {/* Estado — animated badge (key=status remounts to pulse on change) */}
+        <AnimatedStatusBadge meta={meta} reduce={reduce} />
+
+        {/* Notas */}
+        <span className="flex justify-center">
+          {r.notes ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-[var(--gold)] hover:bg-foreground/5 transition-colors"
+                  aria-label={`Ver notas de ${r.customerName}`}
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="max-w-xs text-xs leading-relaxed"
+                align="center"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                  Notas · {r.customerName}
+                </div>
+                {r.notes}
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <span className="text-muted-foreground/50">—</span>
+          )}
+        </span>
+
+        {/* Garantía */}
+        <span className={cn(
+          "inline-flex items-center justify-end gap-1 px-1.5 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider",
+          guaranteeCls
+        )}>
+          <GuaranteeIcon className="h-3 w-3" />
+          {guaranteeLabel}
+        </span>
+      </div>
+
+      {/* ===== Mobile / tablet (< lg): stacked card ===== */}
+      <div className="lg:hidden px-4 py-3 space-y-2.5">
+        {/* Row 1: avatar + name + time + status */}
+        <div className="flex items-center gap-2.5">
+          <Avatar name={r.customerName} photo={r.photo} />
+          <div className="min-w-0 flex-1">
+            <div className="font-medium truncate text-sm leading-tight">
+              {r.customerName}
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+              <Clock className="h-3 w-3" />
+              <span className="font-mono tabular-nums">{r.time}</span>
+              <span className="text-muted-foreground/40">·</span>
+              <Users className="h-3 w-3" />
+              <span className="tabular-nums">{r.partySize} pax</span>
+            </div>
+          </div>
+          <AnimatedStatusBadge meta={meta} reduce={reduce} compact />
+        </div>
+
+        {/* Row 2: mesa / zona / canal */}
+        <div className="flex items-center gap-2 flex-wrap text-xs">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded border border-border/60 bg-foreground/[0.04] font-mono tabular-nums">
+            <ChairIcon className="h-3 w-3 text-muted-foreground" />
+            {table ? table.name : "—"}
+          </span>
+          <span className={cn(
+            "inline-flex items-center px-2 py-0.5 rounded border text-[11px]",
+            ZONE_PILL[r.zone]
+          )}>
+            {zoneLabel}
+          </span>
+          <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded border border-border/60 bg-foreground/[0.04]", channelCls)}>
+            <ChannelIcon className="h-3 w-3" />
+            {channelLabel}
+          </span>
+        </div>
+
+        {/* Row 3: garantía + notas */}
+        <div className="flex items-center gap-2 justify-between">
+          <span className={cn(
+            "inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider",
+            guaranteeCls
+          )}>
+            <GuaranteeIcon className="h-3 w-3" />
+            {guaranteeLabel}
+          </span>
+          {r.notes ? (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-[var(--gold)] transition-colors"
+                  aria-label={`Ver notas de ${r.customerName}`}
+                >
+                  <StickyNote className="h-3.5 w-3.5" />
+                  Notas
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                className="max-w-xs text-xs leading-relaxed"
+                align="end"
+              >
+                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+                  Notas · {r.customerName}
+                </div>
+                {r.notes}
+              </PopoverContent>
+            </Popover>
+          ) : (
+            <span className="text-[11px] text-muted-foreground/50">Sin notas</span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* =========================================================
+ * Avatar — gradient gold circle with initials if no photo
+ * =======================================================*/
+function Avatar({ name, photo }: { name: string; photo?: string }) {
+  if (photo) {
+    return (
+      <img
+        src={photo}
+        alt={`Foto de ${name}`}
+        className="h-8 w-8 rounded-full object-cover shrink-0 ring-1 ring-border/60"
+        loading="lazy"
+      />
+    );
+  }
+  return (
+    <span
+      className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-semibold shrink-0"
+      aria-hidden
+    >
+      {initials(name)}
+    </span>
+  );
+}
+
+/* =========================================================
+ * Animated status badge — pulses (scale) when status changes.
+ * Uses key=status so motion remounts and replays the animation.
+ * transform + opacity only.
+ * =======================================================*/
+function AnimatedStatusBadge({
+  meta,
+  reduce,
+  compact,
+}: {
+  meta: typeof RES_STATUS_META[ReservationStatus];
+  reduce: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <motion.span
+      key={meta.label}
+      initial={reduce ? false : { scale: 1.1, opacity: 0.85 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={reduce ? { duration: 0 } : { duration: 0.2, ease: "easeOut" }}
+      className={cn(
+        "inline-flex items-center gap-1 px-1.5 py-0.5 rounded border font-mono uppercase tracking-wider",
+        compact ? "text-[9px]" : "text-[10px]",
+        meta.cls
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
+      {meta.label}
+    </motion.span>
+  );
+}
+
+/* =========================================================
  * Zone decoration on the canvas
  * =======================================================*/
 function ZoneDecor({ zone }: { zone: Zone }) {
@@ -1202,6 +2085,20 @@ function ZoneDecor({ zone }: { zone: Zone }) {
           Acceso
         </span>
         <div className="absolute left-0 right-0 top-0 h-1.5 bg-[var(--teal)]/15" />
+      </>
+    );
+  }
+  if (zone === "vip") {
+    return (
+      <>
+        <span className="absolute top-3 right-3 text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]/80">
+          Zona VIP
+        </span>
+        <span className="absolute bottom-3 left-3 text-[10px] font-mono uppercase tracking-wider text-muted-foreground/60">
+          Acceso restringido
+        </span>
+        <div className="absolute left-0 right-0 top-0 h-1.5 bg-[var(--gold)]/30" />
+        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-[var(--gold)]/30" />
       </>
     );
   }
@@ -1232,28 +2129,23 @@ function DetailsPanel(props: {
   onFreeTable: (id: string) => void;
   onBlockTable: (id: string) => void;
   onConfirmRes: (id: string) => void;
-  onCheckinRes: (id: string) => void;
+  onReconfirmRes: (id: string) => void;
+  onSeatRes: (id: string) => void;
+  onFinishRes: (id: string) => void;
+  onNoshowRes: (id: string) => void;
   onCancelRes: (id: string) => void;
   onStartAssign: (id: string) => void;
   onCancelAssign: () => void;
   onSelectReservation: (id: string) => void;
+  reduce: boolean;
 }) {
   const {
-    assigning,
-    selectedTable,
-    selectedReservation,
-    tableOfReservation,
-    reservationOfTable,
+    assigning, selectedTable, selectedReservation,
+    tableOfReservation, reservationOfTable,
     unassignedReservations,
-    onAssignTable,
-    onFreeTable,
-    onBlockTable,
-    onConfirmRes,
-    onCheckinRes,
-    onCancelRes,
-    onStartAssign,
-    onCancelAssign,
-    onSelectReservation,
+    onAssignTable, onFreeTable, onBlockTable,
+    onConfirmRes, onReconfirmRes, onSeatRes, onFinishRes, onNoshowRes, onCancelRes,
+    onStartAssign, onCancelAssign, onSelectReservation,
   } = props;
 
   /* --- Assignment mode banner --- */
@@ -1298,16 +2190,7 @@ function DetailsPanel(props: {
               {selectedTable.name}
             </h3>
           </div>
-          <span
-            className={cn(
-              "text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border",
-              meta.border,
-              meta.bg,
-              meta.text
-            )}
-          >
-            {meta.label}
-          </span>
+          <AnimatedStatusBadge meta={meta} reduce={props.reduce} />
         </div>
         <dl className="space-y-0 text-sm">
           <Row k="Comensales" v={<span className="tabular-nums">{selectedTable.seats}</span>} />
@@ -1403,13 +2286,13 @@ function DetailsPanel(props: {
   if (selectedReservation) {
     const meta = RES_STATUS_META[selectedReservation.status];
     const table = tableOfReservation;
+    const channel = CHANNEL_META[selectedReservation.channel];
+    const ChannelIcon = channel.icon;
     return (
       <div className="rp-glass rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4 gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium shrink-0">
-              {initials(selectedReservation.customerName)}
-            </div>
+            <Avatar name={selectedReservation.customerName} photo={selectedReservation.photo} />
             <div className="min-w-0">
               <h3 className="font-display text-lg font-medium leading-tight truncate">
                 {selectedReservation.customerName}
@@ -1419,57 +2302,28 @@ function DetailsPanel(props: {
               </div>
             </div>
           </div>
-          <span
-            className={cn(
-              "text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded border shrink-0",
-              meta.cls
-            )}
-          >
-            {meta.label}
-          </span>
+          <AnimatedStatusBadge meta={meta} reduce={props.reduce} />
         </div>
         <dl className="space-y-0 text-sm">
           <Row
-            k={
-              <span className="flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5" /> Hora
-              </span>
-            }
-            v={
-              <span className="font-mono tabular-nums">
-                {selectedReservation.time} · {selectedReservation.durationMin}min
-              </span>
-            }
+            k={<span className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Hora</span>}
+            v={<span className="font-mono tabular-nums">{selectedReservation.time} · {selectedReservation.durationMin}min</span>}
           />
           <Row
-            k={
-              <span className="flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" /> Comensales
-              </span>
-            }
+            k={<span className="flex items-center gap-1.5"><Users className="h-3.5 w-3.5" /> Comensales</span>}
             v={<span className="tabular-nums">{selectedReservation.partySize}</span>}
           />
           <Row
-            k={
-              <span className="flex items-center gap-1.5">
-                <Phone className="h-3.5 w-3.5" /> Teléfono
-              </span>
-            }
+            k={<span className="flex items-center gap-1.5"><Phone className="h-3.5 w-3.5" /> Teléfono</span>}
             v={<span className="font-mono">{selectedReservation.phone}</span>}
           />
           <Row
-            k={
-              <span className="flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" /> Mesa
-              </span>
-            }
-            v={
-              table ? (
-                table.name
-              ) : (
-                <span className="italic text-muted-foreground">sin asignar</span>
-              )
-            }
+            k={<span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Mesa</span>}
+            v={table ? table.name : <span className="italic text-muted-foreground">sin asignar</span>}
+          />
+          <Row
+            k={<span className="flex items-center gap-1.5"><ChannelIcon className="h-3.5 w-3.5" /> Canal</span>}
+            v={<span className={channel.cls}>{channel.label}</span>}
           />
         </dl>
         {selectedReservation.notes && (
@@ -1482,7 +2336,7 @@ function DetailsPanel(props: {
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          {selectedReservation.status === "espera" && (
+          {selectedReservation.status === "pendiente" && (
             <Button
               size="sm"
               className="min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
@@ -1492,16 +2346,60 @@ function DetailsPanel(props: {
             </Button>
           )}
           {selectedReservation.status === "confirmada" && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11"
+                onClick={() => onReconfirmRes(selectedReservation.id)}
+              >
+                <CheckCheck className="h-3.5 w-3.5" /> Reconfirmar
+              </Button>
+              <Button
+                size="sm"
+                className="min-h-11 bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+                onClick={() => onSeatRes(selectedReservation.id)}
+              >
+                <LogIn className="h-3.5 w-3.5" /> Sentar
+              </Button>
+            </>
+          )}
+          {selectedReservation.status === "reconfirmada" && (
             <Button
               size="sm"
               className="min-h-11 bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
-              onClick={() => onCheckinRes(selectedReservation.id)}
+              onClick={() => onSeatRes(selectedReservation.id)}
             >
-              <LogIn className="h-3.5 w-3.5" /> Check-in
+              <LogIn className="h-3.5 w-3.5" /> Sentar
+            </Button>
+          )}
+          {selectedReservation.status === "sentada" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-11"
+              onClick={() => onFinishRes(selectedReservation.id)}
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" /> Finalizar
+            </Button>
+          )}
+          {(selectedReservation.status === "pendiente" ||
+            selectedReservation.status === "confirmada" ||
+            selectedReservation.status === "reconfirmada" ||
+            selectedReservation.status === "espera") && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="min-h-11 text-rose-300 hover:text-rose-200 border-rose-500/30 hover:border-rose-500/50"
+              onClick={() => onNoshowRes(selectedReservation.id)}
+            >
+              <UserX className="h-3.5 w-3.5" /> No-show
             </Button>
           )}
           {!selectedReservation.tableId &&
-            selectedReservation.status !== "cancelada" && (
+            selectedReservation.status !== "cancelada" &&
+            selectedReservation.status !== "finalizada" &&
+            selectedReservation.status !== "sentada" && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1511,16 +2409,17 @@ function DetailsPanel(props: {
                 <MapPin className="h-3.5 w-3.5" /> Asignar mesa
               </Button>
             )}
-          {selectedReservation.status !== "cancelada" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="min-h-11 text-destructive hover:text-destructive"
-              onClick={() => onCancelRes(selectedReservation.id)}
-            >
-              <XCircle className="h-3.5 w-3.5" /> Cancelar
-            </Button>
-          )}
+          {selectedReservation.status !== "cancelada" &&
+            selectedReservation.status !== "finalizada" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="min-h-11 text-destructive hover:text-destructive"
+                onClick={() => onCancelRes(selectedReservation.id)}
+              >
+                <XCircle className="h-3.5 w-3.5" /> Cancelar
+              </Button>
+            )}
         </div>
       </div>
     );
@@ -1553,7 +2452,7 @@ function Row({ k, v }: { k: React.ReactNode; v: React.ReactNode }) {
 }
 
 /* =========================================================
- * Service timeline
+ * Service timeline — smooth horizontal scroll with momentum
  * =======================================================*/
 function TimelineContent({
   reservations,
@@ -1602,7 +2501,10 @@ function TimelineContent({
   const showNow = nowMin >= START && nowMin <= END;
 
   return (
-    <div className="overflow-x-auto rp-scroll-thin -mx-1">
+    <div
+      className="overflow-x-auto rp-scroll-thin -mx-1"
+      style={{ scrollBehavior: "smooth", WebkitOverflowScrolling: "touch" }}
+    >
       <div
         className="relative"
         style={{ width, minWidth: "100%", height: totalH }}
@@ -1654,7 +2556,7 @@ function TimelineContent({
                 table ? ` · mesa ${table.name}` : ""
               }`}
               className={cn(
-                "absolute h-8 rounded-md border px-2 text-left text-[11px] flex items-center gap-1.5 overflow-hidden transition-all",
+                "absolute h-8 rounded-md border px-2 text-left text-[11px] flex items-center gap-1.5 overflow-hidden transition-[color,box-shadow,transform] hover:scale-[1.02]",
                 meta.cls,
                 isSelected
                   ? "ring-2 ring-[var(--gold)] z-10 brightness-110"
@@ -1707,6 +2609,8 @@ function NewReservationDialog({
     time: "20:30",
     tableId: undefined,
     zone: "sala",
+    channel: "web",
+    guarantee: "ninguna",
     notes: "",
   };
   const [form, setForm] = React.useState<NewReservationForm>(empty);
@@ -1837,6 +2741,54 @@ function NewReservationDialog({
                       {ZONES.find((z) => z.id === t.zone)?.label}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Canal">
+              <Select
+                value={form.channel}
+                onValueChange={(v) => setForm((f) => ({ ...f, channel: v as Channel }))}
+              >
+                <SelectTrigger className="w-full min-h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(CHANNEL_META) as Channel[]).map((c) => {
+                    const Icon = CHANNEL_META[c].icon;
+                    return (
+                      <SelectItem key={c} value={c}>
+                        <span className="flex items-center gap-2">
+                          <Icon className="h-3.5 w-3.5" />
+                          {CHANNEL_META[c].label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field label="Garantía">
+              <Select
+                value={form.guarantee}
+                onValueChange={(v) => setForm((f) => ({ ...f, guarantee: v as Guarantee }))}
+              >
+                <SelectTrigger className="w-full min-h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(GUARANTEE_META) as Guarantee[]).map((g) => {
+                    const Icon = GUARANTEE_META[g].icon;
+                    return (
+                      <SelectItem key={g} value={g}>
+                        <span className="flex items-center gap-2">
+                          <Icon className="h-3.5 w-3.5" />
+                          {GUARANTEE_META[g].label}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </Field>

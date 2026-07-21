@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useNav, type Section } from "@/components/rp/app/nav-store";
@@ -54,6 +55,10 @@ import {
   Clock,
   Zap,
   Quote,
+  RefreshCw,
+  Share2,
+  LifeBuoy,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 
@@ -162,6 +167,10 @@ export function Landing() {
         <DeepDiveReservas />
         <DeepDiveCRM />
         <DeepDiveIA />
+        <SectionRulesAuto />
+        <SectionRealTime />
+        <SectionCrmVip />
+        <SectionPartner />
         <Pricing />
         <FAQ />
         <FinalCTA />
@@ -228,7 +237,7 @@ function LandingHeader() {
             Iniciar sesión
           </Button>
           <Button variant="outline" size="sm" onClick={goApp}>
-            Solicitar demo
+            Entrar al panel
           </Button>
           <Button
             size="sm"
@@ -292,7 +301,7 @@ function LandingHeader() {
                 Iniciar sesión
               </Button>
               <Button variant="outline" className="w-full justify-center" onClick={goApp}>
-                Solicitar demo
+                Entrar al panel
               </Button>
               <Button
                 className="w-full justify-center bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
@@ -381,7 +390,7 @@ function Hero() {
                 variant="outline"
                 onClick={() => setView("app")}
               >
-                Solicitar demo
+                Explorar RestoPanel
               </Button>
               <Button
                 size="lg"
@@ -1541,6 +1550,345 @@ const COMPARISON: {
   { feature: "SLA", starter: false, pro: "99,5%", enterprise: "99,9% + RTO 1h" },
 ];
 
+/* ===================================================================== *
+ *  Secciones con imágenes de producto reales (TASK LANDING-IMAGES)      *
+ * ===================================================================== */
+
+/** Wrapper consistente para imágenes de producto con marco premium. */
+function ProductImage({
+  src,
+  alt,
+  sizes,
+  priority = false,
+  className,
+  aspect = "aspect-[16/10]",
+}: {
+  src: string;
+  alt: string;
+  sizes: string;
+  priority?: boolean;
+  className?: string;
+  aspect?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "relative w-full overflow-hidden rp-glass rounded-2xl border border-border/40 shadow-2xl shadow-[var(--gold)]/5",
+        aspect,
+        className,
+      )}
+    >
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        sizes={sizes}
+        priority={priority}
+        loading={priority ? undefined : "lazy"}
+        className="object-cover"
+      />
+    </div>
+  );
+}
+
+/* --------- Section A: Tú defines las reglas. RestoPanel hace el trabajo. --------- */
+
+const RULES_FEATURES = [
+  {
+    icon: Bell,
+    title: "Confirmaciones y reconfirmaciones automáticas",
+    description:
+      "Email, SMS o WhatsApp según el canal por el que llegó la reserva. Tú eliges cuándo y cuántas veces.",
+    image: "/brand/product/confirmacion-reserva.jpg",
+    alt: "Pareja en mesa de restaurante recibiendo notificación de confirmación de reserva en el móvil",
+  },
+  {
+    icon: RefreshCw,
+    title: "Reposicionamiento y listas de espera",
+    description:
+      "Si alguien cancela, el sistema reposiciona automáticamente a quien estaba en cola y le avisa.",
+    image: "/brand/product/plano-mesas-calendario.jpg",
+    alt: "Personal de sala con tablet viendo el plano de mesas con calendario y estados de mesa en tiempo real",
+  },
+  {
+    icon: Share2,
+    title: "Sincronización multicanal",
+    description:
+      "La disponibilidad se actualiza al instante en tu web, Google Maps y redes sociales. Nadie reserva una mesa que ya no existe.",
+    image: "/brand/product/dashboard-reservas.jpg",
+    alt: "Dashboard de reservas con botón nueva reserva, pestañas restaurante terraza y zona VIP, gráficos y perfil de cliente",
+  },
+] as const;
+
+function SectionRulesAuto() {
+  return (
+    <section
+      id="p-reglas"
+      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <header className="mb-10 sm:mb-14 max-w-3xl">
+          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="rp-gold-text">·</span>
+            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+            <span>Automatización</span>
+          </div>
+          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+            Tú defines las reglas.{" "}
+            <span className="rp-gold-gradient font-normal">RestoPanel hace el trabajo.</span>
+          </h2>
+          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+            Configura una vez tus políticas de reserva, tiempos de mesa, cobros y
+            recordatorios. El sistema se encarga de ejecutarlas sin que tengas
+            que tocar nada más.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+          {RULES_FEATURES.map((f, i) => (
+            <article
+              key={f.title}
+              className="group flex flex-col rp-glass rounded-2xl p-4 sm:p-5 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+            >
+              <ProductImage
+                src={f.image}
+                alt={f.alt}
+                sizes="(max-width: 768px) 100vw, 33vw"
+                priority={i === 0}
+                aspect="aspect-[4/3]"
+                className="mb-5"
+              />
+              <div className="flex items-center gap-2.5">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]">
+                  <f.icon className="h-4 w-4" aria-hidden />
+                </span>
+                <h3 className="font-display text-lg font-medium tracking-tight leading-tight">
+                  {f.title}
+                </h3>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                {f.description}
+              </p>
+            </article>
+          ))}
+        </div>
+
+        <p className="mt-10 sm:mt-14 text-center font-display text-lg sm:text-xl font-light tracking-tight text-foreground/90 max-w-3xl mx-auto text-balance">
+          Menos llamadas y WhatsApps improvisados.{" "}
+          <span className="rp-gold-text">Más reservas confirmadas.</span>{" "}
+          Más tiempo para cuidar la experiencia en sala.
+        </p>
+      </div>
+    </section>
+  );
+}
+
+/* --------- Section B: Reservas confirmadas en tiempo real --------- */
+
+const REALTIME_BENEFITS = [
+  "Cada confirmación se refleja al instante en el plano de mesas y en el calendario de sala.",
+  "Email, SMS o WhatsApp al cliente sin que tengas que tocar nada: tú decides el canal y el momento.",
+  "Si alguien cancela, la mesa queda libre y disponible para reposicionar a la siguiente reserva en cola.",
+] as const;
+
+function SectionRealTime() {
+  return (
+    <section
+      id="p-tiempo-real"
+      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          {/* Imagen */}
+          <div className="order-2 lg:order-1">
+            <ProductImage
+              src="/brand/product/dashboard-reservas.jpg"
+              alt="Dashboard completo de reservas con botón nueva reserva, pestañas restaurante terraza y zona VIP, gráficos y perfil de cliente Elena García con 85 reservas"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              priority
+              aspect="aspect-[16/10]"
+            />
+          </div>
+
+          {/* Texto */}
+          <div className="order-1 lg:order-2 max-w-xl">
+            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+              <span className="rp-gold-text">·</span>
+              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+              <span>Tiempo real</span>
+            </div>
+            <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+              Reservas confirmadas en{" "}
+              <span className="rp-gold-gradient font-normal">tiempo real</span>
+            </h2>
+            <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              Cada confirmación llega al instante. Tus clientes no esperan, tú no
+              improvisas.
+            </p>
+
+            <ul className="mt-8 space-y-4">
+              {REALTIME_BENEFITS.map((b) => (
+                <li key={b} className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+                    aria-hidden
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-sm sm:text-base leading-relaxed text-foreground/90">
+                    {b}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* --------- Section C: Conoce a cada cliente como si fuera VIP --------- */
+
+const CRM_BENEFITS = [
+  "Historial completo de visitas, ticket medio, frecuencia y valor total aportado al restaurante.",
+  "Preferencias, alergias y observaciones de sala accesibles en un clic desde la ficha de reserva.",
+  "Segmentación automática por comportamiento para campañas de marketing que realmente convierten.",
+] as const;
+
+function SectionCrmVip() {
+  return (
+    <section
+      id="p-crm-vip"
+      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          {/* Texto */}
+          <div className="max-w-xl">
+            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+              <span className="rp-gold-text">·</span>
+              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+              <span>CRM</span>
+            </div>
+            <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+              Conoce a cada cliente como si fuera{" "}
+              <span className="rp-gold-gradient font-normal">VIP</span>
+            </h2>
+            <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+              Historial de visitas, ticket medio, preferencias y alergias. Todo
+              en una ficha.
+            </p>
+
+            <ul className="mt-8 space-y-4">
+              {CRM_BENEFITS.map((b) => (
+                <li key={b} className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+                    aria-hidden
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
+                  <span className="text-sm sm:text-base leading-relaxed text-foreground/90">
+                    {b}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Imagen */}
+          <div>
+            <ProductImage
+              src="/brand/product/crm-cliente-vip.jpg"
+              alt="Widget CRM flotante sobre escenario real con avatar de cliente VIP, insignia cliente VIP, gráfico de donut con puntuación 85, valor total de 38 euros y valoración de 5 estrellas"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              aspect="aspect-[4/3]"
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* --------- Section D: Tu partner de operaciones, no solo tu software --------- */
+
+const PARTNER_FEATURES = [
+  {
+    icon: Sparkles,
+    title: "Onboarding guiado",
+    description:
+      "Configuramos contigo tu sala, tus turnos y tus canales. No empiezas desde cero.",
+  },
+  {
+    icon: Workflow,
+    title: "Recomendaciones de configuración",
+    description:
+      "Te sugerimos flujos de reserva, políticas de no-show y reglas de mesa probadas en hostelería real.",
+  },
+  {
+    icon: LifeBuoy,
+    title: "Soporte humano y recursos",
+    description:
+      "Equipo de soporte, guías, vídeos y base de conocimiento. Cuando tengas una duda, ahí estamos.",
+  },
+] as const;
+
+function SectionPartner() {
+  return (
+    <section
+      id="p-partner"
+      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+    >
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <header className="mb-10 sm:mb-14 max-w-3xl">
+          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+            <span className="rp-gold-text">·</span>
+            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+            <span>Partner</span>
+          </div>
+          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+            Tu partner de operaciones,{" "}
+            <span className="rp-gold-gradient font-normal">no solo tu software</span>
+          </h2>
+          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+            RestoPanel no se instala y se abandona. Te acompañamos para que
+            saques el máximo desde el primer día.
+          </p>
+        </header>
+
+        <ProductImage
+          src="/brand/product/soporte-partner.jpg"
+          alt="Equipo de soporte de RestoPanel con tres empleados con auriculares en un call center, atención de hospitalidad los 365 días"
+          sizes="100vw"
+          aspect="aspect-[16/9]"
+          className="mb-8 sm:mb-10"
+        />
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+          {PARTNER_FEATURES.map((f) => (
+            <article
+              key={f.title}
+              className="group flex flex-col rp-glass rounded-2xl p-5 sm:p-6 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+            >
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]">
+                <f.icon className="h-5 w-5" aria-hidden />
+              </div>
+              <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+                {f.title}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {f.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function Pricing() {
   const setView = useNav((s) => s.setView);
   const go = useNav((s) => s.go);
@@ -1576,9 +1924,7 @@ function Pricing() {
     return { price: p.monthly, period: "mes", savings: 0 };
   }, [plan, annual, locals, isEnterprise, p]);
 
-  const cta = isEnterprise
-    ? "Solicitar demo Enterprise"
-    : `Crear cuenta ${p.name}`;
+  const cta = `Crear cuenta ${p.name}`;
 
   const onCta = () => {
     if (isEnterprise) {
@@ -1984,7 +2330,7 @@ function FinalCTA() {
               variant="outline"
               onClick={() => setView("app")}
             >
-              Solicitar demo
+              Explorar RestoPanel
             </Button>
           </div>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground">

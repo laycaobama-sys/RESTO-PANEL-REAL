@@ -7,8 +7,15 @@ import { Logo, BrandMark } from "./brand";
 import {
   LayoutDashboard, CalendarDays, Users, Megaphone, Workflow, Star, BarChart3,
   Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
-  Menu, X, HelpCircle, LogOut,
+  Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
+  CalendarPlus, UserSearch, Map as MapIcon, Sparkles,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
@@ -30,12 +37,37 @@ export function AppShell() {
   const go = useNav((s) => s.go);
   const setView = useNav((s) => s.setView);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [cmdOpen, setCmdOpen] = React.useState(false);
 
   const current = NAV.find((n) => n.id === section);
 
+  // Lock body scroll when mobile drawer is open
+  React.useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  // Global ⌘K / Ctrl+K shortcut to open the command palette
+  React.useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar desktop */}
+      {/* Sidebar desktop — sticky, fixed while scrolling */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border/60 rp-glass-strong sticky top-0 h-screen">
         <div className="h-16 flex items-center px-5 border-b border-border/60">
           <button onClick={() => setView("landing")} className="flex items-center gap-2.5" aria-label="Volver a landing">
@@ -82,7 +114,7 @@ export function AppShell() {
         </div>
       </aside>
 
-      {/* Mobile sidebar */}
+      {/* Mobile sidebar — drawer with all nav items, closes on click */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
@@ -95,18 +127,27 @@ export function AppShell() {
             </div>
             <OrgSelector />
             <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación móvil">
-              {NAV.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => { go(n.id); setMobileOpen(false); }}
-                  className={cn(
-                    "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors mb-0.5",
-                    section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
-                  )}
-                >
-                  <n.icon className="h-4 w-4 shrink-0" aria-hidden />
-                  <span className="truncate">{n.label}</span>
-                </button>
+              {GROUPS.map((g) => (
+                <div key={g} className="mb-4">
+                  <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+                  <ul className="space-y-0.5">
+                    {NAV.filter((n) => n.group === g).map((n) => (
+                      <li key={n.id}>
+                        <button
+                          onClick={() => { go(n.id); setMobileOpen(false); }}
+                          className={cn(
+                            "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+                            section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+                          )}
+                          aria-current={section === n.id ? "page" : undefined}
+                        >
+                          <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+                          <span className="truncate">{n.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
             </nav>
           </aside>
@@ -115,11 +156,18 @@ export function AppShell() {
 
       {/* Main */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <Topbar onMenu={() => setMobileOpen(true)} title={current?.label ?? "Dashboard"} />
+        <Topbar
+          onMenu={() => setMobileOpen(true)}
+          title={current?.label ?? "Dashboard"}
+          onOpenCmd={() => setCmdOpen(true)}
+        />
         <main className="flex-1 p-4 sm:p-6 lg:p-8" id="app-main">
           <SectionRenderer section={section} />
         </main>
       </div>
+
+      {/* Command palette (⌘K) */}
+      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
     </div>
   );
 }
@@ -166,27 +214,31 @@ function OrgSelector() {
   );
 }
 
-function Topbar({ onMenu, title }: { onMenu: () => void; title: string }) {
+function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: string; onOpenCmd: () => void }) {
   const [period, setPeriod] = React.useState<"hoy" | "semana" | "mes">("hoy");
   return (
     <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
       <button onClick={onMenu} className="lg:hidden h-11 w-11 -ml-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors" aria-label="Abrir menú">
         <Menu className="h-5 w-5" />
       </button>
+      {/* Breadcrumb / title (left) */}
       <div className="flex items-center gap-2 text-sm min-w-0 flex-1 md:flex-none">
         <span className="text-muted-foreground hidden sm:inline shrink-0">RestoPanel /</span>
         <span className="font-medium truncate">{title}</span>
       </div>
-      <div className="flex-1 max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground">
-        <Search className="h-4 w-4" aria-hidden />
-        <input
-          type="search"
-          placeholder="Buscar reservas, clientes, mesas…"
-          className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground min-w-0"
-          aria-label="Búsqueda global"
-        />
-        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">⌘K</kbd>
-      </div>
+      {/* Global search (center, hidden on mobile) — clickable, opens command palette */}
+      <button
+        onClick={onOpenCmd}
+        className="flex-1 max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
+        aria-label="Abrir paleta de comandos"
+      >
+        <Search className="h-4 w-4 shrink-0" aria-hidden />
+        <span className="flex-1 truncate">Buscar reservas, clientes, mesas…</span>
+        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0 flex items-center gap-0.5">
+          <CommandIcon className="h-2.5 w-2.5" />K
+        </kbd>
+      </button>
+      {/* Right cluster: period selector, notifications, help, avatar */}
       <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
         <div className="hidden sm:flex items-center rounded-md border border-border/60 p-0.5">
           {(["hoy", "semana", "mes"] as const).map((p) => (
@@ -202,15 +254,221 @@ function Topbar({ onMenu, title }: { onMenu: () => void; title: string }) {
             </button>
           ))}
         </div>
+        <button
+          onClick={onOpenCmd}
+          className="md:hidden h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+          aria-label="Buscar (paleta de comandos)"
+        >
+          <Search className="h-4 w-4" />
+        </button>
         <button className="relative h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Notificaciones">
           <Bell className="h-4 w-4" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--teal)]" aria-hidden />
+          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--teal)] ring-2 ring-background" aria-hidden />
         </button>
-        <button className="h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Ayuda">
+        <button className="hidden sm:flex h-9 w-9 rounded-md border border-border/60 items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Ayuda">
           <HelpCircle className="h-4 w-4" />
+        </button>
+        <button
+          className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium ring-2 ring-transparent hover:ring-[var(--gold)]/40 transition-shadow"
+          aria-label="Cuenta de Ana Martínez"
+        >
+          AM
         </button>
       </div>
     </header>
+  );
+}
+
+/* =========================================================
+ * Command palette (⌘K)
+ * Quick actions modal with search and keyboard navigation.
+ * Navigates via useNav.getState().go(section).
+ * =======================================================*/
+interface CmdAction {
+  id: string;
+  label: string;
+  hint: string;
+  icon: React.ElementType;
+  group: "Navegación" | "Acciones";
+  run: () => void;
+}
+
+function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const [query, setQuery] = React.useState("");
+  const [active, setActive] = React.useState(0);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
+
+  const actions = React.useMemo<CmdAction[]>(() => {
+    const nav: CmdAction[] = NAV.map((n) => ({
+      id: `nav-${n.id}`,
+      label: n.label,
+      hint: "Ir a sección",
+      icon: n.icon,
+      group: "Navegación",
+      run: () => useNav.getState().go(n.id),
+    }));
+    const quick: CmdAction[] = [
+      { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
+      { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
+      { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
+      { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
+      { id: "qa-reviews", label: "Responder reviews", hint: "Google Reviews", icon: Star, group: "Acciones", run: () => useNav.getState().go("reviews") },
+      { id: "qa-analytics", label: "Ver analítica", hint: "Analytics", icon: BarChart3, group: "Acciones", run: () => useNav.getState().go("analytics") },
+      { id: "qa-settings", label: "Configuración", hint: "Ajustes del local", icon: Settings, group: "Acciones", run: () => useNav.getState().go("configuracion") },
+    ];
+    return [...quick, ...nav];
+  }, []);
+
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return actions;
+    return actions.filter((a) =>
+      a.label.toLowerCase().includes(q) || a.hint.toLowerCase().includes(q)
+    );
+  }, [actions, query]);
+
+  // Reset state on open
+  React.useEffect(() => {
+    if (open) {
+      setQuery("");
+      setActive(0);
+      // focus input after dialog mounts
+      requestAnimationFrame(() => inputRef.current?.focus());
+    }
+  }, [open]);
+
+  // Keep active index in range
+  React.useEffect(() => {
+    if (active >= filtered.length) setActive(0);
+  }, [filtered, active]);
+
+  // Scroll active item into view
+  React.useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
+  function execute(a: CmdAction) {
+    a.run();
+    onOpenChange(false);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => (i + 1) % Math.max(filtered.length, 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => (i - 1 + filtered.length) % Math.max(filtered.length, 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const a = filtered[active];
+      if (a) execute(a);
+    } else if (e.key === "Escape") {
+      onOpenChange(false);
+    }
+  }
+
+  // Group filtered actions for rendering
+  const groups = React.useMemo(() => {
+    const map = new Map<string, CmdAction[]>();
+    for (const a of filtered) {
+      const arr = map.get(a.group) ?? [];
+      arr.push(a);
+      map.set(a.group, arr);
+    }
+    return Array.from(map.entries());
+  }, [filtered]);
+
+  // Flat index lookup for keyboard nav
+  let flatIdx = -1;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className="p-0 gap-0 sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+        onKeyDown={onKeyDown}
+      >
+        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
+        <DialogDescription className="sr-only">
+          Busca acciones rápidas o secciones y navega con el teclado.
+        </DialogDescription>
+        {/* Search input */}
+        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/60">
+          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+          <input
+            ref={inputRef}
+            type="search"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+            placeholder="Busca una acción o sección…"
+            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+            aria-label="Buscar acción"
+            autoComplete="off"
+            spellCheck={false}
+          />
+          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">ESC</kbd>
+        </div>
+        {/* Actions list */}
+        <div ref={listRef} className="flex-1 overflow-y-auto rp-scroll-thin p-2 max-h-[60vh]">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+              <Sparkles className="h-5 w-5 opacity-50" />
+              Sin resultados para “{query}”.
+            </div>
+          ) : (
+            groups.map(([group, items]) => (
+              <div key={group} className="mb-1">
+                <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+                  {group}
+                </div>
+                <ul role="listbox" aria-label={group}>
+                  {items.map((a) => {
+                    flatIdx += 1;
+                    const idx = flatIdx;
+                    const isActive = idx === active;
+                    return (
+                      <li key={a.id} role="option" aria-selected={isActive}>
+                        <button
+                          data-idx={idx}
+                          onMouseMove={() => setActive(idx)}
+                          onClick={() => execute(a)}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+                            isActive ? "bg-[var(--gold)]/12 text-[var(--gold-soft)]" : "hover:bg-foreground/5"
+                          )}
+                        >
+                          <a.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--gold)]" : "text-muted-foreground")} aria-hidden />
+                          <span className="flex-1 min-w-0 truncate font-medium">{a.label}</span>
+                          <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{a.hint}</span>
+                          {isActive && (
+                            <CornerDownLeft className="h-3.5 w-3.5 text-[var(--gold)] shrink-0" aria-hidden />
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+        {/* Footer hint */}
+        <div className="flex items-center justify-between gap-2 px-4 h-10 border-t border-border/60 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↑↓</kbd> navegar
+            </span>
+            <span className="flex items-center gap-1">
+              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↵</kbd> seleccionar
+            </span>
+          </div>
+          <span className="font-mono">RestoPanel · ⌘K</span>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
