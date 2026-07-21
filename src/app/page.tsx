@@ -37,6 +37,12 @@ import { Fase2Tenancy, Fase2Eventos, Fase2Automatizaciones, Fase2Integraciones, 
 import { Fase2Permisos, Fase2Auditoria, Fase2Notificaciones, Fase2IA, Fase2Analitica } from "@/components/rp/sections-fase2/f2-c";
 import { Fase2Seguridad, Fase2Observabilidad, Fase2Datos, Fase2Contratos } from "@/components/rp/sections-fase2/f2-d";
 import { Fase2ADRs, Fase2Riesgos, Fase2Roadmap, Fase2Criterios } from "@/components/rp/sections-fase2/f2-e";
+import { Fase4Hero } from "@/components/rp/sections-fase4/f4-hero";
+import { Fase4Resumen, Fase4Carpetas, Fase4Cloudflare, Fase4SQL } from "@/components/rp/sections-fase4/f4-a";
+import { Fase4Migraciones, Fase4Tenancy, Fase4Auth, Fase4RBAC } from "@/components/rp/sections-fase4/f4-b";
+import { Fase4Auditoria, Fase4Repositorios, Fase4DO, Fase4Queues, Fase4R2AI } from "@/components/rp/sections-fase4/f4-c";
+import { Fase4Cache, Fase4Billing, Fase4CRM, Fase4Dashboard } from "@/components/rp/sections-fase4/f4-d";
+import { Fase4Tests, Fase4Seguridad, Fase4Observabilidad, Fase4Deploy, Fase4Migracion, Fase4Criterios } from "@/components/rp/sections-fase4/f4-e";
 import { BrandMark } from "@/components/rp/nav";
 
 export default function Page() {
@@ -47,7 +53,7 @@ export default function Page() {
       <SideNav />
 
       <main className="flex-1 lg:ml-72">
-        {phase === "fase0" ? <Fase0 /> : phase === "fase1" ? <Fase1 /> : <Fase2 />}
+        {phase === "fase0" ? <Fase0 /> : phase === "fase1" ? <Fase1 /> : phase === "fase2" ? <Fase2 /> : <Fase4 />}
       </main>
 
       <Footer phase={phase} />
@@ -140,38 +146,77 @@ function Fase2() {
   );
 }
 
-function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" }) {
+function Fase4() {
+  return (
+    <>
+      <Fase4Hero />
+      <Fase4Resumen />
+      <Fase4Carpetas />
+      <Fase4Cloudflare />
+      <Fase4SQL />
+      <Fase4Migraciones />
+      <Fase4Tenancy />
+      <Fase4Auth />
+      <Fase4RBAC />
+      <Fase4Auditoria />
+      <Fase4Repositorios />
+      <Fase4DO />
+      <Fase4Queues />
+      <Fase4R2AI />
+      <Fase4Cache />
+      <Fase4Billing />
+      <Fase4CRM />
+      <Fase4Dashboard />
+      <Fase4Tests />
+      <Fase4Seguridad />
+      <Fase4Observabilidad />
+      <Fase4Deploy />
+      <Fase4Migracion />
+      <Fase4Criterios />
+    </>
+  );
+}
+
+function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" }) {
   const subtitle =
     phase === "fase0"
       ? "Fase 0 · Fundación Enterprise"
       : phase === "fase1"
       ? "Fase 1.1 · Arquitectura Enterprise"
-      : "Fase 1.2 · Core Platform";
+      : phase === "fase2"
+      ? "Fase 1.2 · Core Platform"
+      : "Fase 4 · Núcleo Enterprise (Motor de Restaurantes)";
   const desc =
     phase === "fase0"
       ? "Documento estratégico-arquitectónico. Borrador V0.1. Pensado para revisión crítica antes de iniciar desarrollo de producto."
       : phase === "fase1"
       ? "Especificación técnica implementable y verificable. Spec V1.1. Diseña la fundación arquitectónica multi-tenant sobre Cloudflare antes de escribir la aplicación completa."
-      : "Diseño del núcleo funcional y técnico de RestoPanel. Spec V1.2. Monolito modular orientado a dominios, con eventos, automatizaciones, integraciones, IA y analítica.";
+      : phase === "fase2"
+      ? "Diseño del núcleo funcional y técnico de RestoPanel. Spec V1.2. Monolito modular orientado a dominios, con eventos, automatizaciones, integraciones, IA y analítica."
+      : "Implementación del núcleo Enterprise: organizaciones aisladas, RBAC granular, reservas/mesas/CRM con concurrencia, auditoría inmutable y límites por plan sobre Cloudflare.";
   const deliverables =
     phase === "fase0"
       ? ["Product & Brand Brief", "Mapa de dominios + contratos", "Control Plane + Tenant Cells", "Modelo de datos nuclear", "Design System base", "Roadmap y backlog priorizado"]
       : phase === "fase1"
       ? ["Arquitectura lógica + física Cloudflare", "Monorepo y reglas de dependencia", "Modelo ER + SQL D1 + diccionario", "RBAC, impersonación y threat model STRIDE", "Escalabilidad por etapas A→D", "ADRs iniciales + backlog técnico"]
-      : ["14 dominios con ownership y límites", "Sistema de eventos + outbox", "Motor de automatizaciones trigger→acción", "Capa común de integraciones y API pública", "Centro de IA + analítica por eventos", "10 ADRs + roadmap por iteraciones"];
+      : phase === "fase2"
+      ? ["14 dominios con ownership y límites", "Sistema de eventos + outbox", "Motor de automatizaciones trigger→acción", "Capa común de integraciones y API pública", "Centro de IA + analítica por eventos", "10 ADRs + roadmap por iteraciones"]
+      : ["Arquitectura de carpetas + esquema D1 completo", "Contexto multi-tenant + RBAC Enterprise", "Repositorios + Durable Objects + Queues", "R2 + AI Gateway + caché namespaced", "Facturación Stripe + CRM + dashboard", "Tests de aislamiento/RBAC/concurrencia + despliegue"];
   const status1 =
-    phase === "fase0" ? "Borrador V0.1" : phase === "fase1" ? "Spec V1.1 implementable" : "Spec V1.2 core design";
+    phase === "fase0" ? "Borrador V0.1" : phase === "fase1" ? "Spec V1.1 implementable" : phase === "fase2" ? "Spec V1.2 core design" : "Spec V4 motor enterprise";
   const status2 =
-    phase === "fase0" ? "ADRs críticos pendientes" : phase === "fase1" ? "ADRs iniciales registrados" : "10 ADRs críticos documentados";
+    phase === "fase0" ? "ADRs críticos pendientes" : phase === "fase1" ? "ADRs iniciales registrados" : phase === "fase2" ? "10 ADRs críticos documentados" : "Implementación por capas";
   const status3 =
-    phase === "fase0" ? "Puerta de salida no aprobada" : phase === "fase1" ? "Listo para implementación" : "Listo para implementación del core";
-  const hash = phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : "#f2-inicio";
+    phase === "fase0" ? "Puerta de salida no aprobada" : phase === "fase1" ? "Listo para implementación" : phase === "fase2" ? "Listo para implementación del core" : "Despliegre sin pasos ocultos";
+  const hash = phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : "#f4-inicio";
   const stat =
     phase === "fase0"
       ? "14 secciones · 17 dominios · 5 fases · ADR-001/002"
       : phase === "fase1"
       ? "24 secciones · 4 etapas de escala · STRIDE · ADR-001…008"
-      : "23 secciones · 14 dominios · outbox + automatizaciones · ADR-001…010";
+      : phase === "fase2"
+      ? "23 secciones · 14 dominios · outbox + automatizaciones · ADR-001…010"
+      : "24 secciones · 7 servicios CF · RBAC Enterprise · SQL + TS ejecutable";
   return (
     <footer className="mt-auto lg:ml-72 border-t border-border/60 rp-glass-strong">
       <div className="mx-auto max-w-6xl px-5 sm:px-8 py-10">

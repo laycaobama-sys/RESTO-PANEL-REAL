@@ -77,9 +77,37 @@ export const NAV_FASE2 = [
   { id: "f2-criterios", label: "Criterios de aceptación", n: "23" },
 ];
 
+export const NAV_FASE4 = [
+  { id: "f4-inicio", label: "Inicio", n: "00" },
+  { id: "f4-resumen", label: "Resumen y arquitectura", n: "01" },
+  { id: "f4-carpetas", label: "Arquitectura de carpetas", n: "02" },
+  { id: "f4-cloudflare", label: "Servicios Cloudflare", n: "03" },
+  { id: "f4-sql", label: "Esquema D1 completo (SQL)", n: "04" },
+  { id: "f4-migraciones", label: "Migraciones y seed", n: "05" },
+  { id: "f4-tenancy", label: "Contexto multi-tenant", n: "06" },
+  { id: "f4-auth", label: "Autenticación y middleware", n: "07" },
+  { id: "f4-rbac", label: "RBAC Enterprise", n: "08" },
+  { id: "f4-auditoria", label: "Auditoría y soft delete", n: "09" },
+  { id: "f4-repositorios", label: "Reservas, clientes, mesas", n: "10" },
+  { id: "f4-do", label: "Durable Objects (plano)", n: "11" },
+  { id: "f4-queues", label: "Queues y consumers", n: "12" },
+  { id: "f4-r2-ai", label: "R2 y AI Gateway", n: "13" },
+  { id: "f4-cache", label: "Caché namespaced", n: "14" },
+  { id: "f4-billing", label: "Facturación (Stripe)", n: "15" },
+  { id: "f4-crm", label: "CRM y reputación", n: "16" },
+  { id: "f4-dashboard", label: "Dashboard, hooks y widgets", n: "17" },
+  { id: "f4-tests", label: "Tests (aislamiento, RBAC, concurrencia)", n: "18" },
+  { id: "f4-seguridad", label: "Seguridad avanzada", n: "19" },
+  { id: "f4-observabilidad", label: "Observabilidad", n: "20" },
+  { id: "f4-deploy", label: "Despliegue y variables de entorno", n: "21" },
+  { id: "f4-migracion", label: "Migración y rollback", n: "22" },
+  { id: "f4-criterios", label: "Criterios de aceptación", n: "23" },
+];
+
 export function SideNav() {
   const { phase, setPhase } = usePhase();
-  const items = phase === "fase0" ? NAV_FASE0 : phase === "fase1" ? NAV_FASE1 : NAV_FASE2;
+  const items =
+    phase === "fase0" ? NAV_FASE0 : phase === "fase1" ? NAV_FASE1 : phase === "fase2" ? NAV_FASE2 : NAV_FASE4;
   const [active, setActive] = React.useState(items[0].id);
   const [open, setOpen] = React.useState(false);
 
@@ -105,7 +133,7 @@ export function SideNav() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-50 rp-glass-strong border-b border-border/60">
         <div className="flex items-center justify-between px-4 h-14">
-          <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : "#f2-inicio"} className="flex items-center gap-2">
+          <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : "#f4-inicio"} className="flex items-center gap-2">
             <BrandMark className="h-7 w-7" />
             <span className="font-display text-lg tracking-tight">RestoPanel</span>
           </a>
@@ -148,12 +176,12 @@ export function SideNav() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-40 h-screen w-72 flex-col border-r border-border/60 rp-glass-strong">
-        <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : "#f2-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
+        <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : "#f4-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
           <BrandMark className="h-8 w-8" />
           <div className="leading-tight">
             <div className="font-display text-lg tracking-tight">RestoPanel</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-              {phase === "fase0" ? "Fase 0 · Fundación" : phase === "fase1" ? "Fase 1.1 · Arquitectura" : "Fase 1.2 · Core Platform"}
+              {phase === "fase0" ? "Fase 0 · Fundación" : phase === "fase1" ? "Fase 1.1 · Arquitectura" : phase === "fase2" ? "Fase 1.2 · Core Platform" : "Fase 4 · Motor Enterprise"}
             </div>
           </div>
         </a>
@@ -202,7 +230,7 @@ export function SideNav() {
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)] animate-pulse" />
             <span className="text-foreground/80">
-              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : phase === "fase1" ? "Spec V1.1 · implementable" : "Spec V1.2 · core design"}
+              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : phase === "fase1" ? "Spec V1.1 · implementable" : phase === "fase2" ? "Spec V1.2 · core design" : "Spec V4 · motor enterprise"}
             </span>
           </div>
         </div>
@@ -229,6 +257,7 @@ function PhaseToggle({ compact = false }: { compact?: boolean }) {
       {btn("fase0", "F0")}
       {btn("fase1", "F1.1")}
       {btn("fase2", "F1.2")}
+      {btn("fase4", "F4")}
     </div>
   );
 }

@@ -1,0 +1,1008 @@
+     1→import * as React from "react";
+     2→import {
+     3→  Section,
+     4→  GlassCard,
+     5→  Risk,
+     6→  Pill,
+     7→  H3,
+     8→  Lead,
+     9→  DataTable,
+    10→  GoldList,
+    11→  Callout,
+    12→  Code,
+    13→} from "@/components/rp/primitives";
+    14→import { Mermaid } from "@/components/rp/mermaid";
+    15→
+    16→/* ============================================================ */
+    17→/* Helper: monospace dorado inline                              */
+    18→/* ============================================================ */
+    19→function Mono({ children }: { children: React.ReactNode }) {
+    20→  return (
+    21→    <code className="font-mono text-xs rp-gold-text whitespace-nowrap">
+    22→      {children}
+    23→    </code>
+    24→  );
+    25→}
+    26→
+    27→/* ============================================================ */
+    28→/* 06 — MODELO MULTIEMPRESA                                     */
+    29→/* ============================================================ */
+    30→const TENANCY_CHART = `flowchart TB
+    31→  U["Usuario (cookie sesión)"] --> MW["Tenant Resolver (middleware)"]
+    32→  MW --> SES{"Sesión válida?"}
+    33→  SES -->|sí| ORG["org_activa desde sesión"]
+    34→  SES -->|no| REJ["401"]
+    35→  ORG --> MEM{"Membresía vigente?"}
+    36→  MEM -->|sí| SHARD["resolver org → shard D1"]
+    37→  MEM -->|no| REJ2["403"]
+    38→  SHARD --> RBAC["RBAC + ABAC"]
+    39→  RBAC --> ENT["Entitlements (plan)"]
+    40→  ENT --> UC["Caso de uso de dominio"]
+    41→  UC --> REPO["Repositorio con org_id OBLIGATORIO"]
+    42→  REPO --> D1[("D1 shard")]`;
+    43→
+    44→type TenancyRow = {
+    45→  id: string;
+    46→  mecanismo: string;
+    47→  impl: string;
+    48→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+    49→};
+    50→
+    51→const TENANCY_ROWS: TenancyRow[] = [
+    52→  {
+    53→    id: "tid",
+    54→    mecanismo: "Tenant ID obligatorio",
+    55→    impl: "organization_id NOT NULL en toda tabla tenant; PK compuesta (org_id, id)",
+    56→    riesgo: "crítico",
+    57→  },
+    58→  {
+    59→    id: "srv",
+    60→    mecanismo: "Resolución en servidor",
+    61→    impl: "sesión → org_activa → shard → membership; org_id del cliente ignorado",
+    62→    riesgo: "alto",
+    63→  },
+    64→  {
+    65→    id: "iso",
+    66→    mecanismo: "Aislamiento de consultas",
+    67→    impl: "repositorios exigen org_id; queries filtradas; sin SELECT * sin scope",
+    68→    riesgo: "crítico",
+    69→  },
+    70→  {
+    71→    id: "idor",
+    72→    mecanismo: "Prevención de acceso cruzado",
+    73→    impl: "ownership del recurso verificado antes de mutar (anti-IDOR)",
+    74→    riesgo: "crítico",
+    75→  },
+    76→  {
+    77→    id: "multiorg",
+    78→    mecanismo: "Usuarios multi-org",
+    79→    impl: "tabla organization_members; selector de org activa en sesión",
+    80→    riesgo: "medio",
+    81→  },
+    82→  {
+    83→    id: "multiloc",
+    84→    mecanismo: "Multi-location",
+    85→    impl: "organization → restaurants → locations; roles scoped por level",
+    86→    riesgo: "medio",
+    87→  },
+    88→  {
+    89→    id: "inh",
+    90→    mecanismo: "Config heredada",
+    91→    impl: "defaults de org sobrescribibles por location; precedencia location > org > platform",
+    92→    riesgo: "bajo",
+    93→  },
+    94→  {
+    95→    id: "quota",
+    96→    mecanismo: "Cuotas y límites",
+    97→    impl: "entitlements por plan; rate limit por org; uso medido",
+    98→    riesgo: "medio",
+    99→  },
+   100→  {
+   101→    id: "custom",
+   102→    mecanismo: "Personalización",
+   103→    impl: "settings por org (tz, currency, locale, branding)",
+   104→    riesgo: "bajo",
+   105→  },
+   106→  {
+   107→    id: "exp",
+   108→    mecanismo: "Exportación",
+   109→    impl: "export cifrada por org; auditable; GDPR",
+   110→    riesgo: "medio",
+   111→  },
+   112→  {
+   113→    id: "del",
+   114→    mecanismo: "Eliminación",
+   115→    impl: "soft delete + anonimización; retención legal; job de purga",
+   116→    riesgo: "alto",
+   117→  },
+   118→  {
+   119→    id: "mig",
+   120→    mecanismo: "Migraciones",
+   121→    impl: "forward-only; por shard; sin downtime",
+   122→    riesgo: "medio",
+   123→  },
+   124→  {
+   125→    id: "tests",
+   126→    mecanismo: "Tests de aislamiento",
+   127→    impl: "negativos cross-tenant + IDOR en CI obligatorios",
+   128→    riesgo: "alto",
+   129→  },
+   130→];
+   131→
+   132→export function Fase2Tenancy() {
+   133→  return (
+   134→    <Section
+   135→      id="f2-tenancy"
+   136→      index="06"
+   137→      eyebrow="Modelo multiempresa"
+   138→      title="organization_id obligatorio; el navegador nunca decide el tenant."
+   139→      intro={
+   140→        <>
+   141→          La estrategia de multi-tenancy descansa sobre una regla no negociable:
+   142→          el <span className="text-foreground">tenant se resuelve siempre en el servidor</span> a
+   143→          partir de la sesión, nunca se confía en un <code className="font-mono text-[12px] rp-gold-text">org_id</code>{" "}
+   144→          enviado por el cliente. Toda tabla de dominio lleva{" "}
+   145→          <Mono>(organization_id, id)</Mono> como clave compuesta; los repositorios no
+   146→          aceptan consultas sin scope de organización; el acceso cruzado entre
+   147→          tenants se previene con verificación de ownership antes de cada
+   148→          mutación. El modelo cubre además usuarios multi-org, organizaciones
+   149→          multi-location, configuración heredada, cuotas por plan,
+   150→          personalización, exportación y eliminación GDPR, migraciones por shard
+   151→          y tests automáticos de aislamiento en CI.
+   152→        </>
+   153→      }
+   154→    >
+   155→      {/* Diagrama de resolución */}
+   156→      <div className="mb-12">
+   157→        <H3 className="mb-3">Resolución de tenant, de cookie a D1</H3>
+   158→        <Lead className="mb-4">
+   159→          El middleware autentica la sesión, recupera la <Mono>org_activa</Mono>,
+   160→          valida la membresía, resuelve el shard D1 correspondiente y aplica RBAC
+   161→          + ABAC y entitlements del plan antes de despachar el caso de uso. El
+   162→          repositorio sólo entonces ejecuta contra D1, siempre filtrando por{" "}
+   163→          <Mono>organization_id</Mono>.
+   164→        </Lead>
+   165→        <Mermaid chart={TENANCY_CHART} />
+   166→      </div>
+   167→
+   168→      {/* Estrategia de aislamiento */}
+   169→      <div className="mb-12">
+   170→        <H3 className="mb-3">Estrategia de aislamiento</H3>
+   171→        <Lead className="mb-4">
+   172→          Cada mecanismo está respaldado por constraints compuestos en D1 y por
+   173→          tests negativos en CI. Los marcados como <span className="text-foreground">crítico</span>{" "}
+   174→          bloquean el merge si fallan.
+   175→        </Lead>
+   176→        <DataTable
+   177→          head={["Mecanismo", "Implementación", "Riesgo"]}
+   178→          rows={TENANCY_ROWS.map((r) => [
+   179→            <span key={`mec-${r.id}-name`} className="font-medium text-foreground">
+   180→              {r.mecanismo}
+   181→            </span>,
+   182→            <span key={`mec-${r.id}-impl`} className="text-foreground/80">
+   183→              {r.impl}
+   184→            </span>,
+   185→            <Risk key={`mec-${r.id}-risk`} level={r.riesgo} />,
+   186→          ])}
+   187→        />
+   188→      </div>
+   189→
+   190→      {/* Tests automáticos */}
+   191→      <div className="mb-12">
+   192→        <GlassCard variant="gold">
+   193→          <H3>Tests automáticos de aislamiento</H3>
+   194→          <Lead className="mt-2">
+   195→            El aislamiento no se declara, se demuestra. Estas pruebas viven en
+   196→            CI y deben pasar en cada PR; un rojo bloquea el merge.
+   197→          </Lead>
+   198→          <div className="mt-5">
+   199→            <GoldList
+   200→              items={[
+   201→                <span key="t-404">
+   202→                  Por cada endpoint tenant: usuario de org A recibe{" "}
+   203→                  <span className="text-foreground">404/403</span> al pedir
+   204→                  recurso de org B.
+   205→                </span>,
+   206→                <span key="t-mut">
+   207→                  Test de mutación cross-tenant: ningún payload altera datos de
+   208→                  otra organización.
+   209→                </span>,
+   210→                <span key="t-cache">
+   211→                  Test de cache poisoning: mutar A no afecta cache de B; las
+   212→                  claves incluyen <Mono>organization_id</Mono>.
+   213→                </span>,
+   214→                <span key="t-fuzz">
+   215→                  Fuzzer de tenant en staging: intercambio masivo de IDs para
+   216→                  descubrir fugas no previstas.
+   217→                </span>,
+   218→                <span key="t-ci">
+   219→                  CI rojo bloquea merge; sin override salvo bypass manual
+   220→                  auditado y revertible, nunca como parte del flujo normal.
+   221→                </span>,
+   222→              ]}
+   223→            />
+   224→          </div>
+   225→        </GlassCard>
+   226→      </div>
+   227→
+   228→      {/* Callout RLS */}
+   229→      <Callout kind="warn" title="Sin RLS nativa">
+   230→        D1/SQLite no tiene Row-Level Security nativa. El aislamiento es
+   231→        estrictamente de <span className="text-foreground">aplicación</span>:
+   232→        Tenant Enforcement Layer + constraints compuestos <Mono>(org_id, id)</Mono>{" "}
+   233→        + tests IDOR obligatorios en CI. No se simula RLS con triggers ni con
+   234→        vistas que eluden el scope; el filtro por <Mono>organization_id</Mono>{" "}
+   235→        se exige en el repositorio y se verifica con tests negativos.
+   236→      </Callout>
+   237→    </Section>
+   238→  );
+   239→}
+   240→
+   241→/* ============================================================ */
+   242→/* 07 — SISTEMA DE EVENTOS                                      */
+   243→/* ============================================================ */
+   244→const EVENT_PIPELINE_CHART = `flowchart LR
+   245→  UC["Caso de uso"] --> TX["Transacción D1<br/>estado + outbox"]
+   246→  TX --> DB[("D1")]
+   247→  DB --> DSP["Dispatcher idempotente"]
+   248→  DSP --> Q["Cloudflare Queue"]
+   249→  Q --> C1["comms"]
+   250→  Q --> C2["audit"]
+   251→  Q --> C3["analytics"]
+   252→  Q --> C4["integrations"]
+   253→  Q --> C5["automation"]
+   254→  C4 --> WH["Webhook saliente (HMAC)"]
+   255→  Q -.fallo.-> DLQ["Dead Letter Queue"]
+   256→  DLQ --> REP["Reproceso manual auditado"]`;
+   257→
+   258→const EVENT_ENVELOPE = `{
+   259→  "event_id": "01HZX...ULID",
+   260→  "event_type": "ReservationCreated",
+   261→  "event_kind": "domain",
+   262→  "event_version": 1,
+   263→  "occurred_at": "2025-01-21T19:32:01Z",
+   264→  "organization_id": "01HZORG...",
+   265→  "location_id": "01HZLOC...",
+   266→  "actor_id": "01HZUSR...",
+   267→  "actor_effective_id": null,
+   268→  "correlation_id": "req_01HZ...",
+   269→  "causation_id": null,
+   270→  "source": "reservations",
+   271→  "payload": { "reservation_id": "01HZRES...", "party_size": 4 },
+   272→  "pii_redacted": true
+   273→}`;
+   274→
+   275→type MensajeRow = {
+   276→  id: string;
+   277→  tipo: string;
+   278→  proposito: string;
+   279→  direccion: string;
+   280→  ejemplo: string;
+   281→};
+   282→
+   283→const MENSAJE_ROWS: MensajeRow[] = [
+   284→  {
+   285→    id: "domain",
+   286→    tipo: "Evento de dominio",
+   287→    proposito: "algo pasó en el dominio",
+   288→    direccion: "async, pub/sub",
+   289→    ejemplo: "ReservationCreated",
+   290→  },
+   291→  {
+   292→    id: "integration",
+   293→    tipo: "Evento de integración",
+   294→    proposito: "notificar a sistema externo",
+   295→    direccion: "async, hacia afuera",
+   296→    ejemplo: "WebhookDelivered",
+   297→  },
+   298→  {
+   299→    id: "command",
+   300→    tipo: "Comando",
+   301→    proposito: "petición de mutación",
+   302→    direccion: "síncrono o async",
+   303→    ejemplo: "CreateReservation(input, actor, idem_key)",
+   304→  },
+   305→  {
+   306→    id: "query",
+   307→    tipo: "Query",
+   308→    proposito: "lectura inmutable",
+   309→    direccion: "síncrono",
+   310→    ejemplo: "GetAvailability(loc_id, date)",
+   311→  },
+   312→  {
+   313→    id: "task",
+   314→    tipo: "Tarea asíncrona",
+   315→    proposito: "trabajo pesado programado",
+   316→    direccion: "async, queue",
+   317→    ejemplo: "GenerateDailySummary",
+   318→  },
+   319→];
+   320→
+   321→type CatalogoRow = {
+   322→  id: string;
+   323→  evento: string;
+   324→  dominio: string;
+   325→  consumidores: string;
+   326→};
+   327→
+   328→const CATALOGO_ROWS: CatalogoRow[] = [
+   329→  { id: "rescreated", evento: "ReservationCreated", dominio: "Reservations", consumidores: "Notifications, Analytics, Marketing, CRM" },
+   330→  { id: "resconf", evento: "ReservationConfirmed", dominio: "Reservations", consumidores: "Notifications, Analytics" },
+   331→  { id: "rescanc", evento: "ReservationCancelled", dominio: "Reservations", consumidores: "Notifications, Analytics, CRM(no-show)" },
+   332→  { id: "rescheckin", evento: "ReservationCheckedIn", dominio: "Reservations", consumidores: "Analytics, Tables" },
+   333→  { id: "noshow", evento: "NoShowDetected", dominio: "Reservations", consumidores: "CRM(risk), Marketing, Analytics" },
+   334→  { id: "custcreated", evento: "CustomerCreated", dominio: "CRM", consumidores: "Analytics, Marketing" },
+   335→  { id: "custvisit", evento: "CustomerVisited", dominio: "CRM", consumidores: "Analytics, Marketing, AI(VIP)" },
+   336→  { id: "custtag", evento: "CustomerTagged", dominio: "CRM", consumidores: "Marketing, AI" },
+   337→  { id: "reviewrecv", evento: "ReviewReceived", dominio: "Reviews", consumidores: "AI, Notifications, Marketing" },
+   338→  { id: "reviewrep", evento: "ReviewReplied", dominio: "Reviews", consumidores: "Analytics" },
+   339→  { id: "subrenew", evento: "SubscriptionRenewed", dominio: "Billing", consumidores: "Analytics, Super Admin" },
+   340→  { id: "paysuc", evento: "PaymentSucceeded", dominio: "Billing", consumidores: "Billing(invoice), Notifications" },
+   341→  { id: "tablemoved", evento: "TableMoved", dominio: "Tables", consumidores: "Realtime, Analytics" },
+   342→  { id: "empcheckin", evento: "EmployeeCheckedIn", dominio: "Staff", consumidores: "Analytics, Payroll(integration)" },
+   343→  { id: "airun", evento: "AiRunCompleted", dominio: "AI", consumidores: "Audit, Analytics(cost)" },
+   344→];
+   345→
+   346→export function Fase2Eventos() {
+   347→  return (
+   348→    <Section
+   349→      id="f2-eventos"
+   350→      index="07"
+   351→      eyebrow="Sistema de eventos"
+   352→      title="Eventos de dominio vs integración; outbox transaccional; consumidores idempotentes."
+   353→      intro={
+   354→        <>
+   355→          Cada acción relevante publica un evento de dominio o de integración.
+   356→          Se distingue con claridad entre <span className="text-foreground">evento de dominio</span>{" "}
+   357→          (algo ya pasó, inmutable, async pub/sub),{" "}
+   358→          <span className="text-foreground">evento de integración</span>{" "}
+   359→          (notifica al exterior), <span className="text-foreground">comando</span>{" "}
+   360→          (petición de mutación con <Mono>idem_key</Mono>),{" "}
+   361→          <span className="text-foreground">query</span> (lectura síncrona
+   362→          inmutable) y <span className="text-foreground">tarea asíncrona</span>{" "}
+   363→          (trabajo pesado encolado). El outbox transaccional garantiza
+   364→          atomicidad: estado y evento se escriben juntos en D1; el dispatcher
+   365→          publica a Cloudflare Queues; los consumidores procesan de forma
+   366→          idempotente.
+   367→        </>
+   368→      }
+   369→    >
+   370→      {/* Tipos de mensajes */}
+   371→      <div className="mb-12">
+   372→        <H3 className="mb-3">Tipos de mensajes</H3>
+   373→        <Lead className="mb-4">
+   374→          Confundir comando con evento, o evento de dominio con evento de
+   375→          integración, es la causa nº 1 de acoplamiento accidental. La taxonomía
+   376→          es obligatoria en contratos Zod y en naming.
+   377→        </Lead>
+   378→        <DataTable
+   379→          head={["Tipo", "Propósito", "Dirección", "Ejemplo"]}
+   380→          rows={MENSAJE_ROWS.map((r) => [
+   381→            <span key={`tipo-${r.id}-t`} className="font-mono text-[13px] rp-gold-text">
+   382→              {r.tipo}
+   383→            </span>,
+   384→            <span key={`tipo-${r.id}-p`} className="text-foreground/80">
+   385→              {r.proposito}
+   386→            </span>,
+   387→            <span key={`tipo-${r.id}-d`} className="text-muted-foreground">
+   388→              {r.direccion}
+   389→            </span>,
+   390→            <span key={`tipo-${r.id}-e`} className="font-mono text-[12px] text-foreground/90">
+   391→              {r.ejemplo}
+   392→            </span>,
+   393→          ])}
+   394→        />
+   395→      </div>
+   396→
+   397→      {/* Envelope canónico */}
+   398→      <div className="mb-12">
+   399→        <H3 className="mb-3">Envelope canónico de evento</H3>
+   400→        <Lead className="mb-4">
+   401→          Toda salida del outbox usa esta forma. <Mono>event_kind</Mono>{" "}
+   402→          distingue <span className="text-foreground">domain</span> de{" "}
+   403→          <span className="text-foreground">integration</span>;{" "}
+   404→          <Mono>actor_effective_id</Mono> cubre impersonación;{" "}
+   405→          <Mono>correlation_id</Mono> viaja end-to-end hasta los webhooks
+   406→          salientes; <Mono>causation_id</Mono> distingue causación de
+   407→          correlación; <Mono>pii_redacted</Mono> garantiza que el payload sólo
+   408→          expone PII por allowlist explícita.
+   409→        </Lead>
+   410→        <Code lang="json">{EVENT_ENVELOPE}</Code>
+   411→      </div>
+   412→
+   413→      {/* Catálogo inicial de eventos */}
+   414→      <div className="mb-12">
+   415→        <H3 className="mb-3">Catálogo inicial de eventos</H3>
+   416→        <Lead className="mb-4">
+   417→          No es una lista cerrada: cada dominio puede proponer eventos nuevos
+   418→          mediante ADR. La regla es <span className="text-foreground">publicar
+   419→          lo mínimo estable</span>: un evento publicado es un contrato y romperlo
+   420→          cuesta caro.
+   421→        </Lead>
+   422→        <DataTable
+   423→          head={["Evento", "Dominio emisor", "Consumidores"]}
+   424→          rows={CATALOGO_ROWS.map((r) => [
+   425→            <span key={`cat-${r.id}-e`} className="font-mono text-[13px] rp-gold-text">
+   426→              {r.evento}
+   427→            </span>,
+   428→            <span key={`cat-${r.id}-d`} className="text-foreground/80">
+   429→              {r.dominio}
+   430→            </span>,
+   431→            <span key={`cat-${r.id}-c`} className="text-muted-foreground">
+   432→              {r.consumidores}
+   433→            </span>,
+   434→          ])}
+   435→        />
+   436→      </div>
+   437→
+   438→      {/* Diagrama del pipeline */}
+   439→      <div className="mb-12">
+   440→        <H3 className="mb-3">Pipeline de eventos con outbox</H3>
+   441→        <Lead className="mb-4">
+   442→          El caso de uso escribe estado + outbox en la misma transacción D1. El
+   443→          dispatcher lee, publica a Queues y marca como publicado. Cada cola
+   444→          tiene un consumidor especializado; los fallos persistentes caen al DLQ
+   445→          para reproceso manual auditado.
+   446→        </Lead>
+   447→        <Mermaid chart={EVENT_PIPELINE_CHART} />
+   448→      </div>
+   449→
+   450→      {/* Garantías del sistema */}
+   451→      <div className="mb-12">
+   452→        <GlassCard variant="gold">
+   453→          <H3>Garantías del sistema de eventos</H3>
+   454→          <Lead className="mt-2">
+   455→            Estas garantías son requisitos de Definition of Done para cualquier
+   456→            consumidor nuevo. La entrega es <span className="text-foreground">at-least-once</span>;
+   457→            la idempotencia final es responsabilidad del consumidor.
+   458→          </Lead>
+   459→          <div className="mt-5">
+   460→            <GoldList
+   461→              items={[
+   462→                <span key="g-idem">
+   463→                  Idempotencia por <Mono>event_id</Mono> + dedup en consumidor
+   464→                  (tabla <Mono>processed_events</Mono>).
+   465→                </span>,
+   466→                <span key="g-dupes">
+   467→                  Tolerancia a duplicados y a entregas fuera de orden;
+   468→                  reconciliación por <Mono>occurred_at</Mono>.
+   469→                </span>,
+   470→                <span key="g-backoff">
+   471→                  Backoff exponencial con jitter en reintentos.
+   472→                </span>,
+   473→                <span key="g-max">
+   474→                  <Mono>max_attempts</Mono> → DLQ; nunca retry infinito.
+   475→                </span>,
+   476→                <span key="g-breaker">
+   477→                  Circuit breaker por consumidor y por dependencia externa.
+   478→                </span>,
+   479→                <span key="g-replay">
+   480→                  Reproceso manual auditado desde DLQ, con idempotencia
+   481→                  preservada.
+   482→                </span>,
+   483→                <span key="g-ret">
+   484→                  Retención por tipo: eventos 30–90 días en D1, audit 1 año+ en
+   485→                  R2.
+   486→                </span>,
+   487→                <span key="g-trace">
+   488→                  Observabilidad con <Mono>correlation_id</Mono> end-to-end
+   489→                  (request → caso de uso → outbox → queue → consumidor → webhook).
+   490→                </span>,
+   491→                <span key="g-pii">
+   492→                  PII redactada por allowlist; el payload nunca incluye datos
+   493→                  sensibles sin marcado explícito.
+   494→                </span>,
+   495→                <span key="g-ord">
+   496→                  Orden solo cuando el dominio lo exija: partition key ={" "}
+   497→                  <Mono>org_id + aggregate_id</Mono>, nunca global.
+   498→                </span>,
+   499→              ]}
+   500→            />
+   501→          </div>
+   502→        </GlassCard>
+   503→      </div>
+   504→
+   505→      {/* Callout atomicidad */}
+   506→      <Callout kind="ok" title="Outbox = atomicidad">
+   507→        El outbox se escribe en la <span className="text-foreground">misma
+   508→        transacción D1</span> que el estado de negocio; el dispatcher lee,
+   509→        publica y marca como publicado. Garantiza entrega{" "}
+   510→        <span className="text-foreground">at-least-once</span> sin{" "}
+   511→        <span className="text-foreground">double-write inconsistency</span>: no
+   512→        existe estado sin evento ni evento sin estado. La idempotencia final la
+   513→        garantiza el consumidor con <Mono>event_id</Mono> en su tabla de
+   514→        deduplicación.
+   515→      </Callout>
+   516→    </Section>
+   517→  );
+   518→}
+   519→
+   520→/* ============================================================ */
+   521→/* 08 — MOTOR DE AUTOMATIZACIONES                               */
+   522→/* ============================================================ */
+   523→const AUTOMATION_CHART = `flowchart TB
+   524→  EVT["Evento de dominio"] --> MATCH["Matching de reglas (org/loc/trigger)"]
+   525→  MATCH --> COND{"Evaluar condiciones"}
+   526→  COND -->|true| IDEN["Generar execution_id (idempotencia)"]
+   527→  COND -->|false| SKIP["No-op"]
+   528→  IDEN --> SENS{"Acción sensible?"}
+   529→  SENS -->|no| EXEC["Ejecutar acción"]
+   530→  SENS -->|sí| APPROV["Cola de aprobación humana"]
+   531→  APPROV -->|aprobada| EXEC
+   532→  APPROV -->|rechazada| LOG2["Log + notificar"]
+   533→  EXEC --> ANTI{"Anti-bucle?"}
+   534→  ANTI -->|ok| RES["Resultado + log"]
+   535→  ANTI -->|loop| ABORT["Abortar + alerta"]
+   536→  RES --> HIST["Historial de ejecuciones"]
+   537→  EXEC -.fallo.-> RETRY["Reintentar con backoff"]
+   538→  RETRY -.max.-> DLQ["Dead Letter"]`;
+   539→
+   540→type ComponenteRow = {
+   541→  id: string;
+   542→  componente: string;
+   543→  descripcion: string;
+   544→  notas: string;
+   545→};
+   546→
+   547→const COMPONENTE_ROWS: ComponenteRow[] = [
+   548→  { id: "trig", componente: "Trigger", descripcion: "evento de dominio, horario, condición de datos", notas: "por org/location" },
+   549→  { id: "cond", componente: "Condición", descripcion: "simple (campo op valor) o compuesta (AND/OR/NOT)", notas: "variables dinámicas" },
+   550→  { id: "act", componente: "Acción", descripcion: "síncrona (tag, nota) o asíncrona (envío, campaña, IA)", notas: "con delay opcional" },
+   551→  { id: "tpl", componente: "Plantilla", descripcion: "receta reutilizable por rubro", notas: "parametrizable" },
+   552→  { id: "var", componente: "Variable dinámica", descripcion: "{{customer.first_name}}, {{reservation.time}}", notas: "tipado y saneado" },
+   553→  { id: "sched", componente: "Programación", descripcion: "inmediata, delay, cron", notas: "con horario silencioso" },
+   554→  { id: "limit", componente: "Límite por plan", descripcion: "max reglas, ejecuciones/mes", notas: "enforce en servidor" },
+   555→  { id: "idem", componente: "Idempotencia", descripcion: "execution_id + dedup", notas: "anti doble disparo" },
+   556→  { id: "antiloop", componente: "Anti-bucle", descripcion: "depth limit + visited set", notas: "detecta ciclos trigger→acción→trigger" },
+   557→  { id: "ver", componente: "Versionado", descripcion: "rule_version + draft/published", notas: "sin mutar activas" },
+   558→  { id: "sim", componente: "Simulación", descripcion: "dry-run con eventos históricos", notas: "antes de activar" },
+   559→  { id: "pause", componente: "Pausa/Reactivación", descripcion: "per-rule y global kill switch", notas: "auditoría" },
+   560→  { id: "hist", componente: "Historial", descripcion: "execution log + resultado + errores", notas: "retención configurable" },
+   561→  { id: "appr", componente: "Aprobación humana", descripcion: "acciones sensibles (precio, campaña, respuesta pública)", notas: "cola de aprobación" },
+   562→];
+   563→
+   564→export function Fase2Automatizaciones() {
+   565→  return (
+   566→    <Section
+   567→      id="f2-automatizaciones"
+   568→      index="08"
+   569→      eyebrow="Motor de automatizaciones"
+   570→      title="Trigger + condiciones + acciones, con aprobación humana para lo sensible."
+   571→      intro={
+   572→        <>
+   573→          Motor visual y extensible. Reglas por organización y por location;
+   574→          condiciones simples y compuestas; plantillas por rubro; variables
+   575→          dinámicas tipadas; acciones síncronas y asíncronas con delay;
+   576→          programación inmediata, diferida o cron; límites por plan; idempotencia
+   577→          por <Mono>execution_id</Mono>; anti-bucle con depth limit y visited
+   578→          set; versionado draft/published; simulación antes de activar;
+   579→          pausa/reactivación; historial y logs; reintentos con DLQ; y{" "}
+   580→          <span className="text-foreground">aprobación humana obligatoria</span>{" "}
+   581→          para acciones sensibles.
+   582→        </>
+   583→      }
+   584→    >
+   585→      {/* Diagrama de ejecución */}
+   586→      <div className="mb-12">
+   587→        <H3 className="mb-3">Flujo de ejecución de una regla</H3>
+   588→        <Lead className="mb-4">
+   589→          El evento entra, se hace matching de reglas activas para esa org/loc,
+   590→          se evalúan condiciones y, si pasan, se genera un{" "}
+   591→          <Mono>execution_id</Mono> que evita el doble disparo. Las acciones
+   592→          sensibles van a cola de aprobación humana; las no sensibles se
+   593→          ejecutan y se registran en el historial. El anti-bucle aborta si
+   594→          detecta ciclos.
+   595→        </Lead>
+   596→        <Mermaid chart={AUTOMATION_CHART} />
+   597→      </div>
+   598→
+   599→      {/* Componentes del motor */}
+   600→      <div className="mb-12">
+   601→        <H3 className="mb-3">Componentes del motor</H3>
+   602→        <Lead className="mb-4">
+   603→          Cada componente está versionado y se puede testear de forma aislada.
+   604→          Las reglas publicadas son inmutables; cualquier cambio pasa por draft
+   605→          → simulación → publish.
+   606→        </Lead>
+   607→        <DataTable
+   608→          head={["Componente", "Descripción", "Notas"]}
+   609→          rows={COMPONENTE_ROWS.map((r) => [
+   610→            <span key={`comp-${r.id}-c`} className="font-mono text-[13px] rp-gold-text">
+   611→              {r.componente}
+   612→            </span>,
+   613→            <span key={`comp-${r.id}-d`} className="text-foreground/80">
+   614→              {r.descripcion}
+   615→            </span>,
+   616→            <span key={`comp-${r.id}-n`} className="text-muted-foreground">
+   617→              {r.notas}
+   618→            </span>,
+   619→          ])}
+   620→        />
+   621→      </div>
+   622→
+   623→      {/* Ejemplos de automatizaciones */}
+   624→      <div className="mb-12">
+   625→        <GlassCard variant="gold">
+   626→          <H3>Ejemplos de automatizaciones</H3>
+   627→          <Lead className="mt-2">
+   628→            Recetas listas para parametrizar. Cada una declara trigger,
+   629→            condición, acción, sensibilidad y canal; las marcadas como sensibles
+   630→            requieren aprobación humana explícita.
+   631→          </Lead>
+   632→          <div className="mt-5">
+   633→            <GoldList
+   634→              items={[
+   635→                <span key="ex-noshow">
+   636→                  Si cliente acumula <span className="text-foreground">2 No
+   637→                  Shows</span> → marcar como riesgo (CRM tag).
+   638→                </span>,
+   639→                <span key="ex-bday">
+   640→                  Si es cumpleaños del cliente → enviar cupón (Marketing) con
+   641→                  consentimiento GDPR.
+   642→                </span>,
+   643→                <span key="ex-vip">
+   644→                  Si se reserva mesa VIP → avisar al encargado (Notification) en
+   645→                  tiempo real.
+   646→                </span>,
+   647→                <span key="ex-neg">
+   648→                  Si llega reseña negativa → crear incidencia (Super Admin) +
+   649→                  sugerir respuesta (IA), con aprobación antes de publicar.
+   650→                </span>,
+   651→                <span key="ex-occ">
+   652→                  Si ocupación prevista <span className="text-foreground">&gt;
+   653→                  85%</span> → recomendar personal (IA, aprobación).
+   654→                </span>,
+   655→                <span key="ex-react">
+   656→                  Si cliente no visitó en <span className="text-foreground">90
+   657→                  días</span> → campaña de reactivación (Marketing,
+   658→                  consentimiento).
+   659→                </span>,
+   660→              ]}
+   661→            />
+   662→          </div>
+   663→        </GlassCard>
+   664→      </div>
+   665→
+   666→      {/* Callout sensible */}
+   667→      <Callout kind="warn" title="Lo sensible siempre requiere humano">
+   668→        Las acciones que afectan <span className="text-foreground">pricing</span>,
+   669→        campañas públicas, respuestas a reseñas, eliminación de datos o
+   670→        ejecución de pagos <span className="text-foreground">NUNCA</span> se
+   671→        ejecutan sin aprobación humana explícita, aunque la IA las proponga. La
+   672→        aprobación queda en cola, se audita y se notifica al actor; el rechazo
+   673→        se registra con motivo.
+   674→      </Callout>
+   675→    </Section>
+   676→  );
+   677→}
+   678→
+   679→/* ============================================================ */
+   680→/* 09 — INTEGRACIONES Y WEBHOOKS                                */
+   681→/* ============================================================ */
+   682→type ProviderRow = {
+   683→  id: string;
+   684→  proveedor: string;
+   685→  capacidades: string;
+   686→  auth: string;
+   687→};
+   688→
+   689→const PROVIDER_ROWS: ProviderRow[] = [
+   690→  { id: "stripe", proveedor: "Stripe", capacidades: "suscripciones, facturas, cobros", auth: "OAuth + API keys" },
+   691→  { id: "wa", proveedor: "WhatsApp Cloud", capacidades: "plantillas, mensajes, sesión", auth: "API token + verify" },
+   692→  { id: "gbp", proveedor: "Google Business Profile", capacidades: "reseñas, respuestas, local", auth: "OAuth scopes" },
+   693→  { id: "gcal", proveedor: "Google Calendar", capacidades: "sincronización de reservas", auth: "OAuth" },
+   694→  { id: "gmaps", proveedor: "Google Maps", capacidades: "geocoding, place", auth: "API key" },
+   695→  { id: "meta", proveedor: "Meta / Instagram", capacidades: "contenido, mensajes (futuro)", auth: "OAuth" },
+   696→  { id: "tiktok", proveedor: "TikTok", capacidades: "contenido (futuro)", auth: "OAuth" },
+   697→  { id: "tg", proveedor: "Telegram", capacidades: "notificaciones bot", auth: "bot token" },
+   698→  { id: "slack", proveedor: "Slack", capacidades: "alertas internas", auth: "OAuth/bot" },
+   699→  { id: "discord", proveedor: "Discord", capacidades: "alertas internas", auth: "bot" },
+   700→  { id: "zapier", proveedor: "Zapier / Make", capacidades: "genérico via webhooks", auth: "API key" },
+   701→  { id: "mail", proveedor: "Mailchimp / Brevo", capacidades: "email marketing", auth: "API key" },
+   702→  { id: "resend", proveedor: "Resend", capacidades: "email transaccional", auth: "API key" },
+   703→];
+   704→
+   705→const ADAPTER_INTERFACE = `interface IntegrationAdapter {
+   706→  readonly provider: string;
+   707→  readonly capabilities: readonly IntegrationCapability[];
+   708→  connect(ctx: OrgContext, credentials: Credentials): Promise<Connection>;
+   709→  refresh(connection: Connection): Promise<Connection>;
+   710→  disconnect(connection: Connection): Promise<void>;
+   711→  health(connection: Connection): Promise<HealthStatus>;
+   712→  call(connection: Connection, op: string, input: unknown): Promise<AdapterResult>;
+   713→  handleWebhook(raw: WebhookRequest, verify: VerifyFn): Promise<WebhookEvent>;
+   714→}`;
+   715→
+   716→export function Fase2Integraciones() {
+   717→  return (
+   718→    <Section
+   719→      id="f2-integraciones"
+   720→      index="09"
+   721→      eyebrow="Integraciones y webhooks"
+   722→      title="Capa común de adaptadores sin ocultar capacidades específicas."
+   723→      intro={
+   724→        <>
+   725→          Una capa común normaliza el ciclo de vida de Stripe, WhatsApp, Google
+   726→          (Calendar, Business Profile, Maps), Meta, Instagram, TikTok, Telegram,
+   727→          Slack, Discord, Zapier, Make, Mailchimp, Brevo y Resend. Todas
+   728→          comparten estado de conexión, credenciales cifradas, OAuth, rotación y
+   729→          revocación de tokens, scopes mínimos, logs sanitizados, webhooks
+   730→          firmados, reintentos, rate limiting, health, sincronización
+   731→          incremental, dedup, manejo de errores, DLQ, reconexión, auditoría y
+   732→          límites por plan.
+   733→        </>
+   734→      }
+   735→    >
+   736→      {/* Proveedores y capacidades */}
+   737→      <div className="mb-12">
+   738→        <H3 className="mb-3">Proveedores y capacidades</H3>
+   739→        <Lead className="mb-4">
+   740→          Cada adaptador expone sus operaciones propias sin perder features. La
+   741→          columna <span className="text-foreground">Auth</span> indica el
+   742→          mecanismo canónico de conexión; los marcados como{" "}
+   743→          <span className="text-foreground">futuro</span> se planifican pero no
+   744→          bloquean el lanzamiento.
+   745→        </Lead>
+   746→        <DataTable
+   747→          head={["Proveedor", "Capacidades expuestas", "Auth"]}
+   748→          rows={PROVIDER_ROWS.map((r) => [
+   749→            <span key={`prov-${r.id}-p`} className="font-mono text-[13px] rp-gold-text">
+   750→              {r.proveedor}
+   751→            </span>,
+   752→            <span key={`prov-${r.id}-c`} className="text-foreground/80">
+   753→              {r.capacidades}
+   754→            </span>,
+   755→            <span key={`prov-${r.id}-a`} className="text-muted-foreground">
+   756→              {r.auth}
+   757→            </span>,
+   758→          ])}
+   759→        />
+   760→      </div>
+   761→
+   762→      {/* Interfaz común */}
+   763→      <div className="mb-12">
+   764→        <GlassCard variant="gold">
+   765→          <H3>Interfaz común de adaptador</H3>
+   766→          <Lead className="mt-2">
+   767→            Todos los adaptadores implementan este contrato. <Mono>op</Mono> es
+   768→            un <span className="text-foreground">string tipado por proveedor</span>:
+   769→            normaliza el ciclo de vida (connect, refresh, health, call, webhook)
+   770→            sin forzar un modelo mínimo que pierda features propias.
+   771→          </Lead>
+   772→          <div className="mt-5">
+   773→            <Code lang="typescript">{ADAPTER_INTERFACE}</Code>
+   774→          </div>
+   775→        </GlassCard>
+   776→      </div>
+   777→
+   778→      {/* Compartido por todas las integraciones */}
+   779→      <div className="mb-12">
+   780→        <GlassCard>
+   781→          <H3>Compartido por todas las integraciones</H3>
+   782→          <Lead className="mt-2">
+   783→            Estas garantías son cross-provider. No se publica un adaptador sin
+   784→            cumplirlas; el contrato común las exige por composición, no por
+   785→            herencia frágil.
+   786→          </Lead>
+   787→          <div className="mt-5">
+   788→            <GoldList
+   789→              items={[
+   790→                <span key="s-state">
+   791→                  Estado de conexión por org; <Mono>connection</Mono> persistida
+   792→                  con status y metadata.
+   793→                </span>,
+   794→                <span key="s-cred">
+   795→                  Credenciales cifradas en reposo (R2/KV secrets); nunca en D1
+   796→                  en claro ni en logs.
+   797→                </span>,
+   798→                <span key="s-oauth">
+   799→                  OAuth con scopes mínimos; revisión periódica de permisos
+   800→                  concedidos.
+   801→                </span>,
+   802→                <span key="s-rot">
+   803→                  Rotación y revocación de tokens; revocación inmediata por
+   804→                  incidente.
+   805→                </span>,
+   806→                <span key="s-log">
+   807→                  Logs sanitizados: sin secretos, sin PII, con redacción por
+   808→                  allowlist.
+   809→                </span>,
+   810→                <span key="s-wh">
+   811→                  Webhooks firmados (HMAC + timestamp anti replay con ventana
+   812→                  de 5 min).
+   813→                </span>,
+   814→                <span key="s-retry">
+   815→                  Reintentos con backoff exponencial y jitter; sin retry
+   816→                  infinito.
+   817→                </span>,
+   818→                <span key="s-rl">
+   819→                  Rate limiting por proveedor y por org; 429 respetado y
+   820→                  propagado.
+   821→                </span>,
+   822→                <span key="s-health">
+   823→                  Health status y reconexión automática con circuit breaker.
+   824→                </span>,
+   825→                <span key="s-sync">
+   826→                  Sincronización incremental con cursor; no full pull salvo
+   827→                  repara.
+   828→                </span>,
+   829→                <span key="s-dedup">
+   830→                  Deduplicación por id externo; idempotencia por evento.
+   831→                </span>,
+   832→                <span key="s-dlq">
+   833→                  DLQ para fallos persistentes; reproceso manual auditado.
+   834→                </span>,
+   835→                <span key="s-aud">
+   836→                  Auditoría de cada operación (provider, op, actor, correlation_id).
+   837→                </span>,
+   838→                <span key="s-plan">
+   839→                  Límites por plan: integraciones activas, llamadas/mes,
+   840→                  webhooks/mes.
+   841→                </span>,
+   842→              ]}
+   843→            />
+   844→          </div>
+   845→        </GlassCard>
+   846→      </div>
+   847→
+   848→      {/* Callout info */}
+   849→      <Callout kind="info" title="No ocultar capacidades específicas">
+   850→        La interfaz común normaliza el ciclo de vida, pero cada adaptador
+   851→        expone sus operaciones propias (<Mono>op: string</Mono> tipado por
+   852→        proveedor). No se fuerza un modelo mínimo que pierda features; se
+   853→        expone lo común y se tipa lo específico. Esto evita el anti-patrón de
+   854→        adaptador genérico que pierde features del proveedor tras una abstracción
+   855→        prematura.
+   856→      </Callout>
+   857→    </Section>
+   858→  );
+   859→}
+   860→
+   861→/* ============================================================ */
+   862→/* 10 — API PÚBLICA                                             */
+   863→/* ============================================================ */
+   864→type ApiRow = {
+   865→  id: string;
+   866→  caracteristica: string;
+   867→  impl: string;
+   868→};
+   869→
+   870→const API_ROWS: ApiRow[] = [
+   871→  { id: "ver", caracteristica: "Versionado", impl: "/v1 explícito; política de compatibilidad y deprecación con ventana" },
+   872→  { id: "openapi", caracteristica: "OpenAPI", impl: "spec generada desde contratos Zod; portal dev con try-it" },
+   873→  { id: "auth", caracteristica: "Autenticación", impl: "API keys scoped (read/write/admin/webhooks) + Bearer" },
+   874→  { id: "env", caracteristica: "Entornos", impl: "test (sandbox) y production por org" },
+   875→  { id: "perm", caracteristica: "Permisos", impl: "scopes granulares por recurso/acción" },
+   876→  { id: "meta", caracteristica: "Metadatos de key", impl: "creada, último uso, caducidad, IP allowlist" },
+   877→  { id: "rot", caracteristica: "Rotación/Revocación", impl: "rotación sin downtime; revocación inmediata" },
+   878→  { id: "rl", caracteristica: "Rate limiting", impl: "por key y por org; 429 con Retry-After" },
+   879→  { id: "idem", caracteristica: "Idempotencia", impl: "header Idempotency-Key; dedup por (key, idem) 24h" },
+   880→  { id: "page", caracteristica: "Paginación", impl: "cursor-based; límites por plan" },
+   881→  { id: "filt", caracteristica: "Filtros", impl: "query params tipados; validación Zod" },
+   882→  { id: "err", caracteristica: "Errores", impl: "formato normalizado {error: {code, message, details, request_id}}" },
+   883→  { id: "wh", caracteristica: "Webhooks", impl: "salientes firmados (HMAC + timestamp); reintentos; DLQ; selector de eventos" },
+   884→  { id: "sdk", caracteristica: "SDKs", impl: "futuros (TS, Python); generados desde OpenAPI" },
+   885→  { id: "portal", caracteristica: "Portal dev", impl: "docs, spec, try-it, logs de key, gestión de webhooks" },
+   886→];
+   887→
+   888→const ERROR_RESPONSE = `{
+   889→  "error": {
+   890→    "code": "reservation_conflict",
+   891→    "message": "El horario solicitado no está disponible.",
+   892→    "details": { "location_id": "01HZLOC...", "time": "2025-01-21T21:30:00Z" },
+   893→    "request_id": "req_01HZ..."
+   894→  }
+   895→}`;
+   896→
+   897→export function Fase2API() {
+   898→  return (
+   899→    <Section
+   900→      id="f2-api"
+   901→      index="10"
+   902→      eyebrow="API pública"
+   903→      title="/v1, OpenAPI, idempotencia, webhooks firmados y portal para desarrolladores."
+   904→      intro={
+   905→        <>
+   906→          Cada organización puede crear API keys para read, write, limited
+   907→          admin y webhook management, con entornos test y production. Las keys
+   908→          tienen permisos/scopes granulares, fecha de creación, último uso,
+   909→          caducidad, rotación, revocación, IP allowlist opcional, rate limits y
+   910→          log de actividad. La spec OpenAPI se genera desde los mismos contratos
+   911→          Zod que validan la entrada, evitando drift entre docs y runtime.
+   912→        </>
+   913→      }
+   914→    >
+   915→      {/* Características */}
+   916→      <div className="mb-12">
+   917→        <H3 className="mb-3">Características de la API pública</H3>
+   918→        <Lead className="mb-4">
+   919→          La API pública es un producto, no un subproducto. Cada característica
+   920→          está respaldada por tooling y por docs vivos; el portal dev permite
+   921→          probar endpoints sin abandonar la plataforma.
+   922→        </Lead>
+   923→        <DataTable
+   924→          head={["Característica", "Implementación"]}
+   925→          rows={API_ROWS.map((r) => [
+   926→            <span key={`api-${r.id}-c`} className="font-mono text-[13px] rp-gold-text">
+   927→              {r.caracteristica}
+   928→            </span>,
+   929→            <span key={`api-${r.id}-i`} className="text-foreground/80">
+   930→              {r.impl}
+   931→            </span>,
+   932→          ])}
+   933→        />
+   934→      </div>
+   935→
+   936→      {/* Errores normalizados */}
+   937→      <div className="mb-12">
+   938→        <H3 className="mb-3">Errores normalizados</H3>
+   939→        <Lead className="mb-4">
+   940→          Todo error sigue el mismo formato: <Mono>code</Mono> estable y
+   941→          versionado, <Mono>message</Mono> localizable, <Mono>details</Mono>{" "}
+   942→          opcional con contexto útil y <Mono>request_id</Mono> para soporte y
+   943→          trazabilidad. No se exponen stack traces ni internos.
+   944→        </Lead>
+   945→        <Code lang="json">{ERROR_RESPONSE}</Code>
+   946→      </div>
+   947→
+   948→      {/* Webhooks salientes */}
+   949→      <div className="mb-12">
+   950→        <GlassCard variant="gold">
+   951→          <H3>Webhooks salientes</H3>
+   952→          <Lead className="mt-2">
+   953→            La API pública no sólo recibe: también emite. Los webhooks salientes
+   954→            son entregables, firmados y reintentables; el receptor debe ser
+   955→            idempotente porque entregamos al menos una vez.
+   956→          </Lead>
+   957→          <div className="mt-5">
+   958→            <GoldList
+   959→              items={[
+   960→                <span key="w-hmac">
+   961→                  Firma <Mono>HMAC-SHA256</Mono> con secreto rotativo por org.
+   962→                </span>,
+   963→                <span key="w-headers">
+   964→                  Headers <Mono>X-Restopanel-Signature</Mono> y{" "}
+   965→                  <Mono>X-Restopanel-Timestamp</Mono>.
+   966→                </span>,
+   967→                <span key="w-replay">
+   968→                  Ventana anti replay de <span className="text-foreground">5
+   969→                  min</span>; fuera de ventana → 401 al receptor.
+   970→                </span>,
+   971→                <span key="w-backoff">
+   972→                  Reintentos con backoff exponencial y jitter; sin reintentar
+   973→                  4xx definitivos.
+   974→                </span>,
+   975→                <span key="w-alo">
+   976→                  Entrega <span className="text-foreground">at-least-once</span>;
+   977→                  el receptor implementa idempotencia por{" "}
+   978→                  <Mono>event_id</Mono>.
+   979→                </span>,
+   980→                <span key="w-reg">
+   981→                  Registro completo en <Mono>webhook_deliveries</Mono>{" "}
+   982→                  (status, latency, response, attempts).
+   983→                </span>,
+   984→                <span key="w-kill">
+   985→                  Pausa / kill switch por org sin afectar a otras.
+   986→                </span>,
+   987→                <span key="w-sel">
+   988→                  Eventos seleccionables por suscriptor; scope estricto por org.
+   989→                </span>,
+   990→              ]}
+   991→            />
+   992→          </div>
+   993→        </GlassCard>
+   994→      </div>
+   995→
+   996→      {/* Callout compatibilidad */}
+   997→      <Callout kind="ok" title="Compatibilidad y deprecación">
+   998→        Los cambios breaking requieren bump de versión (<Mono>/v2</Mono>) con
+   999→        ventana de coexistencia mínima de <span className="text-foreground">6–12
+  1000→        meses</span>. Los cambios no-breaking sólo añaden campos opcionales;
+  1001→        nunca eliminan ni renombran campos existentes en la misma versión. Las
+  1002→        deprecaciones se anuncian en el portal dev y por header{" "}
+  1003→        <Mono>Deprecation</Mono> con fecha de sunset.
+  1004→      </Callout>
+  1005→    </Section>
+  1006→  );
+  1007→}
+  1008→

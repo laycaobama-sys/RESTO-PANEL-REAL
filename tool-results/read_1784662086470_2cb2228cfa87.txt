@@ -1,0 +1,965 @@
+     1→import * as React from "react";
+     2→import {
+     3→  Section,
+     4→  GlassCard,
+     5→  Risk,
+     6→  Pill,
+     7→  H3,
+     8→  Lead,
+     9→  DataTable,
+    10→  GoldList,
+    11→  Callout,
+    12→  Code,
+    13→} from "@/components/rp/primitives";
+    14→import { Mermaid } from "@/components/rp/mermaid";
+    15→
+    16→/* ============================================================ */
+    17→/*  Helper: texto monoespaciado dorado                          */
+    18→/* ============================================================ */
+    19→function Mono({ children }: { children: React.ReactNode }) {
+    20→  return (
+    21→    <code className="font-mono text-[12px] rp-gold-text whitespace-nowrap">
+    22→      {children}
+    23→    </code>
+    24→  );
+    25→}
+    26→
+    27→/* ============================================================ */
+    28→/*  01 — RESUMEN Y DECISIONES PRINCIPALES                        */
+    29→/* ============================================================ */
+    30→type Decision = {
+    31→  id: string;
+    32→  decision: string;
+    33→  recomendacion: string;
+    34→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+    35→  revisar: string;
+    36→};
+    37→
+    38→const DECISIONES: Decision[] = [
+    39→  {
+    40→    id: "dec-estilo",
+    41→    decision: "Estilo arquitectónico",
+    42→    recomendacion: "Monolito modular orientado a dominios",
+    43→    riesgo: "medio",
+    44→    revisar: "Cuello de escala medido o equipo > 3 squads",
+    45→  },
+    46→  {
+    47→    id: "dec-comm",
+    48→    decision: "Comunicación entre dominios",
+    49→    recomendacion: "Síncrona vía interfaces + asíncrona vía eventos tipados",
+    50→    riesgo: "bajo",
+    51→    revisar: "Latencia cross-dominio > objetivo",
+    52→  },
+    53→  {
+    54→    id: "dec-datos",
+    55→    decision: "Propiedad de datos",
+    56→    recomendacion: "Lógica por dominio; BD física compartida en MVP",
+    57→    riesgo: "medio",
+    58→    revisar: "Un dominio supere cuotas de carga/aislamiento",
+    59→  },
+    60→  {
+    61→    id: "dec-consistencia",
+    62→    decision: "Consistencia",
+    63→    recomendacion: "Outbox transaccional + idempotencia en consumidores",
+    64→    riesgo: "medio",
+    65→    revisar: "Volumen de eventos > umbral",
+    66→  },
+    67→  {
+    68→    id: "dec-extraccion",
+    69→    decision: "Extracción a microservicio",
+    70→    recomendacion: "Solo con ADR + cuello medido + equipo suficiente",
+    71→    riesgo: "alto",
+    72→    revisar: "Cada nuevo caso de extracción",
+    73→  },
+    74→  {
+    75→    id: "dec-ia",
+    76→    decision: "IA",
+    77→    recomendacion: "Asistentes especializados por dominio; aprobación humana lo sensible",
+    78→    riesgo: "medio",
+    79→    revisar: "Cambio de proveedor o coste",
+    80→  },
+    81→  {
+    82→    id: "dec-api",
+    83→    decision: "API pública",
+    84→    recomendacion: "/v1, OpenAPI, idempotencia, webhooks firmados",
+    85→    riesgo: "bajo",
+    86→    revisar: "Primer partner externo",
+    87→  },
+    88→];
+    89→
+    90→export function Fase2Resumen() {
+    91→  return (
+    92→    <Section
+    93→      id="f2-resumen"
+    94→      index="01"
+    95→      eyebrow="Resumen y decisiones principales"
+    96→      title="Un núcleo pragmático, orientado a dominios, listo para evolucionar."
+    97→      intro={
+    98→        <>
+    99→          Fase 1.2 diseña el <strong className="text-foreground">Core Platform</strong> de RestoPanel: la
+   100→          fundación de la que dependen todos los módulos. Pragmático: monolito modular primero; la
+   101→          extracción a servicios solo cuando lo justifiquen cuellos medidos, tamaño de equipo o
+   102→          necesidades de aislamiento operativo.
+   103→        </>
+   104→      }
+   105→    >
+   106→      {/* Tesis */}
+   107→      <GlassCard variant="gold" className="mb-10">
+   108→        <div className="flex items-center gap-3 mb-3">
+   109→          <span className="font-mono text-xs uppercase tracking-[0.2em] rp-gold-text">Tesis</span>
+   110→          <span className="h-px flex-1 bg-[var(--gold)]/30" />
+   111→        </div>
+   112→        <p className="text-base sm:text-lg leading-relaxed text-foreground/90">
+   113→          El núcleo debe garantizar <strong className="text-foreground">aislamiento multiempresa</strong>,
+   114→          <strong className="text-foreground"> seguridad por defecto</strong>,
+   115→          <strong className="text-foreground"> modularidad de dominio</strong>,
+   116→          <strong className="text-foreground"> bajo acoplamiento</strong>,
+   117→          <strong className="text-foreground"> escalabilidad horizontal</strong>,
+   118→          <strong className="text-foreground"> trazabilidad completa</strong>,
+   119→          <strong className="text-foreground"> extensibilidad vía eventos, automatizaciones e integraciones</strong>,
+   120→          <strong className="text-foreground"> compatibilidad con planes y límites</strong>, y
+   121→          <strong className="text-foreground"> migración progresiva</strong> de monolito modular a servicios
+   122→          independientes cuando esté justificado.
+   123→        </p>
+   124→      </GlassCard>
+   125→
+   126→      {/* Qué entrega / Qué no hace */}
+   127→      <div className="grid lg:grid-cols-2 gap-5 mb-10">
+   128→        <GlassCard>
+   129→          <div className="flex items-center gap-2 mb-4">
+   130→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
+   131→            <H3>Qué entrega la Fase 1.2</H3>
+   132→          </div>
+   133→          <GoldList
+   134→            items={[
+   135→              "14 dominios con ownership y límites",
+   136→              "Mapa de dominios + matriz de dependencias",
+   137→              "Sistema de eventos con outbox transaccional",
+   138→              "Motor de automatizaciones trigger → acción",
+   139→              "Capa común de integraciones",
+   140→              "API pública versionada",
+   141→              "RBAC + ABAC y auditoría inmutable",
+   142→              "Centro de notificaciones e IA",
+   143→              "Analítica por eventos",
+   144→              "Modelo de datos ER",
+   145→              "Contratos TypeScript",
+   146→              "10 ADRs",
+   147→              "Roadmap por iteraciones",
+   148→            ]}
+   149→          />
+   150→        </GlassCard>
+   151→
+   152→        <GlassCard>
+   153→          <div className="flex items-center gap-2 mb-4">
+   154→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]" />
+   155→            <H3>Qué NO hace</H3>
+   156→          </div>
+   157→          <GoldList
+   158→            items={[
+   159→              "No implementa todos los módulos completos",
+   160→              "No crea microservicios sin justificación medida",
+   161→              "No asume base de datos física por dominio en el MVP",
+   162→              "No permite acceso directo a tablas ajenas",
+   163→              "No deja que la IA ejecute acciones sensibles sin aprobación humana",
+   164→              "No acopla dominios vía shared state",
+   165→            ]}
+   166→          />
+   167→        </GlassCard>
+   168→      </div>
+   169→
+   170→      {/* Decisiones principales */}
+   171→      <div className="mb-6 flex items-center gap-3">
+   172→        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+   173→          Decisiones principales
+   174→        </span>
+   175→        <span className="h-px flex-1 bg-border/60" />
+   176→      </div>
+   177→      <DataTable
+   178→        head={["Decisión", "Recomendación", "Riesgo", "Revisar cuando"]}
+   179→        rows={DECISIONES.map((d) => [
+   180→          <span key={`${d.id}-dec`} className="font-medium text-foreground">
+   181→            {d.decision}
+   182→          </span>,
+   183→          <span key={`${d.id}-rec`}>{d.recomendacion}</span>,
+   184→          <Risk key={`${d.id}-risk`} level={d.riesgo} />,
+   185→          <span key={`${d.id}-rev`} className="text-muted-foreground text-xs">
+   186→            {d.revisar}
+   187→          </span>,
+   188→        ])}
+   189→      />
+   190→
+   191→      <div className="mt-8">
+   192→        <Callout id="ADR-001" kind="adr" title="Monolito modular primero">
+   193→          Se arranca con un <strong className="text-foreground">monolito modular orientado a dominios</strong>:
+   194→          un único desplegable con múltiples módulos de dominio y fronteras estrictas. La extracción a
+   195→          microservicios solo se considera con un ADR que justifique un cuello de botella medido, equipo
+   196→          suficiente y un caso de aislamiento operativo real.
+   197→          <div className="mt-3 grid sm:grid-cols-2 gap-3">
+   198→            <div>
+   199→              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   200→                Coste
+   201→              </div>
+   202→              <div className="text-sm text-foreground/85">
+   203→                Disciplina de contratos, prohibición de importar <Mono>infrastructure</Mono> ajeno y
+   204→                validación en CI.
+   205→              </div>
+   206→            </div>
+   207→            <div>
+   208→              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   209→                Beneficio
+   210→              </div>
+   211→              <div className="text-sm text-foreground/85">
+   212→                Velocidad de entrega inicial + camino de extracción futura definido y reversible.
+   213→              </div>
+   214→            </div>
+   215→          </div>
+   216→        </Callout>
+   217→      </div>
+   218→    </Section>
+   219→  );
+   220→}
+   221→
+   222→/* ============================================================ */
+   223→/*  02 — CONTEXTO Y CONTENEDORES                                */
+   224→/* ============================================================ */
+   225→const CONTEXT_CHART = `flowchart TB
+   226→  subgraph Usuarios["Usuarios"]
+   227→    OWNER["Owner / Manager"]
+   228→    STAFF["Recepción / Sala / Cocina"]
+   229→    CLIENTE["Cliente final (widget)"]
+   230→    PLATFORM["Super Admin / Soporte"]
+   231→  end
+   232→  subgraph Core["RestoPanel Core Platform"]
+   233→    APIGW["API Gateway (Workers)"]
+   234→    DOM["Dominios (Identity, Reservations, CRM, ...)"]
+   235→    EVT["Eventos + Outbox + Queues"]
+   236→    AUTO["Motor de automatizaciones"]
+   237→    INT["Capa de integraciones"]
+   238→    NOTIF["Centro de notificaciones"]
+   239→    AI["Centro de IA"]
+   240→    ANA["Analítica"]
+   241→  end
+   242→  subgraph Externos["Sistemas externos"]
+   243→    STRIPE["Stripe"]
+   244→    WA["WhatsApp Cloud"]
+   245→    GOOGLE["Google (GBP/Maps/Calendar)"]
+   246→    RESEND["Resend (email)"]
+   247→    META["Meta / Instagram"]
+   248→  end
+   249→  OWNER --> APIGW
+   250→  STAFF --> APIGW
+   251→  CLIENTE --> APIGW
+   252→  PLATFORM --> APIGW
+   253→  APIGW --> DOM
+   254→  DOM --> EVT
+   255→  EVT --> AUTO
+   256→  EVT --> ANA
+   257→  EVT --> NOTIF
+   258→  DOM --> AI
+   259→  DOM --> INT
+   260→  INT <--> STRIPE
+   261→  INT <--> WA
+   262→  INT <--> GOOGLE
+   263→  INT <--> RESEND
+   264→  INT <--> META`;
+   265→
+   266→const CONTAINER_CHART = `flowchart LR
+   267→  subgraph Apps["Apps"]
+   268→    A1[dashboard]
+   269→    A2[booking widget]
+   270→    A3[super-admin]
+   271→    A4[landing/docs/status]
+   272→  end
+   273→  subgraph CorePlatform["Core Platform (Workers)"]
+   274→    API[API + Auth + Tenant + RBAC]
+   275→    DOMS["Dominios de negocio"]
+   276→    EVS["Event bus (outbox + queues)"]
+   277→  end
+   278→  subgraph Datos["Persistencia"]
+   279→    D1[(D1 shard)]
+   280→    D2[(R2)]
+   281→    D3[(KV)]
+   282→    D4[(DO)]
+   283→  end
+   284→  Apps --> API
+   285→  API --> DOMS
+   286→  DOMS --> EVS
+   287→  DOMS --> D1
+   288→  DOMS --> D2
+   289→  API --> D3
+   290→  DOMS --> D4`;
+   291→
+   292→export function Fase2Contexto() {
+   293→  return (
+   294→    <Section
+   295→      id="f2-contexto"
+   296→      index="02"
+   297→      eyebrow="Diagrama de contexto y contenedores"
+   298→      title="Contexto y contenedores: quién interactúa con el núcleo."
+   299→      intro={
+   300→        <>
+   301→          Vista C4 de nivel 1 (contexto) y nivel 2 (contenedores). Cuatro tipos de usuarios, una
+   302→          plataforma central desplegada en Workers y cinco familias de proveedores externos. Toda
+   303→          interacción pasa por el API Gateway; ningún dominio contacta proveedores externos directamente.
+   304→        </>
+   305→      }
+   306→    >
+   307→      <div className="mb-6 flex items-center gap-3">
+   308→        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+   309→          Nivel 1 · Contexto
+   310→        </span>
+   311→        <span className="h-px flex-1 bg-border/60" />
+   312→      </div>
+   313→      <Mermaid chart={CONTEXT_CHART} className="mb-10" />
+   314→
+   315→      <div className="mb-6 flex items-center gap-3">
+   316→        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+   317→          Nivel 2 · Contenedores
+   318→        </span>
+   319→        <span className="h-px flex-1 bg-border/60" />
+   320→      </div>
+   321→      <Mermaid chart={CONTAINER_CHART} className="mb-10" />
+   322→
+   323→      <GlassCard variant="gold">
+   324→        <div className="flex items-center gap-2 mb-4">
+   325→          <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
+   326→          <H3>Leyenda</H3>
+   327→        </div>
+   328→        <GoldList
+   329→          items={[
+   330→            "Los usuarios interactúan solo vía API Gateway con Auth + Tenant + RBAC; no existen vías alternativas a los dominios.",
+   331→            "Los dominios nunca se llaman por tablas ajenas, solo vía contratos (interfaces) o eventos (async).",
+   332→            "La capa de integraciones aísla a los proveedores externos (Stripe, WhatsApp, Google, Resend, Meta); el resto del sistema no conoce sus SDKs.",
+   333→            "La analítica y las automatizaciones consumen eventos, no consultan dominios directamente.",
+   334→          ]}
+   335→        />
+   336→      </GlassCard>
+   337→    </Section>
+   338→  );
+   339→}
+   340→
+   341→/* ============================================================ */
+   342→/*  03 — MAPA DE DOMINIOS                                        */
+   343→/* ============================================================ */
+   344→type Domain = {
+   345→  id: string;
+   346→  name: string;
+   347→  purpose: string;
+   348→  responsibilities: string[];
+   349→  events: string[];
+   350→  persists: string;
+   351→};
+   352→
+   353→const DOMAINS: Domain[] = [
+   354→  {
+   355→    id: "identity",
+   356→    name: "Identity",
+   357→    purpose: "Autenticación, sesiones y dispositivos de usuario.",
+   358→    responsibilities: [
+   359→      "Alta/baja de usuarios y credenciales",
+   360→      "Sesiones, MFA y passkeys",
+   361→      "Gestión de dispositivos confiables",
+   362→      "Revocación de sesión",
+   363→    ],
+   364→    events: ["UserCreated", "SessionRevoked", "MfaEnrolled"],
+   365→    persists: "users, sessions, identities, devices",
+   366→  },
+   367→  {
+   368→    id: "organizations",
+   369→    name: "Organizations",
+   370→    purpose: "Organizaciones, locales, membresía y routing de tenant.",
+   371→    responsibilities: [
+   372→      "Multi-local y membresía",
+   373→      "Routing por organización/local",
+   374→      "Ciclo de vida de organización",
+   375→      "Resolución de tenant (servidor)",
+   376→    ],
+   377→    events: ["OrganizationCreated", "LocationAdded", "MemberAdded"],
+   378→    persists: "organizations, locations, organization_members",
+   379→  },
+   380→  {
+   381→    id: "billing",
+   382→    name: "Billing",
+   383→    purpose: "Planes, suscripciones, facturas y uso medido.",
+   384→    responsibilities: [
+   385→      "Activación y renovación de suscripción",
+   386→      "Entitlements y límites por plan",
+   387→      "Registro de uso medido",
+   388→      "Emisión de facturas",
+   389→    ],
+   390→    events: [
+   391→      "SubscriptionActivated",
+   392→      "SubscriptionRenewed",
+   393→      "PaymentSucceeded",
+   394→      "EntitlementExceeded",
+   395→    ],
+   396→    persists: "subscriptions, invoices, usage_records, entitlements",
+   397→  },
+   398→  {
+   399→    id: "reservations",
+   400→    name: "Reservations",
+   401→    purpose: "Reservas, disponibilidad, slots, lista de espera y no-show.",
+   402→    responsibilities: [
+   403→      "Creación y confirmación de reservas",
+   404→      "Slots y disponibilidad por mesa/zona",
+   405→      "Lista de espera y reasignación",
+   406→      "Detección de no-show",
+   407→    ],
+   408→    events: [
+   409→      "ReservationCreated",
+   410→      "ReservationConfirmed",
+   411→      "ReservationCancelled",
+   412→      "ReservationCheckedIn",
+   413→      "NoShowDetected",
+   414→    ],
+   415→    persists: "reservations, reservation_history, waitlist, reservation_slots",
+   416→  },
+   417→  {
+   418→    id: "crm",
+   419→    name: "CRM",
+   420→    purpose: "Clientes, preferencias, etiquetas, visitas y alergias.",
+   421→    responsibilities: [
+   422→      "Ficha única de cliente",
+   423→      "Preferencias, alergias y tags",
+   424→      "Historial de visitas",
+   425→      "Fusión de duplicados",
+   426→    ],
+   427→    events: ["CustomerCreated", "CustomerVisited", "CustomerTagged", "CustomerMerged"],
+   428→    persists: "customers, customer_preferences, customer_tags, customer_visits",
+   429→  },
+   430→  {
+   431→    id: "tables",
+   432→    name: "Tables",
+   433→    purpose: "Salas, zonas, mesas, grupos y ocupación.",
+   434→    responsibilities: [
+   435→      "Mapa de salas y zonas",
+   436→      "Mesas y grupos de mesas",
+   437→      "Ocupación y liberación",
+   438→      "Reubicación de mesas",
+   439→    ],
+   440→    events: ["TableOccupied", "TableReleased", "TableMoved", "FloorUpdated"],
+   441→    persists: "floors, zones, tables, table_groups",
+   442→  },
+   443→  {
+   444→    id: "staff",
+   445→    name: "Staff",
+   446→    purpose: "Empleados, turnos, horarios y asistencia.",
+   447→    responsibilities: [
+   448→      "Alta de empleados y roles de staff",
+   449→      "Turnos y horarios",
+   450→      "Check-in/out de personal",
+   451→      "Cálculo de horas",
+   452→    ],
+   453→    events: ["EmployeeCheckedIn", "ShiftAssigned", "ScheduleUpdated"],
+   454→    persists: "employees, schedules, shifts, attendance",
+   455→  },
+   456→  {
+   457→    id: "analytics",
+   458→    name: "Analytics",
+   459→    purpose: "Pipeline de eventos, agregados y exportaciones.",
+   460→    responsibilities: [
+   461→      "Ingesta de eventos del bus",
+   462→      "Agregados diarios/mensuales/anuales",
+   463→      "Exportaciones bajo demanda",
+   464→      "Recomputación de agregados",
+   465→    ],
+   466→    events: ["AggregateRecomputed", "ExportRequested"],
+   467→    persists: "analytics_events, analytics_daily/monthly/yearly",
+   468→  },
+   469→  {
+   470→    id: "reviews",
+   471→    name: "Reviews",
+   472→    purpose: "Reseñas públicas y de Google, respuestas y sentimiento.",
+   473→    responsibilities: [
+   474→      "Captura de reseñas externas",
+   475→      "Respuestas (con aprobación)",
+   476→      "Análisis de sentimiento",
+   477→      "Alertas de reputación",
+   478→    ],
+   479→    events: ["ReviewReceived", "ReviewReplied", "SentimentUpdated"],
+   480→    persists: "google_reviews, public_reviews, review_replies",
+   481→  },
+   482→  {
+   483→    id: "marketing",
+   484→    name: "Marketing",
+   485→    purpose: "Campañas, automatizaciones y plantillas.",
+   486→    responsibilities: [
+   487→      "Diseño de campañas",
+   488→      "Automatizaciones de marketing",
+   489→      "Plantillas aprobadas",
+   490→      "Cuotas y consentimiento",
+   491→    ],
+   492→    events: ["CampaignLaunched", "AutomationTriggered", "TemplateApproved"],
+   493→    persists: "campaigns, automations, templates",
+   494→  },
+   495→  {
+   496→    id: "ai",
+   497→    name: "AI",
+   498→    purpose: "Asistentes especializados, prompts, runs y evaluaciones.",
+   499→    responsibilities: [
+   500→      "Asistentes por dominio",
+   501→      "Gestión de prompts y runs",
+   502→      "Solicitudes de aprobación humana",
+   503→      "Fallbacks controlados",
+   504→    ],
+   505→    events: ["AiRunCompleted", "AiApprovalRequested", "AiFallbackUsed"],
+   506→    persists: "ai_requests, ai_predictions, ai_logs",
+   507→  },
+   508→  {
+   509→    id: "integrations",
+   510→    name: "Integrations",
+   511→    purpose: "Adaptadores, conexiones, webhooks y API keys.",
+   512→    responsibilities: [
+   513→      "Conexiones con proveedores externos",
+   514→      "Webhooks entrantes y salientes",
+   515→      "Almacenamiento seguro de API keys",
+   516→      "Reintentos y reenvíos",
+   517→    ],
+   518→    events: [
+   519→      "IntegrationConnected",
+   520→      "IntegrationDisconnected",
+   521→      "WebhookReceived",
+   522→      "WebhookDelivered",
+   523→    ],
+   524→    persists: "integrations, webhook_deliveries, api_keys",
+   525→  },
+   526→  {
+   527→    id: "notifications",
+   528→    name: "Notifications",
+   529→    purpose: "Email, WhatsApp, SMS, push e internas; plantillas y envíos.",
+   530→    responsibilities: [
+   531→      "Cola y entrega multi-canal",
+   532→      "Plantillas y consentimiento",
+   533→      "Logs de entrega y bounce",
+   534→      "Horario silencioso",
+   535→    ],
+   536→    events: ["MessageQueued", "MessageDelivered", "MessageFailed", "BounceDetected"],
+   537→    persists: "notifications, notification_logs, message_templates",
+   538→  },
+   539→  {
+   540→    id: "super-admin",
+   541→    name: "Super Admin",
+   542→    purpose: "Operación de plataforma, salud, impersonación e incidentes.",
+   543→    responsibilities: [
+   544→      "Métricas de plataforma",
+   545→      "Sesiones de impersonación",
+   546→      "Gestión de incidentes",
+   547→      "Kill switch global",
+   548→    ],
+   549→    events: [
+   550→      "ImpersonationStarted",
+   551→      "ImpersonationEnded",
+   552→      "IncidentOpened",
+   553→      "KillSwitchActivated",
+   554→    ],
+   555→    persists: "platform_metrics, impersonation_sessions, incidents",
+   556→  },
+   557→];
+   558→
+   559→export function Fase2Dominios() {
+   560→  return (
+   561→    <Section
+   562→      id="f2-dominios"
+   563→      index="03"
+   564→      eyebrow="Mapa de dominios"
+   565→      title="14 dominios con responsabilidad, límites y persistencia propia."
+   566→      intro={
+   567→        <>
+   568→          Cada dominio posee sus entidades, agregados, casos de uso, tablas de persistencia, eventos y
+   569→          permisos. La <strong className="text-foreground">propiedad de datos</strong> está separada
+   570→          lógicamente desde el día 1; la separación física llega solo con una extracción justificada.
+   571→        </>
+   572→      }
+   573→    >
+   574→      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+   575→        {DOMAINS.map((d, idx) => (
+   576→          <GlassCard key={d.id} className="flex flex-col">
+   577→            <div className="flex items-center justify-between gap-2 mb-2">
+   578→              <H3>{d.name}</H3>
+   579→              <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+   580→                {String(idx + 1).padStart(2, "0")}
+   581→              </span>
+   582→            </div>
+   583→            <p className="text-sm text-muted-foreground leading-relaxed mb-4">{d.purpose}</p>
+   584→
+   585→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+   586→              Responsabilidades
+   587→            </div>
+   588→            <GoldList items={d.responsibilities} className="mb-4" />
+   589→
+   590→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+   591→              Eventos publicados
+   592→            </div>
+   593→            <div className="flex flex-wrap gap-1.5 mb-4">
+   594→              {d.events.map((ev, i) => (
+   595→                <Pill key={`ev-${d.id}-${i}`} tone="teal">
+   596→                  {ev}
+   597→                </Pill>
+   598→              ))}
+   599→            </div>
+   600→
+   601→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+   602→              Persistencia
+   603→            </div>
+   604→            <div className="mt-auto">
+   605→              <Mono>{d.persists}</Mono>
+   606→            </div>
+   607→          </GlassCard>
+   608→        ))}
+   609→      </div>
+   610→
+   611→      <Callout kind="info" title="Propiedad de datos separada lógicamente">
+   612→        En el MVP <strong className="text-foreground">no hay base de datos física por dominio</strong>;
+   613→        todos los dominios comparten el mismo shard de D1 (fragmentado por organización). Pero cada
+   614→        dominio es dueño de sus tablas y ningún otro dominio las lee o escribe directamente. La
+   615→        extracción a una BD dedicada requiere un ADR y una justificación medida (cuota de carga, aislamiento
+   616→        operativo o límite de tamaños por tabla).
+   617→      </Callout>
+   618→    </Section>
+   619→  );
+   620→}
+   621→
+   622→/* ============================================================ */
+   623→/*  04 — MATRIZ DE DEPENDENCIAS                                  */
+   624→/* ============================================================ */
+   625→type Dep = {
+   626→  id: string;
+   627→  domain: string;
+   628→  depends: string;
+   629→  exposed: string[];
+   630→  forbidden: string;
+   631→};
+   632→
+   633→const DEPENDENCIAS: Dep[] = [
+   634→  {
+   635→    id: "dep-identity",
+   636→    domain: "Identity",
+   637→    depends: "(ninguno)",
+   638→    exposed: ["Organizations", "todos (auth)"],
+   639→    forbidden: "acceder a tablas de negocio",
+   640→  },
+   641→  {
+   642→    id: "dep-organizations",
+   643→    domain: "Organizations",
+   644→    depends: "Identity",
+   645→    exposed: ["Billing", "todos los tenant-scoped"],
+   646→    forbidden: "saltarse Tenant Resolver",
+   647→  },
+   648→  {
+   649→    id: "dep-billing",
+   650→    domain: "Billing",
+   651→    depends: "Organizations",
+   652→    exposed: ["Super Admin (métricas)"],
+   653→    forbidden: "mutar reservas/clientes",
+   654→  },
+   655→  {
+   656→    id: "dep-reservations",
+   657→    domain: "Reservations",
+   658→    depends: "Organizations, Tables, CRM",
+   659→    exposed: ["Notifications", "Analytics", "Marketing"],
+   660→    forbidden: "escribir en tables directamente",
+   661→  },
+   662→  {
+   663→    id: "dep-crm",
+   664→    domain: "CRM",
+   665→    depends: "Organizations, Reservations",
+   666→    exposed: ["Marketing", "AI", "Notifications"],
+   667→    forbidden: "acceder a billing",
+   668→  },
+   669→  {
+   670→    id: "dep-tables",
+   671→    domain: "Tables",
+   672→    depends: "Organizations",
+   673→    exposed: ["Reservations (vía contrato)", "Analytics"],
+   674→    forbidden: "mutar reservas",
+   675→  },
+   676→  {
+   677→    id: "dep-staff",
+   678→    domain: "Staff",
+   679→    depends: "Organizations",
+   680→    exposed: ["Analytics"],
+   681→    forbidden: "acceder a CRM de clientes",
+   682→  },
+   683→  {
+   684→    id: "dep-analytics",
+   685→    domain: "Analytics",
+   686→    depends: "(todos vía eventos)",
+   687→    exposed: ["Super Admin"],
+   688→    forbidden: "consultar dominios síncrono en tiempo real masivo",
+   689→  },
+   690→  {
+   691→    id: "dep-reviews",
+   692→    domain: "Reviews",
+   693→    depends: "CRM, Organizations",
+   694→    exposed: ["AI", "Notifications"],
+   695→    forbidden: "escribir respuestas sin aprobación",
+   696→  },
+   697→  {
+   698→    id: "dep-marketing",
+   699→    domain: "Marketing",
+   700→    depends: "CRM, Notifications, Organizations",
+   701→    exposed: ["Analytics"],
+   702→    forbidden: "enviar sin consentimiento/cuota",
+   703→  },
+   704→  {
+   705→    id: "dep-ai",
+   706→    domain: "AI",
+   707→    depends: "CRM, Reviews, Reservations (vía contrato)",
+   708→    exposed: ["Audit"],
+   709→    forbidden: "ejecutar acciones sensibles sin aprobación",
+   710→  },
+   711→  {
+   712→    id: "dep-integrations",
+   713→    domain: "Integrations",
+   714→    depends: "Organizations",
+   715→    exposed: ["Reservations", "Reviews", "Notifications"],
+   716→    forbidden: "almacenar secretos en claro",
+   717→  },
+   718→  {
+   719→    id: "dep-notifications",
+   720→    domain: "Notifications",
+   721→    depends: "Organizations",
+   722→    exposed: ["Audit"],
+   723→    forbidden: "saltarse consentimiento/horario silencioso",
+   724→  },
+   725→  {
+   726→    id: "dep-super-admin",
+   727→    domain: "Super Admin",
+   728→    depends: "Organizations, Billing, Audit, Analytics",
+   729→    exposed: ["(plataforma)"],
+   730→    forbidden: "acceder a secretos o PII sin auditoría",
+   731→  },
+   732→];
+   733→
+   734→const DEPENDENCY_GRAPH = `flowchart TB
+   735→  ID[Identity] --> ORG[Organizations]
+   736→  ORG --> BILL[Billing]
+   737→  ORG --> RES[Reservations]
+   738→  ORG --> CRM[CRM]
+   739→  ORG --> TBL[Tables]
+   740→  ORG --> STF[Staff]
+   741→  ORG --> INT[Integrations]
+   742→  RES --> TBL
+   743→  RES --> CRM
+   744→  CRM --> MKT[Marketing]
+   745→  CRM --> AI[AI]
+   746→  REV[Reviews] --> CRM
+   747→  REV --> AI
+   748→  NOTIF[Notifications]
+   749→  MKT --> NOTIF
+   750→  RES -.events.-> NOTIF
+   751→  RES -.events.-> ANA[Analytics]
+   752→  CRM -.events.-> ANA
+   753→  STF -.events.-> ANA
+   754→  AI -.events.-> AUD[Audit]
+   755→  INT -.events.-> AUD
+   756→  ANA --> SA[Super Admin]
+   757→  BILL --> SA
+   758→  ID -.events.-> AUD`;
+   759→
+   760→export function Fase2Dependencias() {
+   761→  return (
+   762→    <Section
+   763→      id="f2-dependencias"
+   764→      index="04"
+   765→      eyebrow="Matriz de dependencias"
+   766→      title="Quién puede depender de quién; sin ciclos."
+   767→      intro={
+   768→        <>
+   769→          Las dependencias permitidas se documentan y se validan en CI. Ningún dominio puede importar el
+   770→          repositorio de otro; solo consume vía contratos (interfaces síncronas) o vía eventos (async). El
+   771→          grafo resultante es acíclico.
+   772→        </>
+   773→      }
+   774→    >
+   775→      <div className="mb-6 flex items-center gap-3">
+   776→        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+   777→          Matriz de dependencias permitidas
+   778→        </span>
+   779→        <span className="h-px flex-1 bg-border/60" />
+   780→      </div>
+   781→      <DataTable
+   782→        head={["Dominio", "Depende de (permitido)", "Expuesto a", "Prohibido"]}
+   783→        rows={DEPENDENCIAS.map((d) => [
+   784→          <span key={`${d.id}-dom`} className="font-medium text-foreground">
+   785→            {d.domain}
+   786→          </span>,
+   787→          <span key={`${d.id}-dep`} className="text-sm">
+   788→            {d.depends}
+   789→          </span>,
+   790→          <span key={`${d.id}-exp`} className="flex flex-wrap gap-1.5">
+   791→            {d.exposed.map((e, i) => (
+   792→              <Pill key={`exp-${d.id}-${i}`} tone="gold">
+   793→                {e}
+   794→              </Pill>
+   795→            ))}
+   796→          </span>,
+   797→          <span key={`${d.id}-forb`} className="text-xs text-muted-foreground">
+   798→            {d.forbidden}
+   799→          </span>,
+   800→        ])}
+   801→        className="mb-10"
+   802→      />
+   803→
+   804→      <div className="grid lg:grid-cols-2 gap-5 mb-10">
+   805→        <GlassCard variant="gold">
+   806→          <div className="flex items-center gap-2 mb-4">
+   807→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
+   808→            <H3>Reglas de dependencia</H3>
+   809→          </div>
+   810→          <GoldList
+   811→            items={[
+   812→              "Los dominios se comunican vía comandos/queries (interfaces) o eventos (async).",
+   813→              "Ningún dominio importa directamente el repositorio de otro.",
+   814→              "Las dependencias se validan en CI (eslint-plugin-boundaries + dependency-cruiser).",
+   815→              "La inversión de dependencias (ports/adapters) permite swapear proveedores.",
+   816→              "Un dominio puede consumir eventos de otro sin acoplarse a su esquema interno.",
+   817→            ]}
+   818→          />
+   819→        </GlassCard>
+   820→
+   821→        <GlassCard>
+   822→          <div className="flex items-center gap-2 mb-4">
+   823→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]" />
+   824→            <H3>Grafo de dependencias</H3>
+   825→          </div>
+   826→          <Mermaid chart={DEPENDENCY_GRAPH} className="!p-2" />
+   827→        </GlassCard>
+   828→      </div>
+   829→    </Section>
+   830→  );
+   831→}
+   832→
+   833→/* ============================================================ */
+   834→/*  05 — ESTRUCTURA DEL REPOSITORIO                             */
+   835→/* ============================================================ */
+   836→const REPO_STRUCTURE = `restopanel/
+   837→  apps/
+   838→    landing/          adquisición + SEO
+   839→    dashboard/        operación del restaurante
+   840→    super-admin/      centro de control de plataforma
+   841→    booking/          widget de reserva pública
+   842→    docs/             documentación + portal dev
+   843→    status/           estado de servicio
+   844→  packages/
+   845→    contracts/        esquemas Zod + tipos de eventos/commands compartidos
+   846→    ui/               design system
+   847→    design-tokens/    tokens de marca
+   848→    config/           eslint, tsconfig, tailwind preset
+   849→    # dominios (cada uno con domain/ + application/ + infrastructure/ + events/)
+   850→    identity/
+   851→    organizations/
+   852→    billing/
+   853→    reservations/
+   854→    crm/
+   855→    tables/
+   856→    staff/
+   857→    analytics/
+   858→    reviews/
+   859→    marketing/
+   860→    ai/
+   861→    integrations/
+   862→    notifications/
+   863→    super-admin/
+   864→    # shared transversal (mínimo)
+   865→    auth/             middleware de sesión + tenant + rbac
+   866→    tenancy/          tenant enforcement layer
+   867→    audit/            audit log append-only
+   868→    observability/    logs, métricas, correlation
+   869→    storage/          adaptadores R2/KV
+   870→  workers/
+   871→    api/              API gateway + routing
+   872→    webhooks/         webhooks entrantes/salientes
+   873→    queues/           consumers de colas
+   874→    workflows/        procesos largos
+   875→    cron/             tareas programadas
+   876→    realtime/         Durable Objects + WS
+   877→  database/
+   878→    migrations/       forward-only, por shard
+   879→    seeds/            datos sintéticos
+   880→    schema/           esquemas referencia
+   881→  design-system/
+   882→  infra/
+   883→  docs/
+   884→    adr/
+   885→    event-catalog/
+   886→    data-dictionary/`;
+   887→
+   888→const DOMAIN_INTERNAL = `packages/reservations/
+   889→  domain/          entidades, agregados, value objects, eventos
+   890→  application/     casos de uso (commands + queries)
+   891→  infrastructure/  repositorios (D1), adaptadores, proyecciones
+   892→  events/          esquemas de eventos publicados/consumidos
+   893→  api/             contratos HTTP/RPC internos
+   894→  tests/           unit, integración, contrato, IDOR
+   895→  index.ts         exports públicos (lo único importable desde fuera)`;
+   896→
+   897→export function Fase2Repo() {
+   898→  return (
+   899→    <Section
+   900→      id="f2-repo"
+   901→      index="05"
+   902→      eyebrow="Estructura del repositorio"
+   903→      title="Monorepo orientado a dominios con fronteras que CI hace valer."
+   904→      intro={
+   905→        <>
+   906→          Un único monorepo con apps, paquetes de dominio, paquetes transversales mínimos y workers. La
+   907→          frontera entre dominios no es un acuerdo caballeroso: la impone CI con reglas que rompen el build
+   908→          si alguien cruza la línea.
+   909→        </>
+   910→      }
+   911→    >
+   912→      <div className="mb-6 flex items-center gap-3">
+   913→        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+   914→          Árbol del monorepo
+   915→        </span>
+   916→        <span className="h-px flex-1 bg-border/60" />
+   917→      </div>
+   918→      <Code lang="text" >
+   919→{REPO_STRUCTURE}
+   920→      </Code>
+   921→
+   922→      <div className="mt-8 grid lg:grid-cols-2 gap-5">
+   923→        <GlassCard>
+   924→          <div className="flex items-center gap-2 mb-4">
+   925→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
+   926→            <H3>Estructura interna de un dominio</H3>
+   927→          </div>
+   928→          <Code lang="text">
+   929→{DOMAIN_INTERNAL}
+   930→          </Code>
+   931→        </GlassCard>
+   932→
+   933→        <GlassCard>
+   934→          <div className="flex items-center gap-2 mb-4">
+   935→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]" />
+   936→            <H3>Reglas de dependencia (CI)</H3>
+   937→          </div>
+   938→          <GoldList
+   939→            items={[
+   940→              "apps → packages (dominio + ui + contracts).",
+   941→              "dominio A → dominio B solo vía contracts (interfaces) o eventos.",
+   942→              "dominio → auth/tenancy/audit/observability (transversales permitidos).",
+   943→              "workers → dominios (casos de uso).",
+   944→              "NINGÚN dominio importa infrastructure de otro.",
+   945→              "NINGÚN dominio importa ui.",
+   946→              "database solo migraciones/esquemas.",
+   947→              "sin utils/services/helpers sin owner.",
+   948→              "dependency-cruiser + eslint-plugin-boundaries bloquean violaciones y ciclos.",
+   949→            ]}
+   950→          />
+   951→        </GlassCard>
+   952→      </div>
+   953→
+   954→      <div className="mt-8">
+   955→        <Callout kind="ok" title="Contratos públicos = index.ts">
+   956→          Cada paquete exporta <strong className="text-foreground">únicamente</strong> vía su{" "}
+   957→          <Mono>index.ts</Mono> una API pública curada: tipos, casos de uso y esquemas de eventos. Los
+   958→          módulos internos no son importables. Esto convierte una futura extracción a servicio separado en
+   959→          un movimiento que preserva contratos, no en un rewrite.
+   960→        </Callout>
+   961→      </div>
+   962→    </Section>
+   963→  );
+   964→}
+   965→

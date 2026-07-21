@@ -1,0 +1,755 @@
+     1→import * as React from "react";
+     2→import {
+     3→  Section,
+     4→  GlassCard,
+     5→  H3,
+     6→  Lead,
+     7→  Risk,
+     8→  DataTable,
+     9→  GoldList,
+    10→  Callout,
+    11→} from "@/components/rp/primitives";
+    12→import { Mermaid } from "@/components/rp/mermaid";
+    13→
+    14→/* ============================================================ */
+    15→/*  Helpers                                                      */
+    16→/* ============================================================ */
+    17→function Mono({ children }: { children: React.ReactNode }) {
+    18→  return (
+    19→    <code className="font-mono text-xs rp-gold-text whitespace-nowrap">
+    20→      {children}
+    21→    </code>
+    22→  );
+    23→}
+    24→
+    25→function Check() {
+    26→  return <span className="text-emerald-300 font-mono">✓ Sí</span>;
+    27→}
+    28→
+    29→/* ============================================================ */
+    30→/*  20 — ADRS CRÍTICOS                                           */
+    31→/* ============================================================ */
+    32→type ADR = {
+    33→  id: string;
+    34→  title: string;
+    35→  problema: string;
+    36→  alternativas: string;
+    37→  decision: string;
+    38→  motivo: string;
+    39→  coste: string;
+    40→  revisar: string;
+    41→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+    42→};
+    43→
+    44→const ADRS: ADR[] = [
+    45→  {
+    46→    id: "ADR-001",
+    47→    title: "Monolito modular primero, extracción por justificación",
+    48→    problema: "Cómo escalar sin microservicios prematuros.",
+    49→    alternativas: "Microservicios desde el inicio / monolito sin fronteras.",
+    50→    decision:
+    51→      "Monolito modular orientado a dominios con contratos públicos; extracción a servicio solo con ADR + cuello medido + equipo suficiente.",
+    52→    motivo:
+    53→      "Velocidad de iteración + path de extracción definido por contratos.",
+    54→    coste: "Disciplina de fronteras.",
+    55→    revisar: "Cuello de escala medido o equipo > 3 squads.",
+    56→    riesgo: "medio",
+    57→  },
+    58→  {
+    59→    id: "ADR-002",
+    60→    title: "Eventos como tejido conectivo + outbox transaccional",
+    61→    problema: "Consistencia entre dominios sin acoplamiento.",
+    62→    alternativas: "Llamadas síncronas encadenadas / 2PC.",
+    63→    decision:
+    64→      "Eventos de dominio + outbox en la misma transacción D1; consumidores idempotentes con DLQ.",
+    65→    motivo:
+    66→      "At-least-once sin double-write inconsistency; bajo acoplamiento.",
+    67→    coste: "Idempotencia obligatoria; complejidad de consumidores.",
+    68→    revisar: "Volumen de eventos supere umbral de throughput.",
+    69→    riesgo: "medio",
+    70→  },
+    71→  {
+    72→    id: "ADR-003",
+    73→    title: "Tenant Enforcement Layer (sin RLS)",
+    74→    problema: "D1/SQLite sin RLS nativa.",
+    75→    alternativas: "Base por tenant / simular RLS.",
+    76→    decision:
+    77→      "Aislamiento de aplicación (repos exigen org_id) + constraints compuestos + tests IDOR.",
+    78→    motivo: "D1 no tiene RLS; el aislamiento real se logra en app.",
+    79→    coste: "Disciplina estricta; riesgo de bug de aislamiento.",
+    80→    revisar: "Nunca (mantener tests IDOR siempre).",
+    81→    riesgo: "crítico",
+    82→  },
+    83→  {
+    84→    id: "ADR-004",
+    85→    title: "RBAC + ABAC híbrido, deny por defecto",
+    86→    problema: "Permisos granulares con contexto.",
+    87→    alternativas: "Solo RBAC / solo ABAC.",
+    88→    decision:
+    89→      "RBAC base + ABAC para reglas contextuales; deny por defecto; evaluación centralizada.",
+    90→    motivo: "Flexibilidad sin perder simplicidad.",
+    91→    coste: "Complejidad de evaluación; tests de escalada.",
+    92→    revisar: "Reglas ABAC superen complejidad mantenible.",
+    93→    riesgo: "alto",
+    94→  },
+    95→  {
+    96→    id: "ADR-005",
+    97→    title: "Auditoría inmutable append-only",
+    98→    problema: "Trazabilidad sin manipulación.",
+    99→    alternativas: "Logs mutables / sin auditoría.",
+   100→    decision:
+   101→      "audit_logs append-only; sin rutas UPDATE/DELETE; archivo R2; hash chain opcional.",
+   102→    motivo: "Evidencia no repudiable.",
+   103→    coste: "Correcciones via registros compensatorios.",
+   104→    revisar: "Requisitos legales exijan WORM adicional.",
+   105→    riesgo: "alto",
+   106→  },
+   107→  {
+   108→    id: "ADR-006",
+   109→    title: "IA con asistentes especializados + aprobación humana",
+   110→    problema: "IA útil sin riesgo.",
+   111→    alternativas: "Chatbot genérico / IA autónoma.",
+   112→    decision:
+   113→      "Asistentes por dominio; prompts versionados; aprobación humana para sensible; fallback determinista.",
+   114→    motivo: "Utilidad + control.",
+   115→    coste: "Más ingeniería de prompts; UX de aprobación.",
+   116→    revisar: "Cambio de proveedor o coste/latencia.",
+   117→    riesgo: "medio",
+   118→  },
+   119→  {
+   120→    id: "ADR-007",
+   121→    title: "Capa común de integraciones con interfaces (ports)",
+   122→    problema: "Integraciones múltiples sin acoplamiento.",
+   123→    alternativas:
+   124→      "Un cliente por proveedor acoplado / abstracción genérica que pierde features.",
+   125→    decision:
+   126→      "Interfaz común de ciclo de vida + operaciones tipadas por proveedor.",
+   127→    motivo: "Ciclo de vida uniforme + capacidades específicas.",
+   128→    coste: "Mantenimiento de N adaptadores.",
+   129→    revisar: "Un proveedor requiera modelo radicalmente distinto.",
+   130→    riesgo: "medio",
+   131→  },
+   132→  {
+   133→    id: "ADR-008",
+   134→    title: "API pública /v1 + OpenAPI + webhooks firmados",
+   135→    problema: "Integración externa estable.",
+   136→    alternativas: "RPC privado / GraphQL.",
+   137→    decision:
+   138→      "REST /v1 con OpenAPI generado desde Zod; idempotencia; webhooks HMAC; portal dev.",
+   139→    motivo: "Adopción amplia + estándar.",
+   140→    coste: "Mantener compatibilidad.",
+   141→    revisar: "Demanda de GraphQL o streaming.",
+   142→    riesgo: "medio",
+   143→  },
+   144→  {
+   145→    id: "ADR-009",
+   146→    title: "Motor de automatizaciones con aprobación humana para sensible",
+   147→    problema: "Automatizar sin perder control.",
+   148→    alternativas: "Solo manual / IA autónoma.",
+   149→    decision:
+   150→      "Trigger→condición→acción; idempotencia; anti-bucle; simulación; aprobación humana para sensible.",
+   151→    motivo: "Escala operativa + seguridad.",
+   152→    coste: "Complejidad del motor; UX de aprobación.",
+   153→    revisar: "Reglas superen complejidad mantenible.",
+   154→    riesgo: "medio",
+   155→  },
+   156→  {
+   157→    id: "ADR-010",
+   158→    title: "Analítica por eventos con agregados reconstruibles",
+   159→    problema: "Métricas fiables.",
+   160→    alternativas: "Consultas síncronas a D1 en tiempo real / ETL opaco.",
+   161→    decision:
+   162→      "Pipeline de eventos → agregados batch; reprocesamiento obligatorio; calidad de datos.",
+   163→    motivo: "Consistencia + auditabilidad.",
+   164→    coste: "Pipeline + warehouse.",
+   165→    revisar: "Volumen de eventos o necesidad de OLAP dedicado.",
+   166→    riesgo: "medio",
+   167→  },
+   168→];
+   169→
+   170→export function Fase2ADRs() {
+   171→  return (
+   172→    <Section
+   173→      id="f2-adrs"
+   174→      index="20"
+   175→      eyebrow="ADRs críticos"
+   176→      title="Decisiones irreversibles con problema, alternativas, decisión, coste y revisión."
+   177→      intro="Diez ADRs cubren las decisiones arquitectónicas críticas del Core Platform. Cada uno registra Problema, Alternativas, Decisión, Motivo, Coste/desventaja y Revisar cuando. No son trofeos: son compromisos. Cualquier revisión futura requiere un ADR nuevo que explicite por qué cambia el contexto y qué consecuencias irreversibles adicionales se asumen."
+   178→    >
+   179→      <div className="grid lg:grid-cols-2 gap-5">
+   180→        {ADRS.map((a) => (
+   181→          <GlassCard key={a.id} variant="gold">
+   182→            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+   183→              <Mono>{a.id}</Mono>
+   184→              <Risk level={a.riesgo} />
+   185→            </div>
+   186→            <H3 className="mb-4">{a.title}</H3>
+   187→            <dl className="space-y-0">
+   188→              <div className="flex flex-col gap-1 py-2 border-b border-border/40">
+   189→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   190→                  Problema
+   191→                </dt>
+   192→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   193→                  {a.problema}
+   194→                </dd>
+   195→              </div>
+   196→              <div className="flex flex-col gap-1 py-2 border-b border-border/40">
+   197→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   198→                  Alternativas
+   199→                </dt>
+   200→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   201→                  {a.alternativas}
+   202→                </dd>
+   203→              </div>
+   204→              <div className="flex flex-col gap-1 py-2 border-b border-border/40">
+   205→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-gold-text">
+   206→                  Decisión
+   207→                </dt>
+   208→                <dd className="text-sm text-foreground/95 leading-relaxed">
+   209→                  {a.decision}
+   210→                </dd>
+   211→              </div>
+   212→              <div className="flex flex-col gap-1 py-2 border-b border-border/40">
+   213→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   214→                  Motivo
+   215→                </dt>
+   216→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   217→                  {a.motivo}
+   218→                </dd>
+   219→              </div>
+   220→              <div className="flex flex-col gap-1 py-2 border-b border-border/40">
+   221→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-300">
+   222→                  Coste / desventaja
+   223→                </dt>
+   224→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   225→                  {a.coste}
+   226→                </dd>
+   227→              </div>
+   228→              <div className="flex flex-col gap-1 py-2">
+   229→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   230→                  Revisar cuando
+   231→                </dt>
+   232→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   233→                  {a.revisar}
+   234→                </dd>
+   235→              </div>
+   236→            </dl>
+   237→          </GlassCard>
+   238→        ))}
+   239→      </div>
+   240→
+   241→      <div className="mt-8">
+   242→        <Callout kind="info" title="ADRs vivos, no dogmas">
+   243→          Los diez ADRs cubren las decisiones costosas de revertir del Core Platform. El
+   244→          monolito modular con contratos públicos (ADR-001) y el Tenant Enforcement Layer
+   245→          sin RLS (ADR-003) son los dos compromisos más cargantes: el primero exige
+   246→          disciplina de fronteras, el segundo exige tests IDOR perpetuos. Cualquier
+   247→          revisión se registra como ADR nuevo referenciando el original.
+   248→        </Callout>
+   249→      </div>
+   250→    </Section>
+   251→  );
+   252→}
+   253→
+   254→/* ============================================================ */
+   255→/*  21 — RIESGOS, TRADE-OFFS Y MITIGACIONES                      */
+   256→/* ============================================================ */
+   257→type Riesgo = {
+   258→  id: string;
+   259→  riesgo: string;
+   260→  impacto: "bajo" | "medio" | "alto" | "crítico";
+   261→  mitigacion: string;
+   262→  revisar: string;
+   263→};
+   264→
+   265→const RIESGOS: Riesgo[] = [
+   266→  {
+   267→    id: "R-01",
+   268→    riesgo: "Sin RLS nativa → bug de aislamiento",
+   269→    impacto: "crítico",
+   270→    mitigacion: "Tenant Enforcement Layer + constraints + tests IDOR en CI",
+   271→    revisar: "continuo",
+   272→  },
+   273→  {
+   274→    id: "R-02",
+   275→    riesgo: "Monolito modular puede derivar en monolito sin fronteras",
+   276→    impacto: "alto",
+   277→    mitigacion: "eslint-plugin-boundaries + dependency-cruiser + contratos públicos",
+   278→    revisar: "cada sprint",
+   279→  },
+   280→  {
+   281→    id: "R-03",
+   282→    riesgo: "Outbox + eventos añade latencia eventual",
+   283→    impacto: "medio",
+   284→    mitigacion: "Proyecciones tiempo real + reconciliación",
+   285→    revisar: "si latencia p95 > objetivo",
+   286→  },
+   287→  {
+   288→    id: "R-04",
+   289→    riesgo: "Extracción prematura a microservicios",
+   290→    impacto: "alto",
+   291→    mitigacion: "ADR obligatorio + cuello medido + equipo",
+   292→    revisar: "cada propuesta de extracción",
+   293→  },
+   294→  {
+   295→    id: "R-05",
+   296→    riesgo: "Coste de IA/comms excede revenue metered",
+   297→    impacto: "alto",
+   298→    mitigacion:
+   299→      "Presupuesto por org + rate limit + fallback + medición de coste",
+   300→    revisar: "mensual",
+   301→  },
+   302→  {
+   303→    id: "R-06",
+   304→    riesgo: "Dependencia de proveedores externos (Stripe, WhatsApp, Google)",
+   305→    impacto: "medio",
+   306→    mitigacion: "Adaptadores swapeables + fallback + auditoría",
+   307→    revisar: "cambio de términos",
+   308→  },
+   309→  {
+   310→    id: "R-07",
+   311→    riesgo: "Complejidad del motor de automatizaciones",
+   312→    impacto: "medio",
+   313→    mitigacion:
+   314→      "Simulación + anti-bucle + límites por plan + kill switch",
+   315→    revisar: "por uso real",
+   316→  },
+   317→  {
+   318→    id: "R-08",
+   319→    riesgo: "PII en logs por error",
+   320→    impacto: "alto",
+   321→    mitigacion: "Redacción por allowlist + tests + revisión",
+   322→    revisar: "continuo",
+   323→  },
+   324→  {
+   325→    id: "R-09",
+   326→    riesgo: "Crecimiento de events_outbox y analytics",
+   327→    impacto: "medio",
+   328→    mitigacion: "Archival a R2 por periodo + retención",
+   329→    revisar: "por volumen",
+   330→  },
+   331→  {
+   332→    id: "R-10",
+   333→    riesgo: "Deuda técnica por rapidez",
+   334→    impacto: "medio",
+   335→    mitigacion: "DoD estricto + tests + refactor programado",
+   336→    revisar: "retrospectivas",
+   337→  },
+   338→  {
+   339→    id: "R-11",
+   340→    riesgo: "Falta de validación con clientes reales",
+   341→    impacto: "alto",
+   342→    mitigacion: "Fase 2 con un restaurante piloto",
+   343→    revisar: "antes de escalar",
+   344→  },
+   345→];
+   346→
+   347→const TRADEOFFS = [
+   348→  "Velocidad de iteración (monolito) sobre aislamiento operativo (microservicios) en MVP.",
+   349→  "Consistencia eventual (eventos) sobre consistencia fuerte en cross-dominio.",
+   350→  "Complejidad de outbox sobre double-write inconsistency.",
+   351→  "Disciplina de contratos sobre simplicidad de shared state.",
+   352→];
+   353→
+   354→export function Fase2Riesgos() {
+   355→  return (
+   356→    <Section
+   357→      id="f2-riesgos"
+   358→      index="21"
+   359→      eyebrow="Riesgos, trade-offs y mitigaciones"
+   360→      title="Riesgos honestos y mitigaciones concretas."
+   361→      intro="Riesgos críticos y trade-offs del diseño del Core Platform, con mitigaciones verificables y cadencia de revisión. Cada riesgo se nombra sin eufemismos: la honestidad sobre D1 sin RLS, el coste de IA/comms y la falta de validación con clientes reales es parte del compromiso operativo, no un subproducto."
+   362→    >
+   363→      <H3 className="mb-4">Riesgos y trade-offs</H3>
+   364→      <DataTable
+   365→        head={["Riesgo / Trade-off", "Impacto", "Mitigación", "Revisar"]}
+   366→        rows={RIESGOS.map((r) => [
+   367→          <span key={`${r.id}-riesgo`} className="font-medium text-foreground">
+   368→            {r.riesgo}
+   369→          </span>,
+   370→          <Risk key={`${r.id}-impacto`} level={r.impacto} />,
+   371→          <span
+   372→            key={`${r.id}-mit`}
+   373→            className="text-sm text-muted-foreground leading-relaxed"
+   374→          >
+   375→            {r.mitigacion}
+   376→          </span>,
+   377→          <span
+   378→            key={`${r.id}-rev`}
+   379→            className="font-mono text-xs rp-teal-text whitespace-nowrap"
+   380→          >
+   381→            {r.revisar}
+   382→          </span>,
+   383→        ])}
+   384→      />
+   385→
+   386→      <div className="mt-8 grid lg:grid-cols-2 gap-5">
+   387→        <GlassCard variant="gold">
+   388→          <div className="flex items-center gap-2 mb-4">
+   389→            <H3>Trade-offs asumidos</H3>
+   390→          </div>
+   391→          <Lead className="mb-4">
+   392→            Cuatro equilibrios conscientes, no accidentes:
+   393→          </Lead>
+   394→          <GoldList items={TRADEOFFS} />
+   395→        </GlassCard>
+   396→
+   397→        <Callout kind="warn" title="Riesgo #1: aislamiento">
+   398→          <p className="mb-2">
+   399→            El mayor riesgo es una fuga entre tenants por bug de repositorio. D1/SQLite
+   400→            no tiene RLS nativa, por lo que el aislamiento real se logra en la capa de
+   401→            aplicación.
+   402→          </p>
+   403→          <p className="mb-2 font-medium text-foreground/90">Mitigación:</p>
+   404→          <ul className="space-y-1.5 list-disc list-inside">
+   405→            <li>Tests IDOR obligatorios en CI para cada PR.</li>
+   406→            <li>Constraints compuestos (org_id, id) en cada tabla de tenant.</li>
+   407→            <li>Revisión de PR enfocada en tenancy.</li>
+   408→            <li>Fuzzer en staging que intenta leer/escribir cross-tenant.</li>
+   409→          </ul>
+   410→          <p className="mt-3 text-amber-300/90">
+   411→            No se elimina; se controla. Es un riesgo perpetuo, no una deuda temporal.
+   412→          </p>
+   413→        </Callout>
+   414→      </div>
+   415→    </Section>
+   416→  );
+   417→}
+   418→
+   419→/* ============================================================ */
+   420→/*  22 — ROADMAP POR ITERACIONES                                 */
+   421→/* ============================================================ */
+   422→type Iteracion = {
+   423→  id: string;
+   424→  n: string;
+   425→  nombre: string;
+   426→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+   427→  objetivo: string;
+   428→  alcance: string;
+   429→  entregables: string;
+   430→  salida: string;
+   431→};
+   432→
+   433→const ITERACIONES: Iteracion[] = [
+   434→  {
+   435→    id: "it-1",
+   436→    n: "1",
+   437→    nombre: "Fundaciones y tenancy",
+   438→    riesgo: "alto",
+   439→    objetivo: "Base multiempresa segura y desplegable.",
+   440→    alcance:
+   441→      "Identity (auth, MFA, sesiones), Organizations (org, locations, members), Tenant Enforcement Layer, audit log append-only.",
+   442→    entregables:
+   443→      "Auth operativa, repos con org_id obligatorio, tests IDOR en CI.",
+   444→    salida:
+   445→      "Usuario de org A no puede leer org B; sesión revocable; audit inmutable.",
+   446→  },
+   447→  {
+   448→    id: "it-2",
+   449→    n: "2",
+   450→    nombre: "Reservas y sala",
+   451→    riesgo: "alto",
+   452→    objetivo: "Operación de reserva y plano de sala.",
+   453→    alcance:
+   454→      "Reservations (slots, conflictos, idem_key), Tables (floors, zones), DO para coordinación de slots, doble reserva imposible.",
+   455→    entregables:
+   456→      "Widget de reserva, dashboard de sala, sincronización tiempo real.",
+   457→    salida: "Reserva end-to-end; doble reserva bloqueada; sync < 500ms.",
+   458→  },
+   459→  {
+   460→    id: "it-3",
+   461→    n: "3",
+   462→    nombre: "CRM y eventos",
+   463→    riesgo: "medio",
+   464→    objetivo: "Memoria del cliente y tejido de eventos.",
+   465→    alcance:
+   466→      "CRM (customers, preferences, tags), outbox + Queues + dispatcher idempotente, catálogo de eventos inicial.",
+   467→    entregables:
+   468→      "Perfil de cliente, pipeline de eventos, consumidores (audit, analytics básico).",
+   469→    salida:
+   470→      "Evento publicado → consumido idempotente; CRM con historial.",
+   471→  },
+   472→  {
+   473→    id: "it-4",
+   474→    n: "4",
+   475→    nombre: "Billing y permisos avanzados",
+   476→    riesgo: "medio",
+   477→    objetivo: "Monetización y autorización granular.",
+   478→    alcance:
+   479→      "Billing (Stripe sync, entitlements, usage metered), RBAC+ABAC con roles custom, deny por defecto.",
+   480→    entregables:
+   481→      "Suscripción activa, entitlements aplicados, roles custom del Owner.",
+   482→    salida:
+   483→      "Plan limita funciones; permisos evaluados centralmente; deny por defecto.",
+   484→  },
+   485→  {
+   486→    id: "it-5",
+   487→    n: "5",
+   488→    nombre: "Notificaciones y automatizaciones",
+   489→    riesgo: "medio",
+   490→    objetivo: "Comunicaciones y reglas operativas.",
+   491→    alcance:
+   492→      "Notifications (email+WhatsApp, plantillas, consentimiento, horario silencioso), Motor de automatizaciones (trigger→condición→acción, anti-bucle, simulación, aprobación).",
+   493→    entregables:
+   494→      "Recordatorios anti-no-show, automatizaciones por org/location, historial.",
+   495→    salida:
+   496→      "Envío con consentimiento; automatización ejecuta o pide aprobación.",
+   497→  },
+   498→  {
+   499→    id: "it-6",
+   500→    n: "6",
+   501→    nombre: "Integraciones y API pública",
+   502→    riesgo: "medio",
+   503→    objetivo: "Conexión con el ecosistema.",
+   504→    alcance:
+   505→      "Capa común de adaptadores (Stripe, WhatsApp, Google), webhooks firmados, API pública /v1 con OpenAPI, portal dev, API keys scoped.",
+   506→    entregables:
+   507→      "Integraciones activables, API usable, webhooks salientes.",
+   508→    salida:
+   509→      "Integración con ciclo de vida completo; API con idempotencia y errores normalizados.",
+   510→  },
+   511→  {
+   512→    id: "it-7",
+   513→    n: "7",
+   514→    nombre: "IA y analítica",
+   515→    riesgo: "medio",
+   516→    objetivo: "Asistentes y métricas.",
+   517→    alcance:
+   518→      "Centro de IA (asistentes por dominio, prompts versionados, aprobación, fallback), Analytics (pipeline de eventos, agregados reconstruibles, dashboards).",
+   519→    entregables:
+   520→      "Asistentes de reservas/CRM/reviews, dashboards operativos y estratégicos.",
+   521→    salida: "IA con aprobación humana; agregados reprocesables.",
+   522→  },
+   523→  {
+   524→    id: "it-8",
+   525→    n: "8",
+   526→    nombre: "Super Admin, impersonación y HA",
+   527→    riesgo: "alto",
+   528→    objetivo: "Operación de plataforma y resiliencia.",
+   529→    alcance:
+   530→      "Super Admin (salud, métricas, gestión), impersonación segura, observabilidad madura (SLO, alertas), degradación controlada, backups verificados.",
+   531→    entregables:
+   532→      "Panel de plataforma, impersonación acotada, status page.",
+   533→    salida:
+   534→      "Impersonación visible y auditable; SLO medido; backup restaurado en prueba.",
+   535→  },
+   536→];
+   537→
+   538→const ROADMAP_CHART = `flowchart LR
+   539→  I1["1·Fundaciones"] --> I2["2·Reservas+Sala"]
+   540→  I2 --> I3["3·CRM+Eventos"]
+   541→  I3 --> I4["4·Billing+Permisos"]
+   542→  I4 --> I5["5·Notif+Automat."]
+   543→  I5 --> I6["6·Integr+API"]
+   544→  I6 --> I7["7·IA+Analítica"]
+   545→  I7 --> I8["8·SuperAdmin+HA"]`;
+   546→
+   547→export function Fase2Roadmap() {
+   548→  return (
+   549→    <Section
+   550→      id="f2-roadmap"
+   551→      index="22"
+   552→      eyebrow="Roadmap por iteraciones"
+   553→      title="8 iteraciones para entregar el núcleo sin rearchitectura."
+   554→      intro="Roadmap de implementación por iteraciones. Cada iteración tiene objetivo, alcance, entregables y criterio de salida verificables. El orden prioriza fundaciones (tenancy, reservas, eventos) antes que monetización y ecosistema; la resiliencia y el Super Admin cierran el MVP. Ninguna iteración requiere rearchitectura de las anteriores: los contratos públicos del monolito modular lo garantizan."
+   555→    >
+   556→      <div className="grid lg:grid-cols-2 gap-5">
+   557→        {ITERACIONES.map((it) => (
+   558→          <GlassCard key={it.id} variant="default">
+   559→            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+   560→              <div className="flex items-center gap-3">
+   561→                <span className="font-mono text-sm rp-gold-text">
+   562→                  Iteración {it.n}
+   563→                </span>
+   564→                <span className="h-px w-6 bg-[var(--gold)]/40" />
+   565→                <span className="font-display text-base sm:text-lg font-medium">
+   566→                  {it.nombre}
+   567→                </span>
+   568→              </div>
+   569→              <Risk level={it.riesgo} />
+   570→            </div>
+   571→            <dl className="grid sm:grid-cols-2 gap-x-5 gap-y-0">
+   572→              <div className="flex flex-col gap-1 py-2 border-b border-border/40 sm:border-r sm:pr-4">
+   573→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   574→                  Objetivo
+   575→                </dt>
+   576→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   577→                  {it.objetivo}
+   578→                </dd>
+   579→              </div>
+   580→              <div className="flex flex-col gap-1 py-2 border-b border-border/40 sm:pl-4">
+   581→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-teal-text">
+   582→                  Alcance
+   583→                </dt>
+   584→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   585→                  {it.alcance}
+   586→                </dd>
+   587→              </div>
+   588→              <div className="flex flex-col gap-1 py-2 border-b border-border/40 sm:border-r sm:pr-4 sm:border-b-0">
+   589→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] rp-gold-text">
+   590→                  Entregables
+   591→                </dt>
+   592→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   593→                  {it.entregables}
+   594→                </dd>
+   595→              </div>
+   596→              <div className="flex flex-col gap-1 py-2 sm:pl-4 sm:border-b-0">
+   597→                <dt className="text-[10px] font-mono uppercase tracking-[0.2em] text-amber-300">
+   598→                  Criterio de salida
+   599→                </dt>
+   600→                <dd className="text-sm text-foreground/90 leading-relaxed">
+   601→                  {it.salida}
+   602→                </dd>
+   603→              </div>
+   604→            </dl>
+   605→          </GlassCard>
+   606→        ))}
+   607→      </div>
+   608→
+   609→      <div className="mt-10">
+   610→        <H3 className="mb-4">Secuencia de iteraciones</H3>
+   611→        <Mermaid chart={ROADMAP_CHART} />
+   612→        <Lead className="mt-4">
+   613→          Las iteraciones 1 y 2 concentran el riesgo técnico (tenancy y reservas con
+   614→          doble reserva imposible). Las iteraciones 3 a 7 entregan capacidades
+   615→          acumulativas sobre esa base. La iteración 8 cierra con resiliencia,
+   616→          observabilidad madura y operación de plataforma.
+   617→        </Lead>
+   618→      </div>
+   619→    </Section>
+   620→  );
+   621→}
+   622→
+   623→/* ============================================================ */
+   624→/*  23 — CRITERIOS DE ACEPTACIÓN                                 */
+   625→/* ============================================================ */
+   626→type Criterio = { criterio: string; verificacion: string };
+   627→
+   628→const CRITERIOS: Criterio[] = [
+   629→  {
+   630→    criterio: "Cada módulo tiene responsabilidad y límites definidos",
+   631→    verificacion: "mapa de dominios + matriz de dependencias",
+   632→  },
+   633→  {
+   634→    criterio: "No existen dependencias circulares",
+   635→    verificacion: "eslint boundaries + dependency-cruiser en CI verde",
+   636→  },
+   637→  {
+   638→    criterio: "Toda consulta protegida por contexto de tenant",
+   639→    verificacion: "Tenant Enforcement Layer + tests IDOR",
+   640→  },
+   641→  {
+   642→    criterio: "Estrategia verificable contra fugas de datos",
+   643→    verificacion: "tests negativos cross-tenant + fuzzer en staging",
+   644→  },
+   645→  {
+   646→    criterio: "Modelo D1 con claves, índices y migraciones",
+   647→    verificacion: "ER + SQL + migraciones forward-only",
+   648→  },
+   649→  {
+   650→    criterio: "Flujos críticos idempotentes",
+   651→    verificacion: "idem_key + dispatcher idempotente",
+   652→  },
+   653→  {
+   654→    criterio: "Prevención de dobles reservas definida",
+   655→    verificacion: "DO lock + D1 unique constraint",
+   656→  },
+   657→  {
+   658→    criterio: "RBAC y permisos personalizados documentados",
+   659→    verificacion: "sección permisos + roles custom",
+   660→  },
+   661→  {
+   662→    criterio: "Auditoría inmutable y accesible",
+   663→    verificacion: "audit append-only + archivo R2 + acceso restringido",
+   664→  },
+   665→  {
+   666→    criterio: "Sistema de eventos con outbox y DLQ",
+   667→    verificacion: "pipeline + consumidores idempotentes",
+   668→  },
+   669→  {
+   670→    criterio: "Motor de automatizaciones con aprobación humana",
+   671→    verificacion: "trigger→acción + anti-bucle + simulación",
+   672→  },
+   673→  {
+   674→    criterio: "Capa común de integraciones",
+   675→    verificacion: "interfaz adapter + N adaptadores",
+   676→  },
+   677→  {
+   678→    criterio: "API pública versionada con webhooks firmados",
+   679→    verificacion: "/v1 + OpenAPI + HMAC",
+   680→  },
+   681→  {
+   682→    criterio: "Centro de IA con aprobación y fallback",
+   683→    verificacion: "asistentes por dominio + fallback determinista",
+   684→  },
+   685→  {
+   686→    criterio: "Analítica con agregados reconstruibles",
+   687→    verificacion: "pipeline + reprocesamiento",
+   688→  },
+   689→  {
+   690→    criterio: "Observabilidad y SLO definidos",
+   691→    verificacion: "logs redact + correlation + SLO 99.9%",
+   692→  },
+   693→  {
+   694→    criterio: "ADRs críticos documentados",
+   695→    verificacion: "10 ADRs con problema/alternativas/decisión/coste",
+   696→  },
+   697→  {
+   698→    criterio: "Backlog permite iniciar implementación",
+   699→    verificacion: "8 iteraciones sin decisiones críticas pendientes",
+   700→  },
+   701→];
+   702→
+   703→export function Fase2Criterios() {
+   704→  return (
+   705→    <Section
+   706→      id="f2-criterios"
+   707→      index="23"
+   708→      eyebrow="Criterios de aceptación"
+   709→      title="La fase 1.2 se considera completada cuando…"
+   710→      intro="Dieciocho criterios verificables cierran la Fase 1.2. Cada uno tiene un estado (✓ Sí) y una verificación explícita que apunta al artefacto o control que lo respalda. Ningún criterio queda implícito: todos tienen evidencia navegable dentro del documento."
+   711→    >
+   712→      <H3 className="mb-4">Criterios de aceptación verificables</H3>
+   713→      <DataTable
+   714→        head={["Criterio", "Verificación"]}
+   715→        rows={CRITERIOS.map((c, i) => [
+   716→          <span key={`crit-${i}-c`} className="font-medium text-foreground">
+   717→            {c.criterio}
+   718→          </span>,
+   719→          <span
+   720→            key={`crit-${i}-v`}
+   721→            className="font-mono text-xs text-muted-foreground"
+   722→          >
+   723→            {c.verificacion}
+   724→          </span>,
+   725→        ])}
+   726→      />
+   727→
+   728→      <div className="mt-8">
+   729→        <Callout kind="ok" title="Puerta de salida de Fase 1.2">
+   730→          Con los 18 criterios cumplidos y los 10 ADRs firmados, la fase habilita la
+   731→          implementación del núcleo (Fase 2 MVP) sin decisiones arquitectónicas
+   732→          críticas pendientes. El monolito modular con contratos públicos permite
+   733→          extraer dominios a microservicios cuando el volumen, el equipo o el
+   734→          aislamiento lo justifiquen, sin reescribir consumidores.
+   735→        </Callout>
+   736→      </div>
+   737→
+   738→      <div className="mt-8">
+   739→        <GlassCard variant="strong" className="text-center">
+   740→          <div className="mx-auto max-w-3xl">
+   741→            <div className="text-[10px] font-mono uppercase tracking-[0.2em] rp-gold-text mb-3">
+   742→              Cierre de fase
+   743→            </div>
+   744→            <p className="font-display text-xl sm:text-2xl md:text-3xl font-light leading-snug text-balance">
+   745→              El núcleo está diseñado. Lo que sigue es construirlo iteración a
+   746→              iteración, midiendo siempre antes de optimizar y documentando cada
+   747→              decisión irreversible con un ADR.
+   748→            </p>
+   749→          </div>
+   750→        </GlassCard>
+   751→      </div>
+   752→    </Section>
+   753→  );
+   754→}
+   755→
