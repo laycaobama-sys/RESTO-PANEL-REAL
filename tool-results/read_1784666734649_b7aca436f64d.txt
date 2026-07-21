@@ -1,0 +1,739 @@
+     1→import * as React from "react";
+     2→import {
+     3→  Section,
+     4→  GlassCard,
+     5→  Risk,
+     6→  Stat,
+     7→  Pill,
+     8→  H3,
+     9→  Lead,
+    10→  DataTable,
+    11→  GoldList,
+    12→  Callout,
+    13→  Code,
+    14→} from "@/components/rp/primitives";
+    15→
+    16→/* ============================================================ */
+    17→/*  Helper: texto monoespaciado dorado                          */
+    18→/* ============================================================ */
+    19→function Mono({ children }: { children: React.ReactNode }) {
+    20→  return (
+    21→    <code className="font-mono text-xs rp-gold-text whitespace-nowrap">{children}</code>
+    22→  );
+    23→}
+    24→
+    25→/* ============================================================ */
+    26→/*  18 — TESTS DE AISLAMIENTO, RBAC Y CONCURRENCIA              */
+    27→/* ============================================================ */
+    28→const TESTING_STRATEGY: { nivel: string; cubre: string; cuando: string; tool: string }[] = [
+    29→  { nivel: "Unit", cubre: "casos de uso, validación Zod, repositorios (mock D1)", cuando: "cada commit", tool: "vitest" },
+    30→  { nivel: "Integración", cubre: "dominio + D1 (Miniflare/cloudflare:test)", cuando: "cada PR", tool: "vitest + cloudflare:test" },
+    31→  { nivel: "Aislamiento", cubre: "cross-tenant negativos (A no ve B)", cuando: "cada PR (obligatorio)", tool: "vitest" },
+    32→  { nivel: "IDOR", cubre: "por endpoint crítico", cuando: "cada PR", tool: "vitest" },
+    33→  { nivel: "RBAC", cubre: "escalada de privilegios", cuando: "cada PR", tool: "vitest" },
+    34→  { nivel: "Concurrencia", cubre: "doble reserva via DO", cuando: "cada PR", tool: "vitest + DO" },
+    35→  { nivel: "E2E", cubre: "flujos críticos (alta, reserva, check-in, billing)", cuando: "nocturno", tool: "playwright" },
+    36→  { nivel: "Carga", cubre: "reservas concurrentes, DO contención", cuando: "pre-deploy", tool: "k6" },
+    37→  { nivel: "Seguridad", cubre: "SAST, secret scan, DAST, dependencias", cuando: "CI + pre-prod", tool: "CodeQL, snyk, owasp" },
+    38→];
+    39→
+    40→const ISOLATION_TEST = `// packages/reservations/tests/isolation.test.ts
+    41→import { env } from "cloudflare:test";
+    42→import { describe, it, expect, beforeAll } from "vitest";
+    43→
+    44→describe("aislamiento multi-tenant (reservations)", () => {
+    45→  beforeAll(async () => {
+    46→    // Seed: dos organizaciones con una reserva cada una
+    47→    await env.DB.prepare(
+    48→      \`INSERT INTO organizations (id, slug, commercial_name, timezone, currency, status, max_locations, max_users, created_at, updated_at)
+    49→       VALUES ('01HQTESTORG1','test-org-1','Test 1','Europe/Madrid','EUR','active',1,3,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z'),
+    50→              ('01HQTESTORG2','test-org-2','Test 2','Europe/Madrid','EUR','active',1,3,'2025-01-01T00:00:00Z','2025-01-01T00:00:00Z')\`
+    51→    ).run();
+    52→    await env.DB.prepare(
+    53→      \`INSERT INTO reservations (organization_id, id, location_id, customer_id, status, party_size, reserved_at, source, idem_key, created_by, created_at, updated_at)
+    54→       VALUES ('01HQTESTORG1','01HQRESAAAA','loc1','cust1','confirmed',4,'2025-02-01T20:00:00Z','dashboard','k1','u1','2025-01-01T00:00:00Z','2025-01-01T00:00:00Z')\`
+    55→    ).run();
+    56→  });
+    57→
+    58→  it("org A no puede leer reserva de org B", async () => {
+    59→    const repo = new ReservationsRepo(env.DB);
+    60→    const ctxA = makeCtx({ organization_id: "01HQTESTORG1" });
+    61→    const ctxB = makeCtx({ organization_id: "01HQTESTORG2" });
+    62→
+    63→    const fromA = await repo.findById(ctxA, "01HQRESAAAA");
+    64→    const fromB = await repo.findById(ctxB, "01HQRESAAAA");
+    65→
+    66→    expect(fromA).not.toBeNull();      // A ve la suya
+    67→    expect(fromB).toBeNull();          // B NO ve la de A
+    68→  });
+    69→
+    70→  it("org B no puede mutar reserva de org A", async () => {
+    71→    const repo = new ReservationsRepo(env.DB);
+    72→    const ctxB = makeCtx({ organization_id: "01HQTESTORG2" });
+    73→    await repo.softDelete(ctxB, "01HQRESAAAA"); // intenta borrar la de A
+    74→    const stillThere = await repo.findById(makeCtx({ organization_id: "01HQTESTORG1" }), "01HQRESAAAA");
+    75→    expect(stillThere?.deleted_at).toBeNull(); // no se borró
+    76→  });
+    77→});`;
+    78→
+    79→const RBAC_TEST = `// packages/auth/tests/rbac.test.ts
+    80→describe("RBAC: prevención de escalada de privilegios", () => {
+    81→  it("recepción no puede exportar CRM", async () => {
+    82→    const ctx = makeCtx({
+    83→      organization_id: "01HQTESTORG1",
+    84→      role_id: "role_reception",
+    85→      permission_keys: ["reservations.create", "reservations.update", "customers.read"],
+    86→    });
+    87→    const allowed = await checkPermission(ctx, { resource: "crm", action: "export" });
+    88→    expect(allowed).toBe(false);
+    89→  });
+    90→
+    91→  it("gerente de local A no puede operar local B", async () => {
+    92→    const ctx = makeCtx({
+    93→      organization_id: "01HQTESTORG1",
+    94→      location_id: "locA",
+    95→      permission_keys: ["reservations.create"],
+    96→    });
+    97→    const allowed = await checkPermission(ctx, {
+    98→      resource: "reservations", action: "create", scope: { location_id: "locB" },
+    99→    });
+   100→    expect(allowed).toBe(false);
+   101→  });
+   102→
+   103→  it("rol personalizado no supera privilegios del creador", async () => {
+   104→    // Owner crea rol custom con subset de permisos; nunca más privilegio que Owner
+   105→    const custom = await createCustomRole(env, ownerCtx, { name: "Host Senior", perms: ["reservations.create"] });
+   106→    const customCtx = makeCtx({ organization_id: ownerCtx.organization_id, role_id: custom.id, permission_keys: ["reservations.create"] });
+   107→    expect(await checkPermission(customCtx, { resource: "billing", action: "update" })).toBe(false);
+   108→  });
+   109→});`;
+   110→
+   111→const CONCURRENCY_TEST = `// workers/realtime/tests/concurrency.test.ts
+   112→describe("concurrencia: doble reserva imposible", () => {
+   113→  it("dos clientes no reservan el mismo slot simultáneamente", async () => {
+   114→    const doId = env.FLOOR.idFromName("01HQTESTORG1:loc1:2025-02-01");
+   115→    const stub = env.FLOOR.get(doId);
+   116→
+   117→    const slot = "2025-02-01T20:00:00Z";
+   118→    const [r1, r2] = await Promise.all([
+   119→      stub.fetch(\`http://x/lock-slot\`, { method: "POST", body: JSON.stringify({ slot, hold_seconds: 30 }) }),
+   120→      stub.fetch(\`http://x/lock-slot\`, { method: "POST", body: JSON.stringify({ slot, hold_seconds: 30 }) }),
+   121→    ]);
+   122→
+   123→    const j1 = await r1.json();
+   124→    const j2 = await r2.json();
+   125→    // Exactamente uno de los dos gana el lock
+   126→    expect([j1.ok, j2.ok].filter(Boolean).length).toBe(1);
+   127→  });
+   128→});`;
+   129→
+   130→export function Fase4Tests() {
+   131→  return (
+   132→    <Section
+   133→      id="f4-tests"
+   134→      index="18"
+   135→      eyebrow="Tests de aislamiento, RBAC y concurrencia"
+   136→      title="Tests automatizados que prueban aislamiento, permisos y concurrencia."
+   137→      intro={
+   138→        <>
+   139→          Los tests son obligatorios en CI y bloquean el merge si fallan. Cada endpoint tenant
+   140→          tiene un test cross-tenant negativo; cada repositorio un test IDOR; cada ruta protegida
+   141→          un test de permiso (allow + deny); cada operación concurrente un test de contención. No
+   142→          se asume el aislamiento: se prueba activamente intentando acceder a datos de otro tenant,
+   143→          escalar privilegios y doble-reservar el mismo slot.
+   144→        </>
+   145→      }
+   146→    >
+   147→      <div className="space-y-6">
+   148→        <div>
+   149→          <div className="flex items-center gap-2 mb-3">
+   150→            <Pill tone="gold">aislamiento</Pill>
+   151→            <H3>Cross-tenant: org A no ve ni muta org B</H3>
+   152→          </div>
+   153→          <Code lang="typescript">{ISOLATION_TEST}</Code>
+   154→        </div>
+   155→
+   156→        <div>
+   157→          <div className="flex items-center gap-2 mb-3">
+   158→            <Pill tone="gold">RBAC</Pill>
+   159→            <H3>Escalada de privilegios imposibilitada</H3>
+   160→          </div>
+   161→          <Code lang="typescript">{RBAC_TEST}</Code>
+   162→        </div>
+   163→
+   164→        <div>
+   165→          <div className="flex items-center gap-2 mb-3">
+   166→            <Pill tone="teal">concurrencia</Pill>
+   167→            <H3>Doble reserva imposible vía Durable Object</H3>
+   168→          </div>
+   169→          <Code lang="typescript">{CONCURRENCY_TEST}</Code>
+   170→        </div>
+   171→      </div>
+   172→
+   173→      <div className="mt-12">
+   174→        <H3 className="mb-4">Estrategia de testing</H3>
+   175→        <DataTable
+   176→          head={["Nivel", "Qué cubre", "Cuándo", "Tooling"]}
+   177→          rows={TESTING_STRATEGY.map((t) => [
+   178→            <span key={`nivel-${t.nivel}`}>
+   179→              <Mono>{t.nivel}</Mono>
+   180→            </span>,
+   181→            <span key={`cubre-${t.nivel}`} className="text-foreground/80">
+   182→              {t.cubre}
+   183→            </span>,
+   184→            <span key={`cuando-${t.nivel}`} className="text-foreground/70">
+   185→              {t.cuando}
+   186→            </span>,
+   187→            <span key={`tool-${t.nivel}`} className="font-mono text-xs text-foreground/80">
+   188→              {t.tool}
+   189→            </span>,
+   190→          ])}
+   191→        />
+   192→      </div>
+   193→
+   194→      <div className="mt-10 grid lg:grid-cols-2 gap-5 items-start">
+   195→        <GlassCard variant="gold">
+   196→          <div className="flex items-center gap-2 mb-4">
+   197→            <Pill tone="gold">CI gate</Pill>
+   198→            <H3>Tests obligatorios en CI</H3>
+   199→          </div>
+   200→          <GoldList
+   201→            items={[
+   202→              "Por cada endpoint tenant: test cross-tenant negativo.",
+   203→              "Por cada repositorio: test IDOR (no access por id de otro tenant).",
+   204→              "Por cada ruta protegida: test de permiso (allow + deny).",
+   205→              "Por cada operación concurrente: test de contención (DO lock + unique constraint).",
+   206→              "CI rojo bloquea merge: ningún bypass manual por revisor.",
+   207→              "Cobertura mínima en dominios críticos (reservas, billing, auth, tenancy).",
+   208→            ]}
+   209→          />
+   210→        </GlassCard>
+   211→
+   212→        <Callout kind="ok" title="Aislamiento verificado por test, no por fe">
+   213→          El aislamiento multi-tenant se prueba con tests que intentan activamente acceder a datos
+   214→          de otro tenant. Si el test pasa, el aislamiento funciona. Si falla, CI bloquea. No se
+   215→          asume: se demuestra con un caso negativo que ejercita el repositorio con un contexto
+   216→          forzado de otra organización y verifica que devuelve <Mono>null</Mono> o lanza
+   217→          <Mono> not_found</Mono>.
+   218→        </Callout>
+   219→      </div>
+   220→    </Section>
+   221→  );
+   222→}
+   223→
+   224→/* ============================================================ */
+   225→/*  19 — SEGURIDAD AVANZADA                                     */
+   226→/* ============================================================ */
+   227→type ControlF4 = {
+   228→  id: string;
+   229→  control: string;
+   230→  impl: string;
+   231→  riesgo: "bajo" | "medio" | "alto" | "crítico";
+   232→};
+   233→
+   234→const CONTROLES_F4: ControlF4[] = [
+   235→  { id: "zod", control: "Validación estricta", impl: "Zod en frontera de API; sin trust en cliente", riesgo: "medio" },
+   236→  { id: "sqli", control: "SQL Injection", impl: "consultas parametrizadas; sin SQL dinámico", riesgo: "medio" },
+   237→  { id: "xss", control: "XSS", impl: "escape + CSP con nonces", riesgo: "medio" },
+   238→  { id: "csrf", control: "CSRF", impl: "tokens anti-CSRF; SameSite=Lax", riesgo: "medio" },
+   239→  { id: "rl", control: "Rate limiting", impl: "WAF + por IP + por org; 429 con Retry-After", riesgo: "medio" },
+   240→  { id: "bot", control: "Bot protection", impl: "Turnstile en widget y login", riesgo: "bajo" },
+   241→  { id: "jwt", control: "JWT rotation", impl: "access corto + refresh rotativo", riesgo: "medio" },
+   242→  { id: "refresh", control: "Refresh tokens", impl: "almacenados hash; rotación; revocación", riesgo: "alto" },
+   243→  { id: "revoke", control: "Revocación de sesiones", impl: "por sesión y por dispositivo", riesgo: "alto" },
+   244→  { id: "mfa", control: "MFA", impl: "WebAuthn/TPP preparado", riesgo: "alto" },
+   245→  { id: "csp", control: "CSP", impl: "nonces por request; sin unsafe-inline", riesgo: "medio" },
+   246→  { id: "hdr", control: "Security headers", impl: "HSTS, X-Content-Type-Options, Referrer-Policy", riesgo: "bajo" },
+   247→  { id: "sec", control: "Secretos", impl: "fuera de código; wrangler secrets; rotación", riesgo: "alto" },
+   248→  { id: "enc", control: "Cifrado sensible", impl: "R2 SSE; secretos en KV secrets", riesgo: "bajo" },
+   249→  { id: "idor", control: "Control por recurso", impl: "ownership verificado (anti-IDOR)", riesgo: "crítico" },
+   250→  { id: "logs", control: "Logs de seguridad", impl: "sin tokens/contraseñas; redacción PII", riesgo: "medio" },
+   251→  { id: "idem", control: "Idempotencia", impl: "idem_key en operaciones críticas", riesgo: "medio" },
+   252→  { id: "wh", control: "Webhooks", impl: "firma HMAC + timestamp anti replay", riesgo: "alto" },
+   253→  { id: "replay", control: "Anti replay", impl: "ventana 5 min; nonce dedup", riesgo: "medio" },
+   254→  { id: "esc", control: "Anti escalada", impl: "RBAC + ABAC; deny por defecto", riesgo: "crítico" },
+   255→  { id: "cors", control: "CORS", impl: "allowlist de orígenes; no wildcard", riesgo: "medio" },
+   256→  { id: "pii", control: "Datos públicos/privados", impl: "separación clara; sin PII en público", riesgo: "alto" },
+   257→];
+   258→
+   259→const SECURITY_HEADERS = `// workers/api/src/middleware/security.ts
+   260→import { v4 as uuid } from "uuid";
+   261→
+   262→export function securityHeaders(c: Context, next: Next) {
+   263→  const nonce = uuid();
+   264→  c.header("Content-Security-Policy",
+   265→    \`default-src 'self'; script-src 'self' 'nonce-\${nonce}'; \` +
+   266→    \`style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; \` +
+   267→    \`connect-src 'self' https://api.stripe.com; frame-ancestors 'none'; base-uri 'self'\`);
+   268→  c.header("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
+   269→  c.header("X-Content-Type-Options", "nosniff");
+   270→  c.header("Referrer-Policy", "strict-origin-when-cross-origin");
+   271→  c.header("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+   272→  c.set("cspNonce", nonce);
+   273→  return next();
+   274→}`;
+   275→
+   276→export function Fase4Seguridad() {
+   277→  return (
+   278→    <Section
+   279→      id="f4-seguridad"
+   280→      index="19"
+   281→      eyebrow="Seguridad avanzada"
+   282→      title="Hardening, headers, rate limiting y prevención de ataques comunes."
+   283→      intro={
+   284→        <>
+   285→          La seguridad se aplica en capas: validación estricta en la frontera de la API con Zod,
+   286→          consultas parametrizadas en D1 (nunca SQL dinámico), CSP con nonces por request,
+   287→          rate limiting por IP y por organización, JWT de acceso corto con refresh rotativo y
+   288→          revocable, y verificación de ownership en cada recurso para impedir IDOR. La regla
+   289→          operativa es deny por defecto: si no hay permiso explícito, se rechaza.
+   290→        </>
+   291→      }
+   292→    >
+   293→      <div className="mb-10">
+   294→        <H3 className="mb-4">Controles de seguridad</H3>
+   295→        <DataTable
+   296→          head={["Control", "Implementación", "Riesgo"]}
+   297→          rows={CONTROLES_F4.map((c) => [
+   298→            <span key={`ctrl-${c.id}`}>
+   299→              <Mono>{c.control}</Mono>
+   300→            </span>,
+   301→            <span key={`impl-${c.id}`} className="text-foreground/80">
+   302→              {c.impl}
+   303→            </span>,
+   304→            <Risk key={`risk-${c.id}`} level={c.riesgo} />,
+   305→          ])}
+   306→        />
+   307→      </div>
+   308→
+   309→      <div>
+   310→        <div className="flex items-center gap-2 mb-3">
+   311→          <Pill tone="gold">middleware</Pill>
+   312→          <H3>Security headers + CSP con nonce por request</H3>
+   313→        </div>
+   314→        <Code lang="typescript">{SECURITY_HEADERS}</Code>
+   315→      </div>
+   316→
+   317→      <div className="mt-10 grid lg:grid-cols-2 gap-5 items-start">
+   318→        <GlassCard variant="gold">
+   319→          <div className="flex items-center gap-2 mb-4">
+   320→            <Pill tone="gold">reglas</Pill>
+   321→            <H3>Reglas de seguridad</H3>
+   322→          </div>
+   323→          <GoldList
+   324→            items={[
+   325→              "Deny por defecto en autorización: sin permiso explícito, se rechaza.",
+   326→              "Validación Zod en cada endpoint; el cliente nunca se considera confiable.",
+   327→              "Consultas parametrizadas en D1: nunca concatenar SQL con input.",
+   328→              "CSP con nonces por request; sin 'unsafe-inline' en script-src.",
+   329→              "CORS allowlist de orígenes; nunca wildcard en producción.",
+   330→              "Secretos en wrangler secrets: nunca en código, KV plano ni frontend.",
+   331→              "Logs sin tokens, contraseñas ni PII cruda; redacción por allowlist.",
+   332→              "Rate limit por IP y por org; 429 con Retry-After.",
+   333→              "Turnstile en superficies públicas (widget de reservas, login).",
+   334→              "Webhooks firmados con HMAC + ventana anti replay de 5 min.",
+   335→            ]}
+   336→          />
+   337→        </GlassCard>
+   338→
+   339→        <Callout kind="warn" title="Errores no exponen info sensible">
+   340→          Las respuestas de error usan un formato normalizado{" "}
+   341→          <Mono>{`{error:{code,message,details,request_id}}`}</Mono> sin stack traces, sin nombres
+   342→          de tabla, sin valores internos. Los 500 se loguean con correlation_id; el cliente recibe
+   343→          solo el request_id para que soporte pueda cruzarlo con los logs internos. Nunca se filtra
+   344→          estructura de base de datos ni rutas de código en respuestas públicas.
+   345→        </Callout>
+   346→      </div>
+   347→    </Section>
+   348→  );
+   349→}
+   350→
+   351→/* ============================================================ */
+   352→/*  20 — OBSERVABILIDAD                                          */
+   353→/* ============================================================ */
+   354→type PilarObs = { id: string; pilar: string; impl: string; notas: string };
+   355→
+   356→const PILARES_OBS: PilarObs[] = [
+   357→  { id: "logs", pilar: "Logs estructurados", impl: "JSON en Workers; redacción PII por allowlist", notas: "retención por entorno" },
+   358→  { id: "metrics", pilar: "Métricas", impl: "counters, histograms por dominio", notas: "Cloudflare Analytics + warehouse" },
+   359→  { id: "traces", pilar: "Trazas", impl: "correlation_id por request; propagado a queues/DO", notas: "end-to-end" },
+   360→  { id: "audit", pilar: "Audit logs", impl: "append-only D1 + archivo R2", notas: "retención larga" },
+   361→  { id: "alerts", pilar: "Alertas", impl: "SLO burn, error rate, latencia, coste", notas: "routing por severidad" },
+   362→  { id: "health", pilar: "Health checks", impl: "por servicio y por integración", notas: "status page" },
+   363→];
+   364→
+   365→const LOGGER_CODE = `// packages/observability/src/logger.ts
+   366→const ALLOWED_KEYS = new Set(["organization_id", "location_id", "action", "result", "duration_ms", "model", "scope"]);
+   367→
+   368→export function log(level: "info" | "warn" | "error", msg: string, meta: Record<string, unknown> = {}) {
+   369→  const redacted: Record<string, unknown> = {};
+   370→  for (const [k, v] of Object.entries(meta)) {
+   371→    redacted[k] = ALLOWED_KEYS.has(k) ? v : "[redacted]";
+   372→  }
+   373→  console.log(JSON.stringify({
+   374→    level, msg, ts: new Date().toISOString(), ...redacted,
+   375→  }));
+   376→}
+   377→
+   378→export function withCorrelation(headers: Headers): string {
+   379→  return headers.get("x-correlation-id") ?? ulid();
+   380→}`;
+   381→
+   382→export function Fase4Observabilidad() {
+   383→  return (
+   384→    <Section
+   385→      id="f4-observabilidad"
+   386→      index="20"
+   387→      eyebrow="Observabilidad"
+   388→      title="Logs redactados, métricas, trazas y health checks."
+   389→      intro={
+   390→        <>
+   391→          Cada request genera un correlation_id que se propaga a colas, Durable Objects y
+   392→          integraciones externas. Los logs son JSON estructurado con redacción por allowlist: las
+   393→          claves no listadas se reemplazan por <Mono>[redacted]</Mono>. Las métricas se emiten por
+   394→          dominio y por organización para facturación y margen. El SLO del núcleo es 99.9% con
+   395→          error budget explícito y alertas por burn rate.
+   396→        </>
+   397→      }
+   398→    >
+   399→      <div className="mb-10">
+   400→        <H3 className="mb-4">Pilares de observabilidad</H3>
+   401→        <DataTable
+   402→          head={["Pilar", "Implementación", "Notas"]}
+   403→          rows={PILARES_OBS.map((p) => [
+   404→            <span key={`pilar-${p.id}`}>
+   405→              <Mono>{p.pilar}</Mono>
+   406→            </span>,
+   407→            <span key={`impl-${p.id}`} className="text-foreground/80">
+   408→              {p.impl}
+   409→            </span>,
+   410→            <span key={`notas-${p.id}`} className="text-foreground/70">
+   411→              {p.notas}
+   412→            </span>,
+   413→          ])}
+   414→        />
+   415→      </div>
+   416→
+   417→      <div>
+   418→        <div className="flex items-center gap-2 mb-3">
+   419→          <Pill tone="teal">logger</Pill>
+   420→          <H3>Log estructurado + correlation_id por request</H3>
+   421→        </div>
+   422→        <Code lang="typescript">{LOGGER_CODE}</Code>
+   423→      </div>
+   424→
+   425→      <div className="mt-6 grid lg:grid-cols-2 gap-5 items-start">
+   426→        <GlassCard variant="gold">
+   427→          <div className="flex items-center gap-2 mb-4">
+   428→            <Pill tone="gold">reglas</Pill>
+   429→            <H3>Reglas de observabilidad</H3>
+   430→          </div>
+   431→          <GoldList
+   432→            items={[
+   433→              "Todo request genera correlation_id y se propaga a queues, DO y webhooks.",
+   434→              "Logs en JSON con redacción por allowlist (nunca tokens, contraseñas, PII cruda).",
+   435→              "Métricas por dominio y por org (throughput, latencia, errores).",
+   436→              "SLO 99.9% en núcleo con error budget explícito y revisión semanal.",
+   437→              "Alertas por SLO burn rate, error rate, latencia p95 y coste.",
+   438→              "Health checks por servicio y por integración (Stripe, Resend, WhatsApp, Google).",
+   439→              "Status page pública para incidentes y mantenimiento programado.",
+   440→              "Coste por org trackeado: alimenta billing y márgenes de plataforma.",
+   441→            ]}
+   442→          />
+   443→        </GlassCard>
+   444→
+   445→        <div className="grid grid-cols-2 gap-3 self-stretch">
+   446→          <Stat label="SLO núcleo" value="99.9%" sub="error budget explícito" accent="gold" />
+   447→          <Stat label="RPO" value="≤ 15 min" sub="snapshot + outbox" accent="teal" />
+   448→          <Stat label="RTO" value="≤ 2 h" sub="restore + redeploy" accent="gold" />
+   449→          <Stat label="Logs" value="Sin PII" sub="redacción por allowlist" accent="fg" />
+   450→        </div>
+   451→      </div>
+   452→    </Section>
+   453→  );
+   454→}
+   455→
+   456→/* ============================================================ */
+   457→/*  21 — DESPLIEGUE Y VARIABLES DE ENTORNO                      */
+   458→/* ============================================================ */
+   459→const DEPLOY_SEQ = `# 1. Aplicar migraciones a D1 (remoto)
+   460→npx wrangler d1 migrations apply restopanel-tenant --remote
+   461→
+   462→# 2. Subir secrets (una vez por entorno; rotación documentada)
+   463→npx wrangler secret put STRIPE_SECRET_KEY --env production
+   464→npx wrangler secret put STRIPE_WEBHOOK_SECRET --env production
+   465→npx wrangler secret put SESSION_SECRET --env production
+   466→npx wrangler secret put AI_GATEWAY_KEY --env production
+   467→
+   468→# 3. Publicar workers
+   469→npx wrangler deploy --env production
+   470→
+   471→# 4. Smoke test post-deploy
+   472→bun run scripts/smoke-prod.ts`;
+   473→
+   474→type EnvVar = { id: string; variable: string; proposito: string; donde: string };
+   475→
+   476→const ENV_VARS: EnvVar[] = [
+   477→  { id: "stripe-sk", variable: "STRIPE_SECRET_KEY", proposito: "cobros", donde: "wrangler secret" },
+   478→  { id: "stripe-wh", variable: "STRIPE_WEBHOOK_SECRET", proposito: "verificar webhooks", donde: "wrangler secret" },
+   479→  { id: "session", variable: "SESSION_SECRET", proposito: "firmar cookies", donde: "wrangler secret" },
+   480→  { id: "aigw", variable: "AI_GATEWAY_KEY", proposito: "AI Gateway", donde: "wrangler secret" },
+   481→  { id: "resend", variable: "RESEND_API_KEY", proposito: "email transaccional", donde: "wrangler secret" },
+   482→  { id: "wa-tok", variable: "WHATSAPP_TOKEN", proposito: "WhatsApp Cloud API", donde: "wrangler secret" },
+   483→  { id: "wa-vt", variable: "WHATSAPP_VERIFY_TOKEN", proposito: "verificación webhook", donde: "wrangler secret" },
+   484→  { id: "gcid", variable: "GOOGLE_OAUTH_CLIENT_ID", proposito: "Google integrations", donde: "wrangler secret" },
+   485→  { id: "gsec", variable: "GOOGLE_OAUTH_CLIENT_SECRET", proposito: "Google integrations", donde: "wrangler secret" },
+   486→  { id: "env", variable: "ENV", proposito: "dev/staging/production", donde: "wrangler.toml [vars]" },
+   487→  { id: "ver", variable: "APP_VERSION", proposito: "versionado", donde: "wrangler.toml [vars]" },
+   488→];
+   489→
+   490→export function Fase4Deploy() {
+   491→  return (
+   492→    <Section
+   493→      id="f4-deploy"
+   494→      index="21"
+   495→      eyebrow="Despliegue y variables de entorno"
+   496→      title="Despliegue reproducible sin pasos manuales ocultos."
+   497→      intro={
+   498→        <>
+   499→          El despliegue es una secuencia explícita y reproducible: migraciones a D1 primero, luego
+   500→          secrets por entorno, luego <Mono>wrangler deploy</Mono>, y por último un smoke test que
+   501→          verifica los endpoints críticos. Cualquier entorno (dev, staging, prod) se levanta con
+   502→          la misma receta. No hay configuración manual fuera de código ni pasos secretos
+   503→          transmitidos por chat.
+   504→        </>
+   505→      }
+   506→    >
+   507→      <div>
+   508→        <div className="flex items-center gap-2 mb-3">
+   509→          <Pill tone="gold">secuencia</Pill>
+   510→          <H3>Deploy de producción</H3>
+   511→        </div>
+   512→        <Code lang="bash">{DEPLOY_SEQ}</Code>
+   513→      </div>
+   514→
+   515→      <div className="mt-10">
+   516→        <H3 className="mb-4">Variables de entorno requeridas</H3>
+   517→        <DataTable
+   518→          head={["Variable", "Propósito", "Dónde"]}
+   519→          rows={ENV_VARS.map((v) => [
+   520→            <span key={`var-${v.id}`}>
+   521→              <Mono>{v.variable}</Mono>
+   522→            </span>,
+   523→            <span key={`prop-${v.id}`} className="text-foreground/80">
+   524→              {v.proposito}
+   525→            </span>,
+   526→            <span key={`donde-${v.id}`} className="font-mono text-xs text-foreground/70">
+   527→              {v.donde}
+   528→            </span>,
+   529→          ])}
+   530→        />
+   531→      </div>
+   532→
+   533→      <div className="mt-10 grid lg:grid-cols-2 gap-5 items-start">
+   534→        <GlassCard variant="gold">
+   535→          <div className="flex items-center gap-2 mb-4">
+   536→            <Pill tone="gold">reglas</Pill>
+   537→            <H3>Reglas de despliegue</H3>
+   538→          </div>
+   539→          <GoldList
+   540→            items={[
+   541→              "Migraciones antes de deploy: schema consistente con el código publicado.",
+   542→              "Secrets por entorno; nunca en código ni en wrangler.toml.",
+   543→              "Deploy gradual con canary: primero 5% del tráfico, luego 100%.",
+   544→              "Rollback = deploy anterior + migración correctiva (no downgrade destructivo).",
+   545→              "Feature flags para desacoplar deploy de release.",
+   546→              "Smoke test post-deploy: alta org, login, crear reserva, webhook Stripe de prueba.",
+   547→              "Sin pasos manuales ocultos: todo en CI/CD o en scripts versionados.",
+   548→              "Cada release taggeado en git con changelog semántico.",
+   549→            ]}
+   550→          />
+   551→        </GlassCard>
+   552→
+   553→        <Callout kind="ok" title="Reproducible">
+   554→          Cualquier entorno se levanta con cuatro pasos: aplicar migraciones, setear secrets,
+   555→          <Mono> wrangler deploy</Mono> y smoke test. No hay configuración manual fuera de código.
+   556→          Un ingeniero nuevo puede recrear staging desde cero en menos de 30 minutos siguiendo el
+   557→          runbook; producción aplica la misma receta con gate de aprobación y ventana de canary.
+   558→        </Callout>
+   559→      </div>
+   560→    </Section>
+   561→  );
+   562→}
+   563→
+   564→/* ============================================================ */
+   565→/*  22 — MIGRACIÓN Y ROLLBACK                                   */
+   566→/* ============================================================ */
+   567→type PlanMR = { id: string; escenario: string; estrategia: string };
+   568→
+   569→const PLAN_MR: PlanMR[] = [
+   570→  { id: "rutina", escenario: "Migración rutinaria", estrategia: "forward-only; aplicar antes de deploy; idempotente con IF NOT EXISTS" },
+   571→  { id: "rbcode", escenario: "Rollback de código", estrategia: "deploy de la versión anterior (git tag)" },
+   572→  { id: "rbschema", escenario: "Rollback de schema", estrategia: "nueva migración correctiva (no downgrade destructivo)" },
+   573→  { id: "failprod", escenario: "Migración fallida en prod", estrategia: "detener deploy; restaurar D1 desde snapshot Time Travel; postmortem" },
+   574→  { id: "backup", escenario: "Backup", estrategia: "exports cifrados a R2 versionados; pruebas de restauración periódicas" },
+   575→  { id: "rpo", escenario: "RPO", estrategia: "≤ 15 min (snapshot + outbox)" },
+   576→  { id: "rto", escenario: "RTO", estrategia: "≤ 2 h (restore + redeploy)" },
+   577→];
+   578→
+   579→const ROLLBACK_PROC = `# Rollback de código: deploy del tag anterior
+   580→git checkout v4.0.0-prev
+   581→npx wrangler deploy --env production
+   582→
+   583→# Rollback de schema: nueva migración correctiva
+   584→# NUNCA hacer DROP/DELETE destructivo; crear 00NN_rollback_XXXX.sql
+   585→npx wrangler d1 migrations apply restopanel-tenant --remote
+   586→
+   587→# Restaurar D1 desde snapshot Time Travel (solo incidente grave)
+   588→npx wrangler d1 time-travel restore restopanel-tenant --timestamp=2025-01-21T12:00:00Z`;
+   589→
+   590→export function Fase4Migracion() {
+   591→  return (
+   592→    <Section
+   593→      id="f4-migracion"
+   594→      index="22"
+   595→      eyebrow="Migración y rollback"
+   596→      title="Migraciones forward-only y rollback planificado."
+   597→      intro={
+   598→        <>
+   599→          Las migraciones de D1 son forward-only: cada una numerada, idempotente y aplicada antes
+   600→          del deploy del código que la requiere. El rollback de código es redeploy del tag anterior;
+   601→          el rollback de schema es una nueva migración correctiva, nunca un downgrade destructivo.
+   602→          Time Travel de D1 existe para incidentes graves, pero no sustituye a los backups cifrados
+   603→          y versionados en R2 con pruebas de restauración periódicas.
+   604→        </>
+   605→      }
+   606→    >
+   607→      <div className="mb-10">
+   608→        <H3 className="mb-4">Plan de migración y rollback</H3>
+   609→        <DataTable
+   610→          head={["Escenario", "Estrategia"]}
+   611→          rows={PLAN_MR.map((p) => [
+   612→            <span key={`esc-${p.id}`}>
+   613→              <Mono>{p.escenario}</Mono>
+   614→            </span>,
+   615→            <span key={`est-${p.id}`} className="text-foreground/80">
+   616→              {p.estrategia}
+   617→            </span>,
+   618→          ])}
+   619→        />
+   620→      </div>
+   621→
+   622→      <div>
+   623→        <div className="flex items-center gap-2 mb-3">
+   624→          <Pill tone="gold">runbook</Pill>
+   625→          <H3>Procedimiento de rollback</H3>
+   626→        </div>
+   627→        <Code lang="bash">{ROLLBACK_PROC}</Code>
+   628→      </div>
+   629→
+   630→      <div className="mt-10 grid lg:grid-cols-2 gap-5 items-start">
+   631→        <GlassCard variant="gold">
+   632→          <div className="flex items-center gap-2 mb-4">
+   633→            <Pill tone="gold">reglas</Pill>
+   634→            <H3>Reglas de migración</H3>
+   635→          </div>
+   636→          <GoldList
+   637→            items={[
+   638→              "Forward-only: nunca downgrade destructivo en producción.",
+   639→              "Cada migración numerada e idempotente (IF NOT EXISTS / guardas).",
+   640→              "Rollback de código = redeploy de la versión anterior (git tag).",
+   641→              "Rollback de schema = nueva migración correctiva, reversión lógica.",
+   642→              "Backup cifrado a R2 + pruebas de restauración al menos mensuales.",
+   643→              "Time Travel solo para incidentes graves; no es backup de conservación larga.",
+   644→              "Postmortem tras cada rollback: causa, detección, mitigación, acción preventiva.",
+   645→            ]}
+   646→          />
+   647→        </GlassCard>
+   648→
+   649→        <Callout kind="warn" title="Time Travel ≠ backup">
+   650→          Time Travel de D1 es recuperación puntual (point-in-time), no backup de conservación
+   651→          larga: su ventana está limitada y no cubre retención legal ni compliance. Los backups
+   652→          cifrados y versionados en R2 son obligatorios; las pruebas de restauración periódicas
+   653→          verifican que el proceso funciona cuando se necesita, no solo en teoría.
+   654→        </Callout>
+   655→      </div>
+   656→    </Section>
+   657→  );
+   658→}
+   659→
+   660→/* ============================================================ */
+   661→/*  23 — CRITERIOS DE ACEPTACIÓN                                */
+   662→/* ============================================================ */
+   663→type CriterioF4 = { id: string; criterio: string; verificacion: string };
+   664→
+   665→const CRITERIOS_F4: CriterioF4[] = [
+   666→  { id: "iso", criterio: "Dos organizaciones no pueden acceder a los datos de la otra", verificacion: "tests cross-tenant en CI verde" },
+   667→  { id: "loc", criterio: "Un usuario solo puede operar en los locales autorizados", verificacion: "tests RBAC + scope por local" },
+   668→  { id: "aud", criterio: "Todas las mutaciones quedan auditadas", verificacion: "audit_log en cada mutación + tests" },
+   669→  { id: "del", criterio: "Los datos eliminados pueden restaurarse", verificacion: "soft delete + restore + tests" },
+   670→  { id: "conc", criterio: "Reservas y mesas soportan concurrencia", verificacion: "tests DO + unique constraint" },
+   671→  { id: "q", criterio: "Las colas tienen reintentos e idempotencia", verificacion: "tests de consumer + DLQ" },
+   672→  { id: "cache", criterio: "Las cachés están aisladas por organización", verificacion: "namespace org:{id}: + tests de cache poisoning" },
+   673→  { id: "api", criterio: "Las APIs validan autenticación, autorización y entrada", verificacion: "middleware en cadena + tests" },
+   674→  { id: "mig", criterio: "Existen migraciones reproducibles", verificacion: "wrangler d1 migrations apply limpio" },
+   675→  { id: "sec", criterio: "Existen tests automatizados de seguridad y aislamiento", verificacion: "vitest + cloudflare:test en CI" },
+   676→  { id: "dash", criterio: "El dashboard funciona con datos reales", verificacion: "E2E con datos reales" },
+   677→  { id: "plan", criterio: "Los límites del plan se aplican", verificacion: "entitlements enforced + tests" },
+   678→  { id: "err", criterio: "Los errores no exponen información sensible", verificacion: "formato normalizado + revisión" },
+   679→  { id: "dep", criterio: "Despliegue en Cloudflare sin pasos manuales ocultos", verificacion: "deploy script + smoke test" },
+   680→  { id: "docs", criterio: "La documentación permite instalar, probar y desplegar", verificacion: "docs técnica + deploy" },
+   681→];
+   682→
+   683→export function Fase4Criterios() {
+   684→  return (
+   685→    <Section
+   686→      id="f4-criterios"
+   687→      index="23"
+   688→      eyebrow="Criterios de aceptación"
+   689→      title="La fase 4 se considera completada solo si…"
+   690→      intro={
+   691→        <>
+   692→          Quince criterios verificables cierran la fase 4. Cada uno tiene una verificación
+   693→          concreta (test, script, revisión) que debe estar en verde antes de declarar el núcleo
+   694→          Enterprise listo. No se admiten criterios subjetivos: o hay prueba automatizada o hay
+   695→          evidencia documentada revisada por par.
+   696→        </>
+   697→      }
+   698→    >
+   699→      <div className="mb-10">
+   700→        <H3 className="mb-4">Criterios de aceptación</H3>
+   701→        <DataTable
+   702→          head={["Criterio", "Verificación"]}
+   703→          rows={CRITERIOS_F4.map((c) => [
+   704→            <span key={`cri-${c.id}`} className="flex items-start gap-2">
+   705→              <span className="text-emerald-300 font-mono shrink-0">✓</span>
+   706→              <span className="text-foreground/90">{c.criterio}</span>
+   707→            </span>,
+   708→            <span key={`ver-${c.id}`} className="text-foreground/80">
+   709→              {c.verificacion}
+   710→            </span>,
+   711→          ])}
+   712→        />
+   713→      </div>
+   714→
+   715→      <div className="space-y-5">
+   716→        <Callout kind="ok" title="Puerta de salida de Fase 4">
+   717→          Con los 15 criterios cumplidos, el núcleo Enterprise está listo: aislamiento verificado,
+   718→          RBAC granular, concurrencia real, auditoría inmutable, límites por plan aplicados y
+   719→          despliegue reproducible. Lo que sigue es escalar (Fase 5+): más locales, más
+   720→          organizaciones, celdas dedicadas para inquilinos grandes y API pública versionada para
+   721→          integraciones de terceros.
+   722→        </Callout>
+   723→
+   724→        <GlassCard variant="strong">
+   725→          <div className="flex items-center gap-2 mb-4">
+   726→            <Pill tone="gold">cierre</Pill>
+   727→            <H3>El motor Enterprise está construido</H3>
+   728→          </div>
+   729→          <Lead>
+   730→            Cada restaurante es una organización aislada con su base de datos lógica, su RBAC, sus
+   731→            reservas, su CRM y su facturación — sin que nada se mezcle. Lo que crece a partir de
+   732→            aquí es superficie, no reescritura.
+   733→          </Lead>
+   734→        </GlassCard>
+   735→      </div>
+   736→    </Section>
+   737→  );
+   738→}
+   739→

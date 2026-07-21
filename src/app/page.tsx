@@ -43,6 +43,12 @@ import { Fase4Migraciones, Fase4Tenancy, Fase4Auth, Fase4RBAC } from "@/componen
 import { Fase4Auditoria, Fase4Repositorios, Fase4DO, Fase4Queues, Fase4R2AI } from "@/components/rp/sections-fase4/f4-c";
 import { Fase4Cache, Fase4Billing, Fase4CRM, Fase4Dashboard } from "@/components/rp/sections-fase4/f4-d";
 import { Fase4Tests, Fase4Seguridad, Fase4Observabilidad, Fase4Deploy, Fase4Migracion, Fase4Criterios } from "@/components/rp/sections-fase4/f4-e";
+import { ProductoHero } from "@/components/rp/sections-producto/p-hero";
+import { ProductoResumen, ProductoArquitectura, ProductoDesignSystem, ProductoRutas, ProductoDatos } from "@/components/rp/sections-producto/p-a";
+import { ProductoComponentes, ProductoFlujos, ProductoLanding } from "@/components/rp/sections-producto/p-b";
+import { ProductoPricing, ProductoDashboard, ProductoReservas } from "@/components/rp/sections-producto/p-c";
+import { ProductoCRM, ProductoAutomatizaciones, ProductoReputacion } from "@/components/rp/sections-producto/p-d";
+import { ProductoBilling, ProductoSuperAdmin, ProductoDemo, ProductoTests, ProductoRiesgos, ProductoDeploy } from "@/components/rp/sections-producto/p-e";
 import { BrandMark } from "@/components/rp/nav";
 
 export default function Page() {
@@ -53,7 +59,7 @@ export default function Page() {
       <SideNav />
 
       <main className="flex-1 lg:ml-72">
-        {phase === "fase0" ? <Fase0 /> : phase === "fase1" ? <Fase1 /> : phase === "fase2" ? <Fase2 /> : <Fase4 />}
+        {phase === "fase0" ? <Fase0 /> : phase === "fase1" ? <Fase1 /> : phase === "fase2" ? <Fase2 /> : phase === "fase4" ? <Fase4 /> : <Producto />}
       </main>
 
       <Footer phase={phase} />
@@ -177,7 +183,35 @@ function Fase4() {
   );
 }
 
-function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" }) {
+function Producto() {
+  return (
+    <>
+      <ProductoHero />
+      <ProductoResumen />
+      <ProductoArquitectura />
+      <ProductoDesignSystem />
+      <ProductoRutas />
+      <ProductoDatos />
+      <ProductoComponentes />
+      <ProductoFlujos />
+      <ProductoLanding />
+      <ProductoPricing />
+      <ProductoDashboard />
+      <ProductoReservas />
+      <ProductoCRM />
+      <ProductoAutomatizaciones />
+      <ProductoReputacion />
+      <ProductoBilling />
+      <ProductoSuperAdmin />
+      <ProductoDemo />
+      <ProductoTests />
+      <ProductoRiesgos />
+      <ProductoDeploy />
+    </>
+  );
+}
+
+function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" | "producto" }) {
   const subtitle =
     phase === "fase0"
       ? "Fase 0 · Fundación Enterprise"
@@ -185,7 +219,9 @@ function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" }) {
       ? "Fase 1.1 · Arquitectura Enterprise"
       : phase === "fase2"
       ? "Fase 1.2 · Core Platform"
-      : "Fase 4 · Núcleo Enterprise (Motor de Restaurantes)";
+      : phase === "fase4"
+      ? "Fase 4 · Núcleo Enterprise (Motor de Restaurantes)"
+      : "RestoPanel · SaaS Enterprise para restaurantes";
   const desc =
     phase === "fase0"
       ? "Documento estratégico-arquitectónico. Borrador V0.1. Pensado para revisión crítica antes de iniciar desarrollo de producto."
@@ -193,7 +229,9 @@ function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" }) {
       ? "Especificación técnica implementable y verificable. Spec V1.1. Diseña la fundación arquitectónica multi-tenant sobre Cloudflare antes de escribir la aplicación completa."
       : phase === "fase2"
       ? "Diseño del núcleo funcional y técnico de RestoPanel. Spec V1.2. Monolito modular orientado a dominios, con eventos, automatizaciones, integraciones, IA y analítica."
-      : "Implementación del núcleo Enterprise: organizaciones aisladas, RBAC granular, reservas/mesas/CRM con concurrencia, auditoría inmutable y límites por plan sobre Cloudflare.";
+      : phase === "fase4"
+      ? "Implementación del núcleo Enterprise: organizaciones aisladas, RBAC granular, reservas/mesas/CRM con concurrencia, auditoría inmutable y límites por plan sobre Cloudflare."
+      : "Producto vivo: landing, dashboard, pricing, automatizaciones, CRM y reputación con componentes interactivos reales y datos demo claramente etiquetados.";
   const deliverables =
     phase === "fase0"
       ? ["Product & Brand Brief", "Mapa de dominios + contratos", "Control Plane + Tenant Cells", "Modelo de datos nuclear", "Design System base", "Roadmap y backlog priorizado"]
@@ -201,14 +239,16 @@ function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" }) {
       ? ["Arquitectura lógica + física Cloudflare", "Monorepo y reglas de dependencia", "Modelo ER + SQL D1 + diccionario", "RBAC, impersonación y threat model STRIDE", "Escalabilidad por etapas A→D", "ADRs iniciales + backlog técnico"]
       : phase === "fase2"
       ? ["14 dominios con ownership y límites", "Sistema de eventos + outbox", "Motor de automatizaciones trigger→acción", "Capa común de integraciones y API pública", "Centro de IA + analítica por eventos", "10 ADRs + roadmap por iteraciones"]
-      : ["Arquitectura de carpetas + esquema D1 completo", "Contexto multi-tenant + RBAC Enterprise", "Repositorios + Durable Objects + Queues", "R2 + AI Gateway + caché namespaced", "Facturación Stripe + CRM + dashboard", "Tests de aislamiento/RBAC/concurrencia + despliegue"];
+      : phase === "fase4"
+      ? ["Arquitectura de carpetas + esquema D1 completo", "Contexto multi-tenant + RBAC Enterprise", "Repositorios + Durable Objects + Queues", "R2 + AI Gateway + caché namespaced", "Facturación Stripe + CRM + dashboard", "Tests de aislamiento/RBAC/concurrencia + despliegue"]
+      : ["Landing de conversión + SEO/AEO", "Calculadora de pricing interactiva", "Dashboard con widgets en vivo", "Builder de automatizaciones visual", "Plano de mesas + CRM + reputación", "Super Admin + marketplace + tests"];
   const status1 =
-    phase === "fase0" ? "Borrador V0.1" : phase === "fase1" ? "Spec V1.1 implementable" : phase === "fase2" ? "Spec V1.2 core design" : "Spec V4 motor enterprise";
+    phase === "fase0" ? "Borrador V0.1" : phase === "fase1" ? "Spec V1.1 implementable" : phase === "fase2" ? "Spec V1.2 core design" : phase === "fase4" ? "Spec V4 motor enterprise" : "Producto interactivo";
   const status2 =
-    phase === "fase0" ? "ADRs críticos pendientes" : phase === "fase1" ? "ADRs iniciales registrados" : phase === "fase2" ? "10 ADRs críticos documentados" : "Implementación por capas";
+    phase === "fase0" ? "ADRs críticos pendientes" : phase === "fase1" ? "ADRs iniciales registrados" : phase === "fase2" ? "10 ADRs críticos documentados" : phase === "fase4" ? "Implementación por capas" : "Componentes funcionales";
   const status3 =
-    phase === "fase0" ? "Puerta de salida no aprobada" : phase === "fase1" ? "Listo para implementación" : phase === "fase2" ? "Listo para implementación del core" : "Despliegre sin pasos ocultos";
-  const hash = phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : "#f4-inicio";
+    phase === "fase0" ? "Puerta de salida no aprobada" : phase === "fase1" ? "Listo para implementación" : phase === "fase2" ? "Listo para implementación del core" : phase === "fase4" ? "Despliegre sin pasos ocultos" : "Datos demo etiquetados";
+  const hash = phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : phase === "fase4" ? "#f4-inicio" : "#p-inicio";
   const stat =
     phase === "fase0"
       ? "14 secciones · 17 dominios · 5 fases · ADR-001/002"
@@ -216,7 +256,9 @@ function Footer({ phase }: { phase: "fase0" | "fase1" | "fase2" | "fase4" }) {
       ? "24 secciones · 4 etapas de escala · STRIDE · ADR-001…008"
       : phase === "fase2"
       ? "23 secciones · 14 dominios · outbox + automatizaciones · ADR-001…010"
-      : "24 secciones · 7 servicios CF · RBAC Enterprise · SQL + TS ejecutable";
+      : phase === "fase4"
+      ? "24 secciones · 7 servicios CF · RBAC Enterprise · SQL + TS ejecutable"
+      : "21 secciones · componentes interactivos · pricing + dashboard + builder";
   return (
     <footer className="mt-auto lg:ml-72 border-t border-border/60 rp-glass-strong">
       <div className="mx-auto max-w-6xl px-5 sm:px-8 py-10">

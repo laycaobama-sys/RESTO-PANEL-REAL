@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 
-export type Phase = "fase0" | "fase1" | "fase2" | "fase4";
+export type Phase = "fase0" | "fase1" | "fase2" | "fase4" | "producto";
 
 interface PhaseState {
   phase: Phase;
@@ -11,7 +11,7 @@ interface PhaseState {
 }
 
 export const usePhase = create<PhaseState>((set, get) => ({
-  phase: "fase4",
+  phase: "producto",
   setPhase: (p) => set({ phase: p }),
   toggle: () =>
     set({
@@ -22,6 +22,8 @@ export const usePhase = create<PhaseState>((set, get) => ({
           ? "fase2"
           : get().phase === "fase2"
           ? "fase4"
+          : get().phase === "fase4"
+          ? "producto"
           : "fase0",
     }),
 }));

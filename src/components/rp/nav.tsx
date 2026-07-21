@@ -104,10 +104,34 @@ export const NAV_FASE4 = [
   { id: "f4-criterios", label: "Criterios de aceptación", n: "23" },
 ];
 
+export const NAV_PRODUCTO = [
+  { id: "p-inicio", label: "Inicio", n: "00" },
+  { id: "p-resumen", label: "Resumen y entregables", n: "01" },
+  { id: "p-arquitectura", label: "Arquitectura propuesta", n: "02" },
+  { id: "p-design-system", label: "Sistema de diseño", n: "03" },
+  { id: "p-rutas", label: "Mapa de rutas", n: "04" },
+  { id: "p-datos", label: "Modelo de datos", n: "05" },
+  { id: "p-componentes", label: "Componentes principales", n: "06" },
+  { id: "p-flujos", label: "Flujos críticos", n: "07" },
+  { id: "p-landing", label: "Landing interactiva", n: "08" },
+  { id: "p-pricing", label: "Pricing (calculadora)", n: "09" },
+  { id: "p-dashboard", label: "Dashboard (widgets vivos)", n: "10" },
+  { id: "p-reservas", label: "Reservas y plano de mesas", n: "11" },
+  { id: "p-crm", label: "CRM y marketing", n: "12" },
+  { id: "p-automatizaciones", label: "Builder de automatizaciones", n: "13" },
+  { id: "p-reputacion", label: "Reputación, analytics, IA", n: "14" },
+  { id: "p-billing", label: "Billing, marketplace, integraciones", n: "15" },
+  { id: "p-super-admin", label: "Super Admin", n: "16" },
+  { id: "p-demo", label: "Datos demo e integraciones", n: "17" },
+  { id: "p-tests", label: "Tests y checklist QA", n: "18" },
+  { id: "p-riesgos", label: "Riesgos y pendientes", n: "19" },
+  { id: "p-deploy", label: "Ejecución y despliegue", n: "20" },
+];
+
 export function SideNav() {
   const { phase, setPhase } = usePhase();
   const items =
-    phase === "fase0" ? NAV_FASE0 : phase === "fase1" ? NAV_FASE1 : phase === "fase2" ? NAV_FASE2 : NAV_FASE4;
+    phase === "fase0" ? NAV_FASE0 : phase === "fase1" ? NAV_FASE1 : phase === "fase2" ? NAV_FASE2 : phase === "fase4" ? NAV_FASE4 : NAV_PRODUCTO;
   const [active, setActive] = React.useState(items[0].id);
   const [open, setOpen] = React.useState(false);
 
@@ -133,7 +157,7 @@ export function SideNav() {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-50 rp-glass-strong border-b border-border/60">
         <div className="flex items-center justify-between px-4 h-14">
-          <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : "#f4-inicio"} className="flex items-center gap-2">
+          <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : phase === "fase4" ? "#f4-inicio" : "#p-inicio"} className="flex items-center gap-2">
             <BrandMark className="h-7 w-7" />
             <span className="font-display text-lg tracking-tight">RestoPanel</span>
           </a>
@@ -176,12 +200,12 @@ export function SideNav() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-40 h-screen w-72 flex-col border-r border-border/60 rp-glass-strong">
-        <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : "#f4-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
+        <a href={phase === "fase0" ? "#inicio" : phase === "fase1" ? "#f1-inicio" : phase === "fase2" ? "#f2-inicio" : phase === "fase4" ? "#f4-inicio" : "#p-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
           <BrandMark className="h-8 w-8" />
           <div className="leading-tight">
             <div className="font-display text-lg tracking-tight">RestoPanel</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-              {phase === "fase0" ? "Fase 0 · Fundación" : phase === "fase1" ? "Fase 1.1 · Arquitectura" : phase === "fase2" ? "Fase 1.2 · Core Platform" : "Fase 4 · Motor Enterprise"}
+              {phase === "fase0" ? "Fase 0 · Fundación" : phase === "fase1" ? "Fase 1.1 · Arquitectura" : phase === "fase2" ? "Fase 1.2 · Core Platform" : phase === "fase4" ? "Fase 4 · Motor Enterprise" : "Producto · SaaS Enterprise"}
             </div>
           </div>
         </a>
@@ -230,7 +254,7 @@ export function SideNav() {
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)] animate-pulse" />
             <span className="text-foreground/80">
-              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : phase === "fase1" ? "Spec V1.1 · implementable" : phase === "fase2" ? "Spec V1.2 · core design" : "Spec V4 · motor enterprise"}
+              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : phase === "fase1" ? "Spec V1.1 · implementable" : phase === "fase2" ? "Spec V1.2 · core design" : phase === "fase4" ? "Spec V4 · motor enterprise" : "Producto · interactivo"}
             </span>
           </div>
         </div>
@@ -258,6 +282,7 @@ function PhaseToggle({ compact = false }: { compact?: boolean }) {
       {btn("fase1", "F1.1")}
       {btn("fase2", "F1.2")}
       {btn("fase4", "F4")}
+      {btn("producto", "P")}
     </div>
   );
 }
