@@ -258,3 +258,72 @@ export function KV({ k, v }: { k: string; v: React.ReactNode }) {
     </div>
   );
 }
+
+/* ---------- Risk level tag ---------- */
+const RISK_STYLES: Record<string, string> = {
+  bajo: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+  medio: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+  alto: "border-[var(--gold)]/45 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+  crítico: "border-destructive/50 bg-destructive/10 text-destructive",
+};
+
+export function Risk({ level, children }: { level: "bajo" | "medio" | "alto" | "crítico"; children?: React.ReactNode }) {
+  return (
+    <span
+      className={
+        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider " +
+        (RISK_STYLES[level] || RISK_STYLES.medio)
+      }
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      Riesgo {level}
+      {children}
+    </span>
+  );
+}
+
+/* ---------- ADR / callout block ---------- */
+export function Callout({
+  id,
+  kind = "adr",
+  title,
+  children,
+}: {
+  id?: string;
+  kind?: "adr" | "warn" | "info" | "ok";
+  title?: string;
+  children: React.ReactNode;
+}) {
+  const styles: Record<string, { border: string; tag: string; label: string }> = {
+    adr: { border: "border-[var(--gold)]/50", tag: "rp-gold-text", label: id ? `${id}` : "ADR" },
+    warn: { border: "border-amber-400/50", tag: "text-amber-300", label: "Atención" },
+    info: { border: "border-[var(--teal)]/50", tag: "rp-teal-text", label: "Info" },
+    ok: { border: "border-emerald-400/50", tag: "text-emerald-300", label: "Decidido" },
+  };
+  const s = styles[kind];
+  return (
+    <div className={"rp-glass rounded-xl p-5 border-l-2 " + s.border}>
+      <div className="flex items-center gap-3">
+        <span className={"font-mono text-xs uppercase tracking-wider " + s.tag}>{s.label}</span>
+        {title ? <span className="text-sm font-medium text-foreground">{title}</span> : null}
+      </div>
+      <div className="mt-2 text-sm text-muted-foreground leading-relaxed">{children}</div>
+    </div>
+  );
+}
+
+/* ---------- Code block ---------- */
+export function Code({ lang, children }: { lang?: string; children: string }) {
+  return (
+    <div className="rp-glass rounded-xl overflow-hidden">
+      {lang ? (
+        <div className="border-b border-border/40 px-4 py-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+          {lang}
+        </div>
+      ) : null}
+      <pre className="overflow-x-auto rp-scroll-thin p-4 text-xs leading-relaxed font-mono text-foreground/85">
+        {children}
+      </pre>
+    </div>
+  );
+}

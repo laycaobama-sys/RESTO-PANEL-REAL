@@ -2,8 +2,9 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { usePhase } from "./phase-store";
 
-export const NAV_ITEMS = [
+export const NAV_FASE0 = [
   { id: "inicio", label: "Inicio", n: "00" },
   { id: "resumen", label: "Resumen ejecutivo", n: "01" },
   { id: "supuestos", label: "Supuestos y decisiones", n: "02" },
@@ -21,8 +22,38 @@ export const NAV_ITEMS = [
   { id: "recomendaciones", label: "Recomendaciones finales", n: "14" },
 ];
 
+export const NAV_FASE1 = [
+  { id: "f1-inicio", label: "Inicio", n: "00" },
+  { id: "f1-resumen", label: "Resumen ejecutivo", n: "01" },
+  { id: "f1-supuestos", label: "Supuestos y validación", n: "02" },
+  { id: "f1-riesgos", label: "Riesgos y contradicciones", n: "03" },
+  { id: "f1-logica", label: "Arquitectura lógica", n: "04" },
+  { id: "f1-fisica", label: "Arquitectura física (CF)", n: "05" },
+  { id: "f1-diagrama", label: "Diagrama general", n: "06" },
+  { id: "f1-monorepo", label: "Monorepo y dependencias", n: "07" },
+  { id: "f1-tenancy", label: "Modelo multi-tenant", n: "08" },
+  { id: "f1-er", label: "Modelo ER", n: "09" },
+  { id: "f1-diccionario", label: "Diccionario de datos", n: "10" },
+  { id: "f1-sql", label: "SQL inicial (D1)", n: "11" },
+  { id: "f1-auth", label: "Autenticación y permisos", n: "12" },
+  { id: "f1-impersonation", label: "Impersonación segura", n: "13" },
+  { id: "f1-realtime", label: "Estrategia tiempo real", n: "14" },
+  { id: "f1-eventos", label: "Eventos, colas, webhooks", n: "15" },
+  { id: "f1-threat", label: "Seguridad y threat model", n: "16" },
+  { id: "f1-observabilidad", label: "Observabilidad", n: "17" },
+  { id: "f1-testing", label: "Estrategia de testing", n: "18" },
+  { id: "f1-cicd", label: "CI/CD y entornos", n: "19" },
+  { id: "f1-escala", label: "Escalabilidad A→D", n: "20" },
+  { id: "f1-costes", label: "Costes y factores", n: "21" },
+  { id: "f1-backlog", label: "Backlog técnico", n: "22" },
+  { id: "f1-criterios", label: "Criterios de aceptación", n: "23" },
+  { id: "f1-adrs", label: "ADRs iniciales", n: "24" },
+];
+
 export function SideNav() {
-  const [active, setActive] = React.useState("inicio");
+  const { phase, setPhase } = usePhase();
+  const items = phase === "fase0" ? NAV_FASE0 : NAV_FASE1;
+  const [active, setActive] = React.useState(items[0].id);
   const [open, setOpen] = React.useState(false);
 
   React.useEffect(() => {
@@ -35,35 +66,38 @@ export function SideNav() {
       },
       { rootMargin: "-20% 0px -65% 0px", threshold: [0, 0.25, 0.5, 1] }
     );
-    NAV_ITEMS.forEach((item) => {
+    items.forEach((item) => {
       const el = document.getElementById(item.id);
       if (el) observer.observe(el);
     });
     return () => observer.disconnect();
-  }, []);
+  }, [items, phase]);
 
   return (
     <>
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-50 rp-glass-strong border-b border-border/60">
         <div className="flex items-center justify-between px-4 h-14">
-          <a href="#inicio" className="flex items-center gap-2">
+          <a href={phase === "fase0" ? "#inicio" : "#f1-inicio"} className="flex items-center gap-2">
             <BrandMark className="h-7 w-7" />
             <span className="font-display text-lg tracking-tight">RestoPanel</span>
           </a>
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="rounded-md border border-border/60 px-3 py-1.5 text-xs font-mono uppercase tracking-wider"
-            aria-expanded={open}
-            aria-label="Abrir índice"
-          >
-            {open ? "Cerrar" : "Índice"}
-          </button>
+          <div className="flex items-center gap-2">
+            <PhaseToggle compact />
+            <button
+              onClick={() => setOpen((v) => !v)}
+              className="rounded-md border border-border/60 px-3 py-1.5 text-xs font-mono uppercase tracking-wider"
+              aria-expanded={open}
+              aria-label="Abrir índice"
+            >
+              {open ? "Cerrar" : "Índice"}
+            </button>
+          </div>
         </div>
         {open ? (
           <nav className="max-h-[70vh] overflow-y-auto rp-scroll-thin border-t border-border/60 px-4 py-3">
             <ul className="space-y-1">
-              {NAV_ITEMS.map((item) => (
+              {items.map((item) => (
                 <li key={item.id}>
                   <a
                     href={`#${item.id}`}
@@ -87,21 +121,26 @@ export function SideNav() {
 
       {/* Desktop sidebar */}
       <aside className="hidden lg:flex fixed top-0 left-0 z-40 h-screen w-72 flex-col border-r border-border/60 rp-glass-strong">
-        <a href="#inicio" className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
+        <a href={phase === "fase0" ? "#inicio" : "#f1-inicio"} className="flex items-center gap-3 px-6 h-16 border-b border-border/60">
           <BrandMark className="h-8 w-8" />
           <div className="leading-tight">
             <div className="font-display text-lg tracking-tight">RestoPanel</div>
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
-              Fase 0 · Fundación
+              {phase === "fase0" ? "Fase 0 · Fundación" : "Fase 1.1 · Arquitectura"}
             </div>
           </div>
         </a>
-        <div className="px-4 py-3 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+
+        <div className="px-4 py-3">
+          <PhaseToggle />
+        </div>
+
+        <div className="px-4 pb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
           Índice del entregable
         </div>
         <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 pb-6">
           <ul className="space-y-0.5">
-            {NAV_ITEMS.map((item) => (
+            {items.map((item) => (
               <li key={item.id}>
                 <a
                   href={`#${item.id}`}
@@ -135,11 +174,43 @@ export function SideNav() {
           </div>
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)] animate-pulse" />
-            <span className="text-foreground/80">Borrador V0.1 · ADR pendiente</span>
+            <span className="text-foreground/80">
+              {phase === "fase0" ? "Borrador V0.1 · ADR pendiente" : "Spec V1.1 · implementable"}
+            </span>
           </div>
         </div>
       </aside>
     </>
+  );
+}
+
+function PhaseToggle({ compact = false }: { compact?: boolean }) {
+  const { phase, setPhase } = usePhase();
+  return (
+    <div className={cn("inline-flex rounded-lg border border-border/60 p-0.5 bg-background/40", compact && "scale-90")}>
+      <button
+        onClick={() => setPhase("fase0")}
+        className={cn(
+          "rounded-md px-3 py-1 text-xs font-mono uppercase tracking-wider transition-colors",
+          phase === "fase0"
+            ? "bg-[var(--gold)] text-black"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        Fase 0
+      </button>
+      <button
+        onClick={() => setPhase("fase1")}
+        className={cn(
+          "rounded-md px-3 py-1 text-xs font-mono uppercase tracking-wider transition-colors",
+          phase === "fase1"
+            ? "bg-[var(--gold)] text-black"
+            : "text-muted-foreground hover:text-foreground"
+        )}
+      >
+        Fase 1.1
+      </button>
+    </div>
   );
 }
 
@@ -151,13 +222,11 @@ export function BrandMark({ className }: { className?: string }) {
         className
       )}
       style={{
-        background:
-          "radial-gradient(circle at 30% 25%, #1a1815 0%, #0c0b0a 70%)",
+        background: "radial-gradient(circle at 30% 25%, #1a1815 0%, #0c0b0a 70%)",
         boxShadow:
           "inset 0 0 0 1px color-mix(in oklab, var(--gold) 35%, transparent), 0 2px 12px -2px color-mix(in oklab, var(--gold) 40%, transparent)",
       }}
     >
-      {/* Stylized "R" panel mark rendered as inline SVG to avoid asset dependency */}
       <svg viewBox="0 0 32 32" fill="none" className="h-[78%] w-[78%]">
         <rect x="6" y="6" width="20" height="20" rx="3" stroke="#D4AF37" strokeWidth="1.5" opacity="0.55" />
         <path
