@@ -59,8 +59,14 @@ import {
   Hand, CalendarPlus, StickyNote, CreditCard, Wallet, Globe, Star,
   MessageCircle, Instagram, Smartphone, UserRound, Filter, Calendar,
   CheckCheck, Armchair as ChairIcon, Sparkles, TrendingUp, UserX,
-  Ban, CircleDot, Sliders,
+  Ban, CircleDot, Sliders, ArrowLeft, LayoutGrid,
+  CalendarDays, BrainCircuit, BellRing,
 } from "lucide-react";
+import { FloorEditor } from "@/components/rp/reservas/floor-editor";
+import { PredictionPanel } from "@/components/rp/reservas/prediction-panel";
+import { YieldPanel } from "@/components/rp/reservas/yield-panel";
+import { AlertsPanel } from "@/components/rp/reservas/alerts-panel";
+import { WaitlistPanel } from "@/components/rp/reservas/waitlist-panel";
 
 /* =========================================================
  * Types
@@ -431,6 +437,8 @@ function useAnimatedNumber(value: number, duration = 350) {
 export function ReservasView() {
   const { toast } = useToast();
   const reduce = useReducedMotion();
+  const [advancedEditor, setAdvancedEditor] = React.useState(false);
+  const [resTab, setResTab] = React.useState<"reservas" | "prediccion" | "yield" | "alertas" | "waitlist">("reservas");
   const [tables, setTables] = React.useState<RpTable[]>(INITIAL_TABLES);
   const [reservations, setReservations] =
     React.useState<RpReservation[]>(INITIAL_RESERVATIONS);
@@ -879,6 +887,32 @@ export function ReservasView() {
     ? { duration: 0 }
     : { duration: 0.2, ease: "easeOut" as const };
 
+  /* ----- Editor avanzado (FloorEditor) ----- */
+  if (advancedEditor) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setAdvancedEditor(false)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a Reservas
+          </Button>
+          <Badge
+            variant="outline"
+            className="border-[var(--gold)]/40 text-[var(--gold-soft)] bg-[var(--gold)]/10 text-[10px] uppercase tracking-[0.15em]"
+          >
+            Editor avanzado
+          </Badge>
+        </div>
+        <FloorEditor />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -895,14 +929,59 @@ export function ReservasView() {
             servicio. Datos demo · navegable.
           </p>
         </div>
-        <Button
-          onClick={() => setNewDialogOpen(true)}
-          className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] shrink-0 min-h-11"
-        >
-          <Plus className="h-4 w-4" /> Nueva reserva
-        </Button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            onClick={() => setAdvancedEditor(true)}
+            variant="outline"
+            className="border-[var(--gold)]/40 text-[var(--gold-soft)] hover:bg-[var(--gold)]/10 min-h-11"
+          >
+            <LayoutGrid className="h-4 w-4" />
+            <span className="hidden sm:inline">Editor avanzado</span>
+            <span className="sm:hidden">Editor</span>
+          </Button>
+          <Button
+            onClick={() => setNewDialogOpen(true)}
+            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] shrink-0 min-h-11"
+          >
+            <Plus className="h-4 w-4" /> Nueva reserva
+          </Button>
+        </div>
       </header>
 
+      {/* Tab bar — switch between reservations, prediction, yield, alerts, waitlist */}
+      <div className="flex items-center gap-1 overflow-x-auto rp-scroll-thin pb-1 -mb-2" role="tablist" aria-label="Vistas de reservas">
+        {([
+          { id: "reservas", label: "Reservas", icon: CalendarDays },
+          { id: "prediccion", label: "Predicción IA", icon: BrainCircuit },
+          { id: "yield", label: "Yield", icon: TrendingUp },
+          { id: "alertas", label: "Alertas", icon: BellRing },
+          { id: "waitlist", label: "Lista de espera", icon: Users },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={resTab === t.id}
+            onClick={() => setResTab(t.id)}
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
+              resTab === t.id
+                ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border border-[var(--gold)]/30"
+                : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
+            }`}
+          >
+            <t.icon className="h-4 w-4" aria-hidden />
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Conditional panel rendering */}
+      {resTab === "prediccion" && <PredictionPanel />}
+      {resTab === "yield" && <YieldPanel />}
+      {resTab === "alertas" && <AlertsPanel />}
+      {resTab === "waitlist" && <WaitlistPanel />}
+
+      {resTab === "reservas" && (
+        <>
       {/* KPI strip — occupancy counters animate on change */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <KpiCard
@@ -1581,6 +1660,8 @@ export function ReservasView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+        </>
+      )}
     </div>
   );
 }

@@ -229,7 +229,7 @@ function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: strin
       {/* Global search (center, hidden on mobile) — clickable, opens command palette */}
       <button
         onClick={onOpenCmd}
-        className="flex-1 max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
+        className="flex-1 max-w-[180px] md:max-w-xs xl:max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
         aria-label="Abrir paleta de comandos"
       >
         <Search className="h-4 w-4 shrink-0" aria-hidden />
@@ -239,8 +239,8 @@ function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: strin
         </kbd>
       </button>
       {/* Right cluster: period selector, notifications, help, avatar */}
-      <div className="ml-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <div className="hidden sm:flex items-center rounded-md border border-border/60 p-0.5">
+      <div className="ml-auto flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
+        <div className="hidden lg:flex items-center rounded-md border border-border/60 p-0.5">
           {(["hoy", "semana", "mes"] as const).map((p) => (
             <button
               key={p}

@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Switch } from "@/components/ui/switch";
+    10→import {
+    11→  Select,
+    12→  SelectContent,
+    13→  SelectItem,
+    14→  SelectTrigger,
+    15→  SelectValue,
+    16→} from "@/components/ui/select";
+    17→import {
+    18→  Dialog,
+    19→  DialogClose,
+    20→  DialogContent,
+    21→  DialogDescription,
+    22→  DialogFooter,
+    23→  DialogHeader,
+    24→  DialogTitle,
+    25→} from "@/components/ui/dialog";
+    26→import {
+    27→  AlertDialog,
+    28→  AlertDialogAction,
+    29→  AlertDialogCancel,
+    30→  AlertDialogContent,
+    31→  AlertDialogDescription,
+    32→  AlertDialogFooter,
+    33→  AlertDialogHeader,
+    34→  AlertDialogTitle,
+    35→} from "@/components/ui/alert-dialog";
+    36→import {
+    37→  Collapsible,
+    38→  CollapsibleContent,
+    39→  CollapsibleTrigger,
+    40→} from "@/components/ui/collapsible";
+    41→import {
+    42→  Sheet,
+    43→  SheetContent,
+    44→  SheetHeader,
+    45→  SheetTitle,
+    46→  SheetDescription,
+    47→} from "@/components/ui/sheet";
+    48→import {
+    49→  Popover,
+    50→  PopoverContent,
+    51→  PopoverTrigger,
+    52→} from "@/components/ui/popover";
+    53→import { Label } from "@/components/ui/label";
+    54→import { Textarea } from "@/components/ui/textarea";
+    55→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+    56→import {
+    57→  Plus, Search, Pencil, Users, Clock, Phone, MapPin, CheckCircle2,
+    58→  LogIn, XCircle, ChevronDown, Lock, Eraser, Hourglass, X, Armchair,
+    59→  Hand, CalendarPlus, StickyNote, CreditCard, Wallet, Globe, Star,
+    60→  MessageCircle, Instagram, Smartphone, UserRound, Filter, Calendar,
+    61→  CheckCheck, Armchair as ChairIcon, Sparkles, TrendingUp, UserX,
+    62→  Ban, CircleDot, Sliders,
+    63→} from "lucide-react";
+    64→
+    65→/* =========================================================
+    66→ * Types
+    67→ * =======================================================*/
+    68→export type TableStatus =
+    69→  | "free"
+    70→  | "reserved"
+    71→  | "occupied"
+    72→  | "cleaning"
+    73→  | "blocked";
+    74→export type Zone = "sala" | "terraza" | "barra" | "vip";
+    75→export type ReservationStatus =
+    76→  | "pendiente"
+    77→  | "confirmada"
+    78→  | "reconfirmada"
+    79→  | "sentada"
+    80→  | "espera"
+    81→  | "finalizada"
+    82→  | "cancelada"
+    83→  | "noshow";
+    84→export type Channel =
+    85→  | "web"
+    86→  | "google"
+    87→  | "whatsapp"
+    88→  | "instagram"
+    89→  | "telefono"
+    90→  | "walkin";
+    91→export type Guarantee = "tarjeta" | "prepago" | "ninguna";
+    92→
+    93→export interface RpTable {
+    94→  id: string;
+    95→  name: string;
+    96→  seats: number;
+    97→  x: number;
+    98→  y: number;
+    99→  status: TableStatus;
+   100→  shape: "round" | "square" | "rect";
+   101→  w?: number;
+   102→  h?: number;
+   103→  zone: Zone;
+   104→  reservationId?: string;
+   105→}
+   106→
+   107→export interface RpReservation {
+   108→  id: string;
+   109→  customerName: string;
+   110→  phone: string;
+   111→  partySize: number;
+   112→  time: string; // "HH:mm"
+   113→  durationMin: number;
+   114→  status: ReservationStatus;
+   115→  tableId?: string;
+   116→  notes?: string;
+   117→  zone: Zone;
+   118→  channel: Channel;
+   119→  guarantee: Guarantee;
+   120→  /** URL of customer photo. If absent, render initials avatar. */
+   121→  photo?: string;
+   122→  /** epoch ms — used to detect newly-added reservations for entry animation */
+   123→  createdAt: number;
+   124→}
+   125→
+   126→interface NewReservationForm {
+   127→  customerName: string;
+   128→  phone: string;
+   129→  partySize: number;
+   130→  date: string;
+   131→  time: string;
+   132→  tableId?: string;
+   133→  zone: Zone;
+   134→  channel: Channel;
+   135→  guarantee: Guarantee;
+   136→  notes: string;
+   137→}
+   138→
+   139→/* =========================================================
+   140→ * Constants & metadata
+   141→ * =======================================================*/
+   142→const STATUS_NEXT: Record<TableStatus, TableStatus> = {
+   143→  free: "reserved",
+   144→  reserved: "occupied",
+   145→  occupied: "cleaning",
+   146→  cleaning: "blocked",
+   147→  blocked: "free",
+   148→};
+   149→
+   150→const STATUS_META: Record<
+   151→  TableStatus,
+   152→  { label: string; dot: string; border: string; bg: string; text: string; ring: string }
+   153→> = {
+   154→  free: {
+   155→    label: "Libre",
+   156→    dot: "bg-emerald-400",
+   157→    border: "border-emerald-400/55",
+   158→    bg: "bg-emerald-400/10",
+   159→    text: "text-emerald-300",
+   160→    ring: "ring-emerald-400/70",
+   161→  },
+   162→  reserved: {
+   163→    label: "Reservada",
+   164→    dot: "bg-[var(--gold)]",
+   165→    border: "border-[var(--gold)]/60",
+   166→    bg: "bg-[var(--gold)]/12",
+   167→    text: "text-[var(--gold-soft)]",
+   168→    ring: "ring-[var(--gold)]/80",
+   169→  },
+   170→  occupied: {
+   171→    label: "Ocupada",
+   172→    dot: "bg-[var(--teal)]",
+   173→    border: "border-[var(--teal)]/60",
+   174→    bg: "bg-[var(--teal)]/12",
+   175→    text: "text-[var(--teal)]",
+   176→    ring: "ring-[var(--teal)]/80",
+   177→  },
+   178→  cleaning: {
+   179→    label: "Limpieza",
+   180→    dot: "bg-amber-400",
+   181→    border: "border-amber-400/55",
+   182→    bg: "bg-amber-400/10",
+   183→    text: "text-amber-300",
+   184→    ring: "ring-amber-400/70",
+   185→  },
+   186→  blocked: {
+   187→    label: "Bloqueada",
+   188→    dot: "bg-zinc-500",
+   189→    border: "border-zinc-500/55",
+   190→    bg: "bg-zinc-500/10",
+   191→    text: "text-zinc-400",
+   192→    ring: "ring-zinc-500/70",
+   193→  },
+   194→};
+   195→
+   196→const ZONES: { id: Zone; label: string; hint: string }[] = [
+   197→  { id: "sala", label: "Sala", hint: "Interior" },
+   198→  { id: "terraza", label: "Terraza", hint: "Exterior" },
+   199→  { id: "vip", label: "VIP", hint: "Reservado" },
+   200→  { id: "barra", label: "Barra", hint: "Mostrador" },
+   201→];
+   202→
+   203→const ZONE_PILL: Record<Zone, string> = {
+   204→  sala: "border-border/60 bg-foreground/[0.04] text-muted-foreground",
+   205→  terraza: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   206→  vip: "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]",
+   207→  barra: "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-300",
+   208→};
+   209→
+   210→const RES_STATUS_META: Record<
+   211→  ReservationStatus,
+   212→  { label: string; cls: string; dot: string }
+   213→> = {
+   214→  pendiente: {
+   215→    label: "Pendiente",
+   216→    cls: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   217→    dot: "bg-amber-400",
+   218→  },
+   219→  confirmada: {
+   220→    label: "Confirmada",
+   221→    cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   222→    dot: "bg-[var(--gold)]",
+   223→  },
+   224→  reconfirmada: {
+   225→    label: "Reconfirmada",
+   226→    cls: "border-[var(--gold)]/60 bg-[var(--gold)]/15 text-[var(--gold-soft)]",
+   227→    dot: "bg-[var(--gold-soft)]",
+   228→  },
+   229→  sentada: {
+   230→    label: "Sentada",
+   231→    cls: "border-[var(--teal)]/50 bg-[var(--teal)]/15 text-[var(--teal)]",
+   232→    dot: "bg-[var(--teal)]",
+   233→  },
+   234→  espera: {
+   235→    label: "En espera",
+   236→    cls: "border-orange-400/40 bg-orange-400/10 text-orange-300",
+   237→    dot: "bg-orange-400",
+   238→  },
+   239→  finalizada: {
+   240→    label: "Finalizada",
+   241→    cls: "border-zinc-500/40 bg-zinc-500/10 text-zinc-400",
+   242→    dot: "bg-zinc-500",
+   243→  },
+   244→  cancelada: {
+   245→    label: "Cancelada",
+   246→    cls: "border-destructive/40 bg-destructive/10 text-destructive",
+   247→    dot: "bg-destructive",
+   248→  },
+   249→  noshow: {
+   250→    label: "No-show",
+   251→    cls: "border-rose-500/40 bg-rose-500/10 text-rose-300",
+   252→    dot: "bg-rose-500",
+   253→  },
+   254→};
+   255→
+   256→const CHANNEL_META: Record<
+   257→  Channel,
+   258→  { label: string; icon: React.ElementType; cls: string }
+   259→> = {
+   260→  web: { label: "Web", icon: Globe, cls: "text-sky-300" },
+   261→  google: { label: "Google", icon: Star, cls: "text-amber-300" },
+   262→  whatsapp: { label: "WhatsApp", icon: MessageCircle, cls: "text-emerald-300" },
+   263→  instagram: { label: "Instagram", icon: Instagram, cls: "text-fuchsia-300" },
+   264→  telefono: { label: "Teléfono", icon: Smartphone, cls: "text-[var(--teal)]" },
+   265→  walkin: { label: "Walk-in", icon: UserRound, cls: "text-muted-foreground" },
+   266→};
+   267→
+   268→const GUARANTEE_META: Record<
+   269→  Guarantee,
+   270→  { label: string; icon: React.ElementType; cls: string }
+   271→> = {
+   272→  tarjeta: { label: "Tarjeta", icon: CreditCard, cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]" },
+   273→  prepago: { label: "Prepago", icon: Wallet, cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]" },
+   274→  ninguna: { label: "—", icon: CircleDot, cls: "border-border/40 bg-foreground/[0.04] text-muted-foreground" },
+   275→};
+   276→
+   277→const STATUS_FILTERS: { id: "todas" | ReservationStatus; label: string }[] = [
+   278→  { id: "todas", label: "Todas" },
+   279→  { id: "pendiente", label: "Pendiente" },
+   280→  { id: "confirmada", label: "Confirmada" },
+   281→  { id: "sentada", label: "Sentada" },
+   282→  { id: "noshow", label: "No-show" },
+   283→];
+   284→
+   285→const ZONE_FILTERS: { id: "todas" | Zone; label: string }[] = [
+   286→  { id: "todas", label: "Todas" },
+   287→  { id: "sala", label: "Sala" },
+   288→  { id: "terraza", label: "Terraza" },
+   289→  { id: "vip", label: "VIP" },
+   290→  { id: "barra", label: "Barra" },
+   291→];
+   292→
+   293→const CHANNEL_FILTERS: { id: "todos" | Channel; label: string }[] = [
+   294→  { id: "todos", label: "Todos los canales" },
+   295→  { id: "web", label: "Web" },
+   296→  { id: "google", label: "Google" },
+   297→  { id: "whatsapp", label: "WhatsApp" },
+   298→  { id: "instagram", label: "Instagram" },
+   299→  { id: "telefono", label: "Teléfono" },
+   300→  { id: "walkin", label: "Walk-in" },
+   301→];
+   302→
+   303→/* =========================================================
+   304→ * Demo data
+   305→ * =======================================================*/
+   306→const INITIAL_TABLES: RpTable[] = [
+   307→  // Sala principal
+   308→  { id: "M1", name: "M1", seats: 4, x: 60, y: 60, status: "reserved", shape: "round", zone: "sala", reservationId: "r1" },
+   309→  { id: "M2", name: "M2", seats: 4, x: 220, y: 60, status: "occupied", shape: "round", zone: "sala", reservationId: "r2" },
+   310→  { id: "M3", name: "M3", seats: 6, x: 380, y: 60, status: "free", shape: "rect", w: 150, h: 90, zone: "sala" },
+   311→  { id: "M4", name: "M4", seats: 2, x: 60, y: 240, status: "free", shape: "square", zone: "sala" },
+   312→  { id: "M5", name: "M5", seats: 4, x: 220, y: 240, status: "cleaning", shape: "round", zone: "sala" },
+   313→  { id: "M6", name: "M6", seats: 4, x: 380, y: 240, status: "blocked", shape: "square", zone: "sala" },
+   314→  // Terraza
+   315→  { id: "T1", name: "T1", seats: 4, x: 60, y: 60, status: "reserved", shape: "round", zone: "terraza", reservationId: "r3" },
+   316→  { id: "T2", name: "T2", seats: 2, x: 220, y: 70, status: "free", shape: "square", zone: "terraza" },
+   317→  { id: "T3", name: "T3", seats: 6, x: 60, y: 220, status: "occupied", shape: "rect", w: 150, h: 90, zone: "terraza", reservationId: "r4" },
+   318→  { id: "T4", name: "T4", seats: 4, x: 260, y: 230, status: "free", shape: "round", zone: "terraza" },
+   319→  // VIP
+   320→  { id: "V1", name: "V1", seats: 8, x: 80, y: 80, status: "reserved", shape: "round", zone: "vip", reservationId: "r6" },
+   321→  { id: "V2", name: "V2", seats: 6, x: 260, y: 100, status: "free", shape: "rect", w: 140, h: 90, zone: "vip" },
+   322→  // Barra
+   323→  { id: "B1", name: "B1", seats: 2, x: 50, y: 120, status: "occupied", shape: "square", zone: "barra", reservationId: "r7" },
+   324→  { id: "B2", name: "B2", seats: 2, x: 160, y: 120, status: "occupied", shape: "square", zone: "barra" },
+   325→  { id: "B3", name: "B3", seats: 2, x: 270, y: 120, status: "free", shape: "square", zone: "barra" },
+   326→];
+   327→
+   328→const NOW = Date.now();
+   329→const INITIAL_RESERVATIONS: RpReservation[] = [
+   330→  { id: "r1", customerName: "Elena Vidal", phone: "+34 612 334 211", partySize: 4, time: "13:30", durationMin: 120, status: "confirmada", tableId: "M1", zone: "sala", channel: "web", guarantee: "tarjeta", notes: "Aniversario · mesa ventana", createdAt: NOW - 60000 },
+   331→  { id: "r2", customerName: "Marc Puig", phone: "+34 670 891 220", partySize: 4, time: "14:00", durationMin: 120, status: "sentada", tableId: "M2", zone: "sala", channel: "telefono", guarantee: "ninguna", notes: "", createdAt: NOW - 120000 },
+   332→  { id: "r3", customerName: "Sofía Ruiz", phone: "+34 655 220 119", partySize: 4, time: "14:30", durationMin: 90, status: "reconfirmada", tableId: "T1", zone: "terraza", channel: "google", guarantee: "tarjeta", notes: "Cliente VIP · alérgica al gluten", createdAt: NOW - 90000 },
+   333→  { id: "r4", customerName: "Jordi Soler", phone: "+34 622 119 887", partySize: 6, time: "13:45", durationMin: 150, status: "sentada", tableId: "T3", zone: "terraza", channel: "whatsapp", guarantee: "prepago", notes: "Cumpleaños, traen tarta", createdAt: NOW - 150000 },
+   334→  { id: "r5", customerName: "Núria Camps", phone: "+34 690 113 445", partySize: 2, time: "15:00", durationMin: 60, status: "espera", zone: "sala", channel: "walkin", guarantee: "ninguna", notes: "Sin asignar", createdAt: NOW - 30000 },
+   335→  { id: "r6", customerName: "Pau Riera", phone: "+34 644 332 100", partySize: 8, time: "20:30", durationMin: 180, status: "confirmada", tableId: "V1", zone: "vip", channel: "telefono", guarantee: "prepago", notes: "Cena de empresa · menú degustación", createdAt: NOW - 200000 },
+   336→  { id: "r7", customerName: "Laia Font", phone: "+34 633 445 998", partySize: 2, time: "21:00", durationMin: 90, status: "sentada", tableId: "B1", zone: "barra", channel: "instagram", guarantee: "ninguna", notes: "Cena rápida en barra", createdAt: NOW - 100000 },
+   337→  { id: "r8", customerName: "Arnau Bosch", phone: "+34 611 220 333", partySize: 5, time: "21:30", durationMin: 150, status: "pendiente", zone: "terraza", channel: "web", guarantee: "tarjeta", notes: "Prefiere terraza · 2 niños", createdAt: NOW - 45000 },
+   338→  { id: "r9", customerName: "Carla Vives", phone: "+34 699 001 223", partySize: 2, time: "13:00", durationMin: 60, status: "noshow", zone: "sala", channel: "web", guarantee: "tarjeta", notes: "No avisó · cargo aplicado", createdAt: NOW - 300000 },
+   339→  { id: "r10", customerName: "Bruno Serra", phone: "+34 688 220 110", partySize: 4, time: "22:00", durationMin: 120, status: "confirmada", zone: "sala", channel: "google", guarantee: "tarjeta", notes: "Cena tarde · ventana", createdAt: NOW - 80000 },
+   340→];
+   341→
+   342→/* =========================================================
+   343→ * Helpers
+   344→ * =======================================================*/
+   345→function timeToMin(t: string): number {
+   346→  const [h, m] = t.split(":").map(Number);
+   347→  return h * 60 + m;
+   348→}
+   349→
+   350→function tableW(t: RpTable): number {
+   351→  if (t.shape === "round") return 92;
+   352→  if (t.shape === "square") return 80;
+   353→  return t.w ?? 150;
+   354→}
+   355→function tableH(t: RpTable): number {
+   356→  if (t.shape === "round") return 92;
+   357→  if (t.shape === "square") return 80;
+   358→  return t.h ?? 96;
+   359→}
+   360→
+   361→function shapeLabel(s: RpTable["shape"]): string {
+   362→  if (s === "rect") return "rectangular";
+   363→  if (s === "round") return "redonda";
+   364→  return "cuadrada";
+   365→}
+   366→
+   367→function initials(name: string): string {
+   368→  return name
+   369→    .split(" ")
+   370→    .map((p) => p[0])
+   371→    .filter(Boolean)
+   372→    .slice(0, 2)
+   373→    .join("")
+   374→    .toUpperCase();
+   375→}
+   376→
+   377→function DemoBadge({ className }: { className?: string }) {
+   378→  return (
+   379→    <Badge
+   380→      variant="outline"
+   381→      className={cn(
+   382→        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
+   383→        className
+   384→      )}
+   385→    >
+   386→      demo
+   387→    </Badge>
+   388→  );
+   389→}
+   390→
+   391→/** Animated number counter — uses requestAnimationFrame, transform/opacity only. */
+   392→function useAnimatedNumber(value: number, duration = 350) {
+   393→  const reduce = useReducedMotion();
+   394→  const [display, setDisplay] = React.useState(value);
+   395→  const fromRef = React.useRef(value);
+   396→  const rafRef = React.useRef<number | null>(null);
+   397→
+   398→  React.useEffect(() => {
+   399→    if (reduce) {
+   400→      setDisplay(value);
+   401→      return;
+   402→    }
+   403→    const from = fromRef.current;
+   404→    const to = value;
+   405→    if (from === to) return;
+   406→    const start = performance.now();
+   407→    function tick(now: number) {
+   408→      const t = Math.min(1, (now - start) / duration);
+   409→      // easeOutCubic
+   410→      const eased = 1 - Math.pow(1 - t, 3);
+   411→      setDisplay(Math.round(from + (to - from) * eased));
+   412→      if (t < 1) {
+   413→        rafRef.current = requestAnimationFrame(tick);
+   414→      } else {
+   415→        fromRef.current = to;
+   416→      }
+   417→    }
+   418→    rafRef.current = requestAnimationFrame(tick);
+   419→    return () => {
+   420→      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+   421→      fromRef.current = value;
+   422→    };
+   423→  }, [value, duration, reduce]);
+   424→
+   425→  return display;
+   426→}
+   427→
+   428→/* =========================================================
+   429→ * Main view
+   430→ * =======================================================*/
+   431→export function ReservasView() {
+   432→  const { toast } = useToast();
+   433→  const reduce = useReducedMotion();
+   434→  const [tables, setTables] = React.useState<RpTable[]>(INITIAL_TABLES);
+   435→  const [reservations, setReservations] =
+   436→    React.useState<RpReservation[]>(INITIAL_RESERVATIONS);
+   437→  const [zone, setZone] = React.useState<Zone>("sala");
+   438→  const [editMode, setEditMode] = React.useState(false);
+   439→  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
+   440→  const [selectedReservationId, setSelectedReservationId] = React.useState<string | null>(null);
+   441→  const [assigningReservationId, setAssigningReservationId] = React.useState<string | null>(null);
+   442→  const [draggedId, setDraggedId] = React.useState<string | null>(null);
+   443→  const [dragOver, setDragOver] = React.useState(false);
+   444→  const [newDialogOpen, setNewDialogOpen] = React.useState(false);
+   445→  const [timelineOpen, setTimelineOpen] = React.useState(true);
+   446→
+   447→  // Quick filters
+   448→  const [datePreset, setDatePreset] = React.useState<"hoy" | "manana" | "fecha">("hoy");
+   449→  const [zoneFilter, setZoneFilter] = React.useState<"todas" | Zone>("todas");
+   450→  const [statusFilter, setStatusFilter] = React.useState<"todas" | ReservationStatus>("todas");
+   451→  const [channelFilter, setChannelFilter] = React.useState<"todos" | Channel>("todos");
+   452→  const [search, setSearch] = React.useState("");
+   453→  const [mobileFiltersOpen, setMobileFiltersOpen] = React.useState(false);
+   454→
+   455→  const [confirmState, setConfirmState] = React.useState<
+   456→    null | { kind: "block-table" | "cancel-res" | "free-table"; id: string }
+   457→  >(null);
+   458→  const canvasRef = React.useRef<HTMLDivElement>(null);
+   459→
+   460→  /* ----- derived ----- */
+   461→  const visibleTables = tables.filter((t) => t.zone === zone);
+   462→  const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
+   463→  const selectedReservation =
+   464→    reservations.find((r) => r.id === selectedReservationId) ?? null;
+   465→  const assigningReservation =
+   466→    reservations.find((r) => r.id === assigningReservationId) ?? null;
+   467→
+   468→  const filteredReservations = React.useMemo(() => {
+   469→    return reservations.filter((r) => {
+   470→      if (statusFilter !== "todas" && r.status !== statusFilter) return false;
+   471→      if (zoneFilter !== "todas" && r.zone !== zoneFilter) return false;
+   472→      if (channelFilter !== "todos" && r.channel !== channelFilter) return false;
+   473→      if (search.trim()) {
+   474→        const q = search.trim().toLowerCase();
+   475→        if (
+   476→          !r.customerName.toLowerCase().includes(q) &&
+   477→          !r.phone.toLowerCase().includes(q)
+   478→        )
+   479→          return false;
+   480→      }
+   481→      return true;
+   482→    });
+   483→  }, [reservations, statusFilter, zoneFilter, channelFilter, search]);
+   484→
+   485→  const unassignedReservations = reservations.filter(
+   486→    (r) => !r.tableId && r.status !== "cancelada" && r.status !== "finalizada"
+   487→  );
+   488→
+   489→  // KPIs for occupancy strip
+   490→  const totalTables = tables.length;
+   491→  const occupiedTables = tables.filter(
+   492→    (t) => t.status === "occupied" || t.status === "reserved"
+   493→  ).length;
+   494→  const occupancyPct = totalTables === 0 ? 0 : Math.round((occupiedTables / totalTables) * 100);
+   495→  const totalPax = reservations
+   496→    .filter((r) => r.status !== "cancelada" && r.status !== "noshow")
+   497→    .reduce((sum, r) => sum + r.partySize, 0);
+   498→  const noShowCount = reservations.filter((r) => r.status === "noshow").length;
+   499→  const confirmedToday = reservations.filter(
+   500→    (r) => r.status === "confirmada" || r.status === "reconfirmada" || r.status === "sentada"
+   501→  ).length;
+   502→
+   503→  // Animated counters
+   504→  const animOccupancy = useAnimatedNumber(occupancyPct);
+   505→  const animPax = useAnimatedNumber(totalPax);
+   506→  const animConfirmed = useAnimatedNumber(confirmedToday);
+   507→  const animNoShow = useAnimatedNumber(noShowCount);
+   508→
+   509→  // Active filter count for mobile badge
+   510→  const activeFilterCount =
+   511→    (statusFilter !== "todas" ? 1 : 0) +
+   512→    (zoneFilter !== "todas" ? 1 : 0) +
+   513→    (channelFilter !== "todos" ? 1 : 0) +
+   514→    (search.trim() ? 1 : 0);
+   515→
+   516→  /* ----- table handlers ----- */
+   517→  function cycleTableStatus(t: RpTable) {
+   518→    const next = STATUS_NEXT[t.status];
+   519→    setTables((ts) =>
+   520→      ts.map((x) => (x.id === t.id ? { ...x, status: next } : x))
+   521→    );
+   522→    toast({
+   523→      title: `Mesa ${t.name}`,
+   524→      description: `${STATUS_META[t.status].label} → ${STATUS_META[next].label}`,
+   525→    });
+   526→  }
+   527→
+   528→  function onTableClick(t: RpTable) {
+   529→    setSelectedTableId(t.id);
+   530→    setSelectedReservationId(null);
+   531→    if (assigningReservationId) {
+   532→      if (t.status === "free") {
+   533→        assignTableToReservation(t.id, assigningReservationId);
+   534→        setAssigningReservationId(null);
+   535→      } else {
+   536→        toast({
+   537→          title: "Mesa no disponible",
+   538→          description: "Elige una mesa libre (verde).",
+   539→          variant: "destructive",
+   540→        });
+   541→      }
+   542→      return;
+   543→    }
+   544→    if (editMode) return; // no cycling in edit mode
+   545→    cycleTableStatus(t);
+   546→  }
+   547→
+   548→  function assignTableToReservation(tableId: string, reservationId: string) {
+   549→    const t = tables.find((x) => x.id === tableId);
+   550→    const r = reservations.find((x) => x.id === reservationId);
+   551→    if (!t || !r) return;
+   552→    setTables((ts) =>
+   553→      ts.map((x) =>
+   554→        x.id === tableId
+   555→          ? { ...x, status: "reserved", reservationId }
+   556→          : x
+   557→      )
+   558→    );
+   559→    setReservations((rs) =>
+   560→      rs.map((x) =>
+   561→        x.id === reservationId
+   562→          ? {
+   563→              ...x,
+   564→              tableId,
+   565→              status: x.status === "espera" || x.status === "pendiente" ? "confirmada" : x.status,
+   566→            }
+   567→          : x
+   568→      )
+   569→    );
+   570→    toast({
+   571→      title: "Mesa asignada",
+   572→      description: `${r.customerName} → ${t.name}`,
+   573→    });
+   574→  }
+   575→
+   576→  function freeTable(tableId: string) {
+   577→    const t = tables.find((x) => x.id === tableId);
+   578→    if (!t) return;
+   579→    const prevResId = t.reservationId;
+   580→    setTables((ts) =>
+   581→      ts.map((x) =>
+   582→        x.id === tableId
+   583→          ? { ...x, status: "free", reservationId: undefined }
+   584→          : x
+   585→      )
+   586→    );
+   587→    if (prevResId) {
+   588→      setReservations((rs) =>
+   589→        rs.map((r) =>
+   590→          r.id === prevResId ? { ...r, tableId: undefined } : r
+   591→        )
+   592→      );
+   593→    }
+   594→    toast({ title: `Mesa ${t.name} liberada` });
+   595→  }
+   596→
+   597→  function blockTable(tableId: string) {
+   598→    const t = tables.find((x) => x.id === tableId);
+   599→    if (!t) return;
+   600→    setTables((ts) =>
+   601→      ts.map((x) => (x.id === tableId ? { ...x, status: "blocked" } : x))
+   602→    );
+   603→    toast({ title: `Mesa ${t.name} bloqueada` });
+   604→  }
+   605→
+   606→  /* ----- reservation handlers ----- */
+   607→  function setReservationStatus(resId: string, status: ReservationStatus) {
+   608→    setReservations((rs) =>
+   609→      rs.map((x) => (x.id === resId ? { ...x, status } : x))
+   610→    );
+   611→  }
+   612→
+   613→  function confirmReservation(resId: string) {
+   614→    const r = reservations.find((x) => x.id === resId);
+   615→    if (!r) return;
+   616→    setReservationStatus(resId, "confirmada");
+   617→    toast({ title: "Reserva confirmada", description: r.customerName });
+   618→  }
+   619→
+   620→  function reconfirmReservation(resId: string) {
+   621→    const r = reservations.find((x) => x.id === resId);
+   622→    if (!r) return;
+   623→    setReservationStatus(resId, "reconfirmada");
+   624→    toast({ title: "Reserva reconfirmada", description: r.customerName });
+   625→  }
+   626→
+   627→  function seatReservation(resId: string) {
+   628→    const r = reservations.find((x) => x.id === resId);
+   629→    if (!r) return;
+   630→    setReservationStatus(resId, "sentada");
+   631→    if (r.tableId) {
+   632→      setTables((ts) =>
+   633→        ts.map((t) =>
+   634→          t.id === r.tableId
+   635→            ? { ...t, status: "occupied", reservationId: resId }
+   636→            : t
+   637→        )
+   638→      );
+   639→    }
+   640→    toast({
+   641→      title: "Cliente sentado",
+   642→      description: `${r.customerName} · ${r.partySize} comensales`,
+   643→    });
+   644→  }
+   645→
+   646→  function finishReservation(resId: string) {
+   647→    const r = reservations.find((x) => x.id === resId);
+   648→    if (!r) return;
+   649→    setReservationStatus(resId, "finalizada");
+   650→    if (r.tableId) {
+   651→      setTables((ts) =>
+   652→        ts.map((t) =>
+   653→          t.id === r.tableId
+   654→            ? { ...t, status: "cleaning" }
+   655→            : t
+   656→        )
+   657→      );
+   658→    }
+   659→    toast({ title: "Servicio finalizado", description: r.customerName });
+   660→  }
+   661→
+   662→  function noshowReservation(resId: string) {
+   663→    const r = reservations.find((x) => x.id === resId);
+   664→    if (!r) return;
+   665→    setReservationStatus(resId, "noshow");
+   666→    if (r.tableId) {
+   667→      setTables((ts) =>
+   668→        ts.map((t) =>
+   669→          t.id === r.tableId
+   670→            ? { ...t, status: "free", reservationId: undefined }
+   671→            : t
+   672→        )
+   673→      );
+   674→    }
+   675→    toast({
+   676→      title: "Marcar como No-show",
+   677→      description: r.customerName,
+   678→      variant: "destructive",
+   679→    });
+   680→  }
+   681→
+   682→  function cancelReservation(resId: string) {
+   683→    const r = reservations.find((x) => x.id === resId);
+   684→    if (!r) return;
+   685→    setReservationStatus(resId, "cancelada");
+   686→    if (r.tableId) {
+   687→      setTables((ts) =>
+   688→        ts.map((t) =>
+   689→          t.id === r.tableId
+   690→            ? { ...t, status: "free", reservationId: undefined }
+   691→            : t
+   692→        )
+   693→      );
+   694→    }
+   695→    toast({
+   696→      title: "Reserva cancelada",
+   697→      description: r.customerName,
+   698→      variant: "destructive",
+   699→    });
+   700→  }
+   701→
+   702→  function startAssign(resId: string) {
+   703→    const r = reservations.find((x) => x.id === resId);
+   704→    if (r) setZone(r.zone);
+   705→    setAssigningReservationId(resId);
+   706→  }
+   707→
+   708→  /* ----- drag & drop (mouse) ----- */
+   709→  function onDragStart(e: React.DragEvent, t: RpTable) {
+   710→    if (!editMode) {
+   711→      e.preventDefault();
+   712→      return;
+   713→    }
+   714→    e.dataTransfer.setData("text/plain", t.id);
+   715→    e.dataTransfer.effectAllowed = "move";
+   716→    setDraggedId(t.id);
+   717→  }
+   718→
+   719→  function onDragEnd() {
+   720→    setDraggedId(null);
+   721→    setDragOver(false);
+   722→  }
+   723→
+   724→  function onCanvasDragOver(e: React.DragEvent) {
+   725→    if (!editMode || !draggedId) return;
+   726→    e.preventDefault();
+   727→    e.dataTransfer.dropEffect = "move";
+   728→    if (!dragOver) setDragOver(true);
+   729→  }
+   730→
+   731→  function onCanvasDragLeave(e: React.DragEvent) {
+   732→    if (e.currentTarget === e.target) setDragOver(false);
+   733→  }
+   734→
+   735→  function onCanvasDrop(e: React.DragEvent) {
+   736→    if (!editMode || !draggedId) return;
+   737→    e.preventDefault();
+   738→    const rect = canvasRef.current?.getBoundingClientRect();
+   739→    if (!rect) return;
+   740→    const t = tables.find((x) => x.id === draggedId);
+   741→    if (!t) return;
+   742→    const w = tableW(t);
+   743→    const h = tableH(t);
+   744→    const x = Math.max(
+   745→      4,
+   746→      Math.min(e.clientX - rect.left - w / 2, rect.width - w - 4)
+   747→    );
+   748→    const y = Math.max(
+   749→      4,
+   750→      Math.min(e.clientY - rect.top - h / 2, rect.height - h - 4)
+   751→    );
+   752→    const nx = Math.round(x);
+   753→    const ny = Math.round(y);
+   754→    setTables((ts) =>
+   755→      ts.map((x2) => (x2.id === draggedId ? { ...x2, x: nx, y: ny } : x2))
+   756→    );
+   757→    setDragOver(false);
+   758→    setDraggedId(null);
+   759→    toast({
+   760→      title: `${t.name} reposicionada`,
+   761→      description: `x ${nx} · y ${ny}`,
+   762→    });
+   763→  }
+   764→
+   765→  /* ----- drag & drop (touch) ----- */
+   766→  const touchDragRef = React.useRef<
+   767→    | { id: string; offsetX: number; offsetY: number }
+   768→    | null
+   769→  >(null);
+   770→
+   771→  function onTableTouchStart(e: React.TouchEvent, t: RpTable) {
+   772→    if (!editMode) return;
+   773→    if (e.touches.length !== 1) return;
+   774→    const rect = canvasRef.current?.getBoundingClientRect();
+   775→    if (!rect) return;
+   776→    const touch = e.touches[0];
+   777→    touchDragRef.current = {
+   778→      id: t.id,
+   779→      offsetX: touch.clientX - rect.left - t.x,
+   780→      offsetY: touch.clientY - rect.top - t.y,
+   781→    };
+   782→    setDraggedId(t.id);
+   783→    setDragOver(true);
+   784→  }
+   785→
+   786→  function onCanvasTouchMove(e: React.TouchEvent) {
+   787→    if (!editMode || !touchDragRef.current) return;
+   788→    if (e.touches.length !== 1) return;
+   789→    e.preventDefault(); // stop page scroll while dragging
+   790→    const rect = canvasRef.current?.getBoundingClientRect();
+   791→    if (!rect) return;
+   792→    const touch = e.touches[0];
+   793→    const drag = touchDragRef.current;
+   794→    const t = tables.find((x) => x.id === drag.id);
+   795→    if (!t) return;
+   796→    const w = tableW(t);
+   797→    const h = tableH(t);
+   798→    const x = Math.max(
+   799→      4,
+   800→      Math.min(touch.clientX - rect.left - drag.offsetX, rect.width - w - 4)
+   801→    );
+   802→    const y = Math.max(
+   803→      4,
+   804→      Math.min(touch.clientY - rect.top - drag.offsetY, rect.height - h - 4)
+   805→    );
+   806→    setTables((ts) =>
+   807→      ts.map((x2) => (x2.id === drag.id ? { ...x2, x: Math.round(x), y: Math.round(y) } : x2))
+   808→    );
+   809→  }
+   810→
+   811→  function onCanvasTouchEnd() {
+   812→    if (!touchDragRef.current) return;
+   813→    const t = tables.find((x) => x.id === touchDragRef.current!.id);
+   814→    touchDragRef.current = null;
+   815→    setDraggedId(null);
+   816→    setDragOver(false);
+   817→    if (t) {
+   818→      toast({
+   819→        title: `${t.name} reposicionada`,
+   820→        description: `x ${t.x} · y ${t.y}`,
+   821→      });
+   822→    }
+   823→  }
+   824→
+   825→  /* ----- new reservation ----- */
+   826→  function submitNewReservation(form: NewReservationForm) {
+   827→    const id = `r${reservations.length + 1}_${Date.now().toString(36).slice(-4)}`;
+   828→    const newRes: RpReservation = {
+   829→      id,
+   830→      customerName: form.customerName.trim(),
+   831→      phone: form.phone.trim(),
+   832→      partySize: form.partySize,
+   833→      time: form.time,
+   834→      durationMin: 90,
+   835→      status: "pendiente",
+   836→      tableId: form.tableId,
+   837→      zone: form.zone,
+   838→      channel: form.channel,
+   839→      guarantee: form.guarantee,
+   840→      notes: form.notes.trim() || undefined,
+   841→      createdAt: Date.now(),
+   842→    };
+   843→    setReservations((rs) => [newRes, ...rs]);
+   844→    if (form.tableId) {
+   845→      setTables((ts) =>
+   846→        ts.map((t) =>
+   847→          t.id === form.tableId
+   848→            ? { ...t, status: "reserved", reservationId: id }
+   849→            : t
+   850→        )
+   851→      );
+   852→    }
+   853→    setNewDialogOpen(false);
+   854→    toast({
+   855→      title: "Reserva creada",
+   856→      description: `${newRes.customerName} · ${newRes.time} · ${newRes.partySize} pax`,
+   857→    });
+   858→  }
+   859→
+   860→  function handleConfirm() {
+   861→    if (!confirmState) return;
+   862→    const { kind, id } = confirmState;
+   863→    if (kind === "block-table") blockTable(id);
+   864→    else if (kind === "cancel-res") cancelReservation(id);
+   865→    else if (kind === "free-table") freeTable(id);
+   866→    setConfirmState(null);
+   867→  }
+   868→
+   869→  function clearFilters() {
+   870→    setStatusFilter("todas");
+   871→    setZoneFilter("todas");
+   872→    setChannelFilter("todos");
+   873→    setSearch("");
+   874→  }
+   875→
+   876→  /* ----- render ----- */
+   877→  // Shared transition defaults that respect prefers-reduced-motion
+   878→  const t = reduce
+   879→    ? { duration: 0 }
+   880→    : { duration: 0.2, ease: "easeOut" as const };
+   881→
+   882→  return (
+   883→    <div className="space-y-6">
+   884→      {/* Header */}
+   885→      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   886→        <div>
+   887→          <div className="flex items-center gap-2">
+   888→            <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
+   889→              Reservas
+   890→            </h1>
+   891→            <DemoBadge />
+   892→          </div>
+   893→          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+   894→            Plano de mesas interactivo, lista de reservas y línea de tiempo del
+   895→            servicio. Datos demo · navegable.
+   896→          </p>
+   897→        </div>
+   898→        <Button
+   899→          onClick={() => setNewDialogOpen(true)}
+   900→          className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] shrink-0 min-h-11"
+   901→        >
+   902→          <Plus className="h-4 w-4" /> Nueva reserva
+   903→        </Button>
+   904→      </header>
+   905→
+   906→      {/* KPI strip — occupancy counters animate on change */}
+   907→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   908→        <KpiCard
+   909→          icon={Armchair}
+   910→          label="Ocupación"
+   911→          value={`${animOccupancy}%`}
+   912→          caption={`${occupiedTables}/${totalTables} mesas`}
+   913→          tone="gold"
+   914→        />
+   915→        <KpiCard
+   916→          icon={CalendarPlus}
+   917→          label="Confirmadas"
+   918→          value={String(animConfirmed)}
+   919→          caption="hoy + próximamente"
+   920→          tone="teal"
+   921→        />
+   922→        <KpiCard
+   923→          icon={Users}
+   924→          label="Comensales"
+   925→          value={String(animPax)}
+   926→          caption="pax totales"
+   927→          tone="gold"
+   928→        />
+   929→        <KpiCard
+   930→          icon={UserX}
+   931→          label="No-shows"
+   932→          value={String(animNoShow)}
+   933→          caption="últimos 7d"
+   934→          tone="muted"
+   935→        />
+   936→      </div>
+   937→
+   938→      {/* Quick filters bar — desktop inline, mobile via Sheet */}
+   939→      <QuickFiltersBar
+   940→        datePreset={datePreset}
+   941→        onDatePreset={setDatePreset}
+   942→        zoneFilter={zoneFilter}
+   943→        onZoneFilter={setZoneFilter}
+   944→        statusFilter={statusFilter}
+   945→        onStatusFilter={setStatusFilter}
+   946→        channelFilter={channelFilter}
+   947→        onChannelFilter={setChannelFilter}
+   948→        search={search}
+   949→        onSearch={setSearch}
+   950→        onClear={clearFilters}
+   951→        activeCount={activeFilterCount}
+   952→        onOpenMobile={() => setMobileFiltersOpen(true)}
+   953→      />
+   954→
+   955→      {/* Main grid: list first on mobile, floor plan + list side-by-side on lg+ */}
+   956→      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[3fr_2fr]">
+   957→        {/* LEFT (desktop) / BOTTOM (mobile): Floor plan (60%) */}
+   958→        <section
+   959→          className="space-y-4 order-2 lg:order-1"
+   960→          aria-label="Plano de mesas"
+   961→        >
+   962→          {/* Zone selector + edit toggle */}
+   963→          <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
+   964→            <div
+   965→              className="flex flex-wrap items-center gap-1.5"
+   966→              role="tablist"
+   967→              aria-label="Zona del plano"
+   968→            >
+   969→              {ZONES.map((z) => (
+   970→                <button
+   971→                  key={z.id}
+   972→                  role="tab"
+   973→                  aria-selected={zone === z.id}
+   974→                  aria-controls="floor-plan-canvas"
+   975→                  onClick={() => setZone(z.id)}
+   976→                  className={cn(
+   977→                    "rounded-md px-3 py-2 min-h-11 text-sm font-medium border transition-colors",
+   978→                    zone === z.id
+   979→                      ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+   980→                      : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   981→                  )}
+   982→                >
+   983→                  <MapPin className="h-3.5 w-3.5 inline-block mr-1.5 -mt-0.5" />
+   984→                  {z.label}
+   985→                </button>
+   986→              ))}
+   987→            </div>
+   988→            <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+   989→              <Switch
+   990→                checked={editMode}
+   991→                onCheckedChange={setEditMode}
+   992→                aria-label="Modo editar plano"
+   993→              />
+   994→              <span
+   995→                className={cn(
+   996→                  "flex items-center gap-1.5",
+   997→                  editMode ? "text-[var(--gold-soft)]" : "text-muted-foreground"
+   998→                )}
+   999→              >
+  1000→                <Pencil className="h-3.5 w-3.5" />
+  1001→                Modo editar plano
+  1002→              </span>
+  1003→            </label>
+  1004→          </div>
+  1005→
+  1006→          {/* Canvas card */}
+  1007→          <div className="rp-glass rounded-2xl overflow-hidden">
+  1008→            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+  1009→              <div className="flex items-center gap-2">
+  1010→                <Armchair className="h-4 w-4 text-[var(--gold)]" />
+  1011→                <span className="text-sm font-medium">
+  1012→                  {ZONES.find((z) => z.id === zone)?.label}
+  1013→                </span>
+  1014→                <DemoBadge />
+  1015→              </div>
+  1016→              <div className="text-[11px] font-mono text-muted-foreground tabular-nums">
+  1017→                {visibleTables.length} mesas ·{" "}
+  1018→                <span className="text-emerald-300">
+  1019→                  {visibleTables.filter((t) => t.status === "free").length}{" "}
+  1020→                  libres
+  1021→                </span>
+  1022→              </div>
+  1023→            </div>
+  1024→
+  1025→            {/* Assignment mode banner */}
+  1026→            {assigningReservation && (
+  1027→              <div className="px-4 py-2 bg-[var(--gold)]/10 border-b border-[var(--gold)]/30 flex items-center justify-between gap-3">
+  1028→                <div className="flex items-center gap-2 text-sm text-[var(--gold-soft)] min-w-0">
+  1029→                  <Hand className="h-4 w-4 shrink-0" />
+  1030→                  <span className="truncate">
+  1031→                    Modo asignación: haz clic en una mesa libre (verde) para{" "}
+  1032→                    <strong className="font-medium">
+  1033→                      {assigningReservation.customerName}
+  1034→                    </strong>
+  1035→                    .
+  1036→                  </span>
+  1037→                </div>
+  1038→                <Button
+  1039→                  size="sm"
+  1040→                  variant="ghost"
+  1041→                  className="shrink-0 h-8"
+  1042→                  onClick={() => setAssigningReservationId(null)}
+  1043→                >
+  1044→                  <X className="h-3.5 w-3.5" /> Cancelar
+  1045→                </Button>
+  1046→              </div>
+  1047→            )}
+  1048→
+  1049→            {/* Edit mode banner */}
+  1050→            {editMode && (
+  1051→              <div className="px-4 py-2 bg-[var(--teal)]/10 border-b border-[var(--teal)]/30 flex items-center gap-2 text-sm text-[var(--teal)]">
+  1052→                <Pencil className="h-4 w-4" />
+  1053→                <span>
+  1054→                  Arrastra las mesas para reposicionarlas. Los clics no cambian
+  1055→                  el estado.
+  1056→                </span>
+  1057→              </div>
+  1058→            )}
+  1059→
+  1060→            <div className="overflow-x-auto rp-scroll-thin">
+  1061→              <div
+  1062→                ref={canvasRef}
+  1063→                id="floor-plan-canvas"
+  1064→                role="tabpanel"
+  1065→                aria-label={`Plano de la zona ${
+  1066→                  ZONES.find((z) => z.id === zone)?.label
+  1067→                }`}
+  1068→                onDragOver={onCanvasDragOver}
+  1069→                onDragLeave={onCanvasDragLeave}
+  1070→                onDrop={onCanvasDrop}
+  1071→                onTouchMove={onCanvasTouchMove}
+  1072→                onTouchEnd={onCanvasTouchEnd}
+  1073→                onTouchCancel={onCanvasTouchEnd}
+  1074→                className={cn(
+  1075→                  "relative rp-grid-bg touch-pan-y",
+  1076→                  dragOver && "ring-2 ring-inset ring-[var(--gold)]/60"
+  1077→                )}
+  1078→                style={{ minWidth: 680, height: 460 }}
+  1079→              >
+  1080→                <ZoneDecor zone={zone} />
+  1081→
+  1082→                {/* Tables — motion.div for assignment pulse */}
+  1083→                {visibleTables.map((tbl) => {
+  1084→                  const meta = STATUS_META[tbl.status];
+  1085→                  const w = tableW(tbl);
+  1086→                  const h = tableH(tbl);
+  1087→                  const isDragging = draggedId === tbl.id;
+  1088→                  const isSelected = selectedTableId === tbl.id;
+  1089→                  const isAssignTarget =
+  1090→                    !!assigningReservationId && tbl.status === "free";
+  1091→                  const linkedRes = tbl.reservationId
+  1092→                    ? reservations.find((r) => r.id === tbl.reservationId)
+  1093→                    : null;
+  1094→                  return (
+  1095→                    <motion.button
+  1096→                      key={tbl.id}
+  1097→                      type="button"
+  1098→                      // animate pulse when freshly assigned (reservationId changes)
+  1099→                      animate={
+  1100→                        reduce
+  1101→                          ? undefined
+  1102→                          : isAssignTarget
+  1103→                            ? { scale: [1, 1.06, 1] }
+  1104→                            : { scale: 1 }
+  1105→                      }
+  1106→                      transition={
+  1107→                        reduce
+  1108→                          ? { duration: 0 }
+  1109→                          : isAssignTarget
+  1110→                            ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
+  1111→                            : { duration: 0.18 }
+  1112→                      }
+  1113→                      draggable={editMode}
+  1114→                      onDragStart={(e) => onDragStart(e, tbl)}
+  1115→                      onDragEnd={onDragEnd}
+  1116→                      onTouchStart={(e) => onTableTouchStart(e, tbl)}
+  1117→                      onClick={() => onTableClick(tbl)}
+  1118→                      aria-label={`Mesa ${tbl.name}, ${tbl.seats} comensales, estado ${meta.label}${
+  1119→                        tbl.reservationId ? `, reserva ${tbl.reservationId}` : ""
+  1120→                      }`}
+  1121→                      aria-pressed={isSelected}
+  1122→                      className={cn(
+  1123→                        "absolute flex flex-col items-center justify-center gap-0.5 border-2 transition-[transform,color,background-color,border-color] select-none px-1.5",
+  1124→                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:ring-[var(--gold)]",
+  1125→                        meta.border,
+  1126→                        meta.bg,
+  1127→                        meta.text,
+  1128→                        tbl.shape === "round" ? "rounded-full" : "rounded-xl",
+  1129→                        isSelected &&
+  1130→                          "z-20 ring-2 ring-offset-2 ring-offset-background ring-[var(--gold)]",
+  1131→                        !editMode &&
+  1132→                          !assigningReservationId &&
+  1133→                          "hover:scale-105 cursor-pointer",
+  1134→                        editMode && "cursor-grab active:cursor-grabbing",
+  1135→                        isDragging && "opacity-40",
+  1136→                        assigningReservationId &&
+  1137→                          !isAssignTarget &&
+  1138→                          "opacity-60"
+  1139→                      )}
+  1140→                      style={{ left: tbl.x, top: tbl.y, width: w, height: h }}
+  1141→                    >
+  1142→                      <span className="font-mono text-xs font-semibold leading-none">
+  1143→                        {tbl.name}
+  1144→                      </span>
+  1145→                      <span className="text-[10px] flex items-center gap-0.5 opacity-80 leading-none mt-0.5">
+  1146→                        <Users className="h-2.5 w-2.5" />
+  1147→                        {tbl.seats}
+  1148→                      </span>
+  1149→                      {/* Customer name on reserved/occupied tables */}
+  1150→                      {linkedRes && (
+  1151→                        <span className="text-[9px] font-medium truncate max-w-full px-0.5 mt-0.5 opacity-90 leading-tight">
+  1152→                          {linkedRes.customerName.split(" ")[0]}
+  1153→                        </span>
+  1154→                      )}
+  1155→                      <span
+  1156→                        className={cn(
+  1157→                          "h-1.5 w-1.5 rounded-full mt-0.5",
+  1158→                          meta.dot
+  1159→                        )}
+  1160→                      />
+  1161→                    </motion.button>
+  1162→                  );
+  1163→                })}
+  1164→
+  1165→                {/* Drop hint overlay */}
+  1166→                {dragOver && (
+  1167→                  <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-[var(--gold)]/60 rounded-2xl bg-[var(--gold)]/5 flex items-center justify-center">
+  1168→                    <div className="text-xs font-mono uppercase tracking-wider text-[var(--gold-soft)] bg-background/80 px-3 py-1.5 rounded-md">
+  1169→                      Suelta para reposicionar la mesa
+  1170→                    </div>
+  1171→                  </div>
+  1172→                )}
+  1173→
+  1174→                {/* Empty zone */}
+  1175→                {visibleTables.length === 0 && (
+  1176→                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+  1177→                    No hay mesas en esta zona.
+  1178→                  </div>
+  1179→                )}
+  1180→              </div>
+  1181→            </div>
+  1182→
+  1183→            {/* Legend */}
+  1184→            <div className="px-4 py-3 border-t border-border/40 flex flex-wrap items-center gap-x-4 gap-y-2">
+  1185→              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
+  1186→                Leyenda:
+  1187→              </span>
+  1188→              {(Object.keys(STATUS_META) as TableStatus[]).map((s) => (
+  1189→                <div key={s} className="flex items-center gap-1.5">
+  1190→                  <span
+  1191→                    className={cn("h-2.5 w-2.5 rounded-full", STATUS_META[s].dot)}
+  1192→                  />
+  1193→                  <span className="text-xs text-muted-foreground">
+  1194→                    {STATUS_META[s].label}
+  1195→                  </span>
+  1196→                </div>
+  1197→              ))}
+  1198→              {!editMode && !assigningReservationId && (
+  1199→                <span className="text-[11px] text-muted-foreground/70 ml-auto hidden sm:inline">
+  1200→                  Clic en mesa = cambia estado
+  1201→                </span>
+  1202→              )}
+  1203→            </div>
+  1204→          </div>
+  1205→        </section>
+  1206→
+  1207→        {/* RIGHT (desktop) / TOP (mobile): Reservations list + details (40%) */}
+  1208→        <section
+  1209→          className="space-y-4 order-1 lg:order-2 min-w-0 overflow-hidden"
+  1210→          aria-label="Lista de reservas y detalles"
+  1211→        >
+  1212→          {/* Reservations list */}
+  1213→          <div className="rp-glass rounded-2xl overflow-hidden">
+  1214→            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+  1215→              <div className="flex items-center gap-2">
+  1216→                <CalendarPlus className="h-4 w-4 text-[var(--gold)]" />
+  1217→                <span className="text-sm font-medium">Reservas</span>
+  1218→                <DemoBadge />
+  1219→              </div>
+  1220→              <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
+  1221→                {filteredReservations.length}
+  1222→              </span>
+  1223→            </div>
+  1224→
+  1225→            {/* List — column header (desktop only) */}
+  1226→            <div
+  1227→              id="reservations-list"
+  1228→              role="tabpanel"
+  1229→              className="max-h-[560px] overflow-auto rp-scroll-thin"
+  1230→            >
+  1231→              {filteredReservations.length === 0 ? (
+  1232→                <div className="px-4 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+  1233→                  <Search className="h-5 w-5 opacity-40" />
+  1234→                  No hay reservas con estos filtros.
+  1235→                </div>
+  1236→              ) : (
+  1237→                <>
+  1238→                  {/* Desktop column header */}
+  1239→                  <div className="hidden lg:grid grid-cols-[68px_1fr_56px_72px_88px_96px_104px_36px_72px] min-w-[640px] gap-2 px-4 py-2 text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/40 sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+  1240→                    <span>Hora</span>
+  1241→                    <span>Cliente</span>
+  1242→                    <span className="text-right">Pax</span>
+  1243→                    <span>Mesa</span>
+  1244→                    <span>Zona</span>
+  1245→                    <span>Canal</span>
+  1246→                    <span>Estado</span>
+  1247→                    <span className="text-center">Notas</span>
+  1248→                    <span className="text-right">Garantía</span>
+  1249→                  </div>
+  1250→                  <ul className="divide-y divide-border/40">
+  1251→                    <AnimatePresence initial={false}>
+  1252→                      {filteredReservations.map((r, idx) => {
+  1253→                        const table = tables.find((tt) => tt.id === r.tableId);
+  1254→                        const isSelected = selectedReservationId === r.id;
+  1255→                        const meta = RES_STATUS_META[r.status];
+  1256→                        const channel = CHANNEL_META[r.channel];
+  1257→                        const guarantee = GUARANTEE_META[r.guarantee];
+  1258→                        const ChannelIcon = channel.icon;
+  1259→                        const GuaranteeIcon = guarantee.icon;
+  1260→                        const zoneLabel = ZONES.find((z) => z.id === r.zone)?.label ?? r.zone;
+  1261→                        // Only animate entry for items created within last 3s
+  1262→                        const isNew = Date.now() - r.createdAt < 3000;
+  1263→                        return (
+  1264→                          <motion.li
+  1265→                            key={r.id}
+  1266→                            initial={
+  1267→                              reduce
+  1268→                                ? false
+  1269→                                : isNew
+  1270→                                  ? { opacity: 0, y: -8 }
+  1271→                                  : idx < 8
+  1272→                                    ? { opacity: 0, y: -4 }
+  1273→                                    : false
+  1274→                            }
+  1275→                            animate={{ opacity: 1, y: 0 }}
+  1276→                            exit={reduce ? undefined : { opacity: 0, y: -6 }}
+  1277→                            transition={
+  1278→                              reduce
+  1279→                                ? { duration: 0 }
+  1280→                                : { duration: 0.2, ease: "easeOut", delay: isNew ? 0 : Math.min(idx, 6) * 0.025 }
+  1281→                            }
+  1282→                          >
+  1283→                            <ReservationRow
+  1284→                              r={r}
+  1285→                              table={table}
+  1286→                              isSelected={isSelected}
+  1287→                              meta={meta}
+  1288→                              channelLabel={channel.label}
+  1289→                              ChannelIcon={ChannelIcon}
+  1290→                              channelCls={channel.cls}
+  1291→                              guaranteeLabel={guarantee.label}
+  1292→                              GuaranteeIcon={GuaranteeIcon}
+  1293→                              guaranteeCls={guarantee.cls}
+  1294→                              zoneLabel={zoneLabel}
+  1295→                              reduce={!!reduce}
+  1296→                              onSelect={() => {
+  1297→                                setSelectedReservationId(r.id);
+  1298→                                setSelectedTableId(null);
+  1299→                              }}
+  1300→                            />
+  1301→                          </motion.li>
+  1302→                        );
+  1303→                      })}
+  1304→                    </AnimatePresence>
+  1305→                  </ul>
+  1306→                </>
+  1307→              )}
+  1308→            </div>
+  1309→          </div>
+  1310→
+  1311→          {/* Details panel — slides in (desktop right, mobile bottom-sheet-like) */}
+  1312→          <AnimatePresence mode="wait">
+  1313→            {(selectedReservation || selectedTable || assigningReservation) && (
+  1314→              <motion.div
+  1315→                key={
+  1316→                  assigningReservation
+  1317→                    ? `assign-${assigningReservation.id}`
+  1318→                    : selectedReservation
+  1319→                      ? `res-${selectedReservation.id}`
+  1320→                      : `tbl-${selectedTable?.id}`
+  1321→                }
+  1322→                initial={reduce ? false : { opacity: 0, x: 20 }}
+  1323→                animate={{ opacity: 1, x: 0 }}
+  1324→                exit={reduce ? undefined : { opacity: 0, x: 20 }}
+  1325→                transition={t}
+  1326→              >
+  1327→                <DetailsPanel
+  1328→                  assigning={assigningReservation}
+  1329→                  selectedTable={selectedTable}
+  1330→                  selectedReservation={selectedReservation}
+  1331→                  tableOfReservation={
+  1332→                    selectedReservation
+  1333→                      ? tables.find((tt) => tt.id === selectedReservation.tableId) ?? null
+  1334→                      : null
+  1335→                  }
+  1336→                  reservationOfTable={
+  1337→                    selectedTable
+  1338→                      ? reservations.find(
+  1339→                          (r) => r.id === selectedTable.reservationId
+  1340→                        ) ?? null
+  1341→                      : null
+  1342→                  }
+  1343→                  unassignedReservations={unassignedReservations}
+  1344→                  onAssignTable={assignTableToReservation}
+  1345→                  onFreeTable={(id) => setConfirmState({ kind: "free-table", id })}
+  1346→                  onBlockTable={(id) => setConfirmState({ kind: "block-table", id })}
+  1347→                  onConfirmRes={confirmReservation}
+  1348→                  onReconfirmRes={reconfirmReservation}
+  1349→                  onSeatRes={seatReservation}
+  1350→                  onFinishRes={finishReservation}
+  1351→                  onNoshowRes={noshowReservation}
+  1352→                  onCancelRes={(id) => setConfirmState({ kind: "cancel-res", id })}
+  1353→                  onStartAssign={startAssign}
+  1354→                  onCancelAssign={() => setAssigningReservationId(null)}
+  1355→                  onSelectReservation={(id) => {
+  1356→                    setSelectedReservationId(id);
+  1357→                    setSelectedTableId(null);
+  1358→                  }}
+  1359→                  reduce={!!reduce}
+  1360→                />
+  1361→              </motion.div>
+  1362→            )}
+  1363→          </AnimatePresence>
+  1364→        </section>
+  1365→      </div>
+  1366→
+  1367→      {/* Service timeline (collapsible) */}
+  1368→      <Collapsible open={timelineOpen} onOpenChange={setTimelineOpen}>
+  1369→        <div className="rp-glass rounded-2xl overflow-hidden">
+  1370→          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+  1371→            <div className="flex items-center gap-2">
+  1372→              <Hourglass className="h-4 w-4 text-[var(--teal)]" />
+  1373→              <span className="text-sm font-medium">
+  1374→                Línea de tiempo del servicio
+  1375→              </span>
+  1376→              <DemoBadge />
+  1377→            </div>
+  1378→            <CollapsibleTrigger asChild>
+  1379→              <Button
+  1380→                variant="ghost"
+  1381→                size="sm"
+  1382→                className="h-8 w-8 p-0"
+  1383→                aria-label={timelineOpen ? "Contraer" : "Expandir"}
+  1384→              >
+  1385→                <ChevronDown
+  1386→                  className={cn(
+  1387→                    "h-4 w-4 transition-transform",
+  1388→                    timelineOpen && "rotate-180"
+  1389→                  )}
+  1390→                />
+  1391→              </Button>
+  1392→            </CollapsibleTrigger>
+  1393→          </div>
+  1394→          <CollapsibleContent>
+  1395→            <div className="p-4">
+  1396→              <TimelineContent
+  1397→                reservations={reservations}
+  1398→                tables={tables}
+  1399→                selectedId={selectedReservationId}
+  1400→                onSelect={(id) => {
+  1401→                  setSelectedReservationId(id);
+  1402→                  setSelectedTableId(null);
+  1403→                }}
+  1404→              />
+  1405→            </div>
+  1406→          </CollapsibleContent>
+  1407→        </div>
+  1408→      </Collapsible>
+  1409→
+  1410→      {/* New reservation dialog */}
+  1411→      <NewReservationDialog
+  1412→        open={newDialogOpen}
+  1413→        onOpenChange={setNewDialogOpen}
+  1414→        tables={tables}
+  1415→        onSubmit={submitNewReservation}
+  1416→      />
+  1417→
+  1418→      {/* Mobile filters Sheet */}
+  1419→      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+  1420→        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rp-scroll-thin">
+  1421→          <SheetHeader>
+  1422→            <SheetTitle className="flex items-center gap-2">
+  1423→              <Sliders className="h-4 w-4 text-[var(--gold)]" /> Filtros
+  1424→            </SheetTitle>
+  1425→            <SheetDescription>
+  1426→              Refina la lista de reservas por fecha, zona, estado y canal.
+  1427→            </SheetDescription>
+  1428→          </SheetHeader>
+  1429→          <div className="px-4 pb-6 space-y-5">
+  1430→            <FilterGroup label="Fecha">
+  1431→              <div className="flex gap-1.5 flex-wrap">
+  1432→                {(["hoy", "manana", "fecha"] as const).map((p) => (
+  1433→                  <button
+  1434→                    key={p}
+  1435→                    onClick={() => setDatePreset(p)}
+  1436→                    className={cn(
+  1437→                      "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors capitalize",
+  1438→                      datePreset === p
+  1439→                        ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1440→                        : "border-border/60 text-muted-foreground hover:text-foreground"
+  1441→                    )}
+  1442→                  >
+  1443→                    {p === "hoy" ? "Hoy" : p === "manana" ? "Mañana" : "Elegir fecha"}
+  1444→                  </button>
+  1445→                ))}
+  1446→              </div>
+  1447→            </FilterGroup>
+  1448→            <FilterGroup label="Zona">
+  1449→              <div className="flex gap-1.5 flex-wrap">
+  1450→                {ZONE_FILTERS.map((z) => (
+  1451→                  <button
+  1452→                    key={z.id}
+  1453→                    onClick={() => setZoneFilter(z.id)}
+  1454→                    className={cn(
+  1455→                      "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors",
+  1456→                      zoneFilter === z.id
+  1457→                        ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1458→                        : "border-border/60 text-muted-foreground hover:text-foreground"
+  1459→                    )}
+  1460→                  >
+  1461→                    {z.label}
+  1462→                  </button>
+  1463→                ))}
+  1464→              </div>
+  1465→            </FilterGroup>
+  1466→            <FilterGroup label="Estado">
+  1467→              <div className="flex gap-1.5 flex-wrap">
+  1468→                {STATUS_FILTERS.map((s) => (
+  1469→                  <button
+  1470→                    key={s.id}
+  1471→                    onClick={() => setStatusFilter(s.id)}
+  1472→                    className={cn(
+  1473→                      "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors",
+  1474→                      statusFilter === s.id
+  1475→                        ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1476→                        : "border-border/60 text-muted-foreground hover:text-foreground"
+  1477→                    )}
+  1478→                  >
+  1479→                    {s.label}
+  1480→                  </button>
+  1481→                ))}
+  1482→              </div>
+  1483→            </FilterGroup>
+  1484→            <FilterGroup label="Canal">
+  1485→              <div className="flex gap-1.5 flex-wrap">
+  1486→                {CHANNEL_FILTERS.filter((c) => c.id !== "todos").map((c) => {
+  1487→                  const Icon = CHANNEL_META[c.id as Channel].icon;
+  1488→                  const isActive = channelFilter === c.id;
+  1489→                  return (
+  1490→                    <button
+  1491→                      key={c.id}
+  1492→                      onClick={() => setChannelFilter(c.id as Channel)}
+  1493→                      className={cn(
+  1494→                        "min-h-11 rounded-md px-3 py-2 text-sm border transition-colors flex items-center gap-1.5",
+  1495→                        isActive
+  1496→                          ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1497→                          : "border-border/60 text-muted-foreground hover:text-foreground"
+  1498→                      )}
+  1499→                    >
+  1500→                      <Icon className="h-3.5 w-3.5" />
+  1501→                      {c.label}
+  1502→                    </button>
+  1503→                  );
+  1504→                })}
+  1505→              </div>
+  1506→            </FilterGroup>
+  1507→            <FilterGroup label="Buscar">
+  1508→              <div className="flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 min-h-11 bg-input/30">
+  1509→                <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+  1510→                <input
+  1511→                  type="search"
+  1512→                  value={search}
+  1513→                  onChange={(e) => setSearch(e.target.value)}
+  1514→                  placeholder="Nombre o teléfono…"
+  1515→                  className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground"
+  1516→                />
+  1517→                {search && (
+  1518→                  <button
+  1519→                    onClick={() => setSearch("")}
+  1520→                    aria-label="Limpiar"
+  1521→                    className="text-muted-foreground hover:text-foreground"
+  1522→                  >
+  1523→                    <X className="h-3.5 w-3.5" />
+  1524→                  </button>
+  1525→                )}
+  1526→              </div>
+  1527→            </FilterGroup>
+  1528→            <div className="flex gap-2 pt-2">
+  1529→              <Button
+  1530→                variant="outline"
+  1531→                className="flex-1 min-h-11"
+  1532→                onClick={clearFilters}
+  1533→              >
+  1534→                <Eraser className="h-4 w-4" /> Limpiar
+  1535→              </Button>
+  1536→              <Button
+  1537→                className="flex-1 min-h-11 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+  1538→                onClick={() => setMobileFiltersOpen(false)}
+  1539→              >
+  1540→                Ver {filteredReservations.length} reservas
+  1541→              </Button>
+  1542→            </div>
+  1543→          </div>
+  1544→        </SheetContent>
+  1545→      </Sheet>
+  1546→
+  1547→      {/* Confirm dialog */}
+  1548→      <AlertDialog
+  1549→        open={!!confirmState}
+  1550→        onOpenChange={(o) => !o && setConfirmState(null)}
+  1551→      >
+  1552→        <AlertDialogContent>
+  1553→          <AlertDialogHeader>
+  1554→            <AlertDialogTitle>
+  1555→              {confirmState?.kind === "cancel-res" &&
+  1556→                "¿Cancelar esta reserva?"}
+  1557→              {confirmState?.kind === "block-table" &&
+  1558→                "¿Bloquear esta mesa?"}
+  1559→              {confirmState?.kind === "free-table" && "¿Liberar esta mesa?"}
+  1560→            </AlertDialogTitle>
+  1561→            <AlertDialogDescription>
+  1562→              {confirmState?.kind === "cancel-res" &&
+  1563→                "La reserva pasará a estado cancelada y su mesa quedará libre. Esta acción no se puede deshacer."}
+  1564→              {confirmState?.kind === "block-table" &&
+  1565→                "La mesa quedará fuera de servicio hasta que la restaures manualmente."}
+  1566→              {confirmState?.kind === "free-table" &&
+  1567→                "La mesa pasará a libre y se desvinculará de su reserva actual."}
+  1568→            </AlertDialogDescription>
+  1569→          </AlertDialogHeader>
+  1570→          <AlertDialogFooter>
+  1571→            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+  1572→            <AlertDialogAction
+  1573→              className={cn(
+  1574→                confirmState?.kind !== "free-table" &&
+  1575→                  "bg-destructive text-white hover:bg-destructive/90"
+  1576→              )}
+  1577→              onClick={handleConfirm}
+  1578→            >
+  1579→              Confirmar
+  1580→            </AlertDialogAction>
+  1581→          </AlertDialogFooter>
+  1582→        </AlertDialogContent>
+  1583→      </AlertDialog>
+  1584→    </div>
+  1585→  );
+  1586→}
+  1587→
+  1588→/* =========================================================
+  1589→ * KPI card with animated number
+  1590→ * =======================================================*/
+  1591→function KpiCard({
+  1592→  icon: Icon,
+  1593→  label,
+  1594→  value,
+  1595→  caption,
+  1596→  tone,
+  1597→}: {
+  1598→  icon: React.ElementType;
+  1599→  label: string;
+  1600→  value: string;
+  1601→  caption: string;
+  1602→  tone: "gold" | "teal" | "muted";
+  1603→}) {
+  1604→  const toneCls =
+  1605→    tone === "gold"
+  1606→      ? "text-[var(--gold)]"
+  1607→      : tone === "teal"
+  1608→        ? "text-[var(--teal)]"
+  1609→        : "text-muted-foreground";
+  1610→  return (
+  1611→    <div className="rp-glass rounded-xl p-4 flex items-center gap-3">
+  1612→      <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center bg-foreground/[0.04]", toneCls)}>
+  1613→        <Icon className="h-5 w-5" />
+  1614→      </div>
+  1615→      <div className="min-w-0">
+  1616→        <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
+  1617→          {label}
+  1618→        </div>
+  1619→        <div className="text-xl font-display font-medium tabular-nums leading-tight">
+  1620→          {value}
+  1621→        </div>
+  1622→        <div className="text-[11px] text-muted-foreground truncate">{caption}</div>
+  1623→      </div>
+  1624→    </div>
+  1625→  );
+  1626→}
+  1627→
+  1628→/* =========================================================
+  1629→ * Quick filters bar
+  1630→ * =======================================================*/
+  1631→function QuickFiltersBar(props: {
+  1632→  datePreset: "hoy" | "manana" | "fecha";
+  1633→  onDatePreset: (p: "hoy" | "manana" | "fecha") => void;
+  1634→  zoneFilter: "todas" | Zone;
+  1635→  onZoneFilter: (z: "todas" | Zone) => void;
+  1636→  statusFilter: "todas" | ReservationStatus;
+  1637→  onStatusFilter: (s: "todas" | ReservationStatus) => void;
+  1638→  channelFilter: "todos" | Channel;
+  1639→  onChannelFilter: (c: "todos" | Channel) => void;
+  1640→  search: string;
+  1641→  onSearch: (s: string) => void;
+  1642→  onClear: () => void;
+  1643→  activeCount: number;
+  1644→  onOpenMobile: () => void;
+  1645→}) {
+  1646→  const {
+  1647→    datePreset, onDatePreset,
+  1648→    zoneFilter, onZoneFilter,
+  1649→    statusFilter, onStatusFilter,
+  1650→    channelFilter, onChannelFilter,
+  1651→    search, onSearch, onClear, activeCount, onOpenMobile,
+  1652→  } = props;
+  1653→
+  1654→  return (
+  1655→    <div className="rp-glass rounded-2xl p-3 space-y-3">
+  1656→      {/* Top row: date segmented + search + mobile filters button */}
+  1657→      <div className="flex items-center gap-2 flex-wrap">
+  1658→        {/* Date segmented control */}
+  1659→        <div className="flex items-center rounded-md border border-border/60 p-0.5 bg-input/20" role="radiogroup" aria-label="Fecha">
+  1660→          {(["hoy", "manana", "fecha"] as const).map((p) => (
+  1661→            <button
+  1662→              key={p}
+  1663→              role="radio"
+  1664→              aria-checked={datePreset === p}
+  1665→              onClick={() => onDatePreset(p)}
+  1666→              className={cn(
+  1667→                "min-h-9 rounded px-3 py-1 text-xs transition-colors flex items-center gap-1.5",
+  1668→                datePreset === p
+  1669→                  ? "bg-[var(--gold)] text-black font-medium"
+  1670→                  : "text-muted-foreground hover:text-foreground"
+  1671→              )}
+  1672→            >
+  1673→              <Calendar className="h-3 w-3" />
+  1674→              {p === "hoy" ? "Hoy" : p === "manana" ? "Mañana" : "Fecha"}
+  1675→            </button>
+  1676→          ))}
+  1677→        </div>
+  1678→
+  1679→        {/* Search (grows) */}
+  1680→        <div className="flex-1 min-w-[180px] flex items-center gap-2 rounded-md border border-border/60 px-3 py-2 min-h-11 bg-input/30">
+  1681→          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+  1682→          <input
+  1683→            type="search"
+  1684→            value={search}
+  1685→            onChange={(e) => onSearch(e.target.value)}
+  1686→            placeholder="Buscar por cliente o teléfono…"
+  1687→            aria-label="Buscar reservas"
+  1688→            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+  1689→          />
+  1690→          {search && (
+  1691→            <button
+  1692→              onClick={() => onSearch("")}
+  1693→              aria-label="Limpiar búsqueda"
+  1694→              className="text-muted-foreground hover:text-foreground -mr-1 p-1"
+  1695→            >
+  1696→              <X className="h-3.5 w-3.5" />
+  1697→            </button>
+  1698→          )}
+  1699→        </div>
+  1700→
+  1701→        {/* Channel dropdown (desktop) */}
+  1702→        <div className="hidden sm:block">
+  1703→          <Select
+  1704→            value={channelFilter}
+  1705→            onValueChange={(v) => onChannelFilter(v as "todos" | Channel)}
+  1706→          >
+  1707→            <SelectTrigger className="w-[170px] min-h-11" aria-label="Canal">
+  1708→              <SelectValue />
+  1709→            </SelectTrigger>
+  1710→            <SelectContent>
+  1711→              {CHANNEL_FILTERS.map((c) => {
+  1712→                const Icon = c.id === "todos" ? Sliders : CHANNEL_META[c.id as Channel].icon;
+  1713→                return (
+  1714→                  <SelectItem key={c.id} value={c.id}>
+  1715→                    <span className="flex items-center gap-2">
+  1716→                      <Icon className="h-3.5 w-3.5" />
+  1717→                      {c.label}
+  1718→                    </span>
+  1719→                  </SelectItem>
+  1720→                );
+  1721→              })}
+  1722→            </SelectContent>
+  1723→          </Select>
+  1724→        </div>
+  1725→
+  1726→        {/* Mobile: Filtros button */}
+  1727→        <Button
+  1728→          variant="outline"
+  1729→          className="lg:hidden min-h-11 shrink-0 relative"
+  1730→          onClick={onOpenMobile}
+  1731→        >
+  1732→          <Filter className="h-4 w-4" />
+  1733→          Filtros
+  1734→          {activeCount > 0 && (
+  1735→            <span className="absolute -top-1.5 -right-1.5 h-5 min-w-5 px-1 rounded-full bg-[var(--gold)] text-black text-[10px] font-mono flex items-center justify-center">
+  1736→              {activeCount}
+  1737→            </span>
+  1738→          )}
+  1739→        </Button>
+  1740→
+  1741→        {/* Clear all (desktop) */}
+  1742→        {activeCount > 0 && (
+  1743→          <Button
+  1744→            variant="ghost"
+  1745→            className="hidden lg:flex min-h-11 text-muted-foreground hover:text-foreground"
+  1746→            onClick={onClear}
+  1747→          >
+  1748→            <Eraser className="h-3.5 w-3.5" /> Limpiar
+  1749→          </Button>
+  1750→        )}
+  1751→      </div>
+  1752→
+  1753→      {/* Bottom row: zone + status pills (desktop + tablet) */}
+  1754→      <div className="hidden sm:flex items-center gap-3 flex-wrap">
+  1755→        <div className="flex items-center gap-1.5" role="tablist" aria-label="Zona">
+  1756→          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Zona</span>
+  1757→          {ZONE_FILTERS.map((z) => (
+  1758→            <button
+  1759→              key={z.id}
+  1760→              role="tab"
+  1761→              aria-selected={zoneFilter === z.id}
+  1762→              onClick={() => onZoneFilter(z.id)}
+  1763→              className={cn(
+  1764→                "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
+  1765→                zoneFilter === z.id
+  1766→                  ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1767→                  : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+  1768→              )}
+  1769→            >
+  1770→              {z.label}
+  1771→            </button>
+  1772→          ))}
+  1773→        </div>
+  1774→        <div className="h-5 w-px bg-border/60" />
+  1775→        <div className="flex items-center gap-1.5" role="tablist" aria-label="Estado">
+  1776→          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mr-1">Estado</span>
+  1777→          {STATUS_FILTERS.map((s) => (
+  1778→            <button
+  1779→              key={s.id}
+  1780→              role="tab"
+  1781→              aria-selected={statusFilter === s.id}
+  1782→              onClick={() => onStatusFilter(s.id)}
+  1783→              className={cn(
+  1784→                "rounded-md px-2.5 py-1.5 min-h-9 text-xs font-medium border transition-colors",
+  1785→                statusFilter === s.id
+  1786→                  ? "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1787→                  : "border-border/60 text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+  1788→              )}
+  1789→            >
+  1790→              {s.label}
+  1791→            </button>
+  1792→          ))}
+  1793→        </div>
+  1794→      </div>
+  1795→    </div>
+  1796→  );
+  1797→}
+  1798→
+  1799→function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  1800→  return (
+  1801→    <div>
+  1802→      <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-2">{label}</div>
+  1803→      {children}
+  1804→    </div>
+  1805→  );
+  1806→}
+  1807→
+  1808→/* =========================================================
+  1809→ * Reservation row — desktop grid + mobile stacked card
+  1810→ * Shows all 10 fields:
+  1811→ *   Hora · Nombre · Fotografía · Personas · Mesa · Zona · Canal · Estado · Notas · Garantía
+  1812→ * =======================================================*/
+  1813→function ReservationRow(props: {
+  1814→  r: RpReservation;
+  1815→  table?: RpTable;
+  1816→  isSelected: boolean;
+  1817→  meta: typeof RES_STATUS_META[ReservationStatus];
+  1818→  channelLabel: string;
+  1819→  ChannelIcon: React.ElementType;
+  1820→  channelCls: string;
+  1821→  guaranteeLabel: string;
+  1822→  GuaranteeIcon: React.ElementType;
+  1823→  guaranteeCls: string;
+  1824→  zoneLabel: string;
+  1825→  reduce: boolean;
+  1826→  onSelect: () => void;
+  1827→}) {
+  1828→  const {
+  1829→    r, table, isSelected, meta,
+  1830→    channelLabel, ChannelIcon, channelCls,
+  1831→    guaranteeLabel, GuaranteeIcon, guaranteeCls,
+  1832→    zoneLabel, reduce, onSelect,
+  1833→  } = props;
+  1834→
+  1835→  return (
+  1836→    <button
+  1837→      onClick={onSelect}
+  1838→      aria-pressed={isSelected}
+  1839→      className={cn(
+  1840→        "w-full text-left transition-colors",
+  1841→        isSelected ? "bg-[var(--gold)]/10" : "hover:bg-foreground/[0.03]"
+  1842→      )}
+  1843→    >
+  1844→      {/* ===== Desktop: grid row with all 10 columns ===== */}
+  1845→      <div className="hidden lg:grid grid-cols-[68px_1fr_56px_72px_88px_96px_104px_36px_72px] min-w-[640px] gap-2 items-center px-4 py-2.5 text-sm">
+  1846→        {/* Hora */}
+  1847→        <span className="font-mono tabular-nums text-foreground/90 flex items-center gap-1">
+  1848→          <Clock className="h-3 w-3 text-muted-foreground" />
+  1849→          {r.time}
+  1850→        </span>
+  1851→
+  1852→        {/* Nombre + Fotografía (avatar) */}
+  1853→        <span className="flex items-center gap-2 min-w-0">
+  1854→          <Avatar name={r.customerName} photo={r.photo} />
+  1855→          <span className="truncate font-medium">{r.customerName}</span>
+  1856→        </span>
+  1857→
+  1858→        {/* Personas */}
+  1859→        <span className="text-right tabular-nums text-muted-foreground">
+  1860→          {r.partySize}<span className="text-[10px] opacity-70 ml-0.5">pax</span>
+  1861→        </span>
+  1862→
+  1863→        {/* Mesa */}
+  1864→        <span className="font-mono tabular-nums">
+  1865→          {table ? (
+  1866→            <span className="text-foreground">{table.name}</span>
+  1867→          ) : (
+  1868→            <span className="text-muted-foreground/70">—</span>
+  1869→          )}
+  1870→        </span>
+  1871→
+  1872→        {/* Zona pill */}
+  1873→        <span className={cn(
+  1874→          "inline-flex items-center justify-center px-2 py-0.5 rounded border text-[11px] capitalize",
+  1875→          ZONE_PILL[r.zone]
+  1876→        )}>
+  1877→          {zoneLabel}
+  1878→        </span>
+  1879→
+  1880→        {/* Canal */}
+  1881→        <span className={cn("flex items-center gap-1.5 text-xs", channelCls)}>
+  1882→          <ChannelIcon className="h-3.5 w-3.5 shrink-0" />
+  1883→          <span className="truncate">{channelLabel}</span>
+  1884→        </span>
+  1885→
+  1886→        {/* Estado — animated badge (key=status remounts to pulse on change) */}
+  1887→        <AnimatedStatusBadge meta={meta} reduce={reduce} />
+  1888→
+  1889→        {/* Notas */}
+  1890→        <span className="flex justify-center">
+  1891→          {r.notes ? (
+  1892→            <Popover>
+  1893→              <PopoverTrigger asChild>
+  1894→                <button
+  1895→                  onClick={(e) => e.stopPropagation()}
+  1896→                  className="h-6 w-6 rounded-md flex items-center justify-center text-muted-foreground hover:text-[var(--gold)] hover:bg-foreground/5 transition-colors"
+  1897→                  aria-label={`Ver notas de ${r.customerName}`}
+  1898→                >
+  1899→                  <StickyNote className="h-3.5 w-3.5" />
+  1900→                </button>
+  1901→              </PopoverTrigger>
+  1902→              <PopoverContent
+  1903→                className="max-w-xs text-xs leading-relaxed"
+  1904→                align="center"
+  1905→              >
+  1906→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+  1907→                  Notas · {r.customerName}
+  1908→                </div>
+  1909→                {r.notes}
+  1910→              </PopoverContent>
+  1911→            </Popover>
+  1912→          ) : (
+  1913→            <span className="text-muted-foreground/50">—</span>
+  1914→          )}
+  1915→        </span>
+  1916→
+  1917→        {/* Garantía */}
+  1918→        <span className={cn(
+  1919→          "inline-flex items-center justify-end gap-1 px-1.5 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider",
+  1920→          guaranteeCls
+  1921→        )}>
+  1922→          <GuaranteeIcon className="h-3 w-3" />
+  1923→          {guaranteeLabel}
+  1924→        </span>
+  1925→      </div>
+  1926→
+  1927→      {/* ===== Mobile / tablet (< lg): stacked card ===== */}
+  1928→      <div className="lg:hidden px-4 py-3 space-y-2.5">
+  1929→        {/* Row 1: avatar + name + time + status */}
+  1930→        <div className="flex items-center gap-2.5">
+  1931→          <Avatar name={r.customerName} photo={r.photo} />
+  1932→          <div className="min-w-0 flex-1">
+  1933→            <div className="font-medium truncate text-sm leading-tight">
+  1934→              {r.customerName}
+  1935→            </div>
+  1936→            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground mt-0.5">
+  1937→              <Clock className="h-3 w-3" />
+  1938→              <span className="font-mono tabular-nums">{r.time}</span>
+  1939→              <span className="text-muted-foreground/40">·</span>
+  1940→              <Users className="h-3 w-3" />
+  1941→              <span className="tabular-nums">{r.partySize} pax</span>
+  1942→            </div>
+  1943→          </div>
+  1944→          <AnimatedStatusBadge meta={meta} reduce={reduce} compact />
+  1945→        </div>
+  1946→
+  1947→        {/* Row 2: mesa / zona / canal */}
+  1948→        <div className="flex items-center gap-2 flex-wrap text-xs">
+  1949→          <span className="flex items-center gap-1 px-2 py-0.5 rounded border border-border/60 bg-foreground/[0.04] font-mono tabular-nums">
+  1950→            <ChairIcon className="h-3 w-3 text-muted-foreground" />
+  1951→            {table ? table.name : "—"}
+  1952→          </span>
+  1953→          <span className={cn(
+  1954→            "inline-flex items-center px-2 py-0.5 rounded border text-[11px]",
+  1955→            ZONE_PILL[r.zone]
+  1956→          )}>
+  1957→            {zoneLabel}
+  1958→          </span>
+  1959→          <span className={cn("flex items-center gap-1 px-2 py-0.5 rounded border border-border/60 bg-foreground/[0.04]", channelCls)}>
+  1960→            <ChannelIcon className="h-3 w-3" />
+  1961→            {channelLabel}
+  1962→          </span>
+  1963→        </div>
+  1964→
+  1965→        {/* Row 3: garantía + notas */}
+  1966→        <div className="flex items-center gap-2 justify-between">
+  1967→          <span className={cn(
+  1968→            "inline-flex items-center gap-1 px-2 py-0.5 rounded border text-[10px] font-mono uppercase tracking-wider",
+  1969→            guaranteeCls
+  1970→          )}>
+  1971→            <GuaranteeIcon className="h-3 w-3" />
+  1972→            {guaranteeLabel}
+  1973→          </span>
+  1974→          {r.notes ? (
+  1975→            <Popover>
+  1976→              <PopoverTrigger asChild>
+  1977→                <button
+  1978→                  onClick={(e) => e.stopPropagation()}
+  1979→                  className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-[var(--gold)] transition-colors"
+  1980→                  aria-label={`Ver notas de ${r.customerName}`}
+  1981→                >
+  1982→                  <StickyNote className="h-3.5 w-3.5" />
+  1983→                  Notas
+  1984→                </button>
+  1985→              </PopoverTrigger>
+  1986→              <PopoverContent
+  1987→                className="max-w-xs text-xs leading-relaxed"
+  1988→                align="end"
+  1989→              >
+  1990→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+  1991→                  Notas · {r.customerName}
+  1992→                </div>
+  1993→                {r.notes}
+  1994→              </PopoverContent>
+  1995→            </Popover>
+  1996→          ) : (
+  1997→            <span className="text-[11px] text-muted-foreground/50">Sin notas</span>
+  1998→          )}
+  1999→        </div>
+  2000→      </div>
+
+[showing lines 1-2000 of 2834; use offset=2001 with limit to continue reading]

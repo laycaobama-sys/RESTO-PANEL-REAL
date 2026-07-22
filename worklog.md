@@ -1940,3 +1940,181 @@ Stage Summary:
 - Reservas: 10 campos completos + 6 animaciones funcionales (transform+opacity, prefers-reduced-motion).
 - CRM 360: perfil completo con etiquetas VIP/Familiar/Vino blanco, métricas, historial, 7 acciones con confirmaciones.
 - Responsive real mobile-first verificado en 6 breakpoints sin overflow horizontal.
+
+---
+Task ID: FASE5-START
+Agent: main
+Task: Implementar Fase 5 — Motor de Reservas Inteligente, Plano de Mesas e IA Predictiva.
+
+Work Log:
+- Estado: dev server PID 19249, http=200, reservas-view.tsx 2833 líneas.
+- Estrategia: crear componentes NUEVOS que se integren como tabs/paneles en reservas-view, sin reescribir todo.
+- Subagent A: floor-editor.tsx (editor completo: crear/mover/fusionar/separar mesas, undo/redo, 8 estados, multi-selección, mover entre zonas)
+- Subagent B: prediction-panel.tsx + yield-panel.tsx + alerts-panel.tsx + waitlist-panel.tsx (scoring no-show explicable, yield recommendations, alertas operativas, lista de espera priorizada)
+
+---
+Task ID: FASE5-PREDICT-YIELD-WAIT-ALERT
+Agent: full-stack-developer
+Task: Crear 4 paneles para Fase 5 (Motor de Reservas Inteligente) — prediction-panel (no-show engine), yield-panel (yield management), alerts-panel (alertas operativas), waitlist-panel (lista de espera priorizada). Next.js 16 + TS + Tailwind v4 + Framer Motion, dark theme premium con glassmorphism, gold #D4AF37, turquoise #3DD6C9.
+
+Work Log:
+- Leí worklog.md y revisé el estado del proyecto: tokens --gold/--teal definidos en globals.css, utilidades rp-glass/rp-glow-gold/rp-glow-teal/rp-scroll-thin disponibles, dark theme por defecto, useToast desde @/hooks/use-toast, framer-motion con useReducedMotion, shadcn/ui completo (Dialog, AlertDialog, Collapsible, Select, Tooltip, Badge, Button, Input, Label, Switch).
+- Lint config muy permisivo (no-explicit-any off, no-unused-vars off, react-hooks/exhaustive-deps off).
+- 4 archivos creados en /home/z/my-project/src/components/rp/reservas/:
+
+File 1 — prediction-panel.tsx (~620 líneas):
+  * Export PredictionPanel. No-show prediction engine con scoring explicable.
+  * Tipos: RiskLevel (LOW/MEDIUM/HIGH/CRITICAL), DataQuality (HIGH/MEDIUM/LOW/INSUFFICIENT), NoShowScore (score, riskLevel, confidence, factors[], recommendedAction, modelVersion, calculatedAt, dataQuality).
+  * Rangos de color por score: 0-24 verde (LOW), 25-49 amarillo (MEDIUM), 50-74 naranja (HIGH), 75-100 rojo (CRITICAL). RISK_META con color hex + clases.
+  * Gauge circular SVG (radio 76, strokeDasharray animado con framer-motion + requestAnimationFrame para el número del score, drop-shadow con color del riesgo). Respeta prefers-reduced-motion (skip animación).
+  * Risk level badge coloreado (emerald/amber/orange/destructive) + dot.
+  * Confidence % con icono ShieldCheck y tooltip.
+  * Data quality badge con tooltip explicativo para cada nivel (HIGH/MEDIUM/LOW/INSUFFICIENT).
+  * Factors list: cada factor con label, impact badge (+verde / −turquesa con icono TrendingUp/Down), detail text, y barra de impacto animada (de 0 a width% en 0.6s, delay escalonado por index). Ejemplos incluidos: "2 no-shows previos" (+35), "Sin depósito" (+20), "Cliente recurrente" (-15), "Confirmado por WhatsApp" (-10), "Hora punta viernes" (+12).
+  * Recommended action: caja destacada con borde dorado izquierdo + icono Sparkles, animación de entrada (opacity+y).
+  * Model info: modelVersion + calculatedAt (formato relativo "hace X min").
+  * Fallback notice: si dataQuality === INSUFFICIENT, warning amber con AlertTriangle explicando que se usan reglas deterministas configurables.
+  * Botón "Regenerar predicción" con loading state (RefreshCw spin 1.2s) + toast.
+  * Sección "Ver reglas aplicadas" expandible (Collapsible) con 8 reglas deterministas demo (no_show_history, no_deposit, last_minute_booking, peak_slot, confirmed_recently, vip_status, channel_web, returning_customer), cada una con nombre código, descripción y estado activa/inactiva. Toggle "Simular datos insuficientes" que cambia al fallback INSUFFICIENT score.
+  * Selector Select con 3 reservas demo (low/medium/high): Carlos Méndez (14, LOW), Lucía Romero (38, MEDIUM), Marco Bellini (82, CRITICAL con dataQuality LOW).
+  * Grid de contexto con 6 campos (cliente, comensales, servicio, teléfono, canal, garantía).
+  * Responsive: grid lg:grid-cols-[1fr_1.2fr] en desktop (gauge izquierda + factors/action derecha), stack en mobile.
+
+File 2 — yield-panel.tsx (~520 líneas):
+  * Export YieldPanel. Yield Management con recomendaciones accionables.
+  * Tipos: YieldType (accept/move/adjust_duration/block_slot/merge_tables/split_table/activate_deposit/prioritize_group/release_waitlist), YieldRecommendation.
+  * TYPE_META con icono lucide por tipo (CheckCircle2, Move, Clock, Ban, GitMerge, Split, CreditCard, Crown, UsersRound) y tone (gold/teal/emerald/amber/destructive).
+  * Header con badge demo + botón "Generar recomendaciones" (loading 1.4s, refresh).
+  * Summary bar con 4 cells: ocupación actual (78%), demanda estimada (Alta), horario crítico (21:30), aplicadas hoy.
+  * Lista de 6 recomendaciones demo (mover reserva, fusionar mesas, activar depósito, acortar duración, ofrecer mesa waitlist [ya aplicada], bloquear slot). Cada card: icono por tipo, título + descripción, impacto estimado (gold mono), confianza % (badge colorido), factors chips (con Sparkles gold), actions "Aplicar" (primary gold), "Descartar" (ghost hover destructive), "Ver detalle" (abre Dialog). Aplicadas muestran badge verde "Aplicada" en vez de acciones.
+  * DetailDialog: icono, título, descripción, impacto destacado en caja rp-glass con gold display, grid confianza/estado, lista de factores con icono TrendingUp teal, footer con disclaimer.
+  * Animaciones: AnimatePresence mode="popLayout" + layout, entrada opacity+y escalonada por index, exit opacity+y.
+  * Disclaimer final: "Las recomendaciones son sugerencias. No modifican reservas, precios ni políticas sin autorización."
+
+File 3 — alerts-panel.tsx (~440 líneas):
+  * Export AlertsPanel. Alertas operativas en tiempo real.
+  * Tipos: AlertSeverity (info/warning/critical), Alert con 13 categorías (vip, long_occupied, unconfirmed, no_show_risk, cleaning_pending, dissatisfied, cancellation_spike, birthday, anniversary, high_value, abnormal_occupancy, integration_error, discrepancy).
+  * SEVERITY_META con icono (XCircle/AlertTriangle/Info), color, ring, glow, badge class.
+  * CATEGORY_META con label + icono por categoría.
+  * Header con icono Bell, badge demo, badge count total, 3 SevCountBadge (críticas/adv./info) con colores.
+  * Filter tabs (Todas/Críticas/Advertencias/Info) con role="tablist"/"tab" aria-selected, count por filtro.
+  * 10 alertas demo cubriendo todas las categorías: VIP llegada, mesa 2h+ ocupada, 3 sin confirmar, no-show crítico, 2 mesas cleaning pendiente, cumpleaños hoy, ocupación anómala Terraza, error integración Google, pico cancelaciones, aniversario boda.
+  * Cada AlertCard: accent bar vertical coloreada por severidad, icono severity en rounded box con ring, badges severidad + categoría, timestamp relativo "hace X min", título + descripción, contexto (tableId/customerName/reservationId), action button coloreado por severidad si actionLabel (con ArrowRight), botón X para descartar.
+  * Animaciones: AnimatePresence popLayout, layout, entrada escalonada.
+
+File 4 — waitlist-panel.tsx (~660 líneas):
+  * Export WaitlistPanel. Waitlist engine priorizada con ofertas temporizadas.
+  * Tipos: WaitlistStatus (waiting/offered/seated/expired/left), WaitlistEntry, WaitlistOffer.
+  * Helpers: formatRelative, formatCountdown (mm:ss), priorityFactors (6 factores: antigüedad 0-30, tamaño grupo 0-12, VIP 0-20, historial 0-15, LTV 0-15, probabilidad aceptar 0-8), recomputePriority.
+  * 5 entries demo + 1 ofrecida (Elena Marín) con offer inicial pendiente.
+  * AVAILABLE_TABLES (5 mesas: Sala/Barra/Terraza con seats) y ZONES (Sala/Terraza/Barra/VIP).
+  * Header con icono ListOrdered, badge demo, badge "X esperando", botón "Añadir a lista" (gold).
+  * Grid lg:grid-cols-[1.6fr_1fr]: cola izquierda + ofertas activas derecha.
+  * EntryRow: posición número (1 destacado gold), nombre + VIP badge (Crown), priority score con Tooltip detallado (lista de 6 factores con valor/max), 6 chips de contexto (party, zona, arrived relativo, esp. estimada, visitas, LTV), notes con caja amber, actions "Ofrecer mesa" (gold primary), "Llamar" (outline, toast), "Quitar" (ghost destructive, abre AlertDialog confirmación).
+  * OfferCard: nombre + VIP, mesa/zone/party, countdown timer mm:ss que se actualiza cada segundo (useEffect setInterval 1s), progress bar animada (5min total, color cambia a amber si <60s), estado "Expirada" cuando remaining<=0, actions "Recordar" (toast) + "Cancelar oferta".
+  * Auto-expire: useEffect con setInterval 2s que marca offers expired cuando expiresAt <= now y resetea el entry a waiting + toast.
+  * Collapsible "Cómo se calcula la prioridad" con tabla de 6 factores (rango + descripción).
+  * Summary footer con 3 KPIs: total / ofrecidas / en cola (gold/teal/foreground).
+  * AddEntryDialog: form validado (name/phone obligatorios, error si vacíos), party size numérico, zona Select, VIP Switch, notas opcional. On submit: recompute priority + toast.
+  * OfferTableDialog: lista de AVAILABLE_TABLES como botones, advertencia "capacidad menor" si seats < partySize, onConfirm crea offer con expiresAt = now+5min y marca entry offered.
+  * AlertDialog remove: título "Quitar de la lista de espera", descripción con nombre + consecuencia, action destructive "Quitar definitivamente".
+
+Animaciones (todos los 4 archivos): framer-motion con useReducedMotion. Solo transform+opacity. Aplicadas funcionalmente: gauge score animation, factor bar width, card entrance (opacity+y staggered), offer countdown progress, AnimatePresence popLayout para entrada/salida de items.
+
+Accesibilidad: aria-labelledby en sections, role="tablist"/"tab" con aria-selected en filtros alerts, role="img"+aria-label en gauge SVG, role="alert" en errores de form, aria-label en icon buttons (descartar, llamar, quitar), TooltipProvider envolviendo badges con cursor-help, tabIndex implícito en buttons.
+
+Responsive (mobile-first):
+  - Desktop: grids lg:grid-cols en prediction [1fr_1.2fr], yield summary 4 cols, waitlist [1.6fr_1fr]. Side-by-side layouts.
+  - Mobile: stack vertical, scrollable, touch targets ≥36-44px (h-8/h-9/h-10 buttons, min-h-[36px] filter tabs), flex-wrap en actions/context, truncate en valores largos, sin overflow horizontal.
+  - Todos los copy en español (es-ES): "Predicción de no-show", "Yield Management", "Alertas operativas", "Lista de espera", "Ofrecer mesa", "Añadir a lista", "Regenerar predicción", "Generar recomendaciones", "Aplicar", "Descartar", "Ver detalle", "Quitar", "Cancelar oferta", "Recordar", "Cómo se calcula la prioridad".
+  - Badge "demo" en los 4 headers.
+
+Lint status: `bun run lint` → 0 errores, 4 warnings (todas en floor-editor.tsx, archivo de otro agente, no introducidas por esta tarea). Mis 4 archivos pasan limpio.
+
+Stage Summary:
+- 4 paneles Fase 5 entregados en /home/z/my-project/src/components/rp/reservas/:
+  * prediction-panel.tsx — No-show prediction engine con gauge SVG animado, 3 reservas demo (low/med/high), 5+ factors con impact bars, acción recomendada, reglas deterministas expandibles, fallback notice para datos insuficientes, simulate insufficient toggle.
+  * yield-panel.tsx — 6 recomendaciones yield con 9 tipos (accept/move/duration/block/merge/split/deposit/prioritize/release), summary bar 4 KPIs, dialog de detalle, aplicar/descartar con toast, disclaimer de no-modificación.
+  * alerts-panel.tsx — 10 alertas operativas cubriendo 13 categorías, filter tabs por severidad (Todas/Críticas/Advertencias/Info), accent bars por severidad, action buttons contextuales, dismiss con toast.
+  * waitlist-panel.tsx — Cola priorizada con score visible (6 factores en tooltip), ofertas de mesa con countdown mm:ss + progress bar + auto-expire 5min, AddEntryDialog validado, OfferTableDialog con capacity check, AlertDialog remove confirmation, Collapsible "Cómo se calcula la prioridad".
+- Todos los archivos empiezan con "use client"; usan shadcn/ui, lucide-react, framer-motion con useReducedMotion, rp-glass/rp-gold-text/rp-teal-text/rp-glow-gold/rp-scroll-thin.
+- Dark theme premium con gold #D4AF37 + turquoise #3DD6C9 + glassmorphism aplicado consistentemente.
+- Sin horizontal overflow, mobile-first con touch targets ≥44px en acciones principales.
+- Lint: 0 errores en los 4 archivos nuevos. Dev server estable GET / 200.
+
+---
+Task ID: FASE5-FLOOR-EDITOR
+Agent: full-stack-developer
+Task: Construir editor de plano de mesas interactivo completo para RestoPanel (SaaS restaurantes) — característica clave: traspasar mesas entre zonas, añadir mesas, fusionar/separar, undo/redo, multi-selección, 8 estados visuales, 4 zonas, premium dark theme con dorado/turquesa/glassmorphism.
+
+Work Log:
+- Leí worklog previo: SPA multi-agente, AppShell con useNav zustand, sección "reservas" renderiza ReservasView. Tokens de marca en globals.css (--gold #D4AF37, --teal #3DD6C9, rp-glass*). shadcn/ui completo.
+- Revisé app-shell.tsx: sidebar 64 sticky + main con padding, topbar h-16 sticky top-0 z-30 → mi toolbar usa sticky top-16 z-20.
+- Revisé reservas-view.tsx (2834 líneas): tiene su propio plano simple, sin FloorEditor. Integración mínima vía botón "Editor avanzado".
+- Creé `src/components/rp/reservas/floor-editor.tsx` (2600 líneas):
+  - Tipos exportados: TableState (8), TableShape (4), Zone, FloorTable (todos los campos del spec), FloorState (zones/tables/selectedIds/history/future/editMode).
+  - Constantes: DEFAULT_ZONES (4 zonas: Sala principal gold, Terraza teal, VIP fuchsia, Barra amber), STATE_META (8 estados con label/short/bg/border/text/dot/icon/hex), OP_CYCLE (libre→reservada→ocupada→limpieza→bloqueada→libre), STATE_ORDER, SHAPE_OPTIONS.
+  - Helpers: shapeClass, zoneBgClass, zoneAccentClass, uid, clamp, nextTableName (auto M/T/V/B+n), findFreePosition (grid anti-overlap), formatElapsed, makeInitialFloor.
+  - DEMO_TABLES: 15 mesas en 4 zonas con mix de estados y formas.
+- Componente FloorEditor:
+  - useState<FloorState> + refs transient (dragRef, resizeRef, boxRef, historyPushedRef).
+  - Selección: click (reemplaza), shift/ctrl+click (toggle), box-select en zona vacía (intersecta).
+  - Historial: commit(updater) empuja snapshot (max 50), undo/redo con future stack. Snapshot único al inicio de drag.
+  - Mutaciones: addTable, deleteSelected (confirmación), moveSelectedToZone (KEY FEATURE — dropdown toolbar), mergeSelected (suma seats, centroid, mergedFrom), splitSelected (divide en 2), rotateSelected(90), updateTable, cycleState.
+  - Drag pointer events (touch-action none, setPointerCapture): multi-mesa, clamp a zona, delta desde último evento.
+  - Resize handle dorado en esquina (clamp 56-280 w / 56-200 h).
+  - Box-select: pointerdown en zona vacía, preview rect dorado, selecciona intersectados.
+  - Teclado: Ctrl+Z/Y undo/redo, Delete elimina (con confirm), arrows mueven (4px, 10px shift), Escape limpia.
+- Sub-componentes:
+  - Toolbar sticky top-16 z-20: toggle edit/operation, añadir (gold), eliminar, mover-a-zona (dropdown gold, KEY), fusionar, separar, rotar, undo/redo (con kbd hint), zone filter, connection indicator (wifi/offline toggle), selection count badge, fila 2 con hint contextual.
+  - ZoneCanvas: section con header (icono+nombre+stats mesas/ocup/pers) + canvas relative rp-grid-bg min-h-[300px] con pointer events para box-select.
+  - TableCard (motion.button): position absolute, rotate transform, clases por shape (rounded-full/lg), bg/border/text por estado, contenido (nombre font-display, seats mono, cliente, tiempo ocupación), badges (próxima reserva amber, bill_requested turquesa €, VIP crown), ring gold si selected, resize handle, aria-label rico, tabIndex 0, focus-visible gold, layout animation (disabled si prefers-reduced-motion).
+  - PropertiesPanel: sidebar desktop w-80 xl:w-96 sticky top-32 + Sheet bottom mobile. Empty/multi/single states. Single: form completo (nombre, seats, zona select, forma 4 botones, estado grid 4×2 clickeable, rotación slider 0-359°, cliente, party size, hora reserva, asignada a, VIP level slider condicional, notas textarea, próxima reserva callout, info ocupación KV, posición/tamaño KV).
+  - AddTableDialog: form con nombre auto-sugerido por zona, seats, zona select, forma con preview live.
+  - Legend: grid 8 estados (dot+icon+label).
+  - MiniStat: stats header con tono por color.
+- Responsive: 2xl grid-cols-4 → lg grid-cols-2 → mobile Tabs (una zona, scroll horizontal) → bottom Sheet para panel → FAB dorado para editar en mobile.
+- Accesibilidad: mesas button con aria-label descriptivo, aria-pressed, tabIndex 0, focus-visible gold ring; toolbar buttons con aria-label/aria-pressed; estados con icono+texto+color (no solo color); keyboard completo.
+- Animaciones: useReducedMotion() respeta prefers-reduced-motion; solo transform+opacity animados; pulse CSS en connection dot.
+- Integración en reservas-view.tsx: import FloorEditor + iconos ArrowLeft/LayoutGrid; state advancedEditor; early return renderizando FloorEditor con botón "Volver a Reservas" + badge "Editor avanzado"; botón "Editor avanzado" (outline gold) añadido en header junto a "Nueva reserva". No rompe funcionalidad existente.
+- Lint: `bun run lint` → 0 errores, 0 warnings (tras limpiar 4 directivas eslint-disable innecesarias y corregir effect con deps incompletos). Dev log: compila limpio.
+
+Stage Summary:
+- Archivo: `src/components/rp/reservas/floor-editor.tsx` (2600 líneas), exporta `FloorEditor`.
+- 12 features del spec implementadas y funcionales: añadir mesa, eliminar, drag dentro de zona, **mover entre zonas (traspasar)**, fusionar, separar, undo/redo con keyboard, multi-selección + box-select, panel de propiedades, rotar, redimensionar, toggle edit/operation mode.
+- 8 estados visuales (libre, reservada, ocupada, próxima reserva, VIP, bloqueada, limpieza, cuenta solicitada) con colores Tailwind + var(--teal) para bill_requested.
+- 4 zonas (Sala principal, Terraza, VIP, Barra) con tinte de color propio.
+- 15 mesas demo con mix de estados y formas.
+- Responsive completo: 4 cols (2xl) → 2 cols (lg) → tabs (mobile) → bottom sheet (mobile panel) → FAB (mobile edición).
+- Touch-friendly: pointer events + touch-action none, drag funcional en móvil, targets ≥44px.
+- Lint limpio. Integración accesible vía botón "Editor avanzado" en header de Reservas.
+- Tema dark premium con dorado #D4AF37, turquesa #3DD6C9, glassmorphism (rp-glass/rp-glass-strong), grid bg.
+
+---
+Task ID: FASE5-VERIFY
+Agent: main
+Task: Verificación end-to-end de Fase 5 — Motor de Reservas Inteligente, Plano de Mesas e IA Predictiva.
+
+Work Log:
+- Lint global: 0 errores.
+- Dev server: PID 19249; responde 200 sin errores.
+- 5 tabs integrados en reservas-view: Reservas (vista principal), Predicción IA, Yield, Alertas, Lista de espera.
+- Floor editor (botón "Editor avanzado"): 4 zonas (Sala/Terraza/VIP/Barra), añadir mesa, eliminar, mover entre zonas, fusionar, separar, undo/redo, multi-selección, rotar, redimensionar, 8 estados visuales, drag&drop touch.
+- Predicción no-show: gauge SVG con score 0-100, 4 rangos de color (verde/amarillo/naranja/rojo), factores con impacto +/-, confianza, calidad de datos, acción recomendada, fallback INSUFFICIENT_DATA, 3 perfiles demo (low/medium/critical).
+- Yield Management: 9 tipos de recomendaciones, impacto estimado, confianza, aplicar/descartar, dialog de detalle.
+- Alertas: 10 alertas demo (VIP, mesa ocupada 2h+, sin confirmar, no-show crítico, limpieza, cumpleaños, aniversario, ocupación anormal, error integración, cancelaciones), filtros por severidad.
+- Lista de espera: queue priorizada (antigüedad, grupo, VIP, historial, LTV, probabilidad), ofertas con countdown 5min, auto-expiración, añadir/quitar.
+- Responsive multi-viewport sin overflow:
+  * Móvil 390: ✓ (tabs scrollables, panels stacked)
+  * Tablet 768: ✓
+  * Tablet 1024: ✓ (topbar ajustado: search max-w-xs en md, period selector hidden lg:flex)
+  * Laptop 1280: ✓
+  * Desktop 1440: ✓
+- Bug corregido: topbar desbordaba en tablet 1024px (search max-w-md + period selector + right cluster). Fix: search `max-w-[180px] md:max-w-xs xl:max-w-md`, period selector `hidden lg:flex`, gap reducido.
+- VLM: "enterprise-quality, polished, no glitches, professional dark-mode UI".
+
+Stage Summary:
+- Fase 5 completa: motor de reservas inteligente con 5 vistas integradas (reservas + predicción IA + yield + alertas + lista de espera) + editor de plano avanzado (crear mesas, mover entre zonas, fusionar/separar, undo/redo, 8 estados).
+- Todas las funcionalidades solicitadas implementadas: traspasar mesa entre zonas ✓, añadir mesas ✓, fusionar/separar ✓, undo/redo ✓, predicción no-show explicable ✓, yield management ✓, alertas operativas ✓, lista de espera priorizada ✓.
+- Responsive real mobile-first sin overflow en 5 breakpoints.
+- Animaciones funcionales (transform+opacity, prefers-reduced-motion).
