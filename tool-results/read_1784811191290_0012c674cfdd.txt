@@ -1,0 +1,1043 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { Badge } from "@/components/ui/badge";
+     6→import { Button } from "@/components/ui/button";
+     7→import { toast } from "@/hooks/use-toast";
+     8→import {
+     9→  Download,
+    10→  FileText,
+    11→  TrendingUp,
+    12→  TrendingDown,
+    13→  Sparkles,
+    14→  ChevronDown,
+    15→  Activity,
+    16→  DollarSign,
+    17→  Ticket,
+    18→  CalendarDays,
+    19→  UserX,
+    20→  UserPlus,
+    21→  Filter,
+    22→} from "lucide-react";
+    23→
+    24→/* =====================================================================
+    25→ * Types & demo data
+    26→ * ===================================================================== */
+    27→
+    28→interface Kpi {
+    29→  id: string;
+    30→  label: string;
+    31→  value: string;
+    32→  trend: string;
+    33→  trendUp: boolean;
+    34→  positive: boolean; // whether the trend is good (green)
+    35→  icon: React.ElementType;
+    36→  spark: number[];
+    37→  accent: "gold" | "teal";
+    38→}
+    39→
+    40→const KPIS: Kpi[] = [
+    41→  {
+    42→    id: "ocup",
+    43→    label: "Ocupación",
+    44→    value: "78%",
+    45→    trend: "+4.2pp",
+    46→    trendUp: true,
+    47→    positive: true,
+    48→    icon: Activity,
+    49→    spark: [62, 65, 68, 70, 72, 75, 76, 78],
+    50→    accent: "gold",
+    51→  },
+    52→  {
+    53→    id: "ing",
+    54→    label: "Ingresos",
+    55→    value: "142.580€",
+    56→    trend: "+8.3%",
+    57→    trendUp: true,
+    58→    positive: true,
+    59→    icon: DollarSign,
+    60→    spark: [98, 105, 112, 118, 125, 132, 138, 142],
+    61→    accent: "gold",
+    62→  },
+    63→  {
+    64→    id: "ticket",
+    65→    label: "Ticket medio",
+    66→    value: "38€",
+    67→    trend: "+1.2%",
+    68→    trendUp: true,
+    69→    positive: true,
+    70→    icon: Ticket,
+    71→    spark: [35, 35.5, 36, 36.5, 37, 37.2, 37.5, 38],
+    72→    accent: "teal",
+    73→  },
+    74→  {
+    75→    id: "res",
+    76→    label: "Reservas",
+    77→    value: "3.742",
+    78→    trend: "+12.5%",
+    79→    trendUp: true,
+    80→    positive: true,
+    81→    icon: CalendarDays,
+    82→    spark: [2400, 2600, 2800, 3000, 3200, 3400, 3600, 3742],
+    83→    accent: "teal",
+    84→  },
+    85→  {
+    86→    id: "noshow",
+    87→    label: "No-shows",
+    88→    value: "8.2%",
+    89→    trend: "-0.4pp",
+    90→    trendUp: false,
+    91→    positive: true,
+    92→    icon: UserX,
+    93→    spark: [9.6, 9.4, 9.1, 8.9, 8.7, 8.5, 8.3, 8.2],
+    94→    accent: "gold",
+    95→  },
+    96→  {
+    97→    id: "new",
+    98→    label: "Clientes nuevos",
+    99→    value: "412",
+   100→    trend: "+6.7%",
+   101→    trendUp: true,
+   102→    positive: true,
+   103→    icon: UserPlus,
+   104→    spark: [320, 340, 355, 370, 385, 395, 405, 412],
+   105→    accent: "teal",
+   106→  },
+   107→];
+   108→
+   109→const PERIODOS = ["Hoy", "Semana", "Mes", "Trimestre", "Año"] as const;
+   110→const LOCALES = ["Todos los locales", "Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"] as const;
+   111→const CANALES = ["Todos los canales", "Widget", "Dashboard", "WhatsApp", "Teléfono"] as const;
+   112→const SEGMENTOS = ["Todos los segmentos", "Nuevos", "Recurrentes", "VIP", "Corporativo"] as const;
+   113→
+   114→/* Heatmap: 7 days × 24 hours, values 0..1 */
+   115→const HEAT_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+   116→
+   117→function heatFor(dayIdx: number, hour: number): number {
+   118→  const dayBoost = [0.7, 0.75, 0.85, 0.95, 1.1, 1.25, 1.0][dayIdx];
+   119→  let base = 0;
+   120→  if (hour < 10) base = 0.05;
+   121→  else if (hour < 12) base = 0.2 + (hour - 10) * 0.15;
+   122→  else if (hour === 12) base = 0.6;
+   123→  else if (hour <= 15) base = 0.85 - (hour - 13) * 0.1;
+   124→  else if (hour <= 18) base = 0.35 + (hour - 16) * 0.05;
+   125→  else if (hour === 19) base = 0.6;
+   126→  else if (hour === 20) base = 0.85;
+   127→  else if (hour === 21) base = 0.92;
+   128→  else if (hour === 22) base = 0.7;
+   129→  else base = 0.2;
+   130→  return Math.min(1, base * dayBoost);
+   131→}
+   132→
+   133→const CHANNELS = [
+   134→  { label: "Widget", pct: 38, color: "var(--gold)" },
+   135→  { label: "WhatsApp", pct: 28, color: "var(--teal)" },
+   136→  { label: "Dashboard", pct: 24, color: "var(--gold-soft)" },
+   137→  { label: "Teléfono", pct: 10, color: "var(--gold-deep)" },
+   138→] as const;
+   139→
+   140→const REVENUE_30D = [
+   141→  4200, 4350, 4180, 4500, 5800, 6200, 5400,
+   142→  4300, 4400, 4250, 4600, 5950, 6400, 5600,
+   143→  4400, 4500, 4350, 4700, 6050, 6600, 5800,
+   144→  4500, 4600, 4450, 4800, 6200, 6800, 6000,
+   145→  4600, 4700,
+   146→];
+   147→
+   148→const RESERVATIONS_30D = [
+   149→  118, 122, 116, 128, 158, 168, 145,
+   150→  120, 124, 118, 130, 162, 172, 148,
+   151→  122, 126, 120, 132, 165, 176, 152,
+   152→  124, 128, 122, 134, 168, 180, 156,
+   153→  126, 130,
+   154→];
+   155→
+   156→const LOCALES_COMPARE = [
+   157→  { label: "Madrid", revenue: 68, reservations: 82, revenueLabel: "68.4k€", resLabel: "1.240" },
+   158→  { label: "Barcelona", revenue: 52, reservations: 64, revenueLabel: "52.1k€", resLabel: "980" },
+   159→  { label: "Valencia", revenue: 34, reservations: 48, revenueLabel: "34.0k€", resLabel: "640" },
+   160→] as const;
+   161→
+   162→const FORECAST_7D = [
+   163→  { day: "L", predicted: 72, lower: 65, upper: 79 },
+   164→  { day: "M", predicted: 75, lower: 68, upper: 82 },
+   165→  { day: "X", predicted: 78, lower: 70, upper: 86 },
+   166→  { day: "J", predicted: 82, lower: 74, upper: 90 },
+   167→  { day: "V", predicted: 79, lower: 71, upper: 87 },
+   168→  { day: "S", predicted: 76, lower: 68, upper: 84 },
+   169→  { day: "D", predicted: 74, lower: 66, upper: 82 },
+   170→] as const;
+   171→
+   172→/* =====================================================================
+   173→ * Helpers
+   174→ * ===================================================================== */
+   175→
+   176→function linePath(points: Array<[number, number]>): string {
+   177→  if (!points.length) return "";
+   178→  return points.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+   179→}
+   180→
+   181→function areaPath(points: Array<[number, number]>, baseY: number): string {
+   182→  if (!points.length) return "";
+   183→  const top = points.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+   184→  const last = points[points.length - 1];
+   185→  const first = points[0];
+   186→  return `${top} L${last[0]},${baseY} L${first[0]},${baseY} Z`;
+   187→}
+   188→
+   189→function bandPath(
+   190→  upper: Array<[number, number]>,
+   191→  lower: Array<[number, number]>
+   192→): string {
+   193→  if (!upper.length || !lower.length) return "";
+   194→  const top = upper.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+   195→  const bottom = lower
+   196→    .slice()
+   197→    .reverse()
+   198→    .map(([x, y]) => `L${x},${y}`)
+   199→    .join(" ");
+   200→  return `${top} ${bottom} Z`;
+   201→}
+   202→
+   203→function DemoBadge({ className }: { className?: string }) {
+   204→  return (
+   205→    <Badge
+   206→      variant="outline"
+   207→      className={cn(
+   208→        "border-amber-400/40 bg-amber-400/10 text-amber-300/90 font-mono text-[10px] uppercase tracking-wider",
+   209→        className
+   210→      )}
+   211→    >
+   212→      demo
+   213→    </Badge>
+   214→  );
+   215→}
+   216→
+   217→/* =====================================================================
+   218→ * Main view
+   219→ * ===================================================================== */
+   220→
+   221→export function AnalyticsView() {
+   222→  const [periodo, setPeriodo] = React.useState<string>("Mes");
+   223→  const [local, setLocal] = React.useState<string>("Todos los locales");
+   224→  const [canal, setCanal] = React.useState<string>("Todos los canales");
+   225→  const [segmento, setSegmento] = React.useState<string>("Todos los segmentos");
+   226→
+   227→  const handleExport = (format: "CSV" | "PDF") => {
+   228→    toast({
+   229→      title: "Exportación en cola (demo)",
+   230→      description: `Generando informe ${format} con los filtros seleccionados…`,
+   231→    });
+   232→  };
+   233→
+   234→  return (
+   235→    <div className="space-y-5">
+   236→      {/* Header */}
+   237→      <div className="flex items-start justify-between gap-3 flex-wrap">
+   238→        <div>
+   239→          <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+   240→            Analytics
+   241→          </h1>
+   242→          <p className="text-sm text-muted-foreground mt-1">
+   243→            Rendimiento operativo, ingresos y forecast por local, canal y segmento.
+   244→          </p>
+   245→        </div>
+   246→        <div className="flex items-center gap-2">
+   247→          <DemoBadge />
+   248→          <Button
+   249→            variant="outline"
+   250→            size="sm"
+   251→            onClick={() => handleExport("CSV")}
+   252→            className="border-border/60"
+   253→          >
+   254→            <Download className="h-3.5 w-3.5" aria-hidden />
+   255→            CSV
+   256→          </Button>
+   257→          <Button
+   258→            variant="outline"
+   259→            size="sm"
+   260→            onClick={() => handleExport("PDF")}
+   261→            className="border-border/60"
+   262→          >
+   263→            <FileText className="h-3.5 w-3.5" aria-hidden />
+   264→            PDF
+   265→          </Button>
+   266→        </div>
+   267→      </div>
+   268→
+   269→      {/* KPI row */}
+   270→      <section
+   271→        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3"
+   272→        aria-label="Indicadores clave de rendimiento"
+   273→      >
+   274→        {KPIS.map((k) => (
+   275→          <KpiCard key={k.id} kpi={k} />
+   276→        ))}
+   277→      </section>
+   278→
+   279→      {/* Filters bar */}
+   280→      <section
+   281→        className="rp-glass rounded-xl p-3 flex items-center gap-2 flex-wrap"
+   282→        aria-label="Filtros de analytics"
+   283→      >
+   284→        <div className="inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground pr-2">
+   285→          <Filter className="h-3.5 w-3.5" aria-hidden />
+   286→          Filtros
+   287→        </div>
+   288→        <FilterSelect label="Periodo" value={periodo} options={PERIODOS} onChange={setPeriodo} />
+   289→        <FilterSelect label="Local" value={local} options={LOCALES} onChange={setLocal} />
+   290→        <FilterSelect label="Canal" value={canal} options={CANALES} onChange={setCanal} />
+   291→        <FilterSelect label="Segmento" value={segmento} options={SEGMENTOS} onChange={setSegmento} />
+   292→      </section>
+   293→
+   294→      {/* Charts */}
+   295→      <OccupancyHeatmap />
+   296→      <div className="grid lg:grid-cols-2 gap-4">
+   297→        <ChannelDonut />
+   298→        <RevenueVsReservations />
+   299→      </div>
+   300→      <div className="grid lg:grid-cols-2 gap-4">
+   301→        <LocalesCompare />
+   302→        <ForecastChart />
+   303→      </div>
+   304→    </div>
+   305→  );
+   306→}
+   307→
+   308→/* =====================================================================
+   309→ * KPI card with sparkline
+   310→ * ===================================================================== */
+   311→
+   312→function KpiCard({ kpi }: { kpi: Kpi }) {
+   313→  const Icon = kpi.icon;
+   314→  const accentColor = kpi.accent === "gold" ? "var(--gold)" : "var(--teal)";
+   315→  const trendColor = kpi.positive
+   316→    ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+   317→    : "border-rose-400/40 bg-rose-400/10 text-rose-300";
+   318→
+   319→  return (
+   320→    <div className="rp-glass rounded-xl p-4 flex flex-col gap-2">
+   321→      <div className="flex items-center justify-between">
+   322→        <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground inline-flex items-center gap-1.5">
+   323→          <Icon className="h-3.5 w-3.5" style={{ color: accentColor }} aria-hidden />
+   324→          {kpi.label}
+   325→        </span>
+   326→        <DemoBadge />
+   327→      </div>
+   328→      <div className="font-display text-2xl sm:text-3xl font-light leading-none">
+   329→        {kpi.value}
+   330→      </div>
+   331→      <div className="flex items-center justify-between gap-2">
+   332→        <span
+   333→          className={cn(
+   334→            "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] font-mono",
+   335→            trendColor
+   336→          )}
+   337→        >
+   338→          {kpi.trendUp ? (
+   339→            <TrendingUp className="h-3 w-3" aria-hidden />
+   340→          ) : (
+   341→            <TrendingDown className="h-3 w-3" aria-hidden />
+   342→          )}
+   343→          {kpi.trend}
+   344→        </span>
+   345→        <Sparkline values={kpi.spark} color={accentColor} />
+   346→      </div>
+   347→    </div>
+   348→  );
+   349→}
+   350→
+   351→function Sparkline({ values, color }: { values: number[]; color: string }) {
+   352→  const W = 80;
+   353→  const H = 24;
+   354→  const pad = 2;
+   355→  const min = Math.min(...values);
+   356→  const max = Math.max(...values);
+   357→  const range = max - min || 1;
+   358→  const pts: Array<[number, number]> = values.map((v, i) => {
+   359→    const x = pad + (i / (values.length - 1)) * (W - 2 * pad);
+   360→    const y = pad + (1 - (v - min) / range) * (H - 2 * pad);
+   361→    return [x, y];
+   362→  });
+   363→  const baseY = H - pad;
+   364→  return (
+   365→    <svg
+   366→      viewBox={`0 0 ${W} ${H}`}
+   367→      className="w-20 h-6"
+   368→      role="img"
+   369→      aria-label={`Tendencia ${values[0]} a ${values[values.length - 1]}`}
+   370→    >
+   371→      <defs>
+   372→        <linearGradient id={`spark-${color.replace(/[^a-z0-9]/gi, "")}`} x1="0" y1="0" x2="0" y2="1">
+   373→          <stop offset="0%" stopColor={color} stopOpacity="0.4" />
+   374→          <stop offset="100%" stopColor={color} stopOpacity="0" />
+   375→        </linearGradient>
+   376→      </defs>
+   377→      <path d={areaPath(pts, baseY)} fill={`url(#spark-${color.replace(/[^a-z0-9]/gi, "")})`} />
+   378→      <path d={linePath(pts)} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+   379→    </svg>
+   380→  );
+   381→}
+   382→
+   383→/* =====================================================================
+   384→ * Filter select (custom dropdown)
+   385→ * ===================================================================== */
+   386→
+   387→function FilterSelect({
+   388→  label,
+   389→  value,
+   390→  options,
+   391→  onChange,
+   392→}: {
+   393→  label: string;
+   394→  value: string;
+   395→  options: readonly string[];
+   396→  onChange: (v: string) => void;
+   397→}) {
+   398→  const [open, setOpen] = React.useState(false);
+   399→  return (
+   400→    <div className="relative">
+   401→      <button
+   402→        type="button"
+   403→        onClick={() => setOpen((v) => !v)}
+   404→        className="inline-flex items-center gap-2 rounded-md border border-border/60 bg-input/30 px-2.5 py-1.5 text-xs hover:border-[var(--gold)]/40 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40"
+   405→        aria-expanded={open}
+   406→        aria-haspopup="listbox"
+   407→      >
+   408→        <span className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+   409→          {label}:
+   410→        </span>
+   411→        <span className="text-foreground truncate max-w-[140px]">{value}</span>
+   412→        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", open && "rotate-180")} aria-hidden />
+   413→      </button>
+   414→      {open && (
+   415→        <>
+   416→          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
+   417→          <ul
+   418→            className="absolute z-20 mt-1 left-0 min-w-full w-max rp-glass-strong rounded-md border border-border/60 py-1 shadow-xl"
+   419→            role="listbox"
+   420→          >
+   421→            {options.map((o) => (
+   422→              <li key={o}>
+   423→                <button
+   424→                  type="button"
+   425→                  onClick={() => {
+   426→                    onChange(o);
+   427→                    setOpen(false);
+   428→                  }}
+   429→                  className={cn(
+   430→                    "w-full text-left px-3 py-1.5 text-xs hover:bg-foreground/5 focus-visible:outline-none focus-visible:bg-foreground/5 whitespace-nowrap",
+   431→                    o === value && "text-[var(--gold)]"
+   432→                  )}
+   433→                  role="option"
+   434→                  aria-selected={o === value}
+   435→                >
+   436→                  {o}
+   437→                </button>
+   438→              </li>
+   439→            ))}
+   440→          </ul>
+   441→        </>
+   442→      )}
+   443→    </div>
+   444→  );
+   445→}
+   446→
+   447→/* =====================================================================
+   448→ * Chart card wrapper
+   449→ * ===================================================================== */
+   450→
+   451→function ChartCard({
+   452→  title,
+   453→  subtitle,
+   454→  badge,
+   455→  children,
+   456→  right,
+   457→}: {
+   458→  title: string;
+   459→  subtitle?: string;
+   460→  badge?: React.ReactNode;
+   461→  children: React.ReactNode;
+   462→  right?: React.ReactNode;
+   463→}) {
+   464→  return (
+   465→    <section className="rp-glass rounded-2xl p-5 sm:p-6">
+   466→      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+   467→        <div>
+   468→          <h3 className="font-display text-lg font-medium">{title}</h3>
+   469→          {subtitle && (
+   470→            <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
+   471→          )}
+   472→        </div>
+   473→        <div className="flex items-center gap-2">
+   474→          {right}
+   475→          {badge ?? <DemoBadge />}
+   476→        </div>
+   477→      </div>
+   478→      {children}
+   479→    </section>
+   480→  );
+   481→}
+   482→
+   483→/* =====================================================================
+   484→ * 1. Occupancy heatmap (24h × 7d)
+   485→ * ===================================================================== */
+   486→
+   487→function OccupancyHeatmap() {
+   488→  const leftPad = 40;
+   489→  const topPad = 22;
+   490→  const rightPad = 12;
+   491→  const bottomPad = 28;
+   492→  const cell = 22;
+   493→  const gap = 2;
+   494→  const step = cell + gap;
+   495→  const W = leftPad + 24 * step + rightPad;
+   496→  const H = topPad + 7 * step + bottomPad;
+   497→
+   498→  const hours = Array.from({ length: 24 }, (_, i) => i);
+   499→
+   500→  return (
+   501→    <ChartCard
+   502→      title="Ocupación por hora"
+   503→      subtitle="Intensidad de ocupación por franja horaria y día de la semana (0–100%)"
+   504→    >
+   505→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   506→        <svg
+   507→          viewBox={`0 0 ${W} ${H}`}
+   508→          className="w-full min-w-[640px] h-auto"
+   509→          role="img"
+   510→          aria-labelledby="heat-title heat-desc"
+   511→        >
+   512→          <title id="heat-title">Mapa de calor de ocupación por hora y día</title>
+   513→          <desc id="heat-desc">
+   514→            Matriz de 7 días por 24 horas. Mayor intensidad en franjas 13–15h y 20–22h,
+   515→            especialmente viernes y sábado.
+   516→          </desc>
+   517→
+   518→          {/* Hour labels (top) — every 3h */}
+   519→          {hours.map((h) =>
+   520→            h % 3 === 0 ? (
+   521→              <text
+   522→                key={h}
+   523→                x={leftPad + h * step + cell / 2}
+   524→                y={topPad - 8}
+   525→                textAnchor="middle"
+   526→                className="fill-muted-foreground font-mono"
+   527→                fontSize="9"
+   528→              >
+   529→                {String(h).padStart(2, "0")}h
+   530→              </text>
+   531→            ) : null
+   532→          )}
+   533→
+   534→          {/* Day labels (left) */}
+   535→          {HEAT_DAYS.map((d, i) => (
+   536→            <text
+   537→              key={d}
+   538→              x={leftPad - 8}
+   539→              y={topPad + i * step + cell / 2 + 3}
+   540→              textAnchor="end"
+   541→              className="fill-muted-foreground font-mono"
+   542→              fontSize="10"
+   543→            >
+   544→              {d}
+   545→            </text>
+   546→          ))}
+   547→
+   548→          {/* Cells */}
+   549→          {HEAT_DAYS.map((_, di) =>
+   550→            hours.map((h) => {
+   551→              const v = heatFor(di, h);
+   552→              const x = leftPad + h * step;
+   553→              const y = topPad + di * step;
+   554→              return (
+   555→                <rect
+   556→                  key={`${di}-${h}`}
+   557→                  x={x}
+   558→                  y={y}
+   559→                  width={cell}
+   560→                  height={cell}
+   561→                  rx="2"
+   562→                  fill="var(--gold)"
+   563→                  fillOpacity={v}
+   564→                  stroke="var(--gold)"
+   565→                  strokeOpacity={0.08}
+   566→                >
+   567→                  <title>{`${HEAT_DAYS[di]} ${String(h).padStart(2, "0")}:00 — ${Math.round(v * 100)}%`}</title>
+   568→                </rect>
+   569→              );
+   570→            })
+   571→          )}
+   572→
+   573→          {/* Legend */}
+   574→          <g transform={`translate(${leftPad}, ${H - 18})`}>
+   575→            <text x={0} y={9} className="fill-muted-foreground font-mono" fontSize="9">
+   576→              Bajo
+   577→            </text>
+   578→            {[0.1, 0.3, 0.5, 0.7, 0.9].map((op, i) => (
+   579→              <rect
+   580→                key={i}
+   581→                x={28 + i * 16}
+   582→                y={2}
+   583→                width={12}
+   584→                height={10}
+   585→                rx="1"
+   586→                fill="var(--gold)"
+   587→                fillOpacity={op}
+   588→              />
+   589→            ))}
+   590→            <text x={120} y={9} className="fill-muted-foreground font-mono" fontSize="9">
+   591→              Alto
+   592→            </text>
+   593→          </g>
+   594→        </svg>
+   595→      </div>
+   596→    </ChartCard>
+   597→  );
+   598→}
+   599→
+   600→/* =====================================================================
+   601→ * 2. Channel donut
+   602→ * ===================================================================== */
+   603→
+   604→function ChannelDonut() {
+   605→  const size = 180;
+   606→  const r = 60;
+   607→  const cx = size / 2;
+   608→  const cy = size / 2;
+   609→  const circumference = 2 * Math.PI * r;
+   610→  const total = CHANNELS.reduce((s, c) => s + c.pct, 0);
+   611→  const segments: Array<{ label: string; pct: number; color: string; dash: number; offset: number }> =
+   612→    [];
+   613→  let cumulative = 0;
+   614→  for (const c of CHANNELS) {
+   615→    const dash = (c.pct / total) * circumference;
+   616→    segments.push({
+   617→      label: c.label,
+   618→      pct: c.pct,
+   619→      color: c.color,
+   620→      dash,
+   621→      offset: -cumulative,
+   622→    });
+   623→    cumulative += dash;
+   624→  }
+   625→
+   626→  return (
+   627→    <ChartCard
+   628→      title="Reservas por canal"
+   629→      subtitle="Distribución de reservas según origen (últimos 30 días)"
+   630→    >
+   631→      <div className="flex items-center gap-5 flex-wrap">
+   632→        <svg
+   633→          viewBox={`0 0 ${size} ${size}`}
+   634→          className="w-44 h-44 shrink-0"
+   635→          role="img"
+   636→          aria-labelledby="donut-title donut-desc"
+   637→        >
+   638→          <title id="donut-title">Reservas por canal (donut)</title>
+   639→          <desc id="donut-desc">
+   640→            Widget 38%, WhatsApp 28%, Dashboard 24%, Teléfono 10%.
+   641→          </desc>
+   642→          <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" strokeOpacity={0.08} strokeWidth="20" />
+   643→          {segments.map((s) => (
+   644→            <circle
+   645→              key={s.label}
+   646→              cx={cx}
+   647→              cy={cy}
+   648→              r={r}
+   649→              fill="none"
+   650→              stroke={s.color}
+   651→              strokeWidth="20"
+   652→              strokeDasharray={`${s.dash} ${circumference - s.dash}`}
+   653→              strokeDashoffset={s.offset}
+   654→              transform={`rotate(-90 ${cx} ${cy})`}
+   655→              strokeLinecap="butt"
+   656→            >
+   657→              <title>{`${s.label}: ${s.pct}%`}</title>
+   658→            </circle>
+   659→          ))}
+   660→          <text x={cx} y={cy - 4} textAnchor="middle" className="fill-foreground font-mono" fontSize="22" fontWeight="300">
+   661→            3.742
+   662→          </text>
+   663→          <text x={cx} y={cy + 14} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
+   664→            reservas
+   665→          </text>
+   666→        </svg>
+   667→        <ul className="flex-1 min-w-0 space-y-2" role="list">
+   668→          {CHANNELS.map((c) => (
+   669→            <li key={c.label} className="flex items-center gap-2.5 text-sm">
+   670→              <span
+   671→                className="h-3 w-3 rounded-sm shrink-0"
+   672→                style={{ backgroundColor: c.color }}
+   673→                aria-hidden
+   674→              />
+   675→              <span className="text-foreground/80 flex-1 truncate">{c.label}</span>
+   676→              <span className="font-mono text-foreground tabular-nums">{c.pct}%</span>
+   677→            </li>
+   678→          ))}
+   679→        </ul>
+   680→      </div>
+   681→    </ChartCard>
+   682→  );
+   683→}
+   684→
+   685→/* =====================================================================
+   686→ * 3. Revenue vs reservations (dual axis line, 30 days)
+   687→ * ===================================================================== */
+   688→
+   689→function RevenueVsReservations() {
+   690→  const W = 720;
+   691→  const H = 280;
+   692→  const padL = 44;
+   693→  const padR = 44;
+   694→  const padT = 20;
+   695→  const padB = 36;
+   696→  const plotW = W - padL - padR;
+   697→  const plotH = H - padT - padB;
+   698→
+   699→  const revMin = 3800;
+   700→  const revMax = 7200;
+   701→  const resMin = 100;
+   702→  const resMax = 200;
+   703→
+   704→  const n = REVENUE_30D.length;
+   705→  const xAt = (i: number) => padL + (i / (n - 1)) * plotW;
+   706→  const yRev = (v: number) => padT + (1 - (v - revMin) / (revMax - revMin)) * plotH;
+   707→  const yRes = (v: number) => padT + (1 - (v - resMin) / (resMax - resMin)) * plotH;
+   708→
+   709→  const revPts: Array<[number, number]> = REVENUE_30D.map((v, i) => [xAt(i), yRev(v)]);
+   710→  const resPts: Array<[number, number]> = RESERVATIONS_30D.map((v, i) => [xAt(i), yRes(v)]);
+   711→
+   712→  const revTicks = [4000, 5000, 6000, 7000];
+   713→  const resTicks = [120, 150, 180];
+   714→
+   715→  return (
+   716→    <ChartCard
+   717→      title="Ingresos vs reservas"
+   718→      subtitle="Evolución diaria de ingresos (eje izq.) y reservas (eje der.) — últimos 30 días"
+   719→    >
+   720→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   721→        <svg
+   722→          viewBox={`0 0 ${W} ${H}`}
+   723→          className="w-full min-w-[640px] h-auto"
+   724→          role="img"
+   725→          aria-labelledby="rev-res-title rev-res-desc"
+   726→        >
+   727→          <title id="rev-res-title">Ingresos vs reservas, 30 días</title>
+   728→          <desc id="rev-res-desc">
+   729→            Doble eje: ingresos en euros (línea dorada) y reservas (línea turquesa).
+   730→            Picos los fines de semana.
+   731→          </desc>
+   732→          <defs>
+   733→            <linearGradient id="revArea" x1="0" y1="0" x2="0" y2="1">
+   734→              <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.25" />
+   735→              <stop offset="100%" stopColor="var(--gold)" stopOpacity="0" />
+   736→            </linearGradient>
+   737→          </defs>
+   738→
+   739→          {/* Y grid (revenue ticks) */}
+   740→          {revTicks.map((t) => {
+   741→            const y = yRev(t);
+   742→            return (
+   743→              <g key={t}>
+   744→                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="currentColor" strokeOpacity={0.07} strokeDasharray="2 4" />
+   745→                <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-[var(--gold-soft)] font-mono" fontSize="10">
+   746→                  {t / 1000}k
+   747→                </text>
+   748→              </g>
+   749→            );
+   750→          })}
+   751→          {/* Right axis (reservations) */}
+   752→          {resTicks.map((t) => {
+   753→            const y = yRes(t);
+   754→            return (
+   755→              <text key={t} x={W - padR + 8} y={y + 3} textAnchor="start" className="fill-[var(--teal)] font-mono" fontSize="10">
+   756→                {t}
+   757→              </text>
+   758→            );
+   759→          })}
+   760→
+   761→          {/* X labels — every 5 days */}
+   762→          {REVENUE_30D.map((_, i) =>
+   763→            i % 5 === 0 || i === n - 1 ? (
+   764→              <text
+   765→                key={i}
+   766→                x={xAt(i)}
+   767→                y={H - 12}
+   768→                textAnchor="middle"
+   769→                className="fill-muted-foreground font-mono"
+   770→                fontSize="10"
+   771→              >
+   772→                D{i + 1}
+   773→              </text>
+   774→            ) : null
+   775→          )}
+   776→
+   777→          {/* Revenue area + line */}
+   778→          <path d={areaPath(revPts, padT + plotH)} fill="url(#revArea)" />
+   779→          <path d={linePath(revPts)} fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+   780→
+   781→          {/* Reservations line */}
+   782→          <path d={linePath(resPts)} fill="none" stroke="var(--teal)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="4 3" />
+   783→
+   784→          {/* Legend */}
+   785→          <g transform={`translate(${padL + 4}, ${padT + 4})`}>
+   786→            <line x1="0" y1="6" x2="14" y2="6" stroke="var(--gold)" strokeWidth="2" />
+   787→            <text x="18" y="9" className="fill-foreground/80 font-mono" fontSize="10">Ingresos (€)</text>
+   788→            <line x1="120" y1="6" x2="134" y2="6" stroke="var(--teal)" strokeWidth="1.75" strokeDasharray="4 3" />
+   789→            <text x="138" y="9" className="fill-foreground/80 font-mono" fontSize="10">Reservas</text>
+   790→          </g>
+   791→        </svg>
+   792→      </div>
+   793→    </ChartCard>
+   794→  );
+   795→}
+   796→
+   797→/* =====================================================================
+   798→ * 4. Locales compare (grouped bar chart)
+   799→ * ===================================================================== */
+   800→
+   801→function LocalesCompare() {
+   802→  const W = 720;
+   803→  const H = 280;
+   804→  const padL = 40;
+   805→  const padR = 16;
+   806→  const padT = 28;
+   807→  const padB = 44;
+   808→  const plotW = W - padL - padR;
+   809→  const plotH = H - padT - padB;
+   810→
+   811→  const groups = LOCALES_COMPARE.length;
+   812→  const groupW = plotW / groups;
+   813→  const barW = 26;
+   814→  const barGap = 6;
+   815→  const max = 100;
+   816→
+   817→  return (
+   818→    <ChartCard
+   819→      title="Comparativa entre locales"
+   820→      subtitle="Ingresos (k€) y reservas (normalizado) por local — trimestre actual"
+   821→    >
+   822→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   823→        <svg
+   824→          viewBox={`0 0 ${W} ${H}`}
+   825→          className="w-full min-w-[640px] h-auto"
+   826→          role="img"
+   827→          aria-labelledby="cmp-title cmp-desc"
+   828→        >
+   829→          <title id="cmp-title">Comparativa entre locales</title>
+   830→          <desc id="cmp-desc">
+   831→            Tres locales comparados. Madrid lidera en ingresos (68.4k€) y reservas (1.240).
+   832→            Barcelona 52.1k€ / 980. Valencia 34.0k€ / 640.
+   833→          </desc>
+   834→
+   835→          {/* Y grid */}
+   836→          {[0, 25, 50, 75, 100].map((t) => {
+   837→            const y = padT + (1 - t / max) * plotH;
+   838→            return (
+   839→              <g key={t}>
+   840→                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="currentColor" strokeOpacity={0.07} strokeDasharray="2 4" />
+   841→                <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="10">
+   842→                  {t}
+   843→                </text>
+   844→              </g>
+   845→            );
+   846→          })}
+   847→
+   848→          {/* Bars */}
+   849→          {LOCALES_COMPARE.map((loc, gi) => {
+   850→            const gx = padL + gi * groupW;
+   851→            const groupCenter = gx + groupW / 2;
+   852→            const barX1 = groupCenter - barW - barGap / 2;
+   853→            const barX2 = groupCenter + barGap / 2;
+   854→            const revH = (loc.revenue / max) * plotH;
+   855→            const resH = (loc.reservations / max) * plotH;
+   856→            return (
+   857→              <g key={loc.label}>
+   858→                {/* Revenue bar */}
+   859→                <rect
+   860→                  x={barX1}
+   861→                  y={padT + plotH - revH}
+   862→                  width={barW}
+   863→                  height={revH}
+   864→                  rx="2"
+   865→                  fill="var(--gold)"
+   866→                >
+   867→                  <title>{`Ingresos ${loc.label}: ${loc.revenueLabel}`}</title>
+   868→                </rect>
+   869→                <text
+   870→                  x={barX1 + barW / 2}
+   871→                  y={padT + plotH - revH - 6}
+   872→                  textAnchor="middle"
+   873→                  className="fill-[var(--gold-soft)] font-mono"
+   874→                  fontSize="10"
+   875→                >
+   876→                  {loc.revenueLabel}
+   877→                </text>
+   878→
+   879→                {/* Reservations bar */}
+   880→                <rect
+   881→                  x={barX2}
+   882→                  y={padT + plotH - resH}
+   883→                  width={barW}
+   884→                  height={resH}
+   885→                  rx="2"
+   886→                  fill="var(--teal)"
+   887→                >
+   888→                  <title>{`Reservas ${loc.label}: ${loc.resLabel}`}</title>
+   889→                </rect>
+   890→                <text
+   891→                  x={barX2 + barW / 2}
+   892→                  y={padT + plotH - resH - 6}
+   893→                  textAnchor="middle"
+   894→                  className="fill-[var(--teal)] font-mono"
+   895→                  fontSize="10"
+   896→                >
+   897→                  {loc.resLabel}
+   898→                </text>
+   899→
+   900→                {/* X label */}
+   901→                <text
+   902→                  x={groupCenter}
+   903→                  y={H - 14}
+   904→                  textAnchor="middle"
+   905→                  className="fill-foreground/80 font-mono"
+   906→                  fontSize="11"
+   907→                >
+   908→                  {loc.label}
+   909→                </text>
+   910→              </g>
+   911→            );
+   912→          })}
+   913→
+   914→          {/* Legend */}
+   915→          <g transform={`translate(${padL + 4}, ${padT - 16})`}>
+   916→            <rect x="0" y="0" width="10" height="10" rx="1" fill="var(--gold)" />
+   917→            <text x="14" y="9" className="fill-foreground/80 font-mono" fontSize="10">Ingresos (k€)</text>
+   918→            <rect x="120" y="0" width="10" height="10" rx="1" fill="var(--teal)" />
+   919→            <text x="134" y="9" className="fill-foreground/80 font-mono" fontSize="10">Reservas</text>
+   920→          </g>
+   921→        </svg>
+   922→      </div>
+   923→    </ChartCard>
+   924→  );
+   925→}
+   926→
+   927→/* =====================================================================
+   928→ * 5. Forecast IA (line + confidence band, 7 days)
+   929→ * ===================================================================== */
+   930→
+   931→function ForecastChart() {
+   932→  const W = 720;
+   933→  const H = 280;
+   934→  const padL = 40;
+   935→  const padR = 16;
+   936→  const padT = 28;
+   937→  const padB = 36;
+   938→  const plotW = W - padL - padR;
+   939→  const plotH = H - padT - padB;
+   940→  const yMin = 50;
+   941→  const yMax = 100;
+   942→
+   943→  const n = FORECAST_7D.length;
+   944→  const xAt = (i: number) => padL + (i / (n - 1)) * plotW;
+   945→  const yAt = (v: number) => padT + (1 - (v - yMin) / (yMax - yMin)) * plotH;
+   946→
+   947→  const predPts: Array<[number, number]> = FORECAST_7D.map((d, i) => [xAt(i), yAt(d.predicted)]);
+   948→  const lowerPts: Array<[number, number]> = FORECAST_7D.map((d, i) => [xAt(i), yAt(d.lower)]);
+   949→  const upperPts: Array<[number, number]> = FORECAST_7D.map((d, i) => [xAt(i), yAt(d.upper)]);
+   950→
+   951→  const yTicks = [50, 60, 70, 80, 90, 100];
+   952→
+   953→  return (
+   954→    <ChartCard
+   955→      title="Forecast IA · Ocupación"
+   956→      subtitle="Predicción de ocupación para los próximos 7 días con banda de confianza"
+   957→      right={
+   958→        <span className="inline-flex items-center gap-1 rounded-md border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] px-2 py-0.5 text-[11px] font-mono">
+   959→          <Sparkles className="h-3 w-3" aria-hidden />
+   960→          Confianza 78%
+   961→        </span>
+   962→      }
+   963→    >
+   964→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   965→        <svg
+   966→          viewBox={`0 0 ${W} ${H}`}
+   967→          className="w-full min-w-[640px] h-auto"
+   968→          role="img"
+   969→          aria-labelledby="fc-title fc-desc"
+   970→        >
+   971→          <title id="fc-title">Forecast IA de ocupación, 7 días</title>
+   972→          <desc id="fc-desc">
+   973→            Línea turquesa con la ocupación predicha (72–82%) y banda de confianza
+   974→            entre los límites inferior y superior.
+   975→          </desc>
+   976→          <defs>
+   977→            <linearGradient id="fcBand" x1="0" y1="0" x2="0" y2="1">
+   978→              <stop offset="0%" stopColor="var(--teal)" stopOpacity="0.25" />
+   979→              <stop offset="100%" stopColor="var(--teal)" stopOpacity="0.05" />
+   980→            </linearGradient>
+   981→          </defs>
+   982→
+   983→          {/* Y grid */}
+   984→          {yTicks.map((t) => {
+   985→            const y = yAt(t);
+   986→            return (
+   987→              <g key={t}>
+   988→                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="currentColor" strokeOpacity={0.07} strokeDasharray="2 4" />
+   989→                <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="10">
+   990→                  {t}%
+   991→                </text>
+   992→              </g>
+   993→            );
+   994→          })}
+   995→
+   996→          {/* X labels */}
+   997→          {FORECAST_7D.map((d, i) => (
+   998→            <text
+   999→              key={i}
+  1000→              x={xAt(i)}
+  1001→              y={H - 12}
+  1002→              textAnchor="middle"
+  1003→              className="fill-muted-foreground font-mono"
+  1004→              fontSize="10"
+  1005→            >
+  1006→              {d.day}
+  1007→            </text>
+  1008→          ))}
+  1009→
+  1010→          {/* Confidence band */}
+  1011→          <path d={bandPath(upperPts, lowerPts)} fill="url(#fcBand)" stroke="none" />
+  1012→
+  1013→          {/* Upper / lower dashed bounds */}
+  1014→          <path d={linePath(upperPts)} fill="none" stroke="var(--teal)" strokeOpacity={0.45} strokeWidth="1" strokeDasharray="3 3" />
+  1015→          <path d={linePath(lowerPts)} fill="none" stroke="var(--teal)" strokeOpacity={0.45} strokeWidth="1" strokeDasharray="3 3" />
+  1016→
+  1017→          {/* Predicted line */}
+  1018→          <path d={linePath(predPts)} fill="none" stroke="var(--teal)" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+  1019→
+  1020→          {/* Predicted points + labels */}
+  1021→          {predPts.map(([x, y], i) => (
+  1022→            <g key={i}>
+  1023→              <circle cx={x} cy={y} r="3.5" fill="var(--teal)" />
+  1024→              <circle cx={x} cy={y} r="6" fill="var(--teal)" fillOpacity="0.15" />
+  1025→              <text x={x} y={y - 10} textAnchor="middle" className="fill-foreground font-mono" fontSize="10">
+  1026→                {FORECAST_7D[i].predicted}%
+  1027→              </text>
+  1028→            </g>
+  1029→          ))}
+  1030→
+  1031→          {/* Legend */}
+  1032→          <g transform={`translate(${padL + 4}, ${padT - 16})`}>
+  1033→            <line x1="0" y1="6" x2="14" y2="6" stroke="var(--teal)" strokeWidth="2" />
+  1034→            <text x="18" y="9" className="fill-foreground/80 font-mono" fontSize="10">Predicción</text>
+  1035→            <rect x="100" y="2" width="14" height="8" fill="url(#fcBand)" />
+  1036→            <text x="118" y="9" className="fill-foreground/80 font-mono" fontSize="10">Banda confianza</text>
+  1037→          </g>
+  1038→        </svg>
+  1039→      </div>
+  1040→    </ChartCard>
+  1041→  );
+  1042→}
+  1043→

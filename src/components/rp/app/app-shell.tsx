@@ -8,7 +8,7 @@ import {
   LayoutDashboard, CalendarDays, Users, Megaphone, Workflow, Star, BarChart3,
   Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
   Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
-  CalendarPlus, UserSearch, Map as MapIcon, Sparkles,
+  CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
 } from "lucide-react";
 import {
   Dialog,
@@ -23,6 +23,10 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group: string 
   { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
   { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
   { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
+  { id: "growth-analytics", label: "Growth Analytics", icon: TrendingUp, group: "Growth" },
+  { id: "growth-reputation", label: "Centro Reputación", icon: Award, group: "Growth" },
+  { id: "campaigns", label: "Campañas", icon: Megaphone, group: "Growth" },
+  { id: "promotions", label: "Promociones", icon: Ticket, group: "Growth" },
   { id: "reviews", label: "Google Reviews", icon: Star, group: "Reputación" },
   { id: "analytics", label: "Analytics", icon: BarChart3, group: "Reputación" },
   { id: "integraciones", label: "Integraciones", icon: Plug, group: "Plataforma" },
@@ -172,7 +176,7 @@ export function AppShell() {
   );
 }
 
-const GROUPS = ["Operación", "Relación", "Reputación", "Plataforma"];
+const GROUPS = ["Operación", "Relación", "Growth", "Reputación", "Plataforma"];
 
 function OrgSelector() {
   const org = useNav((s) => s.org);
@@ -313,6 +317,8 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
       { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
       { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
       { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
+      { id: "qa-growth-analytics", label: "Ver Growth Analytics", hint: "ROI e insights IA", icon: TrendingUp, group: "Acciones", run: () => useNav.getState().go("growth-analytics") },
+      { id: "qa-growth-reputation", label: "Gestionar reputación", hint: "Reseñas + NPS", icon: Award, group: "Acciones", run: () => useNav.getState().go("growth-reputation") },
       { id: "qa-reviews", label: "Responder reviews", hint: "Google Reviews", icon: Star, group: "Acciones", run: () => useNav.getState().go("reviews") },
       { id: "qa-analytics", label: "Ver analítica", hint: "Analytics", icon: BarChart3, group: "Acciones", run: () => useNav.getState().go("analytics") },
       { id: "qa-settings", label: "Configuración", hint: "Ajustes del local", icon: Settings, group: "Acciones", run: () => useNav.getState().go("configuracion") },
@@ -480,6 +486,10 @@ function SectionRenderer({ section }: { section: Section }) {
       crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
       marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),
       automatizaciones: React.lazy(() => import("@/components/rp/automations/automation-builder").then((m) => ({ default: m.AutomationBuilder }))),
+      "growth-analytics": React.lazy(() => import("@/components/rp/growth/growth-analytics").then((m) => ({ default: m.GrowthAnalytics }))),
+      "growth-reputation": React.lazy(() => import("@/components/rp/growth/growth-reputation").then((m) => ({ default: m.GrowthReputation }))),
+      campaigns: React.lazy(() => import("@/components/rp/growth/growth-campaigns").then((m) => ({ default: m.GrowthCampaigns }))),
+      promotions: React.lazy(() => import("@/components/rp/growth/growth-promotions").then((m) => ({ default: m.GrowthPromotions }))),
       reviews: React.lazy(() => import("@/components/rp/reviews/reviews-view").then((m) => ({ default: m.ReviewsView }))),
       analytics: React.lazy(() => import("@/components/rp/reviews/analytics-view").then((m) => ({ default: m.AnalyticsView }))),
       integraciones: React.lazy(() => import("@/components/rp/superadmin/integrations-view").then((m) => ({ default: m.IntegrationsView }))),

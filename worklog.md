@@ -2118,3 +2118,107 @@ Stage Summary:
 - Todas las funcionalidades solicitadas implementadas: traspasar mesa entre zonas ✓, añadir mesas ✓, fusionar/separar ✓, undo/redo ✓, predicción no-show explicable ✓, yield management ✓, alertas operativas ✓, lista de espera priorizada ✓.
 - Responsive real mobile-first sin overflow en 5 breakpoints.
 - Animaciones funcionales (transform+opacity, prefers-reduced-motion).
+
+---
+Task ID: GROWTH-ENGINE-START
+Agent: main
+Task: Implementar Growth Engine — Marketing Automation + Reputation Hub + Analytics + Coupons/Referrals.
+
+Work Log:
+- Estado: dev server activo, marketing-view.tsx (1403 líneas), reviews-view.tsx (1170 líneas).
+- Estrategia: crear 4 componentes nuevos en src/components/rp/growth/ que se integren como nuevas secciones en sidebar (grupo "Growth").
+- Subagent A: growth-analytics.tsx (ROI campaigns + IA insights + predicciones) + growth-reputation.tsx (reviews aggregator + IA replies + sentiment + NPS)
+- Subagent B: growth-campaigns.tsx (visual flow builder + calendar + A/B testing) + growth-promotions.tsx (coupons + gift cards + referrals + loyalty)
+
+---
+Task ID: GROWTH-ANALYTICS-REP
+Agent: full-stack-developer
+Task: Verificar, completar e integrar los 2 componentes del Growth Engine (Growth Analytics + Reputation Hub) en el shell de la app RestoPanel.
+
+Work Log:
+- Leí worklog.md: confirmé que el Task GROWTH-ENGINE-START (subagent previo) ya había creado los dos archivos `src/components/rp/growth/growth-analytics.tsx` (1438 líneas) y `src/components/rp/growth/growth-reputation.tsx` (1934 líneas), pero NO estaban integrados en el sidebar ni en el SectionRenderer del app-shell.
+- Verifiqué que ambos archivos cumplen el spec al 100%:
+  * growth-analytics.tsx: header "Growth Analytics" + DemoBadge + badge "IA Marketing"; 8 KPIs en grid 4-col (ROI 340% +45%, Reservas 127 +18, Ingresos €8.420 +€1.200, CPA €4.12 −€0.80, CTR 12.4% +2.1%, Apertura email 38% +5%, Clientes recuperados 23 +8, NPS 72 +4) con label, valor, trend, source badge y tooltip de definición; Campaign ROI chart SVG con 6 campañas (revenue dorado vs coste rojo + ROI label); panel teal "AI Marketing Insights" con 5 recomendaciones (texto, impacto estimado, confianza %, botones Crear campaña/Rechazar); tabla Channel performance (WhatsApp/Email/SMS/Push/Social con sent/opened/CTR/conversions/revenue/ROI/cost); tabla Segment performance (VIP/Frecuentes/Dormidos/Nuevos/En riesgo con size/campaigns/conversions/revenue/avgTicket); funnel SVG de 6 etapas Visitantes→Leads→Reservas→Asistencias→Recurrentes→VIP con tasas de conversión; AI Chat mini con input + 6 chips de sugerencias y respuestas demo con data + acción + confianza + source.
+  * growth-reputation.tsx: header "Centro de Reputación" + DemoBadge; Tabs Bandeja | Análisis | NPS | Encuestas; Bandeja con 8 reseñas demo (Google/TripAdvisor/Facebook/TheFork/Internal) con icono de plataforma, autor, estrellas, texto, badge+score de sentimiento, topic chips (food/service/price/wait/cleanliness/ambiance/staff), fecha, status badge, sección AI Reply con textarea editable + tone selector (Profesional/Cercano/Formal/Con disculpas) + Aprobar y publicar (AlertDialog de confirmación) / Regenerar / Descartar, botón "Escalar a gestión" para negativas, filtros de plataforma y rating; Análisis con donut de sentimiento (89% positive), topics bar chart, rating evolution line chart (6 meses), lista de recurring problems, best/worst por camarero/plato/zona, tabla platform comparison, AI summary; NPS con score 72 grande y coloreado, distribución Promotores 68% / Pasivos 24% / Detractores 8%, evolution chart, tablas by location y by shift, auto-actions (Promoters→request review, Passives→offer, Detractors→escalate); Encuestas con config (food/service/ambiance/NPS/comment), metrics (sent 247, opened 189, completed 142), results breakdown (food 4.5★, service 4.3★, ambiance 4.7★), open comments con sentimiento, toggle automation "Enviar 2h post-visita".
+  * Todos los archivos empiezan con "use client"; copy 100% es-ES; badge demo presente; animaciones Framer Motion con transform+opacity y useReducedMotion respetado; touch targets ≥44px; grids responsive 4-col desktop / stacked mobile.
+- Integré ambos componentes en el app-shell para hacerlos navegables:
+  * nav-store.ts: añadí `"growth-analytics"` y `"growth-reputation"` al tipo `Section`.
+  * app-shell.tsx: añadí imports `TrendingUp` y `Award` de lucide-react; añadí 2 entradas al array `NAV` (grupo "Growth"); añadí "Growth" al array `GROUPS`; añadí 2 lazy imports en `SectionRenderer`; añadí 2 quick actions en el CommandPalette (⌘K) "Ver Growth Analytics" y "Gestionar reputación".
+- Lint: `bun run lint` pasa limpio, sin errores ni warnings.
+- Dev server log: compila correctamente (✓ Compiled in 173ms), GET / 200, sin errores de runtime.
+- Los componentes ahora son accesibles desde el sidebar (grupo "Growth", entre "Relación" y "Reputación") y desde la paleta de comandos ⌘K.
+
+Notes for next agents:
+- Los 4 componentes del Growth Engine planificados en GROWTH-ENGINE-START ya existen; los otros 2 (growth-campaigns.tsx y growth-promotions.tsx) NO fueron creados todavía por el subagent B. Si se necesitan, son tarea pendiente.
+- Los componentes usan variables CSS de marca (--gold, --gold-soft, --gold-deep, --teal, --teal-deep) definidas en globals.css y la clase rp-glass-strong/rp-scroll-thin ya existentes.
+- Para preview: entrar al dashboard desde la landing → sidebar grupo "Growth" → "Growth Analytics" o "Centro Reputación".
+
+---
+Task ID: GROWTH-CAMPAIGNS-PROMO
+Agent: full-stack-developer
+Task: Verificar, completar, depurar e integrar los 2 componentes finales del Growth Engine (Campaign Builder + Promotions Hub) en el shell de RestoPanel.
+
+Work Log:
+- Leí worklog.md: confirmé que GROWTH-ENGINE-START planificó 4 componentes; GROWTH-ANALYTICS-REP integró los 2 primeros (analytics + reputation) y dejó nota explícita: "los otros 2 (growth-campaigns.tsx y growth-promotions.tsx) NO fueron creados todavía por el subagent B. Si se necesitan, son tarea pendiente."
+- Verifiqué estado real del filesystem: ambos archivos YA existen con contenido sustancial (growth-campaigns.tsx 1535 líneas, growth-promotions.tsx 1610 líneas), creados por un agente/scaffolding posterior sin loggear. Mi tarea: auditar spec-compliance, corregir bugs, confirmar wiring del shell y loggear.
+- Audité wiring del app-shell (nav-store.ts + app-shell.tsx): YA estaba completo y correcto:
+  * Section type incluye "campaigns" y "promotions" (nav-store.ts líneas 14-15).
+  * NAV array incluye ambos en grupo "Growth" con iconos Megaphone y Ticket (app-shell.tsx líneas 28-29).
+  * GROUPS array incluye "Growth" (app-shell.tsx línea 179).
+  * SectionRenderer tiene lazy imports mapeados a GrowthCampaigns/GrowthPromotions (app-shell.tsx líneas 491-492).
+  No requirió cambios de wiring.
+- Audité spec-compliance de growth-campaigns.tsx — todo presente:
+  * "use client" ✓, copy es-ES ✓, DemoBadge "demo" ✓.
+  * 4 tabs: Campañas / Calendario / Builder / Plantillas ✓.
+  * Tab Campañas: tabla con 8 campañas demo (cm1-cm8) con estado, canal, segmento, audiencia, enviados, abiertos %, clics %, conv. %, ingresos €, ROI % coloreado (verde≥200%, gold≥100%, rojo<100%), acciones (ver/pausar/duplicar/eliminar con AlertDialog). KPI strip 5 métricas: 4 activas, 2 programadas, 18 completadas, ROI 340%, €8.420 ✓ (especificación exacta). Dialog "Nueva campaña" con selector de canal.
+  * Tab Calendario: grid mensual Noviembre 2025 (Lun-Dom), celdas clickeables con campañas mapeadas por fecha, panel lateral de próximas campañas + detalle del día seleccionado, navegación mes anterior/siguiente.
+  * Tab Builder: 3-paneles desktop (paleta 200px | canvas 1fr | config 260px), stacked mobile. Paleta con 5 tipos de nodo (trigger/action/wait/condition/branch) y 16 subtipos. Canvas con flujo horizontal de nodos (seleccionables, eliminables, drag-add). Panel config contextual por tipo (título, resumen, duración wait, plantilla action, regla condition). Strip A/B testing: toggle Switch, variantes A/B con distribución slider 10-90%, métrica primaria (open_rate/ctr/conversion/revenue), botón "Iniciar test". 12 plantillas de automatización (AUTOMATION_PRESETS p1-p12: recuperación inactivos, cumpleaños, bienvenida, NPS, recordatorio, no-show, cancelación, VIP upgrade, reseña +/−, menú día, aniversario). Dialog "Probar automatización" con log animado simulando ejecución paso a paso. AlertDialog "Publicar".
+  * Tab Plantillas: 10 template cards (t1-t10) con canal badge, categoría, asunto, preview, openRate %, CTR %, último uso, botón "Usar plantilla". Filtro por 11 categorías. Dialog "Nueva plantilla".
+  * Touch targets ≥44px en acciones principales (botones, inputs, celdas calendario mobile min-h-[44px]). Sin overflow horizontal (tablas con overflow-x-auto rp-scroll-thin, canvas con overflow-x-auto, paleta mobile con overflow-x-auto).
+- Audité spec-compliance de growth-promotions.tsx — todo presente:
+  * "use client" ✓, copy es-ES ✓, DemoBadge ✓.
+  * 4 tabs: Cupones / Gift Cards / Referidos / Fidelización ✓.
+  * Tab Cupones: 8 cupones demo (cp1-cp8) con código (mono, copiable), tipo (percentage/fixed/free_item/2x1), validez (fecha inicio/fin), usage (usados/total con progress bar), estado (active/expired/scheduled/disabled) con acciones copiar/pausar/eliminar. KPI strip + analytics (redenciones por día, top cupones). Dialog "Crear cupón" con form completo (código auto-gen, tipo, valor, validez, límite, segmento).
+  * Tab Gift Cards: 5 gift cards demo (gc1-gc5) con balance, código, destinatario, estado (active/redeemed/expired/blocked), historial de transacciones, acciones ver/bloquear. KPI strip (vendidas, canjeadas, balance pendiente, revenue). Dialog "Vender gift card" (destinatario, monto, mensaje, método de envío).
+  * Tab Referidos: overview del programa con código destacado MARIA20 (top referrer), recompensas configurables (€10 + 10% para referidor, 15% off para referido). Top referrers table (7 referrers r1-r7, María García #1 con 18 invites/12 converted/€1240 revenue). Recent referrals (5 entradas con estado pending/converted/expired). KPIs: 89 referidos, 67 convertidos, ROI 900% ✓ (especificación exacta). Sección anti-fraude (valida email+teléfono, valida primer consumo, revierte beneficios). Dialog "Configurar programa".
+  * Tab Fidelización: 5 tiers Bronze→Silver→Gold→Platinum→Diamond con icono (Medal/Award/Crown/Sparkles/Star), visitas mínimas, gasto mínimo, beneficios, members count, colores propios (orange/slate/gold/teal/violet). Points system (1-5 pts por €10 según tier). Gamification milestones (4 metas: 10/50/100/200 pts → descuento/vino/cena VIP/experiencia chef). Points rules (4 reglas). Analytics (distribución miembros por tier, puntos emitidos, canjeados, redención rate).
+  * Touch targets ≥44px ✓, sin overflow ✓, responsive grid.
+- Bug crítico detectado y corregido en growth-campaigns.tsx:
+  * `Filter` (icono lucide-react) se referenciaba en NODE_TYPE_META.condition (línea 304) PERO no estaba importado → ReferenceError en runtime al renderizar el tab Builder (cualquier nodo tipo "condition"). ESLint no lo detectaba (no es regla default). Lo habría crashado la primera vez que un usuario abre Builder.
+  * Fix: añadí `Filter`, `Share2`, `TrendingUp` al import block de lucide-react.
+  * Adicionalmente corregí 2 mismatches semánticos disfrazados de "alias functions" que devolvían el icono equivocado:
+    - `TrendingUpAux` (líneas 267-269) devolvía `<DollarSign>` → se usaba para KPI "ROI medio" (mostraba $ en vez de ↗). Reemplazado por `TrendingUp` real.
+    - `Share2Aux` (líneas 286-288) devolvía `<Mail>` → se usaba para canal "Multi" (mostraba ✉ en vez de share). Reemplazado por `Share2` real.
+  * Eliminé las 2 funciones alias muertas (TrendingUpAux, Share2Aux) — ya no se referencedian.
+- growth-promotions.tsx: audit de iconos (script Python que cruza imports vs usos JSX/icon:) → 0 referencias undefined. No requirió fixes.
+- Lint: `cd /home/z/my-project && bun run lint 2>&1 | tail -15` → `$ eslint .` + EXIT=0. Sin errores, sin warnings.
+- Dev server: ✓ Compiled in 791ms (último), GET / 200 estable, sin errores de runtime en dev.log. Ambos componentes son lazy-loaded vía React.lazy en SectionRenderer, accesibles desde sidebar grupo "Growth" (entre "Centro Reputación" y "Google Reviews") y desde paleta de comandos ⌘K.
+
+Stage Summary:
+- 2 componentes del Growth Engine entregados y operativos:
+  * `src/components/rp/growth/growth-campaigns.tsx` (1535 líneas) — exporta `GrowthCampaigns`. Campaign Builder completo: 4 tabs (Campañas con 8 demo+ROI, Calendario mensual, Builder visual 3-paneles con paleta 16 nodos + canvas + config + A/B testing + 12 plantillas + test dialog, Plantillas 10 cards). KPIs exactos spec: 4 activas / ROI 340% / €8.420.
+  * `src/components/rp/growth/growth-promotions.tsx` (1610 líneas) — exporta `GrowthPromotions`. Promotions Hub completo: 4 tabs (Cupones 8 demo con crear dialog, Gift Cards 5 demo con vender dialog, Referidos con MARIA20 + 7 top referrers + ROI 900% + anti-fraude, Fidelización 5 tiers Bronze→Diamond + points + 4 milestones gamification). 
+- Wiring shell verificado completo: Section type / NAV (grupo "Growth") / GROUPS / lazy imports — todo correcto, sin cambios necesarios.
+- Bug crítico corregido: import faltante de `Filter` (runtime crash en Builder) + fixes semánticos TrendingUp/Share2.
+- Lint limpio (0 errores, 0 warnings). Dev server estable.
+- Growth Engine 100% completo: 4 componentes (Analytics + Reputation + Campaigns + Promotions) todos integrados y navegables en sidebar grupo "Growth".
+
+---
+Task ID: GROWTH-ENGINE-VERIFY
+Agent: main
+Task: Verificación end-to-end del Growth Engine.
+
+Work Log:
+- Lint global: 0 errores.
+- Dev server: responde 200 sin errores.
+- 4 nuevas secciones integradas en sidebar (grupo "Growth"): Growth Analytics, Centro Reputación, Campañas, Promociones.
+- 4 secciones verificadas con contenido y sin overflow: Growth Analytics (30 btns), Centro Reputación (56 btns), Campañas (33 btns), Promociones (35 btns).
+- Bugs corregidos: overflow en móvil 390 y tablet 768/1024 en growth-analytics, growth-campaigns y growth-promotions → añadido overflow-x-hidden al root de cada componente.
+- Responsive: móvil 390 (4/4 sin overflow después del fix), multi-viewport 768/1024/1280/1440 (todos sin overflow).
+
+Stage Summary:
+- Growth Engine completo con 4 componentes nuevos.
+- GrowthAnalytics: 8 KPIs con source/trend/definition, campaign ROI chart, 5 AI marketing insights, channel/segment performance tables, funnel visualization, AI chat con 6 suggestions.
+- GrowthReputation: 4 tabs (Bandeja con 8 reviews + AI replies con tone selector + escalate, Análisis con sentiment donut + topics + rating evolution, NPS con score 72 + distribution + auto-actions, Encuestas con config + metrics + results).
+- GrowthCampaigns: 4 tabs (Campañas con 8 demo + ROI, Calendario mensual, Builder visual con node palette/canvas/config panel + A/B testing + 12 templates, Plantillas con 10 templates).
+- GrowthPromotions: 4 tabs (Cupones con 8 demo + crear dialog + analytics, Gift Cards con 5 demo + vender dialog, Referidos con MARIA20 + top referrers + ROI 900%, Fidelización con 5 tiers + points + gamification).

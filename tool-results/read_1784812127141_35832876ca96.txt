@@ -1,0 +1,1439 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     5→import { cn } from "@/lib/utils";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Textarea } from "@/components/ui/textarea";
+    10→import {
+    11→  Tooltip,
+    12→  TooltipContent,
+    13→  TooltipProvider,
+    14→  TooltipTrigger,
+    15→} from "@/components/ui/tooltip";
+    16→import {
+    17→  AlertDialog,
+    18→  AlertDialogAction,
+    19→  AlertDialogCancel,
+    20→  AlertDialogContent,
+    21→  AlertDialogDescription,
+    22→  AlertDialogFooter,
+    23→  AlertDialogHeader,
+    24→  AlertDialogTitle,
+    25→} from "@/components/ui/alert-dialog";
+    26→import { toast } from "@/hooks/use-toast";
+    27→import {
+    28→  TrendingUp,
+    29→  TrendingDown,
+    30→  Info,
+    31→  Sparkles,
+    32→  Send,
+    33→  ArrowRight,
+    34→  Check,
+    35→  X,
+    36→  Mail,
+    37→  MessageSquare,
+    38→  Smartphone,
+    39→  Bell,
+    40→  Share2,
+    41→  Users,
+    42→  Star,
+    43→  Target,
+    44→  DollarSign,
+    45→  MousePointerClick,
+    46→  MailOpen,
+    47→  UserCheck,
+    48→  Gauge,
+    49→  RefreshCw,
+    50→  ChevronRight,
+    51→  Activity,
+    52→} from "lucide-react";
+    53→
+    54→/* =====================================================================
+    55→ * Types
+    56→ * ===================================================================== */
+    57→
+    58→interface Kpi {
+    59→  id: string;
+    60→  label: string;
+    61→  value: string;
+    62→  trend: string;
+    63→  trendUp: boolean;
+    64→  positive: boolean;
+    65→  source: string;
+    66→  period: string;
+    67→  definition: string;
+    68→  icon: React.ElementType;
+    69→  accent: "gold" | "teal";
+    70→}
+    71→
+    72→interface Campaign {
+    73→  id: string;
+    74→  name: string;
+    75→  revenue: number;
+    76→  cost: number;
+    77→}
+    78→
+    79→interface AIInsight {
+    80→  id: string;
+    81→  text: string;
+    82→  confidence: number;
+    83→  impact?: string;
+    84→  category: "ocupacion" | "best_campaign" | "vip" | "channel" | "upsell";
+    85→}
+    86→
+    87→interface ChannelPerf {
+    88→  id: string;
+    89→  name: string;
+    90→  icon: React.ElementType;
+    91→  sent: number;
+    92→  opened: number;
+    93→  ctr: number;
+    94→  conversions: number;
+    95→  revenue: number;
+    96→  roi: number;
+    97→  cost: number;
+    98→}
+    99→
+   100→interface SegmentPerf {
+   101→  id: string;
+   102→  name: string;
+   103→  size: number;
+   104→  campaigns: number;
+   105→  conversions: number;
+   106→  revenue: number;
+   107→  avgTicket: number;
+   108→}
+   109→
+   110→interface FunnelStage {
+   111→  id: string;
+   112→  label: string;
+   113→  value: number;
+   114→  color: string;
+   115→}
+   116→
+   117→interface ChatTurn {
+   118→  id: string;
+   119→  role: "user" | "ai";
+   120→  text: string;
+   121→  data?: { label: string; value: string }[];
+   122→  action?: string;
+   123→  confidence?: number;
+   124→  source?: string;
+   125→}
+   126→
+   127→/* =====================================================================
+   128→ * Demo data
+   129→ * ===================================================================== */
+   130→
+   131→const KPIS: Kpi[] = [
+   132→  {
+   133→    id: "roi",
+   134→    label: "ROI medio campañas",
+   135→    value: "340%",
+   136→    trend: "+45%",
+   137→    trendUp: true,
+   138→    positive: true,
+   139→    source: "Billing + Reservations",
+   140→    period: "Últimos 30 días",
+   141→    definition:
+   142→      "Retorno sobre inversión publicitaria. (Ingresos atribuidos − Coste) / Coste × 100.",
+   143→    icon: Gauge,
+   144→    accent: "gold",
+   145→  },
+   146→  {
+   147→    id: "reservas",
+   148→    label: "Reservas generadas",
+   149→    value: "127",
+   150→    trend: "+18",
+   151→    trendUp: true,
+   152→    positive: true,
+   153→    source: "Campaigns attribution",
+   154→    period: "Últimos 30 días",
+   155→    definition:
+   156→      "Reservas con código de campaña o atribuidas por modelo last-touch.",
+   157→    icon: Target,
+   158→    accent: "teal",
+   159→  },
+   160→  {
+   161→    id: "ingresos",
+   162→    label: "Ingresos atribuidos",
+   163→    value: "€8.420",
+   164→    trend: "+€1.200",
+   165→    trendUp: true,
+   166→    positive: true,
+   167→    source: "Billing + Campaigns",
+   168→    period: "Últimos 30 días",
+   169→    definition:
+   170→      "Ingresos facturados asociados a reservas atribuidas a campañas.",
+   171→    icon: DollarSign,
+   172→    accent: "gold",
+   173→  },
+   174→  {
+   175→    id: "cpa",
+   176→    label: "Coste por adquisición",
+   177→    value: "€4.12",
+   178→    trend: "−€0.80",
+   179→    trendUp: false,
+   180→    positive: true,
+   181→    source: "Billing / new customers",
+   182→    period: "Últimos 30 días",
+   183→    definition:
+   184→      "Coste total de campañas dividido por número de nuevos clientes adquiridos.",
+   185→    icon: UserCheck,
+   186→    accent: "teal",
+   187→  },
+   188→  {
+   189→    id: "ctr",
+   190→    label: "CTR medio",
+   191→    value: "12.4%",
+   192→    trend: "+2.1%",
+   193→    trendUp: true,
+   194→    positive: true,
+   195→    source: "Email + WhatsApp",
+   196→    period: "Últimos 30 días",
+   197→    definition: "Tasa de clics = clics / entregados, agregada por canal.",
+   198→    icon: MousePointerClick,
+   199→    accent: "gold",
+   200→  },
+   201→  {
+   202→    id: "open",
+   203→    label: "Tasa apertura email",
+   204→    value: "38%",
+   205→    trend: "+5%",
+   206→    trendUp: true,
+   207→    positive: true,
+   208→    source: "Email provider",
+   209→    period: "Últimos 30 días",
+   210→    definition: "Aperturas únicas / emails entregados.",
+   211→    icon: MailOpen,
+   212→    accent: "teal",
+   213→  },
+   214→  {
+   215→    id: "react",
+   216→    label: "Clientes recuperados",
+   217→    value: "23",
+   218→    trend: "+8",
+   219→    trendUp: true,
+   220→    positive: true,
+   221→    source: "CRM reactivation campaigns",
+   222→    period: "Últimos 30 días",
+   223→    definition:
+   224→      "Clientes inactivos +90 días que reservaron tras campaña de reactivación.",
+   225→    icon: RefreshCw,
+   226→    accent: "gold",
+   227→  },
+   228→  {
+   229→    id: "nps",
+   230→    label: "NPS",
+   231→    value: "72",
+   232→    trend: "+4",
+   233→    trendUp: true,
+   234→    positive: true,
+   235→    source: "Surveys",
+   236→    period: "Últimos 30 días",
+   237→    definition: "Net Promoter Score = % Promotores − % Detractores.",
+   238→    icon: Star,
+   239→    accent: "teal",
+   240→  },
+   241→];
+   242→
+   243→const CAMPAIGNS: Campaign[] = [
+   244→  { id: "c1", name: "Cumpleaños Marzo", revenue: 1840, cost: 0 },
+   245→  { id: "c2", name: "Menú Mediodía", revenue: 1620, cost: 180 },
+   246→  { id: "c3", name: "VIP Vuelve Pronto", revenue: 1340, cost: 95 },
+   247→  { id: "c4", name: "WhatsApp Flash", revenue: 1180, cost: 60 },
+   248→  { id: "c5", name: "Reactivación 60d", revenue: 980, cost: 120 },
+   249→  { id: "c6", name: "Promo Terraza", revenue: 460, cost: 140 },
+   250→];
+   251→
+   252→const AI_INSIGHTS: AIInsight[] = [
+   253→  {
+   254→    id: "ai1",
+   255→    category: "ocupacion",
+   256→    text:
+   257→      "El martes tienes 45% de ocupación. Crea una campaña para clientes inactivos +60 días con menú especial para dos. Impacto estimado: +€340 ingresos.",
+   258→    confidence: 84,
+   259→    impact: "+€340",
+   260→  },
+   261→  {
+   262→    id: "ai2",
+   263→    category: "best_campaign",
+   264→    text:
+   265→      "La campaña 'Cumpleaños Marzo' generó €1.840 con €0 coste. Es tu mejor campaña. Escala a abril.",
+   266→    confidence: 92,
+   267→    impact: "Escala → +€1.840 esperados",
+   268→  },
+   269→  {
+   270→    id: "ai3",
+   271→    category: "vip",
+   272→    text:
+   273→      "3 clientes VIP no han vuelto en 90 días. Envía oferta personalizada por WhatsApp. Impacto: +€680.",
+   274→    confidence: 88,
+   275→    impact: "+€680",
+   276→  },
+   277→  {
+   278→    id: "ai4",
+   279→    category: "channel",
+   280→    text:
+   281→      "El canal WhatsApp tiene 85% apertura vs 38% email. Prioriza WhatsApp para campañas urgentes.",
+   282→    confidence: 95,
+   283→    impact: "+47pp apertura",
+   284→  },
+   285→  {
+   286→    id: "ai5",
+   287→    category: "upsell",
+   288→    text:
+   289→      "El ticket medio bajó 4%. Sugiere upselling de postres en mesas de 4+. Impacto: +€2/reserva.",
+   290→    confidence: 72,
+   291→    impact: "+€2/reserva",
+   292→  },
+   293→];
+   294→
+   295→const CHANNELS: ChannelPerf[] = [
+   296→  {
+   297→    id: "wa",
+   298→    name: "WhatsApp",
+   299→    icon: MessageSquare,
+   300→    sent: 1240,
+   301→    opened: 1054,
+   302→    ctr: 18.2,
+   303→    conversions: 42,
+   304→    revenue: 3120,
+   305→    roi: 410,
+   306→    cost: 60,
+   307→  },
+   308→  {
+   309→    id: "em",
+   310→    name: "Email",
+   311→    icon: Mail,
+   312→    sent: 3480,
+   313→    opened: 1322,
+   314→    ctr: 9.8,
+   315→    conversions: 38,
+   316→    revenue: 2680,
+   317→    roi: 245,
+   318→    cost: 110,
+   319→  },
+   320→  {
+   321→    id: "sm",
+   322→    name: "SMS",
+   323→    icon: Smartphone,
+   324→    sent: 920,
+   325→    opened: 874,
+   326→    ctr: 14.1,
+   327→    conversions: 21,
+   328→    revenue: 1480,
+   329→    roi: 290,
+   330→    cost: 55,
+   331→  },
+   332→  {
+   333→    id: "ps",
+   334→    name: "Push",
+   335→    icon: Bell,
+   336→    sent: 540,
+   337→    opened: 312,
+   338→    ctr: 7.4,
+   339→    conversions: 12,
+   340→    revenue: 740,
+   341→    roi: 185,
+   342→    cost: 30,
+   343→  },
+   344→  {
+   345→    id: "so",
+   346→    name: "Social",
+   347→    icon: Share2,
+   348→    sent: 8800,
+   349→    opened: 2640,
+   350→    ctr: 6.2,
+   351→    conversions: 14,
+   352→    revenue: 400,
+   353→    roi: 80,
+   354→    cost: 220,
+   355→  },
+   356→];
+   357→
+   358→const SEGMENTS: SegmentPerf[] = [
+   359→  { id: "vip", name: "VIP", size: 48, campaigns: 3, conversions: 18, revenue: 2980, avgTicket: 64 },
+   360→  { id: "freq", name: "Frecuentes", size: 312, campaigns: 5, conversions: 41, revenue: 3180, avgTicket: 41 },
+   361→  { id: "dorm", name: "Dormidos", size: 540, campaigns: 2, conversions: 23, revenue: 1640, avgTicket: 38 },
+   362→  { id: "new", name: "Nuevos", size: 184, campaigns: 4, conversions: 28, revenue: 1620, avgTicket: 39 },
+   363→  { id: "risk", name: "En riesgo", size: 96, campaigns: 1, conversions: 17, revenue: 1180, avgTicket: 36 },
+   364→];
+   365→
+   366→const FUNNEL: FunnelStage[] = [
+   367→  { id: "f1", label: "Visitantes", value: 12480, color: "var(--gold-soft)" },
+   368→  { id: "f2", label: "Leads", value: 4180, color: "var(--gold)" },
+   369→  { id: "f3", label: "Reservas", value: 1270, color: "var(--teal)" },
+   370→  { id: "f4", label: "Asistencias", value: 1164, color: "var(--teal-deep)" },
+   371→  { id: "f5", label: "Recurrentes", value: 412, color: "var(--gold-deep)" },
+   372→  { id: "f6", label: "VIP", value: 48, color: "var(--gold)" },
+   373→];
+   374→
+   375→const CHAT_SUGGESTIONS = [
+   376→  "¿Qué campaña generó más ingresos?",
+   377→  "¿Qué clientes debería recuperar?",
+   378→  "¿Qué promoción funcionó mejor?",
+   379→  "¿Qué canal tiene mejor retorno?",
+   380→  "¿Por qué bajó el ticket medio?",
+   381→  "¿Qué día tendrá menor ocupación?",
+   382→];
+   383→
+   384→const AI_RESPONSES: Record<
+   385→  string,
+   386→  { text: string; data: { label: string; value: string }[]; action: string; confidence: number; source: string }
+   387→> = {
+   388→  "¿Qué campaña generó más ingresos?": {
+   389→    text:
+   390→      "La campaña 'Cumpleaños Marzo' generó €1.840 con coste cero — es la más rentable del mes. La segunda es 'Menú Mediodía' con €1.620 (ROI 800%).",
+   391→    data: [
+   392→      { label: "Top campaña", value: "Cumpleaños Marzo" },
+   393→      { label: "Ingresos", value: "€1.840" },
+   394→      { label: "Coste", value: "€0" },
+   395→      { label: "ROI", value: "∞ (sin coste)" },
+   396→    ],
+   397→    action: "Escalar 'Cumpleaños Marzo' a abril replicando segmento y oferta.",
+   398→    confidence: 92,
+   399→    source: "Campaigns attribution · Billing",
+   400→  },
+   401→  "¿Qué clientes debería recuperar?": {
+   402→    text:
+   403→      "Detecté 23 clientes dormidos (+90 días) con ticket medio superior a €50. De ellos, 3 son VIP. El mejor canal para reactivación es WhatsApp (85% apertura).",
+   404→    data: [
+   405→      { label: "Dormidos +90d", value: "23" },
+   406→      { label: "De ellos VIP", value: "3" },
+   407→      { label: "Ticket medio histórico", value: "€52" },
+   408→      { label: "Canal recomendado", value: "WhatsApp" },
+   409→    ],
+   410→    action: "Lanzar campaña 'VIP Vuelve Pronto' por WhatsApp con oferta personalizada.",
+   411→    confidence: 88,
+   412→    source: "CRM · Campaigns",
+   413→  },
+   414→  "¿Qué promoción funcionó mejor?": {
+   415→    text:
+   416→      "La promo 'Menú para dos entre semana' tuvo el CTR más alto (22%) y convirtió 38 reservas en 7 días. La 'Promo Terraza' fue la peor: €460 ingresos con €140 coste.",
+   417→    data: [
+   418→      { label: "Mejor promo", value: "Menú para dos" },
+   419→      { label: "CTR", value: "22%" },
+   420→      { label: "Conversiones", value: "38" },
+   421→      { label: "ROI", value: "800%" },
+   422→    ],
+   423→    action: "Repetir 'Menú para dos' en abril. Pausar 'Promo Terraza'.",
+   424→    confidence: 86,
+   425→    source: "Campaigns attribution",
+   426→  },
+   427→  "¿Qué canal tiene mejor retorno?": {
+   428→    text:
+   429→      "WhatsApp tiene el mejor ROI (410%) y la mejor tasa de apertura (85%). Email genera más volumen pero con ROI 245%. Social es el menos eficiente (ROI 80%).",
+   430→    data: [
+   431→      { label: "Mejor ROI", value: "WhatsApp · 410%" },
+   432→      { label: "Mayor volumen", value: "Email · 3.480 envíos" },
+   433→      { label: "Menor ROI", value: "Social · 80%" },
+   434→      { label: "Recomendado", value: "WhatsApp prioritario" },
+   435→    ],
+   436→    action: "Priorizar WhatsApp para campañas urgentes y segmentos VIP.",
+   437→    confidence: 95,
+   438→    source: "Channel attribution · Billing",
+   439→  },
+   440→  "¿Por qué bajó el ticket medio?": {
+   441→    text:
+   442→      "El ticket medio bajó 4% (de €42 a €40). Causas: ↑ reservas de mesas de 2 (+12%), ↓ venta de postres (−18%), mayor proporción de menú mediodía (ticket €28).",
+   443→    data: [
+   444→      { label: "Ticket actual", value: "€40" },
+   445→      { label: "Variación", value: "−4%" },
+   446→      { label: "Postres (venta)", value: "−18%" },
+   447→      { label: "Mesas de 2", value: "+12%" },
+   448→    ],
+   449→    action: "Activar upselling de postres en mesas de 4+ con formación de sala.",
+   450→    confidence: 72,
+   451→    source: "Billing · Reservations",
+   452→  },
+   453→  "¿Qué día tendrá menor ocupación?": {
+   454→    text:
+   455→      "El próximo martes se proyecta 45% de ocupación (vs 78% media). El martes histórico es el día más flojo. Miércoles 52%. Recomiendo campaña focalizada en esos dos días.",
+   456→    data: [
+   457→      { label: "Día más flojo", value: "Martes · 45%" },
+   458→      { label: "Segundo peor", value: "Miércoles · 52%" },
+   459→      { label: "Capacidad libre", value: "~55 cubiertos" },
+   460→      { label: "Segmento óptimo", value: "Dormidos +60d" },
+   461→    ],
+   462→    action: "Crear campaña 'Martes para dos' con menú especial para clientes inactivos.",
+   463→    confidence: 84,
+   464→    source: "Predictions · Reservations history",
+   465→  },
+   466→};
+   467→
+   468→/* =====================================================================
+   469→ * Helpers
+   470→ * ===================================================================== */
+   471→
+   472→function fmtEUR(n: number): string {
+   473→  return "€" + n.toLocaleString("es-ES");
+   474→}
+   475→
+   476→function confidenceColor(c: number): string {
+   477→  if (c >= 90) return "text-emerald-300";
+   478→  if (c >= 80) return "rp-teal-text";
+   479→  if (c >= 70) return "text-amber-300";
+   480→  return "text-destructive";
+   481→}
+   482→
+   483→function confidenceRing(c: number): string {
+   484→  if (c >= 90) return "border-emerald-400/40 bg-emerald-400/10";
+   485→  if (c >= 80) return "border-[var(--teal)]/40 bg-[var(--teal)]/10";
+   486→  if (c >= 70) return "border-amber-400/40 bg-amber-400/10";
+   487→  return "border-destructive/40 bg-destructive/10";
+   488→}
+   489→
+   490→/* =====================================================================
+   491→ * Shared UI atoms
+   492→ * ===================================================================== */
+   493→
+   494→function InfoDot({ text }: { text: string }) {
+   495→  return (
+   496→    <TooltipProvider delayDuration={150}>
+   497→      <Tooltip>
+   498→        <TooltipTrigger asChild>
+   499→          <button
+   500→            type="button"
+   501→            aria-label="Definición de métrica"
+   502→            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-foreground/20 text-muted-foreground transition-colors hover:border-[var(--gold)]/50 hover:text-[var(--gold)]"
+   503→          >
+   504→            <Info className="h-2.5 w-2.5" />
+   505→          </button>
+   506→        </TooltipTrigger>
+   507→        <TooltipContent
+   508→          side="top"
+   509→          className="max-w-xs text-xs leading-relaxed border-border/60"
+   510→        >
+   511→          {text}
+   512→        </TooltipContent>
+   513→      </Tooltip>
+   514→    </TooltipProvider>
+   515→  );
+   516→}
+   517→
+   518→function TrendBadge({
+   519→  trend,
+   520→  trendUp,
+   521→  positive,
+   522→}: {
+   523→  trend: string;
+   524→  trendUp: boolean;
+   525→  positive: boolean;
+   526→}) {
+   527→  const good = positive;
+   528→  const Icon = trendUp ? TrendingUp : TrendingDown;
+   529→  return (
+   530→    <span
+   531→      className={cn(
+   532→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-mono",
+   533→        good
+   534→          ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+   535→          : "border-destructive/40 bg-destructive/10 text-destructive"
+   536→      )}
+   537→    >
+   538→      <Icon className="h-3 w-3" />
+   539→      {trend}
+   540→    </span>
+   541→  );
+   542→}
+   543→
+   544→function DemoBadge() {
+   545→  return (
+   546→    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+   547→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+   548→      demo
+   549→    </span>
+   550→  );
+   551→}
+   552→
+   553→function MiniBadge({
+   554→  children,
+   555→  tone = "default",
+   556→}: {
+   557→  children: React.ReactNode;
+   558→  tone?: "default" | "gold" | "teal";
+   559→}) {
+   560→  const tones: Record<string, string> = {
+   561→    default: "border-foreground/15 bg-foreground/5 text-muted-foreground",
+   562→    gold: "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   563→    teal: "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]",
+   564→  };
+   565→  return (
+   566→    <span
+   567→      className={cn(
+   568→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   569→        tones[tone]
+   570→      )}
+   571→    >
+   572→      {children}
+   573→    </span>
+   574→  );
+   575→}
+   576→
+   577→/* =====================================================================
+   578→ * KPI strip
+   579→ * ===================================================================== */
+   580→
+   581→function KpiCard({ kpi, index }: { kpi: Kpi; index: number }) {
+   582→  const reduce = useReducedMotion();
+   583→  const Icon = kpi.icon;
+   584→  const accentColor =
+   585→    kpi.accent === "gold" ? "var(--gold)" : "var(--teal)";
+   586→  return (
+   587→    <motion.div
+   588→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   589→      animate={{ opacity: 1, y: 0 }}
+   590→      transition={{ duration: 0.35, delay: Math.min(index * 0.04, 0.4), ease: "easeOut" }}
+   591→      className="rp-glass rounded-xl p-4 transition-colors hover:border-foreground/15"
+   592→    >
+   593→      <div className="flex items-start justify-between gap-2">
+   594→        <div className="flex items-center gap-1.5">
+   595→          <span
+   596→            className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground"
+   597→            style={{ color: accentColor }}
+   598→          >
+   599→            <Icon className="inline h-3 w-3 mr-1" />
+   600→            {kpi.label}
+   601→          </span>
+   602→        </div>
+   603→        <InfoDot text={kpi.definition} />
+   604→      </div>
+   605→      <div className="mt-3 font-display text-2xl sm:text-3xl font-light text-foreground">
+   606→        {kpi.value}
+   607→      </div>
+   608→      <div className="mt-2 flex items-center gap-2">
+   609→        <TrendBadge trend={kpi.trend} trendUp={kpi.trendUp} positive={kpi.positive} />
+   610→      </div>
+   611→      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+   612→        <MiniBadge>{kpi.source}</MiniBadge>
+   613→        <MiniBadge tone={kpi.accent}>{kpi.period}</MiniBadge>
+   614→      </div>
+   615→    </motion.div>
+   616→  );
+   617→}
+   618→
+   619→function KpiStrip() {
+   620→  return (
+   621→    <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+   622→      {KPIS.map((kpi, i) => (
+   623→        <KpiCard key={kpi.id} kpi={kpi} index={i} />
+   624→      ))}
+   625→    </div>
+   626→  );
+   627→}
+   628→
+   629→/* =====================================================================
+   630→ * Campaign ROI chart (SVG bars)
+   631→ * ===================================================================== */
+   632→
+   633→function CampaignRoiChart() {
+   634→  const reduce = useReducedMotion();
+   635→  const width = 720;
+   636→  const height = 280;
+   637→  const padL = 40;
+   638→  const padR = 16;
+   639→  const padT = 32;
+   640→  const padB = 56;
+   641→  const innerW = width - padL - padR;
+   642→  const innerH = height - padT - padB;
+   643→  const maxV = Math.max(...CAMPAIGNS.map((c) => Math.max(c.revenue, c.cost))) * 1.1;
+   644→  const groupW = innerW / CAMPAIGNS.length;
+   645→  const barW = Math.min(18, groupW / 3.4);
+   646→
+   647→  const yTicks = [0, 500, 1000, 1500, 2000];
+   648→  return (
+   649→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+   650→      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+   651→        <div>
+   652→          <h3 className="font-display text-lg font-medium">ROI por campaña</h3>
+   653→          <p className="text-xs text-muted-foreground mt-0.5">
+   654→            Ingresos vs coste por campaña · 6 campañas activas
+   655→          </p>
+   656→        </div>
+   657→        <div className="flex flex-wrap items-center gap-3 text-xs">
+   658→          <span className="inline-flex items-center gap-1.5">
+   659→            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--gold)" }} />
+   660→            <span className="text-muted-foreground">Ingresos</span>
+   661→          </span>
+   662→          <span className="inline-flex items-center gap-1.5">
+   663→            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#ef4444" }} />
+   664→            <span className="text-muted-foreground">Coste</span>
+   665→          </span>
+   666→          <span className="inline-flex items-center gap-1.5">
+   667→            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--teal)" }} />
+   668→            <span className="text-muted-foreground">ROI</span>
+   669→          </span>
+   670→        </div>
+   671→      </div>
+   672→      <div className="overflow-x-auto rp-scroll-thin -mx-1">
+   673→        <svg
+   674→          viewBox={`0 0 ${width} ${height}`}
+   675→          className="w-full min-w-[640px]"
+   676→          role="img"
+   677→          aria-label="Gráfico de barras de ROI por campaña"
+   678→        >
+   679→          {/* y grid */}
+   680→          {yTicks.map((t, i) => {
+   681→            const y = padT + innerH - (t / maxV) * innerH;
+   682→            return (
+   683→              <g key={i}>
+   684→                <line
+   685→                  x1={padL}
+   686→                  x2={width - padR}
+   687→                  y1={y}
+   688→                  y2={y}
+   689→                  stroke="currentColor"
+   690→                  className="text-foreground/8"
+   691→                  strokeDasharray="2 4"
+   692→                />
+   693→                <text
+   694→                  x={padL - 8}
+   695→                  y={y + 3}
+   696→                  textAnchor="end"
+   697→                  className="fill-muted-foreground font-mono"
+   698→                  fontSize="9"
+   699→                >
+   700→                  €{t}
+   701→                </text>
+   702→              </g>
+   703→            );
+   704→          })}
+   705→          {/* bars */}
+   706→          {CAMPAIGNS.map((c, i) => {
+   707→            const x0 = padL + i * groupW + (groupW - barW * 2 - 6) / 2;
+   708→            const revenueH = (c.revenue / maxV) * innerH;
+   709→            const costH = (c.cost / maxV) * innerH;
+   710→            const revenueY = padT + innerH - revenueH;
+   711→            const costY = padT + innerH - costH;
+   712→            const roi = c.cost === 0 ? Infinity : Math.round(((c.revenue - c.cost) / c.cost) * 100);
+   713→            const roiLabel = c.cost === 0 ? "∞" : `${roi}%`;
+   714→            return (
+   715→              <g key={c.id}>
+   716→                <motion.rect
+   717→                  x={x0}
+   718→                  y={reduce ? revenueY : padT + innerH}
+   719→                  width={barW}
+   720→                  height={reduce ? revenueH : 0}
+   721→                  fill="var(--gold)"
+   722→                  rx={2}
+   723→                  initial={false}
+   724→                  animate={
+   725→                    reduce
+   726→                      ? {}
+   727→                      : { y: revenueY, height: revenueH }
+   728→                  }
+   729→                  transition={{ duration: 0.6, delay: i * 0.06, ease: "easeOut" }}
+   730→                />
+   731→                <motion.rect
+   732→                  x={x0 + barW + 6}
+   733→                  y={reduce ? costY : padT + innerH}
+   734→                  width={barW}
+   735→                  height={reduce ? costH : 0}
+   736→                  fill="#ef4444"
+   737→                  rx={2}
+   738→                  initial={false}
+   739→                  animate={reduce ? {} : { y: costY, height: costH }}
+   740→                  transition={{ duration: 0.6, delay: i * 0.06 + 0.1, ease: "easeOut" }}
+   741→                />
+   742→                {/* ROI label on top */}
+   743→                <motion.text
+   744→                  x={x0 + barW + 3}
+   745→                  y={revenueY - 6}
+   746→                  textAnchor="middle"
+   747→                  className="fill-[var(--teal)] font-mono"
+   748→                  fontSize="10"
+   749→                  fontWeight="600"
+   750→                  initial={reduce ? false : { opacity: 0 }}
+   751→                  animate={{ opacity: 1 }}
+   752→                  transition={{ duration: 0.3, delay: i * 0.06 + 0.5 }}
+   753→                >
+   754→                  {roiLabel}
+   755→                </motion.text>
+   756→                {/* x label */}
+   757→                <text
+   758→                  x={x0 + barW + 3}
+   759→                  y={padT + innerH + 16}
+   760→                  textAnchor="middle"
+   761→                  className="fill-muted-foreground"
+   762→                  fontSize="9.5"
+   763→                >
+   764→                  {c.name.length > 16 ? c.name.slice(0, 15) + "…" : c.name}
+   765→                </text>
+   766→                <text
+   767→                  x={x0 + barW + 3}
+   768→                  y={padT + innerH + 28}
+   769→                  textAnchor="middle"
+   770→                  className="fill-foreground/50 font-mono"
+   771→                  fontSize="8.5"
+   772→                >
+   773→                  {fmtEUR(c.revenue)} · {fmtEUR(c.cost)}
+   774→                </text>
+   775→              </g>
+   776→            );
+   777→          })}
+   778→        </svg>
+   779→      </div>
+   780→    </div>
+   781→  );
+   782→}
+   783→
+   784→/* =====================================================================
+   785→ * AI Marketing Insights panel
+   786→ * ===================================================================== */
+   787→
+   788→const CATEGORY_META: Record<
+   789→  AIInsight["category"],
+   790→  { label: string; icon: React.ElementType; tone: "gold" | "teal" }
+   791→> = {
+   792→  ocupacion: { label: "Ocupación", icon: Activity, tone: "gold" },
+   793→  best_campaign: { label: "Mejor campaña", icon: Target, tone: "gold" },
+   794→  vip: { label: "VIP", icon: Users, tone: "teal" },
+   795→  channel: { label: "Canal", icon: Share2, tone: "teal" },
+   796→  upsell: { label: "Upsell", icon: TrendingUp, tone: "gold" },
+   797→};
+   798→
+   799→function AIInsightsPanel() {
+   800→  const reduce = useReducedMotion();
+   801→  const [active, setActive] = React.useState<Set<string>>(new Set());
+   802→  const [rejected, setRejected] = React.useState<Set<string>>(new Set());
+   803→
+   804→  const visible = AI_INSIGHTS.filter((i) => !rejected.has(i.id));
+   805→  const activeCount = visible.length;
+   806→
+   807→  function accept(id: string) {
+   808→    setActive((s) => new Set(s).add(id));
+   809→    toast({
+   810→      title: "Campaña creada",
+   811→      description: "La IA ha preparado el borrador de campaña. Revisa y programa.",
+   812→    });
+   813→  }
+   814→  function reject(id: string) {
+   815→    setRejected((s) => new Set(s).add(id));
+   816→    toast({ title: "Recomendación descartada", description: "La IA registrará el feedback." });
+   817→  }
+   818→
+   819→  return (
+   820→    <div className="rp-glass rp-glow-teal rounded-2xl p-5 sm:p-6">
+   821→      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+   822→        <div className="flex items-center gap-2.5">
+   823→          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--teal)]/12 border border-[var(--teal)]/40">
+   824→            <Sparkles className="h-4.5 w-4.5 text-[var(--teal)]" />
+   825→          </span>
+   826→          <div>
+   827→            <h3 className="font-display text-lg font-medium">IA Marketing</h3>
+   828→            <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+   829→              Modelo: glm-4-flash · {activeCount} recomendaciones activas
+   830→            </p>
+   831→          </div>
+   832→        </div>
+   833→        <MiniBadge tone="teal">Autoanalítica</MiniBadge>
+   834→      </div>
+   835→
+   836→      <div className="space-y-3">
+   837→        <AnimatePresence mode="popLayout">
+   838→          {visible.map((ins, i) => {
+   839→            const meta = CATEGORY_META[ins.category];
+   840→            const Icon = meta.icon;
+   841→            const isActive = active.has(ins.id);
+   842→            return (
+   843→              <motion.div
+   844→                key={ins.id}
+   845→                layout={!reduce}
+   846→                initial={reduce ? false : { opacity: 0, y: 8 }}
+   847→                animate={{ opacity: 1, y: 0 }}
+   848→                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8 }}
+   849→                transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.2) }}
+   850→                className={cn(
+   851→                  "rounded-xl border p-4 transition-colors",
+   852→                  isActive
+   853→                    ? "border-emerald-400/40 bg-emerald-400/[0.06]"
+   854→                    : "border-foreground/10 bg-foreground/[0.025] hover:border-[var(--teal)]/30"
+   855→                )}
+   856→              >
+   857→                <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+   858→                  <div className="flex items-start gap-3 flex-1 min-w-0">
+   859→                    <span
+   860→                      className={cn(
+   861→                        "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border",
+   862→                        meta.tone === "gold"
+   863→                          ? "border-[var(--gold)]/35 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   864→                          : "border-[var(--teal)]/35 bg-[var(--teal)]/10 text-[var(--teal)]"
+   865→                      )}
+   866→                    >
+   867→                      <Icon className="h-3.5 w-3.5" />
+   868→                    </span>
+   869→                    <div className="min-w-0 flex-1">
+   870→                      <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+   871→                        <MiniBadge tone={meta.tone}>{meta.label}</MiniBadge>
+   872→                        {ins.impact && (
+   873→                          <MiniBadge tone="gold">Impacto {ins.impact}</MiniBadge>
+   874→                        )}
+   875→                        <span
+   876→                          className={cn(
+   877→                            "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono",
+   878→                            confidenceRing(ins.confidence)
+   879→                          )}
+   880→                        >
+   881→                          <span className={confidenceColor(ins.confidence)}>●</span>
+   882→                          <span className={confidenceColor(ins.confidence)}>
+   883→                            Confianza {ins.confidence}%
+   884→                          </span>
+   885→                        </span>
+   886→                      </div>
+   887→                      <p className="text-sm leading-relaxed text-foreground/90">{ins.text}</p>
+   888→                    </div>
+   889→                  </div>
+   890→                </div>
+   891→                {isActive ? (
+   892→                  <div className="mt-3 flex items-center gap-2 text-xs text-emerald-300">
+   893→                    <Check className="h-3.5 w-3.5" />
+   894→                    Campaña creada · revisa el borrador en Campaigns Builder
+   895→                  </div>
+   896→                ) : (
+   897→                  <div className="mt-3 flex flex-wrap gap-2">
+   898→                    <Button
+   899→                      size="sm"
+   900→                      onClick={() => accept(ins.id)}
+   901→                      className="h-8 bg-[var(--gold)] text-[var(--primary-foreground)] hover:bg-[var(--gold-deep)]"
+   902→                    >
+   903→                      <Sparkles className="h-3.5 w-3.5 mr-1" />
+   904→                      Crear campaña
+   905→                    </Button>
+   906→                    <Button
+   907→                      size="sm"
+   908→                      variant="outline"
+   909→                      onClick={() => reject(ins.id)}
+   910→                      className="h-8 border-foreground/15 hover:text-destructive hover:border-destructive/40"
+   911→                    >
+   912→                      <X className="h-3.5 w-3.5 mr-1" />
+   913→                      Rechazar
+   914→                    </Button>
+   915→                    <Button
+   916→                      size="sm"
+   917→                      variant="ghost"
+   918→                      className="h-8 text-muted-foreground hover:text-foreground"
+   919→                    >
+   920→                      Ver detalle
+   921→                      <ChevronRight className="h-3.5 w-3.5 ml-0.5" />
+   922→                    </Button>
+   923→                  </div>
+   924→                )}
+   925→              </motion.div>
+   926→            );
+   927→          })}
+   928→        </AnimatePresence>
+   929→        {visible.length === 0 && (
+   930→          <div className="text-center py-8 text-sm text-muted-foreground">
+   931→            No hay recomendaciones activas. La IA analizará nuevos datos pronto.
+   932→          </div>
+   933→        )}
+   934→      </div>
+   935→
+   936→      <div className="mt-4 flex items-start gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3">
+   937→        <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+   938→        <p className="text-[11px] leading-relaxed text-muted-foreground">
+   939→          La IA analiza datos históricos y actuales. No garantiza resultados. El humano decide.
+   940→        </p>
+   941→      </div>
+   942→    </div>
+   943→  );
+   944→}
+   945→
+   946→/* =====================================================================
+   947→ * Channel performance table
+   948→ * ===================================================================== */
+   949→
+   950→function ChannelTable() {
+   951→  return (
+   952→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+   953→      <div className="mb-4 flex items-center justify-between gap-2">
+   954→        <div>
+   955→          <h3 className="font-display text-lg font-medium">Rendimiento por canal</h3>
+   956→          <p className="text-xs text-muted-foreground mt-0.5">
+   957→            Envíos, apertura, CTR, conversiones, ROI · últimos 30 días
+   958→          </p>
+   959→        </div>
+   960→        <MiniBadge>5 canales</MiniBadge>
+   961→      </div>
+   962→      <div className="overflow-x-auto rp-scroll-thin">
+   963→        <table className="w-full border-collapse text-sm min-w-[760px]">
+   964→          <thead>
+   965→            <tr className="border-b border-border/60 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   966→              <th className="px-3 py-2.5">Canal</th>
+   967→              <th className="px-3 py-2.5 text-right">Enviados</th>
+   968→              <th className="px-3 py-2.5 text-right">Apertura</th>
+   969→              <th className="px-3 py-2.5 text-right">CTR</th>
+   970→              <th className="px-3 py-2.5 text-right">Conv.</th>
+   971→              <th className="px-3 py-2.5 text-right">Ingresos</th>
+   972→              <th className="px-3 py-2.5 text-right">Coste</th>
+   973→              <th className="px-3 py-2.5 text-right">ROI</th>
+   974→            </tr>
+   975→          </thead>
+   976→          <tbody>
+   977→            {CHANNELS.map((c) => {
+   978→              const Icon = c.icon;
+   979→              const openPct = ((c.opened / c.sent) * 100).toFixed(0);
+   980→              return (
+   981→                <tr
+   982→                  key={c.id}
+   983→                  className="border-b border-border/40 last:border-0 transition-colors hover:bg-foreground/[0.025]"
+   984→                >
+   985→                  <td className="px-3 py-2.5 font-medium">
+   986→                    <span className="inline-flex items-center gap-2">
+   987→                      <span className="flex h-6 w-6 items-center justify-center rounded-md bg-foreground/5 text-muted-foreground">
+   988→                        <Icon className="h-3.5 w-3.5" />
+   989→                      </span>
+   990→                      {c.name}
+   991→                    </span>
+   992→                  </td>
+   993→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{c.sent.toLocaleString("es-ES")}</td>
+   994→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{c.opened.toLocaleString("es-ES")} ({openPct}%)</td>
+   995→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{c.ctr}%</td>
+   996→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{c.conversions}</td>
+   997→                  <td className="px-3 py-2.5 text-right font-mono rp-gold-text">{fmtEUR(c.revenue)}</td>
+   998→                  <td className="px-3 py-2.5 text-right font-mono text-destructive/80">{fmtEUR(c.cost)}</td>
+   999→                  <td className="px-3 py-2.5 text-right font-mono rp-teal-text">{c.roi}%</td>
+  1000→                </tr>
+  1001→              );
+  1002→            })}
+  1003→          </tbody>
+  1004→        </table>
+  1005→      </div>
+  1006→    </div>
+  1007→  );
+  1008→}
+  1009→
+  1010→/* =====================================================================
+  1011→ * Segment performance table
+  1012→ * ===================================================================== */
+  1013→
+  1014→function SegmentTable() {
+  1015→  return (
+  1016→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1017→      <div className="mb-4 flex items-center justify-between gap-2">
+  1018→        <div>
+  1019→          <h3 className="font-display text-lg font-medium">Rendimiento por segmento</h3>
+  1020→          <p className="text-xs text-muted-foreground mt-0.5">
+  1021→            Tamaño, campañas, conversiones, ingresos, ticket medio
+  1022→          </p>
+  1023→        </div>
+  1024→        <MiniBadge>5 segmentos</MiniBadge>
+  1025→      </div>
+  1026→      <div className="overflow-x-auto rp-scroll-thin">
+  1027→        <table className="w-full border-collapse text-sm min-w-[680px]">
+  1028→          <thead>
+  1029→            <tr className="border-b border-border/60 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1030→              <th className="px-3 py-2.5">Segmento</th>
+  1031→              <th className="px-3 py-2.5 text-right">Tamaño</th>
+  1032→              <th className="px-3 py-2.5 text-right">Camp.</th>
+  1033→              <th className="px-3 py-2.5 text-right">Conv.</th>
+  1034→              <th className="px-3 py-2.5 text-right">Ingresos</th>
+  1035→              <th className="px-3 py-2.5 text-right">Ticket medio</th>
+  1036→            </tr>
+  1037→          </thead>
+  1038→          <tbody>
+  1039→            {SEGMENTS.map((s) => (
+  1040→              <tr
+  1041→                key={s.id}
+  1042→                className="border-b border-border/40 last:border-0 transition-colors hover:bg-foreground/[0.025]"
+  1043→              >
+  1044→                <td className="px-3 py-2.5 font-medium">{s.name}</td>
+  1045→                <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{s.size}</td>
+  1046→                <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{s.campaigns}</td>
+  1047→                <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{s.conversions}</td>
+  1048→                <td className="px-3 py-2.5 text-right font-mono rp-gold-text">{fmtEUR(s.revenue)}</td>
+  1049→                <td className="px-3 py-2.5 text-right font-mono rp-teal-text">€{s.avgTicket}</td>
+  1050→              </tr>
+  1051→            ))}
+  1052→          </tbody>
+  1053→        </table>
+  1054→      </div>
+  1055→    </div>
+  1056→  );
+  1057→}
+  1058→
+  1059→/* =====================================================================
+  1060→ * Funnel visualization
+  1061→ * ===================================================================== */
+  1062→
+  1063→function FunnelChart() {
+  1064→  const reduce = useReducedMotion();
+  1065→  const width = 720;
+  1066→  const height = 280;
+  1067→  const padT = 16;
+  1068→  const padB = 36;
+  1069→  const innerH = height - padT - padB;
+  1070→  const maxV = FUNNEL[0].value;
+  1071→  const stageW = width / FUNNEL.length;
+  1072→
+  1073→  return (
+  1074→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1075→      <div className="mb-4 flex items-center justify-between gap-2">
+  1076→        <div>
+  1077→          <h3 className="font-display text-lg font-medium">Embudo de conversión</h3>
+  1078→          <p className="text-xs text-muted-foreground mt-0.5">
+  1079→            Visitantes → Leads → Reservas → Asistencias → Recurrentes → VIP
+  1080→          </p>
+  1081→        </div>
+  1082→        <MiniBadge tone="gold">6 etapas</MiniBadge>
+  1083→      </div>
+  1084→      <div className="overflow-x-auto rp-scroll-thin -mx-1">
+  1085→        <svg
+  1086→          viewBox={`0 0 ${width} ${height}`}
+  1087→          className="w-full min-w-[640px]"
+  1088→          role="img"
+  1089→          aria-label="Embudo de conversión de marketing"
+  1090→        >
+  1091→          {FUNNEL.map((stage, i) => {
+  1092→            const ratio = stage.value / maxV;
+  1093→            const w = stageW * 0.86 * ratio + stageW * 0.08;
+  1094→            const x = i * stageW + (stageW - w) / 2;
+  1095→            const h = innerH * 0.72;
+  1096→            const y = padT + (innerH - h) / 2;
+  1097→            const prevValue = i > 0 ? FUNNEL[i - 1].value : null;
+  1098→            const conv = prevValue ? ((stage.value / prevValue) * 100).toFixed(1) : null;
+  1099→            return (
+  1100→              <g key={stage.id}>
+  1101→                {conv && (
+  1102→                  <motion.g
+  1103→                    initial={reduce ? false : { opacity: 0 }}
+  1104→                    animate={{ opacity: 1 }}
+  1105→                    transition={{ delay: i * 0.08 + 0.3, duration: 0.3 }}
+  1106→                  >
+  1107→                    <line
+  1108→                      x1={i * stageW - 4}
+  1109→                      x2={i * stageW + 4}
+  1110→                      y1={y + h / 2}
+  1111→                      y2={y + h / 2}
+  1112→                      stroke="var(--teal)"
+  1113→                      strokeWidth="1"
+  1114→                      strokeDasharray="2 2"
+  1115→                    />
+  1116→                    <text
+  1117→                      x={i * stageW}
+  1118→                      y={y + h / 2 - 8}
+  1119→                      textAnchor="middle"
+  1120→                      className="fill-[var(--teal)] font-mono"
+  1121→                      fontSize="10"
+  1122→                      fontWeight="600"
+  1123→                    >
+  1124→                      {conv}%
+  1125→                    </text>
+  1126→                  </motion.g>
+  1127→                )}
+  1128→                <motion.rect
+  1129→                  x={x}
+  1130→                  y={reduce ? y : y + h}
+  1131→                  width={w}
+  1132→                  height={reduce ? h : 0}
+  1133→                  rx={6}
+  1134→                  fill={stage.color}
+  1135→                  opacity={0.92}
+  1136→                  initial={false}
+  1137→                  animate={reduce ? {} : { y, height: h }}
+  1138→                  transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+  1139→                />
+  1140→                <text
+  1141→                  x={i * stageW + stageW / 2}
+  1142→                  y={y + h / 2 - 4}
+  1143→                  textAnchor="middle"
+  1144→                  className="fill-background font-display"
+  1145→                  fontSize="13"
+  1146→                  fontWeight="600"
+  1147→                >
+  1148→                  {stage.value.toLocaleString("es-ES")}
+  1149→                </text>
+  1150→                <text
+  1151→                  x={i * stageW + stageW / 2}
+  1152→                  y={y + h / 2 + 12}
+  1153→                  textAnchor="middle"
+  1154→                  className="fill-background/80 font-mono"
+  1155→                  fontSize="9"
+  1156→                >
+  1157→                  {stage.label}
+  1158→                </text>
+  1159→              </g>
+  1160→            );
+  1161→          })}
+  1162→          {/* baseline */}
+  1163→          <line
+  1164→            x1={0}
+  1165→            x2={width}
+  1166→            y1={height - padB + 8}
+  1167→            y2={height - padB + 8}
+  1168→            stroke="currentColor"
+  1169→            className="text-foreground/8"
+  1170→          />
+  1171→        </svg>
+  1172→      </div>
+  1173→    </div>
+  1174→  );
+  1175→}
+  1176→
+  1177→/* =====================================================================
+  1178→ * AI Chat (mini)
+  1179→ * ===================================================================== */
+  1180→
+  1181→function AIChat() {
+  1182→  const reduce = useReducedMotion();
+  1183→  const [turns, setTurns] = React.useState<ChatTurn[]>([]);
+  1184→  const [input, setInput] = React.useState("");
+  1185→  const [thinking, setThinking] = React.useState(false);
+  1186→  const endRef = React.useRef<HTMLDivElement>(null);
+  1187→
+  1188→  React.useEffect(() => {
+  1189→    endRef.current?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "nearest" });
+  1190→  }, [turns, thinking, reduce]);
+  1191→
+  1192→  function ask(question: string) {
+  1193→    if (!question.trim()) return;
+  1194→    const userTurn: ChatTurn = { id: `u-${Date.now()}`, role: "user", text: question };
+  1195→    setTurns((t) => [...t, userTurn]);
+  1196→    setInput("");
+  1197→    setThinking(true);
+  1198→
+  1199→    setTimeout(() => {
+  1200→      const match =
+  1201→        AI_RESPONSES[question] ||
+  1202→        Object.values(AI_RESPONSES).find((r) =>
+  1203→          question.toLowerCase().includes(question.toLowerCase().split(" ")[0])
+  1204→        );
+  1205→      const r = match || AI_RESPONSES["¿Qué campaña generó más ingresos?"];
+  1206→      const aiTurn: ChatTurn = {
+  1207→        id: `a-${Date.now()}`,
+  1208→        role: "ai",
+  1209→        text: r.text,
+  1210→        data: r.data,
+  1211→        action: r.action,
+  1212→        confidence: r.confidence,
+  1213→        source: r.source,
+  1214→      };
+  1215→      setTurns((t) => [...t, aiTurn]);
+  1216→      setThinking(false);
+  1217→    }, 850);
+  1218→  }
+  1219→
+  1220→  return (
+  1221→    <div className="rp-glass rounded-2xl p-5 sm:p-6 flex flex-col">
+  1222→      <div className="mb-4 flex items-center justify-between gap-2">
+  1223→        <div className="flex items-center gap-2.5">
+  1224→          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--teal)]/12 border border-[var(--teal)]/40">
+  1225→            <Sparkles className="h-4 w-4 text-[var(--teal)]" />
+  1226→          </span>
+  1227→          <div>
+  1228→            <h3 className="font-display text-lg font-medium">Habla con tu marketing</h3>
+  1229→            <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+  1230→              glm-4-flash · contexto en vivo
+  1231→            </p>
+  1232→          </div>
+  1233→        </div>
+  1234→        <MiniBadge tone="teal">IA</MiniBadge>
+  1235→      </div>
+  1236→
+  1237→      <div className="flex-1 min-h-[220px] max-h-[360px] overflow-y-auto rp-scroll-thin rounded-xl border border-foreground/10 bg-foreground/[0.02] p-3 mb-3">
+  1238→        {turns.length === 0 && !thinking && (
+  1239→          <div className="h-full flex flex-col items-center justify-center text-center text-sm text-muted-foreground py-8">
+  1240→            <Sparkles className="h-6 w-6 mb-2 text-[var(--teal)]/60" />
+  1241→            Pregúntale a la IA sobre tu marketing…
+  1242→          </div>
+  1243→        )}
+  1244→        <div className="space-y-3">
+  1245→          <AnimatePresence initial={false}>
+  1246→            {turns.map((t) => (
+  1247→              <motion.div
+  1248→                key={t.id}
+  1249→                initial={reduce ? false : { opacity: 0, y: 6 }}
+  1250→                animate={{ opacity: 1, y: 0 }}
+  1251→                className={cn(
+  1252→                  "flex",
+  1253→                  t.role === "user" ? "justify-end" : "justify-start"
+  1254→                )}
+  1255→              >
+  1256→                <div
+  1257→                  className={cn(
+  1258→                    "max-w-[85%] rounded-xl px-3.5 py-2.5 text-sm leading-relaxed",
+  1259→                    t.role === "user"
+  1260→                      ? "bg-[var(--gold)]/15 border border-[var(--gold)]/30 text-foreground"
+  1261→                      : "bg-foreground/[0.04] border border-foreground/10 text-foreground"
+  1262→                  )}
+  1263→                >
+  1264→                  {t.role === "ai" && (
+  1265→                    <div className="flex items-center gap-1.5 mb-1.5">
+  1266→                      <Sparkles className="h-3 w-3 text-[var(--teal)]" />
+  1267→                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
+  1268→                        IA Marketing
+  1269→                      </span>
+  1270→                    </div>
+  1271→                  )}
+  1272→                  <p>{t.text}</p>
+  1273→                  {t.role === "ai" && t.data && (
+  1274→                    <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+  1275→                      {t.data.map((d, i) => (
+  1276→                        <div
+  1277→                          key={i}
+  1278→                          className="rounded-md border border-foreground/10 bg-foreground/[0.03] px-2 py-1.5"
+  1279→                        >
+  1280→                          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1281→                            {d.label}
+  1282→                          </div>
+  1283→                          <div className="text-xs font-medium mt-0.5">{d.value}</div>
+  1284→                        </div>
+  1285→                      ))}
+  1286→                    </div>
+  1287→                  )}
+  1288→                  {t.role === "ai" && t.action && (
+  1289→                    <div className="mt-2.5 flex items-start gap-1.5 rounded-md border border-[var(--gold)]/30 bg-[var(--gold)]/[0.06] px-2.5 py-1.5">
+  1290→                      <ArrowRight className="h-3 w-3 mt-0.5 text-[var(--gold)] shrink-0" />
+  1291→                      <div>
+  1292→                        <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1293→                          Acción recomendada
+  1294→                        </div>
+  1295→                        <div className="text-xs mt-0.5">{t.action}</div>
+  1296→                      </div>
+  1297→                    </div>
+  1298→                  )}
+  1299→                  {t.role === "ai" && t.confidence != null && (
+  1300→                    <div className="mt-2 flex items-center gap-2 text-[10px] font-mono">
+  1301→                      <span className={cn("inline-flex items-center gap-1", confidenceColor(t.confidence))}>
+  1302→                        ● Confianza {t.confidence}%
+  1303→                      </span>
+  1304→                      {t.source && (
+  1305→                        <span className="text-muted-foreground">· {t.source}</span>
+  1306→                      )}
+  1307→                    </div>
+  1308→                  )}
+  1309→                </div>
+  1310→              </motion.div>
+  1311→            ))}
+  1312→            {thinking && (
+  1313→              <motion.div
+  1314→                initial={{ opacity: 0 }}
+  1315→                animate={{ opacity: 1 }}
+  1316→                exit={{ opacity: 0 }}
+  1317→                className="flex justify-start"
+  1318→              >
+  1319→                <div className="rounded-xl bg-foreground/[0.04] border border-foreground/10 px-3.5 py-2.5">
+  1320→                  <div className="flex items-center gap-1.5">
+  1321→                    {[0, 1, 2].map((i) => (
+  1322→                      <motion.span
+  1323→                        key={i}
+  1324→                        className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]"
+  1325→                        animate={reduce ? {} : { opacity: [0.3, 1, 0.3] }}
+  1326→                        transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
+  1327→                      />
+  1328→                    ))}
+  1329→                  </div>
+  1330→                </div>
+  1331→              </motion.div>
+  1332→            )}
+  1333→          </AnimatePresence>
+  1334→        </div>
+  1335→        <div ref={endRef} />
+  1336→      </div>
+  1337→
+  1338→      {/* Suggestions */}
+  1339→      <div className="flex flex-wrap gap-1.5 mb-3">
+  1340→        {CHAT_SUGGESTIONS.map((s) => (
+  1341→          <button
+  1342→            key={s}
+  1343→            onClick={() => ask(s)}
+  1344→            className="inline-flex items-center rounded-full border border-foreground/15 bg-foreground/[0.03] px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:border-[var(--teal)]/40 hover:text-[var(--teal)] min-h-[28px]"
+  1345→          >
+  1346→            {s}
+  1347→          </button>
+  1348→        ))}
+  1349→      </div>
+  1350→
+  1351→      <form
+  1352→        onSubmit={(e) => {
+  1353→          e.preventDefault();
+  1354→          ask(input);
+  1355→        }}
+  1356→        className="flex items-center gap-2"
+  1357→      >
+  1358→        <Input
+  1359→          value={input}
+  1360→          onChange={(e) => setInput(e.target.value)}
+  1361→          placeholder="Pregúntale a la IA sobre tu marketing…"
+  1362→          className="h-10 bg-foreground/[0.03] border-foreground/15"
+  1363→          aria-label="Pregunta a la IA"
+  1364→        />
+  1365→        <Button
+  1366→          type="submit"
+  1367→          size="icon"
+  1368→          className="h-10 w-10 bg-[var(--teal)] text-background hover:bg-[var(--teal-deep)] shrink-0"
+  1369→          aria-label="Enviar pregunta"
+  1370→        >
+  1371→          <Send className="h-4 w-4" />
+  1372→        </Button>
+  1373→      </form>
+  1374→    </div>
+  1375→  );
+  1376→}
+  1377→
+  1378→/* =====================================================================
+  1379→ * Main component
+  1380→ * ===================================================================== */
+  1381→
+  1382→export function GrowthAnalytics() {
+  1383→  const reduce = useReducedMotion();
+  1384→  return (
+  1385→    <div className="space-y-6">
+  1386→      {/* Header */}
+  1387→      <motion.header
+  1388→        initial={reduce ? false : { opacity: 0, y: 8 }}
+  1389→        animate={{ opacity: 1, y: 0 }}
+  1390→        transition={{ duration: 0.35, ease: "easeOut" }}
+  1391→        className="flex flex-wrap items-center justify-between gap-3"
+  1392→      >
+  1393→        <div>
+  1394→          <div className="flex items-center gap-2.5">
+  1395→            <h2 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+  1396→              Growth Analytics
+  1397→            </h2>
+  1398→            <DemoBadge />
+  1399→            <MiniBadge tone="teal">
+  1400→              <Sparkles className="h-3 w-3" />
+  1401→              IA Marketing
+  1402→            </MiniBadge>
+  1403→          </div>
+  1404→          <p className="mt-1 text-sm text-muted-foreground">
+  1405→            ROI, conversiones, insights y predicciones para tu marketing.
+  1406→          </p>
+  1407→        </div>
+  1408→        <div className="hidden sm:flex items-center gap-2">
+  1409→          <MiniBadge>Últimos 30 días</MiniBadge>
+  1410→          <MiniBadge tone="gold">8 KPIs</MiniBadge>
+  1411→        </div>
+  1412→      </motion.header>
+  1413→
+  1414→      {/* KPI strip */}
+  1415→      <KpiStrip />
+  1416→
+  1417→      {/* Chart + AI insights */}
+  1418→      <div className="grid gap-6 lg:grid-cols-2">
+  1419→        <CampaignRoiChart />
+  1420→        <AIInsightsPanel />
+  1421→      </div>
+  1422→
+  1423→      {/* Tables */}
+  1424→      <div className="grid gap-6 lg:grid-cols-2">
+  1425→        <ChannelTable />
+  1426→        <SegmentTable />
+  1427→      </div>
+  1428→
+  1429→      {/* Funnel + Chat */}
+  1430→      <div className="grid gap-6 lg:grid-cols-2">
+  1431→        <FunnelChart />
+  1432→        <AIChat />
+  1433→      </div>
+  1434→    </div>
+  1435→  );
+  1436→}
+  1437→
+  1438→export default GrowthAnalytics;
+  1439→

@@ -1,0 +1,1404 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { Button } from "@/components/ui/button";
+     6→import { Input } from "@/components/ui/input";
+     7→import { Textarea } from "@/components/ui/textarea";
+     8→import { Badge } from "@/components/ui/badge";
+     9→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    10→import {
+    11→  Select,
+    12→  SelectContent,
+    13→  SelectItem,
+    14→  SelectTrigger,
+    15→  SelectValue,
+    16→} from "@/components/ui/select";
+    17→import {
+    18→  Dialog,
+    19→  DialogContent,
+    20→  DialogDescription,
+    21→  DialogFooter,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→} from "@/components/ui/dialog";
+    25→import {
+    26→  AlertDialog,
+    27→  AlertDialogAction,
+    28→  AlertDialogCancel,
+    29→  AlertDialogContent,
+    30→  AlertDialogDescription,
+    31→  AlertDialogFooter,
+    32→  AlertDialogHeader,
+    33→  AlertDialogTitle,
+    34→} from "@/components/ui/alert-dialog";
+    35→import {
+    36→  Tooltip,
+    37→  TooltipContent,
+    38→  TooltipProvider,
+    39→  TooltipTrigger,
+    40→} from "@/components/ui/tooltip";
+    41→import {
+    42→  Megaphone,
+    43→  Users,
+    44→  Mail,
+    45→  MessageSquare,
+    46→  Smartphone,
+    47→  Plus,
+    48→  Play,
+    49→  Pause,
+    50→  Copy,
+    51→  Trash2,
+    52→  Send,
+    53→  ChevronRight,
+    54→  Filter,
+    55→  Sparkles,
+    56→  Calendar,
+    57→  TrendingUp,
+    58→  Eye,
+    59→  MousePointerClick,
+    60→  CheckCircle2,
+    61→  Clock,
+    62→  FileText,
+    63→  Inbox,
+    64→} from "lucide-react";
+    65→
+    66→/* ------------------------------------------------------------------ */
+    67→/* Types & demo data                                                  */
+    68→/* ------------------------------------------------------------------ */
+    69→
+    70→type Channel = "email" | "whatsapp" | "sms";
+    71→type CampaignStatus = "borrador" | "activa" | "pausada" | "finalizada";
+    72→
+    73→interface Segment {
+    74→  id: string;
+    75→  name: string;
+    76→  rule: string;
+    77→  count: number;
+    78→  field: SegmentField;
+    79→  operator: SegmentOperator;
+    80→  value: string;
+    81→}
+    82→
+    83→interface Campaign {
+    84→  id: string;
+    85→  name: string;
+    86→  segmentId: string;
+    87→  channel: Channel;
+    88→  status: CampaignStatus;
+    89→  sent: number;
+    90→  openRate: number;
+    91→  ctr: number;
+    92→  createdAt: string;
+    93→  templateId: string;
+    94→}
+    95→
+    96→interface Template {
+    97→  id: string;
+    98→  name: string;
+    99→  channel: Channel;
+   100→  subject: string;
+   101→  preview: string;
+   102→  lastUsed: string;
+   103→  body: string;
+   104→}
+   105→
+   106→type SegmentField = "visitas" | "ltv" | "ultima_visita" | "etiqueta" | "cumpleanos_mes";
+   107→type SegmentOperator = "eq" | "gte" | "lte" | "in" | "not_in";
+   108→
+   109→const FIELD_LABELS: Record<SegmentField, string> = {
+   110→  visitas: "Visitas totales",
+   111→  ltv: "LTV (€)",
+   112→  ultima_visita: "Días desde última visita",
+   113→  etiqueta: "Etiqueta",
+   114→  cumpleanos_mes: "Cumpleaños en mes",
+   115→};
+   116→
+   117→const OPERATOR_LABELS: Record<SegmentOperator, string> = {
+   118→  eq: "=",
+   119→  gte: "≥",
+   120→  lte: "≤",
+   121→  in: "es uno de",
+   122→  not_in: "no es ninguno de",
+   123→};
+   124→
+   125→const DEMO_SEGMENTS: Segment[] = [
+   126→  {
+   127→    id: "s1",
+   128→    name: "VIP",
+   129→    rule: "Etiqueta = VIP",
+   130→    count: 12,
+   131→    field: "etiqueta",
+   132→    operator: "eq",
+   133→    value: "VIP",
+   134→  },
+   135→  {
+   136→    id: "s2",
+   137→    name: "Inactivos 90 días",
+   138→    rule: "Días desde última visita ≥ 90",
+   139→    count: 184,
+   140→    field: "ultima_visita",
+   141→    operator: "gte",
+   142→    value: "90",
+   143→  },
+   144→  {
+   145→    id: "s3",
+   146→    name: "Cumpleaños este mes",
+   147→    rule: "Cumpleaños en mes = actual",
+   148→    count: 37,
+   149→    field: "cumpleanos_mes",
+   150→    operator: "eq",
+   151→    value: "actual",
+   152→  },
+   153→  {
+   154→    id: "s4",
+   155→    name: "Riesgo de no-show",
+   156→    rule: "Etiqueta = riesgo AND visitas ≤ 5",
+   157→    count: 9,
+   158→    field: "etiqueta",
+   159→    operator: "eq",
+   160→    value: "riesgo",
+   161→  },
+   162→  {
+   163→    id: "s5",
+   164→    name: "Clientes nuevos",
+   165→    rule: "Visitas totales ≤ 1",
+   166→    count: 56,
+   167→    field: "visitas",
+   168→    operator: "lte",
+   169→    value: "1",
+   170→  },
+   171→];
+   172→
+   173→const DEMO_TEMPLATES: Template[] = [
+   174→  {
+   175→    id: "t1",
+   176→    name: "Recordatorio de reserva T-24h",
+   177→    channel: "email",
+   178→    subject: "Te esperamos mañana, {{nombre}}",
+   179→    preview: "Confirmamos tu reserva para {{fecha}} a las {{hora}}…",
+   180→    lastUsed: "Hace 2 días",
+   181→    body: "Hola {{nombre}},\n\nTe recordamos tu reserva en {{restaurante}} para {{fecha}} a las {{hora}}.\n\n¿Necesitas modificar algo? Respóndenos a este correo.\n\n¡Te esperamos!",
+   182→  },
+   183→  {
+   184→    id: "t2",
+   185→    name: "Cupón de cumpleaños",
+   186→    channel: "whatsapp",
+   187→    subject: "🎁 Feliz cumpleaños, {{nombre}}",
+   188→    preview: "Tienes un postre de cortesía para canjear esta semana…",
+   189→    lastUsed: "Hace 5 días",
+   190→    body: "¡Feliz cumpleaños, {{nombre}}! 🎂\n\nPara celebrarlo te invitamos a un postre de cortesía en tu próxima visita (válido hasta {{valido_hasta}}).\n\nMenciona este mensaje al reservar.",
+   191→  },
+   192→  {
+   193→    id: "t3",
+   194→    name: "Recuperación inactivos",
+   195→    channel: "email",
+   196→    subject: "Te echamos de menos, {{nombre}}",
+   197→    preview: "Hace un tiempo que no vienes por aquí…",
+   198→    lastUsed: "Hace 1 semana",
+   199→    body: "Hola {{nombre}},\n\nHace {{dias}} días que no vienes por {{restaurante}}. Te invitamos a volver con un 15% de descuento en tu próxima cena.\n\nUsa el código TE-ECHAMOS-DE-MENOS al reservar.",
+   200→  },
+   201→  {
+   202→    id: "t4",
+   203→    name: "Confirmación SMS",
+   204→    channel: "sms",
+   205→    subject: "Reserva confirmada",
+   206→    preview: "{{restaurante}}: tu mesa para {{pax}} el {{fecha}} a las {{hora}} está confirmada.",
+   207→    lastUsed: "Hace 3 días",
+   208→    body: "{{restaurante}}: tu mesa para {{pax}} el {{fecha}} a las {{hora}} está confirmada. Responde STOP para cancelar avisos.",
+   209→  },
+   210→];
+   211→
+   212→const DEMO_CAMPAIGNS: Campaign[] = [
+   213→  {
+   214→    id: "c1",
+   215→    name: "Cupón cumpleaños marzo",
+   216→    segmentId: "s3",
+   217→    channel: "whatsapp",
+   218→    status: "activa",
+   219→    sent: 28,
+   220→    openRate: 82,
+   221→    ctr: 41,
+   222→    createdAt: "10 mar 2025",
+   223→    templateId: "t2",
+   224→  },
+   225→  {
+   226→    id: "c2",
+   227→    name: "Recuperación inactivos Q1",
+   228→    segmentId: "s2",
+   229→    channel: "email",
+   230→    status: "pausada",
+   231→    sent: 120,
+   232→    openRate: 34,
+   233→    ctr: 12,
+   234→    createdAt: "01 mar 2025",
+   235→    templateId: "t3",
+   236→  },
+   237→  {
+   238→    id: "c3",
+   239→    name: "Bienvenida clientes nuevos",
+   240→    segmentId: "s5",
+   241→    channel: "email",
+   242→    status: "activa",
+   243→    sent: 56,
+   244→    openRate: 68,
+   245→    ctr: 28,
+   246→    createdAt: "20 feb 2025",
+   247→    templateId: "t1",
+   248→  },
+   249→  {
+   250→    id: "c4",
+   251→    name: "Cena VIP exclusiva",
+   252→    segmentId: "s1",
+   253→    channel: "sms",
+   254→    status: "borrador",
+   255→    sent: 0,
+   256→    openRate: 0,
+   257→    ctr: 0,
+   258→    createdAt: "16 mar 2025",
+   259→    templateId: "t4",
+   260→  },
+   261→];
+   262→
+   263→/* ------------------------------------------------------------------ */
+   264→/* Helpers                                                            */
+   265→/* ------------------------------------------------------------------ */
+   266→
+   267→const CHANNEL_META: Record<Channel, { label: string; icon: React.ElementType; tone: string }> = {
+   268→  email: { label: "Email", icon: Mail, tone: "border-sky-400/40 bg-sky-400/10 text-sky-300" },
+   269→  whatsapp: { label: "WhatsApp", icon: MessageSquare, tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" },
+   270→  sms: { label: "SMS", icon: Smartphone, tone: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]" },
+   271→};
+   272→
+   273→const STATUS_META: Record<CampaignStatus, { label: string; tone: string; icon: React.ElementType }> = {
+   274→  borrador: { label: "Borrador", tone: "border-foreground/25 bg-foreground/5 text-muted-foreground", icon: FileText },
+   275→  activa: { label: "Activa", tone: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", icon: Play },
+   276→  pausada: { label: "Pausada", tone: "border-amber-400/40 bg-amber-400/10 text-amber-300", icon: Pause },
+   277→  finalizada: { label: "Finalizada", tone: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]", icon: CheckCircle2 },
+   278→};
+   279→
+   280→function DemoBadge({ className }: { className?: string }) {
+   281→  return (
+   282→    <span
+   283→      className={cn(
+   284→        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
+   285→        className
+   286→      )}
+   287→    >
+   288→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+   289→      demo
+   290→    </span>
+   291→  );
+   292→}
+   293→
+   294→function ChannelPill({ channel }: { channel: Channel }) {
+   295→  const m = CHANNEL_META[channel];
+   296→  const Icon = m.icon;
+   297→  return (
+   298→    <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-medium", m.tone)}>
+   299→      <Icon className="h-3 w-3" aria-hidden />
+   300→      {m.label}
+   301→    </span>
+   302→  );
+   303→}
+   304→
+   305→function StatusPill({ status }: { status: CampaignStatus }) {
+   306→  const m = STATUS_META[status];
+   307→  const Icon = m.icon;
+   308→  return (
+   309→    <span className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider", m.tone)}>
+   310→      <Icon className="h-3 w-3" aria-hidden />
+   311→      {m.label}
+   312→    </span>
+   313→  );
+   314→}
+   315→
+   316→function SectionLabel({
+   317→  icon: Icon,
+   318→  children,
+   319→}: {
+   320→  icon: React.ElementType;
+   321→  children: React.ReactNode;
+   322→}) {
+   323→  return (
+   324→    <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   325→      <Icon className="h-3.5 w-3.5 text-[var(--gold)]" aria-hidden />
+   326→      {children}
+   327→    </div>
+   328→  );
+   329→}
+   330→
+   331→/* ------------------------------------------------------------------ */
+   332→/* Empty states                                                       */
+   333→/* ------------------------------------------------------------------ */
+   334→
+   335→function EmptyState({
+   336→  icon: Icon,
+   337→  title,
+   338→  description,
+   339→  actionLabel,
+   340→  onAction,
+   341→}: {
+   342→  icon: React.ElementType;
+   343→  title: string;
+   344→  description: string;
+   345→  actionLabel?: string;
+   346→  onAction?: () => void;
+   347→}) {
+   348→  return (
+   349→    <div className="rp-glass flex flex-col items-center justify-center rounded-2xl p-10 text-center">
+   350→      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-foreground/[0.03]">
+   351→        <Icon className="h-6 w-6 text-muted-foreground" aria-hidden />
+   352→      </div>
+   353→      <h3 className="mt-4 font-display text-lg font-medium tracking-tight">{title}</h3>
+   354→      <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{description}</p>
+   355→      {actionLabel && onAction && (
+   356→        <Button className="mt-4" variant="outline" onClick={onAction}>
+   357→          <Plus className="h-4 w-4" aria-hidden />
+   358→          {actionLabel}
+   359→        </Button>
+   360→      )}
+   361→    </div>
+   362→  );
+   363→}
+   364→
+   365→/* ------------------------------------------------------------------ */
+   366→/* New segment dialog (rule builder)                                  */
+   367→/* ------------------------------------------------------------------ */
+   368→
+   369→function NewSegmentDialog({
+   370→  open,
+   371→  onOpenChange,
+   372→  onCreate,
+   373→}: {
+   374→  open: boolean;
+   375→  onOpenChange: (v: boolean) => void;
+   376→  onCreate: (s: Omit<Segment, "id" | "count">) => void;
+   377→}) {
+   378→  const [name, setName] = React.useState("");
+   379→  const [field, setField] = React.useState<SegmentField>("visitas");
+   380→  const [operator, setOperator] = React.useState<SegmentOperator>("gte");
+   381→  const [value, setValue] = React.useState("");
+   382→  const [errors, setErrors] = React.useState<{ name?: string; value?: string }>({});
+   383→
+   384→  React.useEffect(() => {
+   385→    if (open) {
+   386→      setName("");
+   387→      setField("visitas");
+   388→      setOperator("gte");
+   389→      setValue("");
+   390→      setErrors({});
+   391→    }
+   392→  }, [open]);
+   393→
+   394→  function handleSubmit(ev: React.FormEvent) {
+   395→    ev.preventDefault();
+   396→    const e: typeof errors = {};
+   397→    if (!name.trim()) e.name = "El nombre del segmento es obligatorio.";
+   398→    if (!value.trim()) e.value = "El valor de la regla es obligatorio.";
+   399→    setErrors(e);
+   400→    if (Object.keys(e).length > 0) return;
+   401→
+   402→    const rule = `${FIELD_LABELS[field]} ${OPERATOR_LABELS[operator]} ${value}`;
+   403→    onCreate({ name: name.trim(), rule, field, operator, value: value.trim() });
+   404→    onOpenChange(false);
+   405→  }
+   406→
+   407→  return (
+   408→    <Dialog open={open} onOpenChange={onOpenChange}>
+   409→      <DialogContent className="sm:max-w-lg">
+   410→        <DialogHeader>
+   411→          <DialogTitle>Nuevo segmento</DialogTitle>
+   412→          <DialogDescription>
+   413→            Define una regla simple. Las reglas avanzadas (AND/OR, anidadas) están disponibles en el builder completo.
+   414→          </DialogDescription>
+   415→        </DialogHeader>
+   416→        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+   417→          <div className="space-y-2">
+   418→            <label htmlFor="seg-name" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   419→              Nombre del segmento <span className="text-destructive">*</span>
+   420→            </label>
+   421→            <Input
+   422→              id="seg-name"
+   423→              value={name}
+   424→              onChange={(e) => setName(e.target.value)}
+   425→              placeholder="Ej. Clientes alto LTV"
+   426→              aria-invalid={!!errors.name}
+   427→              aria-describedby={errors.name ? "seg-name-err" : undefined}
+   428→            />
+   429→            {errors.name && (
+   430→              <p id="seg-name-err" className="text-[11px] text-destructive" role="alert">
+   431→                {errors.name}
+   432→              </p>
+   433→            )}
+   434→          </div>
+   435→
+   436→          <div className="rounded-lg border border-border/60 bg-foreground/[0.02] p-3">
+   437→            <div className="mb-2 flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   438→              <Filter className="h-3 w-3 text-[var(--teal)]" aria-hidden />
+   439→              Regla
+   440→            </div>
+   441→            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+   442→              <div className="space-y-1">
+   443→                <label htmlFor="seg-field" className="text-[11px] text-muted-foreground">Campo</label>
+   444→                <Select value={field} onValueChange={(v) => setField(v as SegmentField)}>
+   445→                  <SelectTrigger id="seg-field" aria-label="Campo de la regla">
+   446→                    <SelectValue />
+   447→                  </SelectTrigger>
+   448→                  <SelectContent>
+   449→                    {(Object.keys(FIELD_LABELS) as SegmentField[]).map((f) => (
+   450→                      <SelectItem key={f} value={f}>{FIELD_LABELS[f]}</SelectItem>
+   451→                    ))}
+   452→                  </SelectContent>
+   453→                </Select>
+   454→              </div>
+   455→              <div className="space-y-1">
+   456→                <label htmlFor="seg-op" className="text-[11px] text-muted-foreground">Operador</label>
+   457→                <Select value={operator} onValueChange={(v) => setOperator(v as SegmentOperator)}>
+   458→                  <SelectTrigger id="seg-op" aria-label="Operador de la regla">
+   459→                    <SelectValue />
+   460→                  </SelectTrigger>
+   461→                  <SelectContent>
+   462→                    {(Object.keys(OPERATOR_LABELS) as SegmentOperator[]).map((o) => (
+   463→                      <SelectItem key={o} value={o}>{OPERATOR_LABELS[o]}</SelectItem>
+   464→                    ))}
+   465→                  </SelectContent>
+   466→                </Select>
+   467→              </div>
+   468→              <div className="space-y-1">
+   469→                <label htmlFor="seg-val" className="text-[11px] text-muted-foreground">
+   470→                  Valor <span className="text-destructive">*</span>
+   471→                </label>
+   472→                <Input
+   473→                  id="seg-val"
+   474→                  value={value}
+   475→                  onChange={(e) => setValue(e.target.value)}
+   476→                  placeholder="Ej. 100"
+   477→                  aria-invalid={!!errors.value}
+   478→                  aria-describedby={errors.value ? "seg-val-err" : undefined}
+   479→                />
+   480→              </div>
+   481→            </div>
+   482→            {errors.value && (
+   483→              <p id="seg-val-err" className="mt-2 text-[11px] text-destructive" role="alert">
+   484→                {errors.value}
+   485→              </p>
+   486→            )}
+   487→            <p className="mt-2 text-[11px] text-muted-foreground">
+   488→              Vista previa:{" "}
+   489→              <span className="font-mono text-foreground/80">
+   490→                {FIELD_LABELS[field]} {OPERATOR_LABELS[operator]} {value || "…"}
+   491→              </span>
+   492→            </p>
+   493→          </div>
+   494→
+   495→          <DialogFooter>
+   496→            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+   497→              Cancelar
+   498→            </Button>
+   499→            <Button type="submit">
+   500→              <Plus className="h-4 w-4" aria-hidden />
+   501→              Crear segmento
+   502→            </Button>
+   503→          </DialogFooter>
+   504→        </form>
+   505→      </DialogContent>
+   506→    </Dialog>
+   507→  );
+   508→}
+   509→
+   510→/* ------------------------------------------------------------------ */
+   511→/* New campaign dialog                                                */
+   512→/* ------------------------------------------------------------------ */
+   513→
+   514→function NewCampaignDialog({
+   515→  open,
+   516→  onOpenChange,
+   517→  segments,
+   518→  templates,
+   519→  onCreate,
+   520→}: {
+   521→  open: boolean;
+   522→  onOpenChange: (v: boolean) => void;
+   523→  segments: Segment[];
+   524→  templates: Template[];
+   525→  onCreate: (c: Omit<Campaign, "id" | "status" | "sent" | "openRate" | "ctr" | "createdAt">) => void;
+   526→}) {
+   527→  const [name, setName] = React.useState("");
+   528→  const [segmentId, setSegmentId] = React.useState<string>("");
+   529→  const [channel, setChannel] = React.useState<Channel>("email");
+   530→  const [templateId, setTemplateId] = React.useState<string>("");
+   531→  const [errors, setErrors] = React.useState<{ name?: string; segmentId?: string; templateId?: string }>({});
+   532→
+   533→  React.useEffect(() => {
+   534→    if (open) {
+   535→      setName("");
+   536→      setSegmentId(segments[0]?.id ?? "");
+   537→      setChannel("email");
+   538→      setTemplateId(templates[0]?.id ?? "");
+   539→      setErrors({});
+   540→    }
+   541→  }, [open, segments, templates]);
+   542→
+   543→  function handleSubmit(ev: React.FormEvent) {
+   544→    ev.preventDefault();
+   545→    const e: typeof errors = {};
+   546→    if (!name.trim()) e.name = "El nombre es obligatorio.";
+   547→    if (!segmentId) e.segmentId = "Selecciona un segmento.";
+   548→    if (!templateId) e.templateId = "Selecciona una plantilla.";
+   549→    setErrors(e);
+   550→    if (Object.keys(e).length > 0) return;
+   551→    onCreate({ name: name.trim(), segmentId, channel, templateId });
+   552→    onOpenChange(false);
+   553→  }
+   554→
+   555→  return (
+   556→    <Dialog open={open} onOpenChange={onOpenChange}>
+   557→      <DialogContent className="sm:max-w-lg">
+   558→        <DialogHeader>
+   559→          <DialogTitle>Nueva campaña</DialogTitle>
+   560→          <DialogDescription>
+   561→            La campaña se crea como borrador. Podrás activarla cuando esté lista.
+   562→          </DialogDescription>
+   563→        </DialogHeader>
+   564→        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+   565→          <div className="space-y-2">
+   566→            <label htmlFor="camp-name" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   567→              Nombre <span className="text-destructive">*</span>
+   568→            </label>
+   569→            <Input
+   570→              id="camp-name"
+   571→              value={name}
+   572→              onChange={(e) => setName(e.target.value)}
+   573→              placeholder="Ej. Promoción primavera VIP"
+   574→              aria-invalid={!!errors.name}
+   575→              aria-describedby={errors.name ? "camp-name-err" : undefined}
+   576→            />
+   577→            {errors.name && (
+   578→              <p id="camp-name-err" className="text-[11px] text-destructive" role="alert">
+   579→                {errors.name}
+   580→              </p>
+   581→            )}
+   582→          </div>
+   583→
+   584→          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+   585→            <div className="space-y-2">
+   586→              <label htmlFor="camp-seg" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   587→                Segmento <span className="text-destructive">*</span>
+   588→              </label>
+   589→              <Select value={segmentId} onValueChange={setSegmentId}>
+   590→                <SelectTrigger id="camp-seg" aria-label="Segmento de la campaña">
+   591→                  <SelectValue placeholder="Selecciona…" />
+   592→                </SelectTrigger>
+   593→                <SelectContent>
+   594→                  {segments.map((s) => (
+   595→                    <SelectItem key={s.id} value={s.id}>
+   596→                      {s.name} ({s.count})
+   597→                    </SelectItem>
+   598→                  ))}
+   599→                </SelectContent>
+   600→              </Select>
+   601→              {errors.segmentId && (
+   602→                <p className="text-[11px] text-destructive" role="alert">{errors.segmentId}</p>
+   603→              )}
+   604→            </div>
+   605→
+   606→            <div className="space-y-2">
+   607→              <label htmlFor="camp-chan" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   608→                Canal
+   609→              </label>
+   610→              <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
+   611→                <SelectTrigger id="camp-chan" aria-label="Canal de la campaña">
+   612→                  <SelectValue />
+   613→                </SelectTrigger>
+   614→                <SelectContent>
+   615→                  <SelectItem value="email">Email</SelectItem>
+   616→                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+   617→                  <SelectItem value="sms">SMS</SelectItem>
+   618→                </SelectContent>
+   619→              </Select>
+   620→            </div>
+   621→          </div>
+   622→
+   623→          <div className="space-y-2">
+   624→            <label htmlFor="camp-tpl" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   625→              Plantilla <span className="text-destructive">*</span>
+   626→            </label>
+   627→            <Select value={templateId} onValueChange={setTemplateId}>
+   628→              <SelectTrigger id="camp-tpl" aria-label="Plantilla de la campaña">
+   629→                <SelectValue placeholder="Selecciona…" />
+   630→              </SelectTrigger>
+   631→              <SelectContent>
+   632→                {templates.map((t) => (
+   633→                  <SelectItem key={t.id} value={t.id}>
+   634→                    {t.name}
+   635→                  </SelectItem>
+   636→                ))}
+   637→              </SelectContent>
+   638→            </Select>
+   639→            {errors.templateId && (
+   640→              <p className="text-[11px] text-destructive" role="alert">{errors.templateId}</p>
+   641→            )}
+   642→          </div>
+   643→
+   644→          <DialogFooter>
+   645→            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+   646→              Cancelar
+   647→            </Button>
+   648→            <Button type="submit">
+   649→              <Plus className="h-4 w-4" aria-hidden />
+   650→              Crear campaña (borrador)
+   651→            </Button>
+   652→          </DialogFooter>
+   653→        </form>
+   654→      </DialogContent>
+   655→    </Dialog>
+   656→  );
+   657→}
+   658→
+   659→/* ------------------------------------------------------------------ */
+   660→/* New template dialog                                                */
+   661→/* ------------------------------------------------------------------ */
+   662→
+   663→function NewTemplateDialog({
+   664→  open,
+   665→  onOpenChange,
+   666→  onCreate,
+   667→}: {
+   668→  open: boolean;
+   669→  onOpenChange: (v: boolean) => void;
+   670→  onCreate: (t: Omit<Template, "id" | "lastUsed">) => void;
+   671→}) {
+   672→  const [name, setName] = React.useState("");
+   673→  const [channel, setChannel] = React.useState<Channel>("email");
+   674→  const [subject, setSubject] = React.useState("");
+   675→  const [body, setBody] = React.useState("");
+   676→  const [errors, setErrors] = React.useState<{ name?: string; subject?: string; body?: string }>({});
+   677→
+   678→  React.useEffect(() => {
+   679→    if (open) {
+   680→      setName("");
+   681→      setChannel("email");
+   682→      setSubject("");
+   683→      setBody("");
+   684→      setErrors({});
+   685→    }
+   686→  }, [open]);
+   687→
+   688→  function handleSubmit(ev: React.FormEvent) {
+   689→    ev.preventDefault();
+   690→    const e: typeof errors = {};
+   691→    if (!name.trim()) e.name = "El nombre es obligatorio.";
+   692→    if (!subject.trim()) e.subject = "El asunto es obligatorio.";
+   693→    if (!body.trim()) e.body = "El cuerpo no puede estar vacío.";
+   694→    setErrors(e);
+   695→    if (Object.keys(e).length > 0) return;
+   696→    onCreate({
+   697→      name: name.trim(),
+   698→      channel,
+   699→      subject: subject.trim(),
+   700→      preview: body.trim().slice(0, 80),
+   701→      body: body.trim(),
+   702→    });
+   703→    onOpenChange(false);
+   704→  }
+   705→
+   706→  return (
+   707→    <Dialog open={open} onOpenChange={onOpenChange}>
+   708→      <DialogContent className="sm:max-w-lg">
+   709→        <DialogHeader>
+   710→          <DialogTitle>Nueva plantilla</DialogTitle>
+   711→          <DialogDescription>
+   712→            Usa <code className="rounded bg-foreground/10 px-1 font-mono text-[var(--gold-soft)]">{"{{variables}}"}</code> para personalizar.
+   713→            Variables disponibles: <span className="font-mono">nombre, fecha, hora, pax, restaurante</span>.
+   714→          </DialogDescription>
+   715→        </DialogHeader>
+   716→        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+   717→          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+   718→            <div className="space-y-2">
+   719→              <label htmlFor="tpl-name" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   720→                Nombre <span className="text-destructive">*</span>
+   721→              </label>
+   722→              <Input
+   723→                id="tpl-name"
+   724→                value={name}
+   725→                onChange={(e) => setName(e.target.value)}
+   726→                placeholder="Ej. Confirmación de reserva"
+   727→                aria-invalid={!!errors.name}
+   728→                aria-describedby={errors.name ? "tpl-name-err" : undefined}
+   729→              />
+   730→              {errors.name && (
+   731→                <p id="tpl-name-err" className="text-[11px] text-destructive" role="alert">
+   732→                  {errors.name}
+   733→                </p>
+   734→              )}
+   735→            </div>
+   736→            <div className="space-y-2">
+   737→              <label htmlFor="tpl-chan" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   738→                Canal
+   739→              </label>
+   740→              <Select value={channel} onValueChange={(v) => setChannel(v as Channel)}>
+   741→                <SelectTrigger id="tpl-chan" aria-label="Canal de la plantilla">
+   742→                  <SelectValue />
+   743→                </SelectTrigger>
+   744→                <SelectContent>
+   745→                  <SelectItem value="email">Email</SelectItem>
+   746→                  <SelectItem value="whatsapp">WhatsApp</SelectItem>
+   747→                  <SelectItem value="sms">SMS</SelectItem>
+   748→                </SelectContent>
+   749→              </Select>
+   750→            </div>
+   751→          </div>
+   752→
+   753→          <div className="space-y-2">
+   754→            <label htmlFor="tpl-subject" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   755→              Asunto / título <span className="text-destructive">*</span>
+   756→            </label>
+   757→            <Input
+   758→              id="tpl-subject"
+   759→              value={subject}
+   760→              onChange={(e) => setSubject(e.target.value)}
+   761→              placeholder="Ej. Te esperamos mañana, {{nombre}}"
+   762→              aria-invalid={!!errors.subject}
+   763→              aria-describedby={errors.subject ? "tpl-subject-err" : undefined}
+   764→            />
+   765→            {errors.subject && (
+   766→              <p id="tpl-subject-err" className="text-[11px] text-destructive" role="alert">
+   767→                {errors.subject}
+   768→              </p>
+   769→            )}
+   770→          </div>
+   771→
+   772→          <div className="space-y-2">
+   773→            <label htmlFor="tpl-body" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   774→              Cuerpo <span className="text-destructive">*</span>
+   775→            </label>
+   776→            <Textarea
+   777→              id="tpl-body"
+   778→              value={body}
+   779→              onChange={(e) => setBody(e.target.value)}
+   780→              rows={6}
+   781→              placeholder={"Hola {{nombre}},\n\nTe esperamos el {{fecha}} a las {{hora}}…"}
+   782→              className="resize-none font-mono text-xs"
+   783→              aria-invalid={!!errors.body}
+   784→              aria-describedby={errors.body ? "tpl-body-err" : undefined}
+   785→            />
+   786→            {errors.body && (
+   787→              <p id="tpl-body-err" className="text-[11px] text-destructive" role="alert">
+   788→                {errors.body}
+   789→              </p>
+   790→            )}
+   791→            <p className="text-[11px] text-muted-foreground">
+   792→              Variables: <span className="font-mono text-[var(--teal)]">{"{{nombre}}"}</span>{" "}
+   793→              <span className="font-mono text-[var(--teal)]">{"{{fecha}}"}</span>{" "}
+   794→              <span className="font-mono text-[var(--teal)]">{"{{hora}}"}</span>{" "}
+   795→              <span className="font-mono text-[var(--teal)]">{"{{pax}}"}</span>{" "}
+   796→              <span className="font-mono text-[var(--teal)]">{"{{restaurante}}"}</span>
+   797→            </p>
+   798→          </div>
+   799→
+   800→          <DialogFooter>
+   801→            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+   802→              Cancelar
+   803→            </Button>
+   804→            <Button type="submit">
+   805→              <Plus className="h-4 w-4" aria-hidden />
+   806→              Crear plantilla
+   807→            </Button>
+   808→          </DialogFooter>
+   809→        </form>
+   810→      </DialogContent>
+   811→    </Dialog>
+   812→  );
+   813→}
+   814→
+   815→/* ------------------------------------------------------------------ */
+   816→/* Campaign details panel                                             */
+   817→/* ------------------------------------------------------------------ */
+   818→
+   819→function CampaignDetails({
+   820→  campaign,
+   821→  segment,
+   822→  template,
+   823→  onClose,
+   824→  onStatusChange,
+   825→  onDelete,
+   826→  onDuplicate,
+   827→}: {
+   828→  campaign: Campaign;
+   829→  segment: Segment | undefined;
+   830→  template: Template | undefined;
+   831→  onClose: () => void;
+   832→  onStatusChange: (status: CampaignStatus) => void;
+   833→  onDelete: () => void;
+   834→  onDuplicate: () => void;
+   835→}) {
+   836→  const [pauseOpen, setPauseOpen] = React.useState(false);
+   837→  const [deleteOpen, setDeleteOpen] = React.useState(false);
+   838→  const [duplicated, setDuplicated] = React.useState(false);
+   839→
+   840→  const metrics = [
+   841→    { id: "sent", label: "Enviados", value: campaign.sent, icon: Send, tone: "text-foreground" },
+   842→    { id: "open", label: "Apertura", value: `${campaign.openRate}%`, icon: Eye, tone: "rp-gold-text" },
+   843→    { id: "ctr", label: "CTR", value: `${campaign.ctr}%`, icon: MousePointerClick, tone: "rp-teal-text" },
+   844→  ];
+   845→
+   846→  return (
+   847→    <section
+   848→      className="rp-glass-strong rounded-2xl p-5 sm:p-6"
+   849→      aria-labelledby={`camp-${campaign.id}-title`}
+   850→    >
+   851→      <div className="flex items-start justify-between gap-3">
+   852→        <div className="min-w-0">
+   853→          <div className="flex flex-wrap items-center gap-2">
+   854→            <h3 id={`camp-${campaign.id}-title`} className="font-display text-xl font-medium tracking-tight">
+   855→              {campaign.name}
+   856→            </h3>
+   857→            <StatusPill status={campaign.status} />
+   858→            <DemoBadge />
+   859→          </div>
+   860→          <p className="mt-1.5 text-sm text-muted-foreground">
+   861→            {segment ? `Segmento: ${segment.name} (${segment.count} contactos)` : "Segmento desconocido"}
+   862→            {" · "}
+   863→            {template ? `Plantilla: ${template.name}` : "Sin plantilla"}
+   864→          </p>
+   865→        </div>
+   866→        <Button variant="ghost" size="icon" onClick={onClose} aria-label="Cerrar panel de detalles">
+   867→          <ChevronRight className="h-4 w-4 rotate-180" aria-hidden />
+   868→        </Button>
+   869→      </div>
+   870→
+   871→      {/* Metrics */}
+   872→      <div className="mt-5 grid grid-cols-3 gap-3">
+   873→        {metrics.map((m) => {
+   874→          const Icon = m.icon;
+   875→          return (
+   876→            <div key={m.id} className="rounded-xl border border-border/50 bg-foreground/[0.02] p-3">
+   877→              <div className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   878→                <Icon className="h-3 w-3" aria-hidden />
+   879→                {m.label}
+   880→              </div>
+   881→              <div className={cn("mt-1.5 font-display text-2xl font-light", m.tone)}>
+   882→                {m.value}
+   883→              </div>
+   884→            </div>
+   885→          );
+   886→        })}
+   887→      </div>
+   888→
+   889→      {/* Meta */}
+   890→      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+   891→        <div>
+   892→          <dt className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Canal</dt>
+   893→          <dd className="mt-1"><ChannelPill channel={campaign.channel} /></dd>
+   894→        </div>
+   895→        <div>
+   896→          <dt className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Creada</dt>
+   897→          <dd className="mt-1 inline-flex items-center gap-1.5 text-foreground/90">
+   898→            <Calendar className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+   899→            {campaign.createdAt}
+   900→          </dd>
+   901→        </div>
+   902→        <div>
+   903→          <dt className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Regla segmento</dt>
+   904→          <dd className="mt-1 font-mono text-[11px] text-muted-foreground">{segment?.rule ?? "—"}</dd>
+   905→        </div>
+   906→        <div>
+   907→          <dt className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Asunto plantilla</dt>
+   908→          <dd className="mt-1 text-[11px] text-foreground/90 truncate">{template?.subject ?? "—"}</dd>
+   909→        </div>
+   910→      </dl>
+   911→
+   912→      {/* Actions */}
+   913→      <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border/50 pt-4">
+   914→        {campaign.status === "activa" ? (
+   915→          <Button variant="outline" onClick={() => setPauseOpen(true)}>
+   916→            <Pause className="h-4 w-4" aria-hidden />
+   917→            Pausar
+   918→          </Button>
+   919→        ) : campaign.status === "pausada" ? (
+   920→          <Button onClick={() => onStatusChange("activa")}>
+   921→            <Play className="h-4 w-4" aria-hidden />
+   922→            Reanudar
+   923→          </Button>
+   924→        ) : campaign.status === "borrador" ? (
+   925→          <Button onClick={() => onStatusChange("activa")}>
+   926→            <Play className="h-4 w-4" aria-hidden />
+   927→            Activar
+   928→          </Button>
+   929→        ) : (
+   930→          <Badge variant="outline" className="border-foreground/20 text-muted-foreground">
+   931→            <Clock className="h-3 w-3" aria-hidden /> Finalizada
+   932→          </Badge>
+   933→        )}
+   934→        <Button
+   935→          variant="outline"
+   936→          onClick={() => {
+   937→            onDuplicate();
+   938→            setDuplicated(true);
+   939→            setTimeout(() => setDuplicated(false), 1800);
+   940→          }}
+   941→          aria-label="Duplicar campaña"
+   942→        >
+   943→          <Copy className="h-4 w-4" aria-hidden />
+   944→          {duplicated ? "Duplicada ✓" : "Duplicar"}
+   945→        </Button>
+   946→        <Button
+   947→          variant="outline"
+   948→          onClick={() => setDeleteOpen(true)}
+   949→          className="text-destructive hover:text-destructive"
+   950→          aria-label="Eliminar campaña"
+   951→        >
+   952→          <Trash2 className="h-4 w-4" aria-hidden />
+   953→          Eliminar
+   954→        </Button>
+   955→      </div>
+   956→
+   957→      {/* Confirm pause */}
+   958→      <AlertDialog open={pauseOpen} onOpenChange={setPauseOpen}>
+   959→        <AlertDialogContent>
+   960→          <AlertDialogHeader>
+   961→            <AlertDialogTitle>¿Pausar la campaña “{campaign.name}”?</AlertDialogTitle>
+   962→            <AlertDialogDescription>
+   963→              La campaña dejará de enviar mensajes inmediatamente. Los contactos que ya
+   964→              estaban en cola podrían recibirla. Puedes reanudarla en cualquier momento.
+   965→            </AlertDialogDescription>
+   966→          </AlertDialogHeader>
+   967→          <AlertDialogFooter>
+   968→            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+   969→            <AlertDialogAction
+   970→              onClick={() => onStatusChange("pausada")}
+   971→              className="bg-amber-500 text-black hover:bg-amber-500/90"
+   972→            >
+   973→              Sí, pausar
+   974→            </AlertDialogAction>
+   975→          </AlertDialogFooter>
+   976→        </AlertDialogContent>
+   977→      </AlertDialog>
+   978→
+   979→      {/* Confirm delete */}
+   980→      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+   981→        <AlertDialogContent>
+   982→          <AlertDialogHeader>
+   983→            <AlertDialogTitle>Eliminar la campaña “{campaign.name}”</AlertDialogTitle>
+   984→            <AlertDialogDescription>
+   985→              Esta acción no se puede deshacer. Se eliminará la campaña y su configuración,
+   986→              pero se conservarán los eventos de auditoría y métricas históricas.
+   987→            </AlertDialogDescription>
+   988→          </AlertDialogHeader>
+   989→          <AlertDialogFooter>
+   990→            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+   991→            <AlertDialogAction
+   992→              onClick={onDelete}
+   993→              className="bg-destructive text-white hover:bg-destructive/90"
+   994→            >
+   995→              Eliminar definitivamente
+   996→            </AlertDialogAction>
+   997→          </AlertDialogFooter>
+   998→        </AlertDialogContent>
+   999→      </AlertDialog>
+  1000→    </section>
+  1001→  );
+  1002→}
+  1003→
+  1004→/* ------------------------------------------------------------------ */
+  1005→/* Segment card                                                       */
+  1006→/* ------------------------------------------------------------------ */
+  1007→
+  1008→function SegmentCard({
+  1009→  segment,
+  1010→  onCreateCampaign,
+  1011→}: {
+  1012→  segment: Segment;
+  1013→  onCreateCampaign: (s: Segment) => void;
+  1014→}) {
+  1015→  return (
+  1016→    <li className="rp-glass rounded-xl p-4 transition-colors hover:border-[var(--gold)]/30">
+  1017→      <div className="flex items-start justify-between gap-3">
+  1018→        <div className="min-w-0 flex-1">
+  1019→          <div className="flex items-center gap-2">
+  1020→            <h3 className="text-sm font-medium">{segment.name}</h3>
+  1021→            <DemoBadge />
+  1022→          </div>
+  1023→          <p className="mt-1.5 text-[11px] font-mono text-muted-foreground">
+  1024→            <Filter className="mr-1 inline h-3 w-3 text-[var(--teal)]" aria-hidden />
+  1025→            {segment.rule}
+  1026→          </p>
+  1027→        </div>
+  1028→        <div className="text-right">
+  1029→          <div className="font-display text-2xl font-light rp-gold-text">{segment.count}</div>
+  1030→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1031→            contactos
+  1032→          </div>
+  1033→        </div>
+  1034→      </div>
+  1035→      <div className="mt-3 flex justify-end">
+  1036→        <Button size="sm" variant="outline" onClick={() => onCreateCampaign(segment)}>
+  1037→          <Megaphone className="h-3.5 w-3.5" aria-hidden />
+  1038→          Crear campaña
+  1039→        </Button>
+  1040→      </div>
+  1041→    </li>
+  1042→  );
+  1043→}
+  1044→
+  1045→/* ------------------------------------------------------------------ */
+  1046→/* Campaign row                                                       */
+  1047→/* ------------------------------------------------------------------ */
+  1048→
+  1049→function CampaignRow({
+  1050→  campaign,
+  1051→  segment,
+  1052→  selected,
+  1053→  onSelect,
+  1054→}: {
+  1055→  campaign: Campaign;
+  1056→  segment: Segment | undefined;
+  1057→  selected: boolean;
+  1058→  onSelect: () => void;
+  1059→}) {
+  1060→  return (
+  1061→    <li>
+  1062→      <button
+  1063→        type="button"
+  1064→        onClick={onSelect}
+  1065→        aria-current={selected ? "true" : undefined}
+  1066→        aria-label={`Ver detalles de ${campaign.name}`}
+  1067→        className={cn(
+  1068→          "group w-full text-left rounded-xl border p-4 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+  1069→          selected
+  1070→            ? "border-[var(--gold)]/60 bg-[var(--gold)]/[0.06] rp-glow-gold"
+  1071→            : "border-border/50 bg-foreground/[0.02] hover:border-[var(--gold)]/30 hover:bg-foreground/[0.04]"
+  1072→        )}
+  1073→      >
+  1074→        <div className="flex items-start justify-between gap-3">
+  1075→          <div className="min-w-0 flex-1">
+  1076→            <div className="flex flex-wrap items-center gap-2">
+  1077→              <span className="text-sm font-medium">{campaign.name}</span>
+  1078→              <StatusPill status={campaign.status} />
+  1079→            </div>
+  1080→            <p className="mt-1 text-[11px] text-muted-foreground">
+  1081→              {segment ? `${segment.name} · ${segment.count} contactos` : "Segmento desconocido"}
+  1082→            </p>
+  1083→          </div>
+  1084→          <ChannelPill channel={campaign.channel} />
+  1085→        </div>
+  1086→        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+  1087→          <div className="rounded-md border border-border/40 bg-foreground/[0.02] py-1.5">
+  1088→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Enviados</div>
+  1089→            <div className="mt-0.5 text-sm font-medium">{campaign.sent}</div>
+  1090→          </div>
+  1091→          <div className="rounded-md border border-border/40 bg-foreground/[0.02] py-1.5">
+  1092→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Apertura</div>
+  1093→            <div className="mt-0.5 text-sm font-medium rp-gold-text">{campaign.openRate}%</div>
+  1094→          </div>
+  1095→          <div className="rounded-md border border-border/40 bg-foreground/[0.02] py-1.5">
+  1096→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">CTR</div>
+  1097→            <div className="mt-0.5 text-sm font-medium rp-teal-text">{campaign.ctr}%</div>
+  1098→          </div>
+  1099→        </div>
+  1100→      </button>
+  1101→    </li>
+  1102→  );
+  1103→}
+  1104→
+  1105→/* ------------------------------------------------------------------ */
+  1106→/* Template card                                                      */
+  1107→/* ------------------------------------------------------------------ */
+  1108→
+  1109→function TemplateCard({ template }: { template: Template }) {
+  1110→  return (
+  1111→    <li className="rp-glass rounded-xl p-4 transition-colors hover:border-[var(--teal)]/30">
+  1112→      <div className="flex items-start justify-between gap-3">
+  1113→        <div className="min-w-0 flex-1">
+  1114→          <div className="flex items-center gap-2">
+  1115→            <FileText className="h-4 w-4 text-[var(--teal)]" aria-hidden />
+  1116→            <h3 className="text-sm font-medium">{template.name}</h3>
+  1117→            <DemoBadge />
+  1118→          </div>
+  1119→          <p className="mt-1.5 text-sm font-medium text-foreground/90 truncate">{template.subject}</p>
+  1120→          <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">{template.preview}</p>
+  1121→        </div>
+  1122→        <ChannelPill channel={template.channel} />
+  1123→      </div>
+  1124→      <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
+  1125→        <span className="inline-flex items-center gap-1.5">
+  1126→          <Clock className="h-3 w-3" aria-hidden />
+  1127→          Último uso: {template.lastUsed}
+  1128→        </span>
+  1129→        <Button size="sm" variant="ghost" aria-label="Editar plantilla">
+  1130→          Editar
+  1131→        </Button>
+  1132→      </div>
+  1133→    </li>
+  1134→  );
+  1135→}
+  1136→
+  1137→/* ------------------------------------------------------------------ */
+  1138→/* Main Marketing view                                                */
+  1139→/* ------------------------------------------------------------------ */
+  1140→
+  1141→export function MarketingView() {
+  1142→  const [tab, setTab] = React.useState<"segmentos" | "campanas" | "plantillas">("segmentos");
+  1143→  const [segments, setSegments] = React.useState<Segment[]>(DEMO_SEGMENTS);
+  1144→  const [campaigns, setCampaigns] = React.useState<Campaign[]>(DEMO_CAMPAIGNS);
+  1145→  const [templates, setTemplates] = React.useState<Template[]>(DEMO_TEMPLATES);
+  1146→
+  1147→  const [newSegmentOpen, setNewSegmentOpen] = React.useState(false);
+  1148→  const [newCampaignOpen, setNewCampaignOpen] = React.useState(false);
+  1149→  const [newTemplateOpen, setNewTemplateOpen] = React.useState(false);
+  1150→
+  1151→  const [selectedCampaignId, setSelectedCampaignId] = React.useState<string | null>(null);
+  1152→
+  1153→  const selectedCampaign = campaigns.find((c) => c.id === selectedCampaignId) ?? null;
+  1154→  const segmentOf = (id: string) => segments.find((s) => s.id === id);
+  1155→  const templateOf = (id: string) => templates.find((t) => t.id === id);
+  1156→
+  1157→  function handleCreateSegment(s: Omit<Segment, "id" | "count">) {
+  1158→    const newSeg: Segment = {
+  1159→      ...s,
+  1160→      id: `s${Date.now()}`,
+  1161→      count: Math.floor(Math.random() * 200) + 10,
+  1162→    };
+  1163→    setSegments((prev) => [newSeg, ...prev]);
+  1164→  }
+  1165→
+  1166→  function handleCreateCampaign(c: Omit<Campaign, "id" | "status" | "sent" | "openRate" | "ctr" | "createdAt">) {
+  1167→    const today = new Date();
+  1168→    const created = `${String(today.getDate()).padStart(2, "0")} ${today.toLocaleDateString("es-ES", { month: "short" })} ${today.getFullYear()}`;
+  1169→    const newCamp: Campaign = {
+  1170→      ...c,
+  1171→      id: `c${Date.now()}`,
+  1172→      status: "borrador",
+  1173→      sent: 0,
+  1174→      openRate: 0,
+  1175→      ctr: 0,
+  1176→      createdAt: created,
+  1177→    };
+  1178→    setCampaigns((prev) => [newCamp, ...prev]);
+  1179→  }
+  1180→
+  1181→  function handleCreateTemplate(t: Omit<Template, "id" | "lastUsed">) {
+  1182→    const newTpl: Template = { ...t, id: `t${Date.now()}`, lastUsed: "Nunca" };
+  1183→    setTemplates((prev) => [newTpl, ...prev]);
+  1184→  }
+  1185→
+  1186→  function handleStatusChange(id: string, status: CampaignStatus) {
+  1187→    setCampaigns((prev) => prev.map((c) => (c.id === id ? { ...c, status } : c)));
+  1188→  }
+  1189→
+  1190→  function handleDuplicate(id: string) {
+  1191→    const c = campaigns.find((x) => x.id === id);
+  1192→    if (!c) return;
+  1193→    const dup: Campaign = {
+  1194→      ...c,
+  1195→      id: `c${Date.now()}`,
+  1196→      name: `${c.name} (copia)`,
+  1197→      status: "borrador",
+  1198→      sent: 0,
+  1199→      openRate: 0,
+  1200→      ctr: 0,
+  1201→      createdAt: "Hoy",
+  1202→    };
+  1203→    setCampaigns((prev) => [dup, ...prev]);
+  1204→  }
+  1205→
+  1206→  function handleDelete(id: string) {
+  1207→    setCampaigns((prev) => prev.filter((c) => c.id !== id));
+  1208→    setSelectedCampaignId(null);
+  1209→  }
+  1210→
+  1211→  function handleCreateCampaignFromSegment(s: Segment) {
+  1212→    setTab("campanas");
+  1213→    setNewCampaignOpen(true);
+  1214→    // pre-segment selection happens via initial state in NewCampaignDialog (first segment)
+  1215→    // For demo we just open the dialog; user can pick this segment manually.
+  1216→    void s;
+  1217→  }
+  1218→
+  1219→  return (
+  1220→    <div className="space-y-5">
+  1221→      {/* Page header */}
+  1222→      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+  1223→        <div>
+  1224→          <div className="flex items-center gap-2">
+  1225→            <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
+  1226→              Marketing
+  1227→            </h1>
+  1228→            <DemoBadge />
+  1229→          </div>
+  1230→          <p className="mt-1 text-sm text-muted-foreground">
+  1231→            Segmenta, lanza campañas multicanal y reutiliza plantillas con variables dinámicas.
+  1232→          </p>
+  1233→        </div>
+  1234→      </header>
+  1235→
+  1236→      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+  1237→        <TabsList className="w-full justify-start overflow-x-auto rp-scroll-thin sm:w-auto" aria-label="Vistas de marketing">
+  1238→          <TabsTrigger value="segmentos" aria-label="Vista de segmentos" className="min-h-9">
+  1239→            <Users className="h-4 w-4" aria-hidden />
+  1240→            Segmentos
+  1241→          </TabsTrigger>
+  1242→          <TabsTrigger value="campanas" aria-label="Vista de campañas" className="min-h-9">
+  1243→            <Megaphone className="h-4 w-4" aria-hidden />
+  1244→            Campañas
+  1245→          </TabsTrigger>
+  1246→          <TabsTrigger value="plantillas" aria-label="Vista de plantillas" className="min-h-9">
+  1247→            <FileText className="h-4 w-4" aria-hidden />
+  1248→            Plantillas
+  1249→          </TabsTrigger>
+  1250→        </TabsList>
+  1251→
+  1252→        {/* SEGMENTOS */}
+  1253→        <TabsContent value="segmentos" className="space-y-4">
+  1254→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  1255→            <SectionLabel icon={Users}>Segmentos definidos</SectionLabel>
+  1256→            <Button onClick={() => setNewSegmentOpen(true)} className="min-h-11 sm:self-auto">
+  1257→              <Plus className="h-4 w-4" aria-hidden />
+  1258→              Nuevo segmento
+  1259→            </Button>
+  1260→          </div>
+  1261→          {segments.length === 0 ? (
+  1262→            <EmptyState
+  1263→              icon={Users}
+  1264→              title="Sin segmentos"
+  1265→              description="Crea tu primer segmento definiendo una regla simple (campo, operador, valor)."
+  1266→              actionLabel="Nuevo segmento"
+  1267→              onAction={() => setNewSegmentOpen(true)}
+  1268→            />
+  1269→          ) : (
+  1270→            <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+  1271→              {segments.map((s) => (
+  1272→                <SegmentCard
+  1273→                  key={s.id}
+  1274→                  segment={s}
+  1275→                  onCreateCampaign={handleCreateCampaignFromSegment}
+  1276→                />
+  1277→              ))}
+  1278→            </ul>
+  1279→          )}
+  1280→          <div className="flex justify-end">
+  1281→            <DemoBadge />
+  1282→          </div>
+  1283→        </TabsContent>
+  1284→
+  1285→        {/* CAMPAÑAS */}
+  1286→        <TabsContent value="campanas" className="space-y-4">
+  1287→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  1288→            <SectionLabel icon={Megaphone}>Campañas</SectionLabel>
+  1289→            <Button onClick={() => setNewCampaignOpen(true)} className="min-h-11 sm:self-auto">
+  1290→              <Plus className="h-4 w-4" aria-hidden />
+  1291→              Nueva campaña
+  1292→            </Button>
+  1293→          </div>
+  1294→
+  1295→          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)]">
+  1296→            {/* List */}
+  1297→            <div>
+  1298→              {campaigns.length === 0 ? (
+  1299→                <EmptyState
+  1300→                  icon={Megaphone}
+  1301→                  title="Sin campañas"
+  1302→                  description="Crea tu primera campaña seleccionando un segmento, un canal y una plantilla."
+  1303→                  actionLabel="Nueva campaña"
+  1304→                  onAction={() => setNewCampaignOpen(true)}
+  1305→                />
+  1306→              ) : (
+  1307→                <ul className="space-y-3">
+  1308→                  {campaigns.map((c) => (
+  1309→                    <CampaignRow
+  1310→                      key={c.id}
+  1311→                      campaign={c}
+  1312→                      segment={segmentOf(c.segmentId)}
+  1313→                      selected={c.id === selectedCampaignId}
+  1314→                      onSelect={() => setSelectedCampaignId(c.id === selectedCampaignId ? null : c.id)}
+  1315→                    />
+  1316→                  ))}
+  1317→                </ul>
+  1318→              )}
+  1319→            </div>
+  1320→
+  1321→            {/* Detail panel */}
+  1322→            <div className="lg:sticky lg:top-20 lg:self-start">
+  1323→              {selectedCampaign ? (
+  1324→                <CampaignDetails
+  1325→                  campaign={selectedCampaign}
+  1326→                  segment={segmentOf(selectedCampaign.segmentId)}
+  1327→                  template={templateOf(selectedCampaign.templateId)}
+  1328→                  onClose={() => setSelectedCampaignId(null)}
+  1329→                  onStatusChange={(status) => handleStatusChange(selectedCampaign.id, status)}
+  1330→                  onDelete={() => handleDelete(selectedCampaign.id)}
+  1331→                  onDuplicate={() => handleDuplicate(selectedCampaign.id)}
+  1332→                />
+  1333→              ) : (
+  1334→                <div className="rp-glass flex h-full min-h-[300px] flex-col items-center justify-center rounded-2xl p-8 text-center">
+  1335→                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border/60 bg-foreground/[0.03]">
+  1336→                    <Inbox className="h-6 w-6 text-muted-foreground" aria-hidden />
+  1337→                  </div>
+  1338→                  <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+  1339→                    Selecciona una campaña
+  1340→                  </h3>
+  1341→                  <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">
+  1342→                    Haz clic en una campaña de la lista para ver sus métricas y acciones.
+  1343→                  </p>
+  1344→                  <div className="mt-4">
+  1345→                    <DemoBadge />
+  1346→                  </div>
+  1347→                </div>
+  1348→              )}
+  1349→            </div>
+  1350→          </div>
+  1351→        </TabsContent>
+  1352→
+  1353→        {/* PLANTILLAS */}
+  1354→        <TabsContent value="plantillas" className="space-y-4">
+  1355→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+  1356→            <SectionLabel icon={FileText}>Plantillas</SectionLabel>
+  1357→            <Button onClick={() => setNewTemplateOpen(true)} className="min-h-11 sm:self-auto">
+  1358→              <Plus className="h-4 w-4" aria-hidden />
+  1359→              Nueva plantilla
+  1360→            </Button>
+  1361→          </div>
+  1362→          {templates.length === 0 ? (
+  1363→            <EmptyState
+  1364→              icon={FileText}
+  1365→              title="Sin plantillas"
+  1366→              description="Crea una plantilla reutilizable con variables dinámicas para tus campañas."
+  1367→              actionLabel="Nueva plantilla"
+  1368→              onAction={() => setNewTemplateOpen(true)}
+  1369→            />
+  1370→          ) : (
+  1371→            <ul className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+  1372→              {templates.map((t) => (
+  1373→                <TemplateCard key={t.id} template={t} />
+  1374→              ))}
+  1375→            </ul>
+  1376→          )}
+  1377→          <div className="flex justify-end">
+  1378→            <DemoBadge />
+  1379→          </div>
+  1380→        </TabsContent>
+  1381→      </Tabs>
+  1382→
+  1383→      {/* Dialogs */}
+  1384→      <NewSegmentDialog
+  1385→        open={newSegmentOpen}
+  1386→        onOpenChange={setNewSegmentOpen}
+  1387→        onCreate={handleCreateSegment}
+  1388→      />
+  1389→      <NewCampaignDialog
+  1390→        open={newCampaignOpen}
+  1391→        onOpenChange={setNewCampaignOpen}
+  1392→        segments={segments}
+  1393→        templates={templates}
+  1394→        onCreate={handleCreateCampaign}
+  1395→      />
+  1396→      <NewTemplateDialog
+  1397→        open={newTemplateOpen}
+  1398→        onOpenChange={setNewTemplateOpen}
+  1399→        onCreate={handleCreateTemplate}
+  1400→      />
+  1401→    </div>
+  1402→  );
+  1403→}
+  1404→

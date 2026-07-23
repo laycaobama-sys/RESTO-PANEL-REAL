@@ -1,0 +1,1535 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     5→import { cn } from "@/lib/utils";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Textarea } from "@/components/ui/textarea";
+    10→import { Switch } from "@/components/ui/switch";
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    12→import {
+    13→  Tooltip,
+    14→  TooltipContent,
+    15→  TooltipProvider,
+    16→  TooltipTrigger,
+    17→} from "@/components/ui/tooltip";
+    18→import {
+    19→  AlertDialog,
+    20→  AlertDialogAction,
+    21→  AlertDialogCancel,
+    22→  AlertDialogContent,
+    23→  AlertDialogDescription,
+    24→  AlertDialogFooter,
+    25→  AlertDialogHeader,
+    26→  AlertDialogTitle,
+    27→} from "@/components/ui/alert-dialog";
+    28→import {
+    29→  Dialog,
+    30→  DialogContent,
+    31→  DialogDescription,
+    32→  DialogFooter,
+    33→  DialogHeader,
+    34→  DialogTitle,
+    35→} from "@/components/ui/dialog";
+    36→import { toast } from "@/hooks/use-toast";
+    37→import {
+    38→  Megaphone,
+    39→  Calendar as CalendarIcon,
+    40→  Workflow,
+    41→  FileText,
+    42→  Plus,
+    43→  Play,
+    44→  Save,
+    45→  Copy,
+    46→  Trash2,
+    47→  Pause,
+    48→  ChevronRight,
+    49→  ChevronLeft,
+    50→  Mail,
+    51→  MessageSquare,
+    52→  Smartphone,
+    53→  Bell,
+    54→  Users,
+    55→  Target,
+    56→  DollarSign,
+    57→  Sparkles,
+    58→  Zap,
+    59→  Clock,
+    60→  GitBranch,
+    61→  Gift,
+    62→  Cake,
+    63→  RefreshCw,
+    64→  Send,
+    65→  Check,
+    66→  X,
+    67→  Eye,
+    68→  Tag,
+    69→  ArrowRight,
+    70→  Crown,
+    71→  PartyPopper,
+    72→  Heart,
+    73→  ShoppingBag,
+    74→  UtensilsCrossed,
+    75→  Star,
+    76→} from "lucide-react";
+    77→
+    78→/* =====================================================================
+    79→ * Types
+    80→ * ===================================================================== */
+    81→
+    82→type CampaignStatus = "activa" | "programada" | "completada" | "borrador";
+    83→type Channel = "Email" | "WhatsApp" | "SMS" | "Push" | "Multi";
+    84→
+    85→interface Campaign {
+    86→  id: string;
+    87→  name: string;
+    88→  status: CampaignStatus;
+    89→  channel: Channel;
+    90→  segment: string;
+    91→  audience: number;
+    92→  sent: number;
+    93→  opened: number;
+    94→  clicked: number;
+    95→  converted: number;
+    96→  revenue: number;
+    97→  cost: number;
+    98→  date: string; // ISO yyyy-mm-dd
+    99→}
+   100→
+   101→type NodeType = "trigger" | "action" | "wait" | "condition" | "branch";
+   102→
+   103→interface FlowNode {
+   104→  id: string;
+   105→  type: NodeType;
+   106→  subtype: string;
+   107→  title: string;
+   108→  summary: string;
+   109→}
+   110→
+   111→interface Template {
+   112→  id: string;
+   113→  name: string;
+   114→  category: string;
+   115→  channel: Channel;
+   116→  subject: string;
+   117→  preview: string;
+   118→  lastUsed: string;
+   119→  openRate: number;
+   120→  ctr: number;
+   121→}
+   122→
+   123→interface AutomationPreset {
+   124→  id: string;
+   125→  name: string;
+   126→  desc: string;
+   127→  nodes: number;
+   128→  icon: React.ElementType;
+   129→}
+   130→
+   131→/* =====================================================================
+   132→ * Demo data
+   133→ * ===================================================================== */
+   134→
+   135→const CAMPAIGNS: Campaign[] = [
+   136→  {
+   137→    id: "cm1",
+   138→    name: "Black Friday — 2x1 menú",
+   139→    status: "activa",
+   140→    channel: "Multi",
+   141→    segment: "Todos",
+   142→    audience: 1248,
+   143→    sent: 1248,
+   144→    opened: 892,
+   145→    clicked: 312,
+   146→    converted: 87,
+   147→    revenue: 2640,
+   148→    cost: 320,
+   149→    date: "2025-11-28",
+   150→  },
+   151→  {
+   152→    id: "cm2",
+   153→    name: "Cumpleaños Noviembre",
+   154→    status: "activa",
+   155→    channel: "WhatsApp",
+   156→    segment: "Cumpleañeros",
+   157→    audience: 142,
+   158→    sent: 142,
+   159→    opened: 131,
+   160→    clicked: 64,
+   161→    converted: 38,
+   162→    revenue: 1840,
+   163→    cost: 28,
+   164→    date: "2025-11-12",
+   165→  },
+   166→  {
+   167→    id: "cm3",
+   168→    name: "VIP — Vuelve pronto",
+   169→    status: "activa",
+   170→    channel: "Email",
+   171→    segment: "VIP",
+   172→    audience: 89,
+   173→    sent: 89,
+   174→    opened: 71,
+   175→    clicked: 28,
+   176→    converted: 14,
+   177→    revenue: 1340,
+   178→    cost: 12,
+   179→    date: "2025-11-08",
+   180→  },
+   181→  {
+   182→    id: "cm4",
+   183→    name: "Reactivación inactivos 90d",
+   184→    status: "activa",
+   185→    channel: "Multi",
+   186→    segment: "Dormidos",
+   187→    audience: 412,
+   188→    sent: 408,
+   189→    opened: 244,
+   190→    clicked: 81,
+   191→    converted: 23,
+   192→    revenue: 980,
+   193→    cost: 120,
+   194→    date: "2025-11-20",
+   195→  },
+   196→  {
+   197→    id: "cm5",
+   198→    name: "Menú mediodía lunes-jueves",
+   199→    status: "programada",
+   200→    channel: "SMS",
+   201→    segment: "Frecuentes",
+   202→    audience: 320,
+   203→    sent: 0,
+   204→    opened: 0,
+   205→    clicked: 0,
+   206→    converted: 0,
+   207→    revenue: 0,
+   208→    cost: 0,
+   209→    date: "2025-12-02",
+   210→  },
+   211→  {
+   212→    id: "cm6",
+   213→    name: "Navidad — Reserva tu mesa",
+   214→    status: "programada",
+   215→    channel: "Email",
+   216→    segment: "Todos",
+   217→    audience: 1248,
+   218→    sent: 0,
+   219→    opened: 0,
+   220→    clicked: 0,
+   221→    converted: 0,
+   222→    revenue: 0,
+   223→    cost: 0,
+   224→    date: "2025-12-10",
+   225→  },
+   226→  {
+   227→    id: "cm7",
+   228→    name: "San Valentín — Menú pareja",
+   229→    status: "completada",
+   230→    channel: "Multi",
+   231→    segment: "Parejas",
+   232→    audience: 280,
+   233→    sent: 280,
+   234→    opened: 198,
+   235→    clicked: 92,
+   236→    converted: 41,
+   237→    revenue: 1980,
+   238→    cost: 80,
+   239→    date: "2025-02-08",
+   240→  },
+   241→  {
+   242→    id: "cm8",
+   243→    name: "Promo terraza verano",
+   244→    status: "borrador",
+   245→    channel: "Push",
+   246→    segment: "Locales",
+   247→    audience: 540,
+   248→    sent: 0,
+   249→    opened: 0,
+   250→    clicked: 0,
+   251→    converted: 0,
+   252→    revenue: 0,
+   253→    cost: 0,
+   254→    date: "2025-12-15",
+   255→  },
+   256→];
+   257→
+   258→const KPI_STRIP = [
+   259→  { id: "k1", label: "Activas", value: "4", tone: "gold" as const, icon: Zap },
+   260→  { id: "k2", label: "Programadas", value: "2", tone: "teal" as const, icon: Clock },
+   261→  { id: "k3", label: "Completadas", value: "18", tone: "default" as const, icon: Check },
+   262→  { id: "k4", label: "ROI medio", value: "340%", tone: "gold" as const, icon: TrendingUpAux },
+   263→  { id: "k5", label: "Ingresos", value: "€8.420", tone: "teal" as const, icon: DollarSign },
+   264→];
+   265→
+   266→// Re-export TrendingUp under an aliased name to avoid collisions in arrays
+   267→function TrendingUpAux(props: React.ComponentProps<typeof DollarSign>) {
+   268→  return <DollarSign {...props} />;
+   269→}
+   270→
+   271→const STATUS_META: Record<CampaignStatus, { label: string; cls: string; dot: string }> = {
+   272→  activa: { label: "Activa", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400" },
+   273→  programada: { label: "Programada", cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]", dot: "bg-[var(--teal)]" },
+   274→  completada: { label: "Completada", cls: "border-foreground/20 bg-foreground/5 text-muted-foreground", dot: "bg-foreground/40" },
+   275→  borrador: { label: "Borrador", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400" },
+   276→};
+   277→
+   278→const CHANNEL_META: Record<Channel, { icon: React.ElementType; cls: string }> = {
+   279→  Email: { icon: Mail, cls: "border-foreground/20 bg-foreground/5 text-foreground/80" },
+   280→  WhatsApp: { icon: MessageSquare, cls: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" },
+   281→  SMS: { icon: Smartphone, cls: "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]" },
+   282→  Push: { icon: Bell, cls: "border-amber-400/30 bg-amber-400/10 text-amber-300" },
+   283→  Multi: { icon: Share2Aux, cls: "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]" },
+   284→};
+   285→
+   286→function Share2Aux(props: React.ComponentProps<typeof Mail>) {
+   287→  return <Mail {...props} />;
+   288→}
+   289→
+   290→/* Builder flow — pre-loaded "Recuperación inactivos" example (6 nodes) */
+   291→const FLOW_NODES: FlowNode[] = [
+   292→  { id: "n1", type: "trigger", subtype: "inactividad", title: "Inactividad 90d", summary: "Sin reserva en 90 días" },
+   293→  { id: "n2", type: "wait", subtype: "horas", title: "Esperar 2 horas", summary: "Antes de primer contacto" },
+   294→  { id: "n3", type: "condition", subtype: "consentimiento", title: "¿Consentimiento email?", summary: "Verifica RGPD" },
+   295→  { id: "n4", type: "action", subtype: "email", title: "Enviar email", summary: "Te echamos de menos (15%)" },
+   296→  { id: "n5", type: "wait", subtype: "dias", title: "Esperar 5 días", summary: "Sin apertura → WhatsApp" },
+   297→  { id: "n6", type: "action", subtype: "whatsapp", title: "WhatsApp oferta", summary: "Cupón 15% · 48h" },
+   298→];
+   299→
+   300→const NODE_TYPE_META: Record<NodeType, { label: string; icon: React.ElementType; color: string; bg: string; border: string; text: string }> = {
+   301→  trigger: { label: "Trigger", icon: Zap, color: "var(--gold)", bg: "bg-[var(--gold)]/10", border: "border-[var(--gold)]/40", text: "text-[var(--gold-soft)]" },
+   302→  action: { label: "Action", icon: Send, color: "var(--teal)", bg: "bg-[var(--teal)]/10", border: "border-[var(--teal)]/40", text: "text-[var(--teal)]" },
+   303→  wait: { label: "Wait", icon: Clock, color: "#a78bfa", bg: "bg-violet-500/10", border: "border-violet-500/40", text: "text-violet-300" },
+   304→  condition: { label: "Condition", icon: Filter, color: "#fbbf24", bg: "bg-amber-500/10", border: "border-amber-500/40", text: "text-amber-300" },
+   305→  branch: { label: "Branch", icon: GitBranch, color: "#fb7185", bg: "bg-rose-500/10", border: "border-rose-500/40", text: "text-rose-300" },
+   306→};
+   307→
+   308→const PALETTE: { type: NodeType; items: { subtype: string; title: string; icon: React.ElementType }[] }[] = [
+   309→  {
+   310→    type: "trigger",
+   311→    items: [
+   312→      { subtype: "reserva", title: "Reserva creada", icon: CalendarIcon },
+   313→      { subtype: "visita", title: "Visita completada", icon: Check },
+   314→      { subtype: "cancelacion", title: "Cancelación", icon: X },
+   315→      { subtype: "noshow", title: "No-show", icon: Users },
+   316→      { subtype: "cumple", title: "Cumpleaños", icon: Cake },
+   317→      { subtype: "inactividad", title: "Inactividad 90d", icon: RefreshCw },
+   318→    ],
+   319→  },
+   320→  {
+   321→    type: "action",
+   322→    items: [
+   323→      { subtype: "email", title: "Enviar email", icon: Mail },
+   324→      { subtype: "whatsapp", title: "Enviar WhatsApp", icon: MessageSquare },
+   325→      { subtype: "sms", title: "Enviar SMS", icon: Smartphone },
+   326→      { subtype: "push", title: "Enviar push", icon: Bell },
+   327→      { subtype: "cupon", title: "Crear cupón", icon: Tag },
+   328→      { subtype: "puntos", title: "Añadir puntos", icon: Gift },
+   329→    ],
+   330→  },
+   331→  {
+   332→    type: "wait",
+   333→    items: [
+   334→      { subtype: "horas", title: "Esperar horas", icon: Clock },
+   335→      { subtype: "dias", title: "Esperar días", icon: Clock },
+   336→    ],
+   337→  },
+   338→  {
+   339→    type: "condition",
+   340→    items: [
+   341→      { subtype: "consentimiento", title: "Consentimiento", icon: Check },
+   342→      { subtype: "canal", title: "Canal preferido", icon: MessageSquare },
+   343→      { subtype: "ltv", title: "LTV mínimo", icon: DollarSign },
+   344→    ],
+   345→  },
+   346→  {
+   347→    type: "branch",
+   348→    items: [
+   349→      { subtype: "ifelse", title: "If / Else", icon: GitBranch },
+   350→    ],
+   351→  },
+   352→];
+   353→
+   354→const AUTOMATION_PRESETS: AutomationPreset[] = [
+   355→  { id: "p1", name: "Recuperación inactivos", desc: "Reactiva clientes +90 días con email + WhatsApp", nodes: 6, icon: RefreshCw },
+   356→  { id: "p2", name: "Cumpleaños automático", desc: "Cupón + felicitación 7 días antes", nodes: 4, icon: Cake },
+   357→  { id: "p3", name: "Bienvenida nuevo cliente", desc: "Email de bienvenida + puntos regalo", nodes: 3, icon: Sparkles },
+   358→  { id: "p4", name: "Post-visita NPS", desc: "Encuesta 2h tras visita, score → acción", nodes: 5, icon: Star },
+   359→  { id: "p5", name: "Recordatorio reserva", desc: "Recordatorio 24h antes por WhatsApp", nodes: 2, icon: Bell },
+   360→  { id: "p6", name: "No-show follow-up", desc: "Tras no-show: email + cupón disculpa", nodes: 4, icon: Users },
+   361→  { id: "p7", name: "Cancelación win-back", desc: "Canceló → oferta exclusiva 48h", nodes: 3, icon: RefreshCw },
+   362→  { id: "p8", name: "VIP upgrade", desc: "Cliente frecuente → upgrade a VIP", nodes: 4, icon: Crown },
+   363→  { id: "p9", name: "Reseña positiva", desc: "5★ → pide reseña en Google", nodes: 3, icon: Star },
+   364→  { id: "p10", name: "Reseña negativa", desc: "≤3★ → escalar a gerente", nodes: 4, icon: RefreshCw },
+   365→  { id: "p11", name: "Menú del día", desc: "Push a locales a las 11:00", nodes: 2, icon: UtensilsCrossed },
+   366→  { id: "p12", name: "Aniversario cliente", desc: "1 año → cena gratis para 2", nodes: 5, icon: PartyPopper },
+   367→];
+   368→
+   369→const TEMPLATES: Template[] = [
+   370→  { id: "t1", name: "Bienvenida nuevo socio", category: "Bienvenida", channel: "Email", subject: "¡Bienvenido a la familia!", preview: "Tu cupón de bienvenida te espera", lastUsed: "Hace 2 días", openRate: 72, ctr: 28 },
+   371→  { id: "t2", name: "Feliz cumpleaños 🎂", category: "Cumpleaños", channel: "WhatsApp", subject: "¡Feliz cumpleaños!", preview: "Postre gratis en tu visita de hoy", lastUsed: "Hace 5 días", openRate: 92, ctr: 64 },
+   372→  { id: "t3", name: "Menú especial Navidad", category: "Navidad", channel: "Email", subject: "Reserva tu mesa de Navidad", preview: "Menú exclusivo hasta 23 dic", lastUsed: "Hace 1 mes", openRate: 58, ctr: 22 },
+   373→  { id: "t4", name: "San Valentín — Pareja", category: "San Valentín", channel: "Multi", subject: "Cena para dos este San Valentín", preview: "Menú pareja + copa de cava", lastUsed: "Hace 9 meses", openRate: 71, ctr: 33 },
+   374→  { id: "t5", name: "Black Friday 2x1", category: "Black Friday", channel: "Multi", subject: "2x1 solo 48 horas", preview: "Reserva antes del viernes negro", lastUsed: "Hace 3 días", openRate: 68, ctr: 41 },
+   375→  { id: "t6", name: "Menú mediodía", category: "Menú especial", channel: "SMS", subject: "Menú del día €14,50", preview: "Lun-Jue hasta las 16h", lastUsed: "Hace 1 semana", openRate: 85, ctr: 38 },
+   376→  { id: "t7", name: "Evento cata de vinos", category: "Eventos", channel: "Email", subject: "Cata exclusiva de vinos", preview: "Plazas limitadas · 12 dic", lastUsed: "Hace 2 semanas", openRate: 64, ctr: 31 },
+   377→  { id: "t8", name: "Te echamos de menos", category: "Recuperación", channel: "Email", subject: "Hace 90 días que no vienes", preview: "Cupón 15% en tu próxima visita", lastUsed: "Hace 4 días", openRate: 47, ctr: 19 },
+   378→  { id: "t9", name: "Sube de nivel VIP", category: "Fidelización", channel: "WhatsApp", subject: "¡Ahora eres VIP!", preview: "Acceso a terraza privada", lastUsed: "Hace 3 semanas", openRate: 88, ctr: 52 },
+   379→  { id: "t10", name: "Cuéntanos tu experiencia", category: "Solicitud reseña", channel: "Email", subject: "¿Nos dejas tu reseña?", preview: "Tu opinión vale un postre gratis", lastUsed: "Hace 6 días", openRate: 41, ctr: 24 },
+   380→];
+   381→
+   382→const TEMPLATE_CATEGORIES = ["Todas", "Bienvenida", "Cumpleaños", "Navidad", "San Valentín", "Black Friday", "Menú especial", "Eventos", "Recuperación", "Fidelización", "Solicitud reseña"];
+   383→
+   384→/* Calendar data — Nov 2025 (Sat=1) */
+   385→const CALENDAR_MONTH = "Noviembre 2025";
+   386→const CALENDAR_WEEKDAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+   387→// Day-of-month cells (35 cells: 0=empty leading, then 1..30, then empty trailing)
+   388→const CALENDAR_DAYS: (number | null)[] = [
+   389→  null, null, // Sat=1 — but our grid starts Monday, so Nov 1 (Sat) = position 6
+   390→  ...Array.from({ length: 30 }, (_, i) => i + 1),
+   391→  null, null, null, // trailing
+   392→];
+   393→
+   394→/* =====================================================================
+   395→ * Helpers
+   396→ * ===================================================================== */
+   397→
+   398→function roiColor(roi: number): string {
+   399→  if (roi >= 200) return "text-emerald-300";
+   400→  if (roi >= 100) return "text-[var(--gold-soft)]";
+   401→  return "text-rose-300";
+   402→}
+   403→
+   404→function roiOf(c: Campaign): number {
+   405→  if (c.cost === 0) return c.revenue > 0 ? 999 : 0;
+   406→  return Math.round(((c.revenue - c.cost) / c.cost) * 100);
+   407→}
+   408→
+   409→function pct(n: number, d: number): string {
+   410→  if (d === 0) return "—";
+   411→  return `${((n / d) * 100).toFixed(0)}%`;
+   412→}
+   413→
+   414→function fmtEUR(n: number): string {
+   415→  return n.toLocaleString("es-ES", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+   416→}
+   417→
+   418→function campaignsForDay(day: number | null): Campaign[] {
+   419→  if (day === null) return [];
+   420→  // Demo: map a few days to campaigns
+   421→  const iso = `2025-11-${String(day).padStart(2, "0")}`;
+   422→  return CAMPAIGNS.filter((c) => c.date === iso);
+   423→}
+   424→
+   425→/* =====================================================================
+   426→ * Shared atoms
+   427→ * ===================================================================== */
+   428→
+   429→function DemoBadge() {
+   430→  return (
+   431→    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+   432→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+   433→      demo
+   434→    </span>
+   435→  );
+   436→}
+   437→
+   438→function HeaderBar({ title, desc }: { title: string; desc: string }) {
+   439→  return (
+   440→    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+   441→      <div>
+   442→        <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+   443→          {title}
+   444→        </h1>
+   445→        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{desc}</p>
+   446→      </div>
+   447→      <DemoBadge />
+   448→    </div>
+   449→  );
+   450→}
+   451→
+   452→/* =====================================================================
+   453→ * Main component
+   454→ * ===================================================================== */
+   455→
+   456→export function GrowthCampaigns() {
+   457→  const reduce = useReducedMotion();
+   458→  const [tab, setTab] = React.useState("campanas");
+   459→
+   460→  return (
+   461→    <div className="space-y-5">
+   462→      <HeaderBar
+   463→        title="Campañas & Automatización"
+   464→        desc="Builder visual de campañas, calendario editorial, A/B testing y plantillas multicanal."
+   465→      />
+   466→
+   467→      <Tabs value={tab} onValueChange={setTab}>
+   468→        <TabsList className="bg-foreground/[0.04] border border-border/60">
+   469→          <TabsTrigger value="campanas" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   470→            <Megaphone className="h-4 w-4 mr-1.5" /> Campañas
+   471→          </TabsTrigger>
+   472→          <TabsTrigger value="calendario" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   473→            <CalendarIcon className="h-4 w-4 mr-1.5" /> Calendario
+   474→          </TabsTrigger>
+   475→          <TabsTrigger value="builder" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   476→            <Workflow className="h-4 w-4 mr-1.5" /> Builder
+   477→          </TabsTrigger>
+   478→          <TabsTrigger value="plantillas" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   479→            <FileText className="h-4 w-4 mr-1.5" /> Plantillas
+   480→          </TabsTrigger>
+   481→        </TabsList>
+   482→
+   483→        <TabsContent value="campanas" className="mt-5">
+   484→          <CampaignsTab reduce={reduce} />
+   485→        </TabsContent>
+   486→        <TabsContent value="calendario" className="mt-5">
+   487→          <CalendarTab reduce={reduce} />
+   488→        </TabsContent>
+   489→        <TabsContent value="builder" className="mt-5">
+   490→          <BuilderTab reduce={reduce} />
+   491→        </TabsContent>
+   492→        <TabsContent value="plantillas" className="mt-5">
+   493→          <TemplatesTab reduce={reduce} />
+   494→        </TabsContent>
+   495→      </Tabs>
+   496→    </div>
+   497→  );
+   498→}
+   499→
+   500→/* =====================================================================
+   501→ * Tab 1 — Campañas (table + KPI strip)
+   502→ * ===================================================================== */
+   503→
+   504→function CampaignsTab({ reduce }: { reduce: boolean | null }) {
+   505→  const [newOpen, setNewOpen] = React.useState(false);
+   506→  const [deleteId, setDeleteId] = React.useState<string | null>(null);
+   507→  const [items, setItems] = React.useState<Campaign[]>(CAMPAIGNS);
+   508→
+   509→  function onDelete() {
+   510→    if (!deleteId) return;
+   511→    setItems((prev) => prev.filter((c) => c.id !== deleteId));
+   512→    toast({ title: "Campaña eliminada", description: "La campaña se ha eliminado del listado." });
+   513→    setDeleteId(null);
+   514→  }
+   515→
+   516→  return (
+   517→    <div className="space-y-5">
+   518→      {/* KPI strip */}
+   519→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+   520→        {KPI_STRIP.map((k, i) => {
+   521→          const Icon = k.icon;
+   522→          return (
+   523→            <motion.div
+   524→              key={k.id}
+   525→              initial={reduce ? false : { opacity: 0, y: 6 }}
+   526→              animate={{ opacity: 1, y: 0 }}
+   527→              transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.3) }}
+   528→              className="rp-glass rounded-xl p-4"
+   529→            >
+   530→              <div className="flex items-center justify-between">
+   531→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   532→                  {k.label}
+   533→                </span>
+   534→                <Icon
+   535→                  className={cn(
+   536→                    "h-3.5 w-3.5",
+   537→                    k.tone === "gold" && "text-[var(--gold)]",
+   538→                    k.tone === "teal" && "text-[var(--teal)]",
+   539→                    k.tone === "default" && "text-muted-foreground"
+   540→                  )}
+   541→                />
+   542→              </div>
+   543→              <div
+   544→                className={cn(
+   545→                  "mt-1.5 font-display text-2xl font-light tabular-nums",
+   546→                  k.tone === "gold" && "rp-gold-text",
+   547→                  k.tone === "teal" && "rp-teal-text",
+   548→                  k.tone === "default" && "text-foreground"
+   549→                )}
+   550→              >
+   551→                {k.value}
+   552→              </div>
+   553→            </motion.div>
+   554→          );
+   555→        })}
+   556→      </div>
+   557→
+   558→      {/* Table */}
+   559→      <div className="rp-glass rounded-2xl overflow-hidden">
+   560→        <div className="flex items-center justify-between gap-3 p-4 border-b border-border/60">
+   561→          <div>
+   562→            <h2 className="font-display text-lg">Todas las campañas</h2>
+   563→            <p className="text-xs text-muted-foreground">{items.length} campañas · últimos 30 días</p>
+   564→          </div>
+   565→          <Button
+   566→            onClick={() => setNewOpen(true)}
+   567→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]"
+   568→          >
+   569→            <Plus className="h-4 w-4 mr-1.5" /> Nueva campaña
+   570→          </Button>
+   571→        </div>
+   572→
+   573→        <div className="overflow-x-auto rp-scroll-thin">
+   574→          <table className="w-full text-sm">
+   575→            <thead>
+   576→              <tr className="text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/60">
+   577→                <th className="px-4 py-3 font-medium">Campaña</th>
+   578→                <th className="px-3 py-3 font-medium">Estado</th>
+   579→                <th className="px-3 py-3 font-medium">Canal</th>
+   580→                <th className="px-3 py-3 font-medium hidden md:table-cell">Segmento</th>
+   581→                <th className="px-3 py-3 font-medium text-right hidden lg:table-cell">Audiencia</th>
+   582→                <th className="px-3 py-3 font-medium text-right hidden lg:table-cell">Enviados</th>
+   583→                <th className="px-3 py-3 font-medium text-right hidden xl:table-cell">Abiertos</th>
+   584→                <th className="px-3 py-3 font-medium text-right hidden xl:table-cell">Clics</th>
+   585→                <th className="px-3 py-3 font-medium text-right">Conv.</th>
+   586→                <th className="px-3 py-3 font-medium text-right hidden md:table-cell">Ingresos</th>
+   587→                <th className="px-3 py-3 font-medium text-right">ROI</th>
+   588→                <th className="px-3 py-3 font-medium text-right">Acciones</th>
+   589→              </tr>
+   590→            </thead>
+   591→            <tbody>
+   592→              {items.map((c) => {
+   593→                const sMeta = STATUS_META[c.status];
+   594→                const cMeta = CHANNEL_META[c.channel];
+   595→                const CIcon = cMeta.icon;
+   596→                const roi = roiOf(c);
+   597→                return (
+   598→                  <tr key={c.id} className="border-b border-border/40 hover:bg-foreground/[0.02] transition-colors">
+   599→                    <td className="px-4 py-3">
+   600→                      <div className="font-medium text-foreground">{c.name}</div>
+   601→                      <div className="text-[10px] font-mono text-muted-foreground mt-0.5">{c.id.toUpperCase()}</div>
+   602→                    </td>
+   603→                    <td className="px-3 py-3">
+   604→                      <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider", sMeta.cls)}>
+   605→                        <span className={cn("h-1.5 w-1.5 rounded-full", sMeta.dot)} />
+   606→                        {sMeta.label}
+   607→                      </span>
+   608→                    </td>
+   609→                    <td className="px-3 py-3">
+   610→                      <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono", cMeta.cls)}>
+   611→                        <CIcon className="h-3 w-3" />
+   612→                        {c.channel}
+   613→                      </span>
+   614→                    </td>
+   615→                    <td className="px-3 py-3 hidden md:table-cell text-muted-foreground">{c.segment}</td>
+   616→                    <td className="px-3 py-3 text-right hidden lg:table-cell tabular-nums">{c.audience.toLocaleString("es-ES")}</td>
+   617→                    <td className="px-3 py-3 text-right hidden lg:table-cell tabular-nums">{c.sent.toLocaleString("es-ES")}</td>
+   618→                    <td className="px-3 py-3 text-right hidden xl:table-cell tabular-nums">
+   619→                      <div>{c.opened.toLocaleString("es-ES")}</div>
+   620→                      <div className="text-[10px] text-muted-foreground">{pct(c.opened, c.sent)}</div>
+   621→                    </td>
+   622→                    <td className="px-3 py-3 text-right hidden xl:table-cell tabular-nums">
+   623→                      <div>{c.clicked.toLocaleString("es-ES")}</div>
+   624→                      <div className="text-[10px] text-muted-foreground">{pct(c.clicked, c.opened)}</div>
+   625→                    </td>
+   626→                    <td className="px-3 py-3 text-right tabular-nums">
+   627→                      <div className="font-medium">{c.converted.toLocaleString("es-ES")}</div>
+   628→                      <div className="text-[10px] text-[var(--teal)]">{pct(c.converted, c.sent)}</div>
+   629→                    </td>
+   630→                    <td className="px-3 py-3 text-right hidden md:table-cell font-mono tabular-nums">
+   631→                      {c.revenue > 0 ? fmtEUR(c.revenue) : <span className="text-muted-foreground">—</span>}
+   632→                    </td>
+   633→                    <td className={cn("px-3 py-3 text-right font-mono tabular-nums font-medium", roiColor(roi))}>
+   634→                      {roi >= 999 ? "∞" : `${roi}%`}
+   635→                    </td>
+   636→                    <td className="px-3 py-3">
+   637→                      <div className="flex items-center justify-end gap-1">
+   638→                        <IconBtn icon={Eye} label="Ver detalle" onClick={() => toast({ title: "Detalle campaña", description: c.name })} />
+   639→                        {c.status === "activa" ? (
+   640→                          <IconBtn icon={Pause} label="Pausar" tone="amber" onClick={() => toast({ title: "Campaña pausada", description: c.name })} />
+   641→                        ) : null}
+   642→                        <IconBtn icon={Copy} label="Duplicar" onClick={() => toast({ title: "Campaña duplicada", description: c.name })} />
+   643→                        <IconBtn icon={Trash2} label="Eliminar" tone="destructive" onClick={() => setDeleteId(c.id)} />
+   644→                      </div>
+   645→                    </td>
+   646→                  </tr>
+   647→                );
+   648→              })}
+   649→            </tbody>
+   650→          </table>
+   651→        </div>
+   652→      </div>
+   653→
+   654→      <NewCampaignDialog open={newOpen} onOpenChange={setNewOpen} />
+   655→      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+   656→        <AlertDialogContent className="rp-glass-strong">
+   657→          <AlertDialogHeader>
+   658→            <AlertDialogTitle>¿Eliminar campaña?</AlertDialogTitle>
+   659→            <AlertDialogDescription>
+   660→              Esta acción no se puede deshacer. La campaña se eliminará permanentemente del listado.
+   661→            </AlertDialogDescription>
+   662→          </AlertDialogHeader>
+   663→          <AlertDialogFooter>
+   664→            <AlertDialogCancel className="min-h-[44px]">Cancelar</AlertDialogCancel>
+   665→            <AlertDialogAction
+   666→              onClick={onDelete}
+   667→              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
+   668→            >
+   669→              Eliminar
+   670→            </AlertDialogAction>
+   671→          </AlertDialogFooter>
+   672→        </AlertDialogContent>
+   673→      </AlertDialog>
+   674→    </div>
+   675→  );
+   676→}
+   677→
+   678→function IconBtn({
+   679→  icon: Icon,
+   680→  label,
+   681→  onClick,
+   682→  tone = "default",
+   683→}: {
+   684→  icon: React.ElementType;
+   685→  label: string;
+   686→  onClick?: () => void;
+   687→  tone?: "default" | "amber" | "destructive";
+   688→}) {
+   689→  const cls =
+   690→    tone === "amber"
+   691→      ? "text-amber-300 hover:bg-amber-400/10 border-amber-400/30"
+   692→      : tone === "destructive"
+   693→      ? "text-rose-300 hover:bg-rose-500/10 border-rose-500/30"
+   694→      : "text-muted-foreground hover:bg-foreground/5 border-border/40";
+   695→  return (
+   696→    <TooltipProvider delayDuration={150}>
+   697→      <Tooltip>
+   698→        <TooltipTrigger asChild>
+   699→          <button
+   700→            onClick={onClick}
+   701→            aria-label={label}
+   702→            className={cn(
+   703→              "inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors",
+   704→              cls
+   705→            )}
+   706→          >
+   707→            <Icon className="h-3.5 w-3.5" />
+   708→          </button>
+   709→        </TooltipTrigger>
+   710→        <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
+   711→      </Tooltip>
+   712→    </TooltipProvider>
+   713→  );
+   714→}
+   715→
+   716→function NewCampaignDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   717→  const [name, setName] = React.useState("");
+   718→  const [channel, setChannel] = React.useState<Channel>("Email");
+   719→  function submit() {
+   720→    if (!name.trim()) {
+   721→      toast({ title: "Falta el nombre", description: "Asigna un nombre a la campaña.", variant: "destructive" });
+   722→      return;
+   723→    }
+   724→    toast({ title: "Campaña creada", description: `${name} (${channel}) · borrador guardado.` });
+   725→    setName("");
+   726→    onOpenChange(false);
+   727→  }
+   728→  return (
+   729→    <Dialog open={open} onOpenChange={onOpenChange}>
+   730→      <DialogContent className="rp-glass-strong sm:max-w-md">
+   731→        <DialogHeader>
+   732→          <DialogTitle>Nueva campaña</DialogTitle>
+   733→          <DialogDescription>Crea una campaña en estado borrador. Podrás editarla y programarla después.</DialogDescription>
+   734→        </DialogHeader>
+   735→        <div className="space-y-4 py-2">
+   736→          <div className="space-y-1.5">
+   737→            <label htmlFor="nc-name" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Nombre</label>
+   738→            <Input
+   739→              id="nc-name"
+   740→              value={name}
+   741→              onChange={(e) => setName(e.target.value)}
+   742→              placeholder="Ej. Menú Navidad 2025"
+   743→              className="bg-foreground/[0.04] min-h-[44px]"
+   744→            />
+   745→          </div>
+   746→          <div className="space-y-1.5">
+   747→            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Canal</span>
+   748→            <div className="flex flex-wrap gap-1.5">
+   749→              {(Object.keys(CHANNEL_META) as Channel[]).map((ch) => {
+   750→                const M = CHANNEL_META[ch];
+   751→                const I = M.icon;
+   752→                const active = channel === ch;
+   753→                return (
+   754→                  <button
+   755→                    key={ch}
+   756→                    onClick={() => setChannel(ch)}
+   757→                    aria-pressed={active}
+   758→                    className={cn(
+   759→                      "inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs transition-colors min-h-[40px]",
+   760→                      active ? cn(M.cls, "ring-1 ring-offset-0") : "border-border/40 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   761→                    )}
+   762→                  >
+   763→                    <I className="h-3.5 w-3.5" /> {ch}
+   764→                  </button>
+   765→                );
+   766→              })}
+   767→            </div>
+   768→          </div>
+   769→        </div>
+   770→        <DialogFooter>
+   771→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cancelar</Button>
+   772→          <Button onClick={submit} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]">
+   773→            Crear borrador
+   774→          </Button>
+   775→        </DialogFooter>
+   776→      </DialogContent>
+   777→    </Dialog>
+   778→  );
+   779→}
+   780→
+   781→/* =====================================================================
+   782→ * Tab 2 — Calendario
+   783→ * ===================================================================== */
+   784→
+   785→function CalendarTab({ reduce }: { reduce: boolean | null }) {
+   786→  const [selectedDay, setSelectedDay] = React.useState<number | null>(12);
+   787→
+   788→  const upcoming = CAMPAIGNS.filter((c) => c.status === "programada" || c.status === "activa")
+   789→    .sort((a, b) => a.date.localeCompare(b.date))
+   790→    .slice(0, 6);
+   791→
+   792→  const selectedCampaigns = campaignsForDay(selectedDay);
+   793→
+   794→  return (
+   795→    <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
+   796→      {/* Calendar */}
+   797→      <div className="rp-glass rounded-2xl p-4 sm:p-5">
+   798→        <div className="flex items-center justify-between mb-4">
+   799→          <div>
+   800→            <h2 className="font-display text-lg">{CALENDAR_MONTH}</h2>
+   801→            <p className="text-xs text-muted-foreground">Campañas programadas y activas</p>
+   802→          </div>
+   803→          <div className="flex items-center gap-1">
+   804→            <button aria-label="Mes anterior" className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   805→              <ChevronLeft className="h-4 w-4" />
+   806→            </button>
+   807→            <button aria-label="Mes siguiente" className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   808→              <ChevronRight className="h-4 w-4" />
+   809→            </button>
+   810→          </div>
+   811→        </div>
+   812→
+   813→        {/* Weekday header */}
+   814→        <div className="grid grid-cols-7 gap-1 mb-1">
+   815→          {CALENDAR_WEEKDAYS.map((d) => (
+   816→            <div key={d} className="text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground py-1.5">
+   817→              {d}
+   818→            </div>
+   819→          ))}
+   820→        </div>
+   821→
+   822→        {/* Day cells */}
+   823→        <div className="grid grid-cols-7 gap-1">
+   824→          {CALENDAR_DAYS.map((day, idx) => {
+   825→            const dayCampaigns = campaignsForDay(day);
+   826→            const isSelected = selectedDay === day;
+   827→            const isToday = day === 12;
+   828→            return (
+   829→              <button
+   830→                key={idx}
+   831→                onClick={() => day !== null && setSelectedDay(day)}
+   832→                disabled={day === null}
+   833→                aria-label={day !== null ? `${day} de noviembre — ${dayCampaigns.length} campañas` : "Celda vacía"}
+   834→                className={cn(
+   835→                  "aspect-square min-h-[44px] sm:min-h-[64px] rounded-md border p-1 sm:p-1.5 text-left transition-colors flex flex-col",
+   836→                  day === null
+   837→                    ? "border-transparent bg-foreground/[0.015] cursor-default"
+   838→                    : isSelected
+   839→                    ? "border-[var(--gold)]/60 bg-[var(--gold)]/10"
+   840→                    : "border-border/40 bg-foreground/[0.02] hover:border-foreground/30 hover:bg-foreground/[0.04]"
+   841→                )}
+   842→              >
+   843→                {day !== null && (
+   844→                  <>
+   845→                    <span
+   846→                      className={cn(
+   847→                        "text-xs font-mono",
+   848→                        isToday ? "text-[var(--gold)] font-medium" : "text-muted-foreground"
+   849→                      )}
+   850→                    >
+   851→                      {day}
+   852→                    </span>
+   853→                    <div className="mt-auto flex flex-wrap gap-0.5">
+   854→                      {dayCampaigns.slice(0, 4).map((c) => {
+   855→                        const dot = STATUS_META[c.status].dot;
+   856→                        return <span key={c.id} className={cn("h-1.5 w-1.5 rounded-full", dot)} />;
+   857→                      })}
+   858→                      {dayCampaigns.length > 4 && (
+   859→                        <span className="text-[8px] font-mono text-muted-foreground">+{dayCampaigns.length - 4}</span>
+   860→                      )}
+   861→                    </div>
+   862→                  </>
+   863→                )}
+   864→              </button>
+   865→            );
+   866→          })}
+   867→        </div>
+   868→
+   869→        {/* Legend */}
+   870→        <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border/40">
+   871→          {(Object.keys(STATUS_META) as CampaignStatus[]).map((s) => (
+   872→            <span key={s} className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   873→              <span className={cn("h-2 w-2 rounded-full", STATUS_META[s].dot)} />
+   874→              {STATUS_META[s].label}
+   875→            </span>
+   876→          ))}
+   877→        </div>
+   878→      </div>
+   879→
+   880→      {/* Side panel: selected day + upcoming + AI suggestion */}
+   881→      <div className="space-y-4">
+   882→        <div className="rp-glass rounded-2xl p-4">
+   883→          <div className="flex items-center justify-between mb-3">
+   884→            <h3 className="font-display text-base">
+   885→              {selectedDay !== null ? `Día ${selectedDay} nov` : "Selecciona un día"}
+   886→            </h3>
+   887→            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   888→              {selectedCampaigns.length} campaña(s)
+   889→            </span>
+   890→          </div>
+   891→          {selectedCampaigns.length === 0 ? (
+   892→            <div className="text-sm text-muted-foreground py-6 text-center">
+   893→              No hay campañas este día.
+   894→            </div>
+   895→          ) : (
+   896→            <ul className="space-y-2">
+   897→              {selectedCampaigns.map((c) => {
+   898→                const M = STATUS_META[c.status];
+   899→                return (
+   900→                  <li key={c.id} className="rounded-md border border-border/40 bg-foreground/[0.02] p-2.5">
+   901→                    <div className="flex items-center justify-between gap-2">
+   902→                      <span className="text-sm font-medium truncate">{c.name}</span>
+   903→                      <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider shrink-0", M.cls)}>
+   904→                        <span className={cn("h-1 w-1 rounded-full", M.dot)} />
+   905→                        {M.label}
+   906→                      </span>
+   907→                    </div>
+   908→                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+   909→                      <span className="font-mono">{c.channel}</span>
+   910→                      <span>·</span>
+   911→                      <span>{c.segment}</span>
+   912→                      <span>·</span>
+   913→                      <span>{c.audience.toLocaleString("es-ES")} contactos</span>
+   914→                    </div>
+   915→                  </li>
+   916→                );
+   917→              })}
+   918→            </ul>
+   919→          )}
+   920→        </div>
+   921→
+   922→        {/* AI suggestion */}
+   923→        <motion.div
+   924→          initial={reduce ? false : { opacity: 0, y: 6 }}
+   925→          animate={{ opacity: 1, y: 0 }}
+   926→          transition={{ duration: 0.3 }}
+   927→          className="rounded-2xl p-4 border border-[var(--teal)]/40 bg-[var(--teal)]/[0.06]"
+   928→        >
+   929→          <div className="flex items-center gap-2 mb-1.5">
+   930→            <Sparkles className="h-4 w-4 text-[var(--teal)]" />
+   931→            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">IA · mejor momento</span>
+   932→          </div>
+   933→          <p className="text-sm text-foreground leading-relaxed">
+   934→            Mejor momento para enviar: <strong className="text-[var(--teal)]">WhatsApp · martes 11:00</strong>. Histórico de apertura del 85% en esa franja.
+   935→          </p>
+   936→        </motion.div>
+   937→
+   938→        {/* Upcoming */}
+   939→        <div className="rp-glass rounded-2xl p-4">
+   940→          <h3 className="font-display text-base mb-3">Próximas campañas (30 días)</h3>
+   941→          <ul className="space-y-2 max-h-72 overflow-y-auto rp-scroll-thin pr-1">
+   942→            {upcoming.map((c) => {
+   943→              const M = STATUS_META[c.status];
+   944→              return (
+   945→                <li key={c.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-foreground/[0.02] p-2.5">
+   946→                  <div className="h-9 w-9 rounded-md bg-foreground/[0.04] flex flex-col items-center justify-center shrink-0">
+   947→                    <span className="text-[8px] font-mono uppercase text-muted-foreground leading-none">{c.date.slice(5, 7)}</span>
+   948→                    <span className="text-sm font-display leading-none">{c.date.slice(8, 10)}</span>
+   949→                  </div>
+   950→                  <div className="min-w-0 flex-1">
+   951→                    <div className="text-sm font-medium truncate">{c.name}</div>
+   952→                    <div className="text-[11px] text-muted-foreground">{c.channel} · {c.segment}</div>
+   953→                  </div>
+   954→                  <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider shrink-0", M.cls)}>
+   955→                    <span className={cn("h-1 w-1 rounded-full", M.dot)} />
+   956→                    {M.label}
+   957→                  </span>
+   958→                </li>
+   959→              );
+   960→            })}
+   961→          </ul>
+   962→        </div>
+   963→      </div>
+   964→    </div>
+   965→  );
+   966→}
+   967→
+   968→/* =====================================================================
+   969→ * Tab 3 — Builder (visual flow editor)
+   970→ * ===================================================================== */
+   971→
+   972→function BuilderTab({ reduce }: { reduce: boolean | null }) {
+   973→  const [nodes, setNodes] = React.useState<FlowNode[]>(FLOW_NODES);
+   974→  const [selectedId, setSelectedId] = React.useState<string>("n1");
+   975→  const [testOpen, setTestOpen] = React.useState(false);
+   976→  const [publishOpen, setPublishOpen] = React.useState(false);
+   977→  const [abActive, setAbActive] = React.useState(false);
+   978→  const [abMetric, setAbMetric] = React.useState("open_rate");
+   979→  const [abDist, setAbDist] = React.useState(50);
+   980→
+   981→  const selected = nodes.find((n) => n.id === selectedId);
+   982→
+   983→  function addNode(type: NodeType, subtype: string, title: string) {
+   984→    const id = `n${Date.now()}`;
+   985→    setNodes((prev) => [...prev, { id, type, subtype, title, summary: "Configurar…" }]);
+   986→    setSelectedId(id);
+   987→    toast({ title: "Nodo añadido", description: title });
+   988→  }
+   989→
+   990→  function deleteNode(id: string) {
+   991→    setNodes((prev) => prev.filter((n) => n.id !== id));
+   992→    if (selectedId === id) setSelectedId(nodes[0]?.id ?? "");
+   993→    toast({ title: "Nodo eliminado" });
+   994→  }
+   995→
+   996→  function updateNode(id: string, patch: Partial<FlowNode>) {
+   997→    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+   998→  }
+   999→
+  1000→  function loadPreset(p: AutomationPreset) {
+  1001→    setNodes(FLOW_NODES);
+  1002→    setSelectedId(FLOW_NODES[0].id);
+  1003→    toast({ title: "Plantilla cargada", description: `${p.name} (${p.nodes} nodos)` });
+  1004→  }
+  1005→
+  1006→  return (
+  1007→    <div className="space-y-4">
+  1008→      {/* Toolbar */}
+  1009→      <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center gap-2 sticky top-16 z-20">
+  1010→        <div className="flex items-center gap-2 mr-auto">
+  1011→          <Workflow className="h-4 w-4 text-[var(--gold)]" />
+  1012→          <span className="font-display text-base">Recuperación inactivos</span>
+  1013→          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-border/40 rounded px-1.5 py-0.5">borrador</span>
+  1014→        </div>
+  1015→        <Button variant="outline" onClick={() => toast({ title: "Borrador guardado" })} className="min-h-[40px]">
+  1016→          <Save className="h-3.5 w-3.5 mr-1.5" /> Guardar
+  1017→        </Button>
+  1018→        <Button variant="outline" onClick={() => setTestOpen(true)} className="min-h-[40px]">
+  1019→          <Play className="h-3.5 w-3.5 mr-1.5" /> Probar
+  1020→        </Button>
+  1021→        <Button variant="outline" onClick={() => toast({ title: "Flujo duplicado" })} className="min-h-[40px]">
+  1022→          <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicar
+  1023→        </Button>
+  1024→        <Button onClick={() => setPublishOpen(true)} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]">
+  1025→          <Zap className="h-3.5 w-3.5 mr-1.5" /> Publicar
+  1026→        </Button>
+  1027→      </div>
+  1028→
+  1029→      {/* A/B testing strip */}
+  1030→      <div className="rp-glass rounded-2xl p-4">
+  1031→        <div className="flex flex-wrap items-center gap-3 justify-between">
+  1032→          <div className="flex items-center gap-2">
+  1033→            <GitBranch className="h-4 w-4 text-[var(--gold)]" />
+  1034→            <span className="font-display text-sm">Test A/B</span>
+  1035→            <Switch checked={abActive} onCheckedChange={setAbActive} aria-label="Activar test A/B" />
+  1036→          </div>
+  1037→          {abActive && (
+  1038→            <div className="flex flex-wrap items-center gap-3">
+  1039→              <div className="flex items-center gap-2">
+  1040→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Variante</span>
+  1041→                <span className="rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2 py-0.5 text-xs font-mono text-[var(--gold-soft)]">A 50%</span>
+  1042→                <span className="rounded-md border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-xs font-mono text-[var(--teal)]">B 50%</span>
+  1043→              </div>
+  1044→              <div className="flex items-center gap-1.5">
+  1045→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Distribución</span>
+  1046→                <input
+  1047→                  type="range"
+  1048→                  min={10}
+  1049→                  max={90}
+  1050→                  step={5}
+  1051→                  value={abDist}
+  1052→                  onChange={(e) => setAbDist(Number(e.target.value))}
+  1053→                  className="w-24 accent-[var(--gold)]"
+  1054→                  aria-label="Distribución A/B"
+  1055→                />
+  1056→                <span className="text-xs font-mono tabular-nums">{abDist}/{100 - abDist}</span>
+  1057→              </div>
+  1058→              <div className="flex items-center gap-1.5">
+  1059→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Métrica</span>
+  1060→                <select
+  1061→                  value={abMetric}
+  1062→                  onChange={(e) => setAbMetric(e.target.value)}
+  1063→                  className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-1 text-xs min-h-[36px]"
+  1064→                  aria-label="Métrica primaria"
+  1065→                >
+  1066→                  <option value="open_rate">Tasa de apertura</option>
+  1067→                  <option value="ctr">CTR</option>
+  1068→                  <option value="conversion">Conversión</option>
+  1069→                  <option value="revenue">Ingresos</option>
+  1070→                </select>
+  1071→              </div>
+  1072→              <Button size="sm" className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80 min-h-[36px]" onClick={() => toast({ title: "Test A/B iniciado", description: "Reparto 50/50 entre variantes" })}>
+  1073→                Iniciar test
+  1074→              </Button>
+  1075→            </div>
+  1076→          )}
+  1077→        </div>
+  1078→      </div>
+  1079→
+  1080→      {/* 3-panel builder: palette | canvas | config */}
+  1081→      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_260px] gap-4">
+  1082→        {/* Palette */}
+  1083→        <div className="rp-glass rounded-2xl p-3 lg:max-h-[600px] lg:overflow-y-auto rp-scroll-thin">
+  1084→          <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2 px-1">Nodos</h3>
+  1085→          <div className="flex lg:flex-col gap-2 overflow-x-auto rp-scroll-thin pb-1 lg:pb-0">
+  1086→            {PALETTE.map((group) => {
+  1087→              const meta = NODE_TYPE_META[group.type];
+  1088→              const GIcon = meta.icon;
+  1089→              return (
+  1090→                <div key={group.type} className="min-w-[180px] lg:min-w-0 shrink-0">
+  1091→                  <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider", meta.bg, meta.text)}>
+  1092→                    <GIcon className="h-3 w-3" />
+  1093→                    {meta.label}
+  1094→                  </div>
+  1095→                  <ul className="mt-1 space-y-0.5">
+  1096→                    {group.items.map((it) => {
+  1097→                      const I = it.icon;
+  1098→                      return (
+  1099→                        <li key={it.subtype}>
+  1100→                          <button
+  1101→                            onClick={() => addNode(group.type, it.subtype, it.title)}
+  1102→                            className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[36px]"
+  1103→                          >
+  1104→                            <I className="h-3 w-3 shrink-0" style={{ color: meta.color }} />
+  1105→                            <span className="truncate">{it.title}</span>
+  1106→                            <Plus className="h-3 w-3 ml-auto shrink-0 opacity-50" />
+  1107→                          </button>
+  1108→                        </li>
+  1109→                      );
+  1110→                    })}
+  1111→                  </ul>
+  1112→                </div>
+  1113→              );
+  1114→            })}
+  1115→          </div>
+  1116→        </div>
+  1117→
+  1118→        {/* Canvas */}
+  1119→        <div className="rp-glass rounded-2xl p-4 min-w-0">
+  1120→          <div className="flex items-center justify-between mb-3">
+  1121→            <h3 className="font-display text-sm">Flujo de automatización</h3>
+  1122→            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{nodes.length} nodos</span>
+  1123→          </div>
+  1124→          <div className="overflow-x-auto rp-scroll-thin pb-2">
+  1125→            <div className="flex items-stretch gap-2 min-w-max">
+  1126→              {nodes.map((node, idx) => {
+  1127→                const meta = NODE_TYPE_META[node.type];
+  1128→                const Icon = meta.icon;
+  1129→                const isSelected = selectedId === node.id;
+  1130→                return (
+  1131→                  <React.Fragment key={node.id}>
+  1132→                    <motion.button
+  1133→                      layout={!reduce}
+  1134→                      initial={reduce ? false : { opacity: 0, scale: 0.96 }}
+  1135→                      animate={{ opacity: 1, scale: 1 }}
+  1136→                      transition={{ duration: 0.2 }}
+  1137→                      onClick={() => setSelectedId(node.id)}
+  1138→                      className={cn(
+  1139→                        "w-[180px] shrink-0 rounded-xl border p-3 text-left transition-colors",
+  1140→                        isSelected ? cn(meta.border, meta.bg, "ring-1 ring-offset-0") : "border-border/40 bg-foreground/[0.02] hover:bg-foreground/[0.04]"
+  1141→                      )}
+  1142→                      aria-pressed={isSelected}
+  1143→                    >
+  1144→                      <div className="flex items-center justify-between">
+  1145→                        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider", meta.bg, meta.text, meta.border, "border")}>
+  1146→                          <Icon className="h-2.5 w-2.5" />
+  1147→                          {meta.label}
+  1148→                        </span>
+  1149→                        <span
+  1150→                          role="button"
+  1151→                          tabIndex={0}
+  1152→                          onClick={(e) => { e.stopPropagation(); deleteNode(node.id); }}
+  1153→                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); deleteNode(node.id); } }}
+  1154→                          aria-label="Eliminar nodo"
+  1155→                          className="h-5 w-5 inline-flex items-center justify-center rounded text-muted-foreground hover:text-rose-300 hover:bg-rose-500/10 transition-colors cursor-pointer"
+  1156→                        >
+  1157→                          <Trash2 className="h-3 w-3" />
+  1158→                        </span>
+  1159→                      </div>
+  1160→                      <div className="mt-2 font-medium text-sm leading-snug">{node.title}</div>
+  1161→                      <div className="mt-1 text-[11px] text-muted-foreground line-clamp-2">{node.summary}</div>
+  1162→                    </motion.button>
+  1163→                    {idx < nodes.length - 1 && (
+  1164→                      <div className="flex items-center shrink-0" aria-hidden>
+  1165→                        <ArrowRight className="h-4 w-4 text-muted-foreground/60" />
+  1166→                      </div>
+  1167→                    )}
+  1168→                  </React.Fragment>
+  1169→                );
+  1170→              })}
+  1171→              <button
+  1172→                onClick={() => addNode("action", "email", "Nuevo paso")}
+  1173→                className="w-[120px] shrink-0 rounded-xl border border-dashed border-border/60 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground hover:border-[var(--gold)]/50 transition-colors min-h-[100px]"
+  1174→                aria-label="Añadir nodo"
+  1175→              >
+  1176→                <Plus className="h-5 w-5" />
+  1177→                <span className="text-xs">Añadir nodo</span>
+  1178→              </button>
+  1179→            </div>
+  1180→          </div>
+  1181→
+  1182→          {/* Templates strip */}
+  1183→          <div className="mt-5 pt-4 border-t border-border/40">
+  1184→            <div className="flex items-center justify-between mb-2">
+  1185→              <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Plantillas de automatización</h3>
+  1186→              <span className="text-[10px] text-muted-foreground">{AUTOMATION_PRESETS.length} disponibles</span>
+  1187→            </div>
+  1188→            <div className="flex gap-2 overflow-x-auto rp-scroll-thin pb-1">
+  1189→              {AUTOMATION_PRESETS.map((p) => {
+  1190→                const I = p.icon;
+  1191→                return (
+  1192→                  <button
+  1193→                    key={p.id}
+  1194→                    onClick={() => loadPreset(p)}
+  1195→                    className="min-w-[200px] shrink-0 rounded-lg border border-border/40 bg-foreground/[0.02] p-3 text-left hover:border-[var(--gold)]/40 hover:bg-foreground/[0.04] transition-colors"
+  1196→                  >
+  1197→                    <div className="flex items-center gap-2 mb-1">
+  1198→                      <I className="h-3.5 w-3.5 text-[var(--gold)]" />
+  1199→                      <span className="text-xs font-medium truncate">{p.name}</span>
+  1200→                    </div>
+  1201→                    <p className="text-[11px] text-muted-foreground line-clamp-2 leading-snug">{p.desc}</p>
+  1202→                    <div className="mt-1.5 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">{p.nodes} nodos</div>
+  1203→                  </button>
+  1204→                );
+  1205→              })}
+  1206→            </div>
+  1207→          </div>
+  1208→        </div>
+  1209→
+  1210→        {/* Config panel */}
+  1211→        <div className="rp-glass rounded-2xl p-4">
+  1212→          <h3 className="font-display text-sm mb-3">Configuración</h3>
+  1213→          {selected ? (
+  1214→            <NodeConfig key={selected.id} node={selected} onChange={(patch) => updateNode(selected.id, patch)} />
+  1215→          ) : (
+  1216→            <div className="text-sm text-muted-foreground py-6 text-center">
+  1217→              Selecciona un nodo para configurarlo.
+  1218→            </div>
+  1219→          )}
+  1220→        </div>
+  1221→      </div>
+  1222→
+  1223→      <TestDialog open={testOpen} onOpenChange={setTestOpen} />
+  1224→      <AlertDialog open={publishOpen} onOpenChange={setPublishOpen}>
+  1225→        <AlertDialogContent className="rp-glass-strong">
+  1226→          <AlertDialogHeader>
+  1227→            <AlertDialogTitle>¿Publicar automatización?</AlertDialogTitle>
+  1228→            <AlertDialogDescription>
+  1229→              La automatización “Recuperación inactivos” quedará activa y se ejecutará automáticamente cuando un cliente cumpla el trigger.
+  1230→            </AlertDialogDescription>
+  1231→          </AlertDialogHeader>
+  1232→          <AlertDialogFooter>
+  1233→            <AlertDialogCancel className="min-h-[44px]">Cancelar</AlertDialogCancel>
+  1234→            <AlertDialogAction
+  1235→              onClick={() => { toast({ title: "Automatización publicada", description: "Activa y lista para ejecutarse." }); setPublishOpen(false); }}
+  1236→              className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]"
+  1237→            >
+  1238→              Publicar
+  1239→            </AlertDialogAction>
+  1240→          </AlertDialogFooter>
+  1241→        </AlertDialogContent>
+  1242→      </AlertDialog>
+  1243→    </div>
+  1244→  );
+  1245→}
+  1246→
+  1247→function NodeConfig({ node, onChange }: { node: FlowNode; onChange: (patch: Partial<FlowNode>) => void }) {
+  1248→  const meta = NODE_TYPE_META[node.type];
+  1249→  const Icon = meta.icon;
+  1250→  return (
+  1251→    <div className="space-y-3">
+  1252→      <div className={cn("flex items-center gap-2 rounded-md px-2 py-1.5 text-[10px] font-mono uppercase tracking-wider", meta.bg, meta.text, meta.border, "border")}>
+  1253→        <Icon className="h-3 w-3" />
+  1254→        {meta.label}
+  1255→      </div>
+  1256→      <div className="space-y-1.5">
+  1257→        <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Título</label>
+  1258→        <Input
+  1259→          value={node.title}
+  1260→          onChange={(e) => onChange({ title: e.target.value })}
+  1261→          className="bg-foreground/[0.04] min-h-[40px]"
+  1262→        />
+  1263→      </div>
+  1264→      <div className="space-y-1.5">
+  1265→        <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Resumen / Config</label>
+  1266→        <Textarea
+  1267→          value={node.summary}
+  1268→          onChange={(e) => onChange({ summary: e.target.value })}
+  1269→          rows={3}
+  1270→          className="bg-foreground/[0.04] min-h-[80px] resize-none"
+  1271→        />
+  1272→      </div>
+  1273→      {node.type === "wait" && (
+  1274→        <div className="space-y-1.5">
+  1275→          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Duración</label>
+  1276→          <div className="flex items-center gap-2">
+  1277→            <Input type="number" defaultValue={node.subtype === "horas" ? 2 : 5} className="bg-foreground/[0.04] min-h-[40px]" />
+  1278→            <select className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-2 text-xs min-h-[40px]" defaultValue={node.subtype === "horas" ? "horas" : "dias"}>
+  1279→              <option value="horas">horas</option>
+  1280→              <option value="dias">días</option>
+  1281→            </select>
+  1282→          </div>
+  1283→        </div>
+  1284→      )}
+  1285→      {node.type === "action" && (node.subtype === "email" || node.subtype === "whatsapp" || node.subtype === "sms") && (
+  1286→        <div className="space-y-1.5">
+  1287→          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Plantilla</label>
+  1288→          <select className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-2 text-xs w-full min-h-[40px]">
+  1289→            <option>Te echamos de menos</option>
+  1290→            <option>Feliz cumpleaños</option>
+  1291→            <option>Oferta exclusiva 15%</option>
+  1292→            <option>Reserva tu mesa</option>
+  1293→          </select>
+  1294→        </div>
+  1295→      )}
+  1296→      {node.type === "condition" && (
+  1297→        <div className="space-y-1.5">
+  1298→          <label className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Regla</label>
+  1299→          <select className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-2 text-xs w-full min-h-[40px]" defaultValue={node.subtype}>
+  1300→            <option value="consentimiento">Consentimiento RGPD</option>
+  1301→            <option value="canal">Canal preferido</option>
+  1302→            <option value="ltv">LTV mínimo</option>
+  1303→          </select>
+  1304→        </div>
+  1305→      )}
+  1306→      <div className="pt-2 border-t border-border/40 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1307→        ID: {node.id}
+  1308→      </div>
+  1309→    </div>
+  1310→  );
+  1311→}
+  1312→
+  1313→function TestDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  1314→  const [logs, setLogs] = React.useState<{ t: string; msg: string; tone: "info" | "ok" | "warn" }[]>([]);
+  1315→  const [running, setRunning] = React.useState(false);
+  1316→
+  1317→  React.useEffect(() => {
+  1318→    if (!open) {
+  1319→      setLogs([]);
+  1320→      setRunning(false);
+  1321→      return;
+  1322→    }
+  1323→    setRunning(true);
+  1324→    const steps: { msg: string; tone: "info" | "ok" | "warn"; delay: number }[] = [
+  1325→      { msg: "Cliente #1184 cumple trigger: inactividad 90d", tone: "info", delay: 0 },
+  1326→      { msg: "Esperando 2 horas…", tone: "info", delay: 400 },
+  1327→      { msg: "Verificando consentimiento email ✓", tone: "ok", delay: 900 },
+  1328→      { msg: "Enviando email 'Te echamos de menos'", tone: "info", delay: 1300 },
+  1329→      { msg: "Email entregado a maria@example.com ✓", tone: "ok", delay: 1700 },
+  1330→      { msg: "Esperando 5 días…", tone: "info", delay: 2100 },
+  1331→      { msg: "Sin apertura detectada — activando WhatsApp", tone: "warn", delay: 2600 },
+  1332→      { msg: "WhatsApp enviado a +34 6XX XXX XXX ✓", tone: "ok", delay: 3000 },
+  1333→      { msg: "Test completado · duración simulada: 5 días 2h", tone: "ok", delay: 3400 },
+  1334→    ];
+  1335→    const timers = steps.map((s) => setTimeout(() => {
+  1336→      setLogs((prev) => [...prev, { t: new Date().toLocaleTimeString("es-ES"), msg: s.msg, tone: s.tone }]);
+  1337→    }, s.delay));
+  1338→    const endTimer = setTimeout(() => setRunning(false), 3600);
+  1339→    return () => { timers.forEach(clearTimeout); clearTimeout(endTimer); };
+  1340→  }, [open]);
+  1341→
+  1342→  return (
+  1343→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1344→      <DialogContent className="rp-glass-strong sm:max-w-lg">
+  1345→        <DialogHeader>
+  1346→          <DialogTitle>Probar automatización</DialogTitle>
+  1347→          <DialogDescription>
+  1348→            Ejecuta el flujo con un cliente demo y revisa el log de ejecución.
+  1349→          </DialogDescription>
+  1350→        </DialogHeader>
+  1351→        <div className="rounded-md border border-border/40 bg-black/40 p-3 font-mono text-xs max-h-72 overflow-y-auto rp-scroll-thin">
+  1352→          {logs.length === 0 ? (
+  1353→            <div className="text-muted-foreground">Iniciando test…</div>
+  1354→          ) : (
+  1355→            <ul className="space-y-1">
+  1356→              {logs.map((l, i) => (
+  1357→                <li key={i} className="flex gap-2">
+  1358→                  <span className="text-muted-foreground shrink-0">[{l.t}]</span>
+  1359→                  <span className={cn(
+  1360→                    l.tone === "ok" && "text-[var(--teal)]",
+  1361→                    l.tone === "warn" && "text-amber-300",
+  1362→                    l.tone === "info" && "text-foreground/80"
+  1363→                  )}>{l.msg}</span>
+  1364→                </li>
+  1365→              ))}
+  1366→              {running && <li className="text-muted-foreground animate-pulse">▌</li>}
+  1367→            </ul>
+  1368→          )}
+  1369→        </div>
+  1370→        <DialogFooter>
+  1371→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cerrar</Button>
+  1372→        </DialogFooter>
+  1373→      </DialogContent>
+  1374→    </Dialog>
+  1375→  );
+  1376→}
+  1377→
+  1378→/* =====================================================================
+  1379→ * Tab 4 — Plantillas
+  1380→ * ===================================================================== */
+  1381→
+  1382→function TemplatesTab({ reduce }: { reduce: boolean | null }) {
+  1383→  const [cat, setCat] = React.useState("Todas");
+  1384→  const [newOpen, setNewOpen] = React.useState(false);
+  1385→
+  1386→  const filtered = cat === "Todas" ? TEMPLATES : TEMPLATES.filter((t) => t.category === cat);
+  1387→
+  1388→  return (
+  1389→    <div className="space-y-4">
+  1390→      <div className="flex flex-wrap items-center justify-between gap-3">
+  1391→        <div className="flex flex-wrap items-center gap-1.5">
+  1392→          {TEMPLATE_CATEGORIES.map((c) => (
+  1393→            <button
+  1394→              key={c}
+  1395→              onClick={() => setCat(c)}
+  1396→              aria-pressed={cat === c}
+  1397→              className={cn(
+  1398→                "inline-flex items-center rounded-md border px-2.5 py-1 text-xs transition-colors min-h-[32px]",
+  1399→                cat === c
+  1400→                  ? "border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+  1401→                  : "border-foreground/15 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+  1402→              )}
+  1403→            >
+  1404→              {c}
+  1405→            </button>
+  1406→          ))}
+  1407→        </div>
+  1408→        <Button onClick={() => setNewOpen(true)} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]">
+  1409→          <Plus className="h-4 w-4 mr-1.5" /> Nueva plantilla
+  1410→        </Button>
+  1411→      </div>
+  1412→
+  1413→      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+  1414→        {filtered.map((t, i) => {
+  1415→          const M = CHANNEL_META[t.channel];
+  1416→          const I = M.icon;
+  1417→          return (
+  1418→            <motion.div
+  1419→              key={t.id}
+  1420→              initial={reduce ? false : { opacity: 0, y: 8 }}
+  1421→              animate={{ opacity: 1, y: 0 }}
+  1422→              transition={{ duration: 0.3, delay: Math.min(i * 0.03, 0.3) }}
+  1423→              className="rp-glass rounded-2xl p-4 flex flex-col"
+  1424→            >
+  1425→              <div className="flex items-center justify-between gap-2 mb-2">
+  1426→                <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono", M.cls)}>
+  1427→                  <I className="h-3 w-3" /> {t.channel}
+  1428→                </span>
+  1429→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{t.category}</span>
+  1430→              </div>
+  1431→              <h3 className="font-display text-base leading-tight">{t.name}</h3>
+  1432→              <div className="mt-2 rounded-md border border-border/40 bg-foreground/[0.02] p-2.5 text-xs">
+  1433→                <div className="font-medium text-foreground/90 truncate">{t.subject}</div>
+  1434→                <div className="text-muted-foreground mt-0.5 truncate">{t.preview}</div>
+  1435→              </div>
+  1436→              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+  1437→                <div className="rounded-md border border-border/40 bg-foreground/[0.02] p-2">
+  1438→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Apertura</div>
+  1439→                  <div className="font-display text-lg text-[var(--gold-soft)] tabular-nums">{t.openRate}%</div>
+  1440→                </div>
+  1441→                <div className="rounded-md border border-border/40 bg-foreground/[0.02] p-2">
+  1442→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">CTR</div>
+  1443→                  <div className="font-display text-lg text-[var(--teal)] tabular-nums">{t.ctr}%</div>
+  1444→                </div>
+  1445→              </div>
+  1446→              <div className="mt-3 flex items-center justify-between gap-2">
+  1447→                <span className="text-[11px] text-muted-foreground">Último uso: {t.lastUsed}</span>
+  1448→                <Button
+  1449→                  size="sm"
+  1450→                  variant="outline"
+  1451→                  className="min-h-[36px] border-[var(--gold)]/40 text-[var(--gold-soft)] hover:bg-[var(--gold)]/10"
+  1452→                  onClick={() => toast({ title: "Plantilla cargada", description: t.name })}
+  1453→                >
+  1454→                  Usar plantilla
+  1455→                </Button>
+  1456→              </div>
+  1457→            </motion.div>
+  1458→          );
+  1459→        })}
+  1460→      </div>
+  1461→
+  1462→      <NewTemplateDialog open={newOpen} onOpenChange={setNewOpen} />
+  1463→    </div>
+  1464→  );
+  1465→}
+  1466→
+  1467→function NewTemplateDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  1468→  const [name, setName] = React.useState("");
+  1469→  const [channel, setChannel] = React.useState<Channel>("Email");
+  1470→  const [subject, setSubject] = React.useState("");
+  1471→  const [preview, setPreview] = React.useState("");
+  1472→
+  1473→  function submit() {
+  1474→    if (!name.trim() || !subject.trim()) {
+  1475→      toast({ title: "Faltan campos", description: "Nombre y asunto son obligatorios.", variant: "destructive" });
+  1476→      return;
+  1477→    }
+  1478→    toast({ title: "Plantilla creada", description: `${name} (${channel})` });
+  1479→    setName(""); setSubject(""); setPreview("");
+  1480→    onOpenChange(false);
+  1481→  }
+  1482→
+  1483→  return (
+  1484→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1485→      <DialogContent className="rp-glass-strong sm:max-w-lg">
+  1486→        <DialogHeader>
+  1487→          <DialogTitle>Nueva plantilla</DialogTitle>
+  1488→          <DialogDescription>Crea una plantilla reutilizable para email o WhatsApp.</DialogDescription>
+  1489→        </DialogHeader>
+  1490→        <div className="space-y-3 py-1 max-h-[60vh] overflow-y-auto rp-scroll-thin pr-1">
+  1491→          <div className="space-y-1.5">
+  1492→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Nombre</label>
+  1493→            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej. Oferta flash 24h" className="bg-foreground/[0.04] min-h-[44px]" />
+  1494→          </div>
+  1495→          <div className="space-y-1.5">
+  1496→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Canal</label>
+  1497→            <div className="flex flex-wrap gap-1.5">
+  1498→              {(["Email", "WhatsApp", "SMS", "Push"] as Channel[]).map((ch) => {
+  1499→                const M = CHANNEL_META[ch];
+  1500→                const I = M.icon;
+  1501→                const active = channel === ch;
+  1502→                return (
+  1503→                  <button
+  1504→                    key={ch}
+  1505→                    onClick={() => setChannel(ch)}
+  1506→                    aria-pressed={active}
+  1507→                    className={cn(
+  1508→                      "inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs transition-colors min-h-[40px]",
+  1509→                      active ? cn(M.cls, "ring-1") : "border-border/40 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+  1510→                    )}
+  1511→                  >
+  1512→                    <I className="h-3.5 w-3.5" /> {ch}
+  1513→                  </button>
+  1514→                );
+  1515→              })}
+  1516→            </div>
+  1517→          </div>
+  1518→          <div className="space-y-1.5">
+  1519→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Asunto</label>
+  1520→            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Asunto del mensaje" className="bg-foreground/[0.04] min-h-[44px]" />
+  1521→          </div>
+  1522→          <div className="space-y-1.5">
+  1523→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Previsualización</label>
+  1524→            <Textarea value={preview} onChange={(e) => setPreview(e.target.value)} rows={3} placeholder="Primeras palabras del mensaje…" className="bg-foreground/[0.04] min-h-[80px] resize-none" />
+  1525→          </div>
+  1526→        </div>
+  1527→        <DialogFooter>
+  1528→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cancelar</Button>
+  1529→          <Button onClick={submit} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]">Crear plantilla</Button>
+  1530→        </DialogFooter>
+  1531→      </DialogContent>
+  1532→    </Dialog>
+  1533→  );
+  1534→}
+  1535→

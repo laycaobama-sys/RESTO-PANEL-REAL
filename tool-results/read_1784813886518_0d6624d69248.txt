@@ -1,0 +1,1610 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     5→import { cn } from "@/lib/utils";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Textarea } from "@/components/ui/textarea";
+    10→import { Switch } from "@/components/ui/switch";
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    12→import {
+    13→  Tooltip,
+    14→  TooltipContent,
+    15→  TooltipProvider,
+    16→  TooltipTrigger,
+    17→} from "@/components/ui/tooltip";
+    18→import {
+    19→  AlertDialog,
+    20→  AlertDialogAction,
+    21→  AlertDialogCancel,
+    22→  AlertDialogContent,
+    23→  AlertDialogDescription,
+    24→  AlertDialogFooter,
+    25→  AlertDialogHeader,
+    26→  AlertDialogTitle,
+    27→} from "@/components/ui/alert-dialog";
+    28→import {
+    29→  Dialog,
+    30→  DialogContent,
+    31→  DialogDescription,
+    32→  DialogFooter,
+    33→  DialogHeader,
+    34→  DialogTitle,
+    35→} from "@/components/ui/dialog";
+    36→import { toast } from "@/hooks/use-toast";
+    37→import {
+    38→  Ticket,
+    39→  Gift,
+    40→  Users,
+    41→  Crown,
+    42→  Plus,
+    43→  Copy,
+    44→  Trash2,
+    45→  Eye,
+    46→  Ban,
+    47→  RotateCcw,
+    48→  ChevronDown,
+    49→  ChevronRight,
+    50→  Settings2,
+    51→  Sparkles,
+    52→  TrendingUp,
+    53→  DollarSign,
+    54→  Percent,
+    55→  Euro,
+    56→  Wine,
+    57→  UtensilsCrossed,
+    58→  Star,
+    59→  Award,
+    60→  Medal,
+    61→  ShieldCheck,
+    62→  AlertTriangle,
+    63→  Check,
+    64→  X,
+    65→  Heart,
+    66→  ShoppingBag,
+    67→  Calendar,
+    68→} from "lucide-react";
+    69→
+    70→/* =====================================================================
+    71→ * Types
+    72→ * ===================================================================== */
+    73→
+    74→type CouponType = "percent" | "fixed" | "free_item" | "experience" | "first_visit";
+    75→type CouponStatus = "active" | "scheduled" | "paused" | "expired";
+    76→
+    77→interface Coupon {
+    78→  id: string;
+    79→  code: string;
+    80→  desc: string;
+    81→  type: CouponType;
+    82→  value: string;
+    83→  validFrom: string;
+    84→  validTo: string;
+    85→  validDays: string;
+    86→  validHours: string;
+    87→  minOrder: number;
+    88→  segment: string;
+    89→  used: number;
+    90→  limit: number;
+    91→  perCustomer: number;
+    92→  status: CouponStatus;
+    93→}
+    94→
+    95→interface GiftCard {
+    96→  id: string;
+    97→  code: string;
+    98→  amount: number;
+    99→  balance: number;
+   100→  purchaser: string;
+   101→  recipient: string;
+   102→  date: string;
+   103→  expiry: string;
+   104→  status: "active" | "redeemed" | "expired" | "blocked";
+   105→  history: { date: string; desc: string; amount: number }[];
+   106→}
+   107→
+   108→interface Referrer {
+   109→  id: string;
+   110→  name: string;
+   111→  code: string;
+   112→  invites: number;
+   113→  converted: number;
+   114→  revenue: number;
+   115→  rewards: string;
+   116→}
+   117→
+   118→interface Referral {
+   119→  id: string;
+   120→  inviter: string;
+   121→  invitee: string;
+   122→  date: string;
+   123→  status: "pending" | "converted" | "expired";
+   124→  reward: string;
+   125→}
+   126→
+   127→interface Tier {
+   128→  id: string;
+   129→  name: string;
+   130→  icon: React.ElementType;
+   131→  minVisits: number;
+   132→  minSpend: number;
+   133→  benefits: string[];
+   134→  members: number;
+   135→  color: string;
+   136→  bg: string;
+   137→  border: string;
+   138→  text: string;
+   139→}
+   140→
+   141→/* =====================================================================
+   142→ * Demo data
+   143→ * ===================================================================== */
+   144→
+   145→const COUPONS: Coupon[] = [
+   146→  {
+   147→    id: "cp1",
+   148→    code: "BLACKFRIDAY",
+   149→    desc: "2x1 en menú completo",
+   150→    type: "percent",
+   151→    value: "50%",
+   152→    validFrom: "2025-11-28",
+   153→    validTo: "2025-11-30",
+   154→    validDays: "Lun-Dom",
+   155→    validHours: "12:00-23:00",
+   156→    minOrder: 0,
+   157→    segment: "Todos",
+   158→    used: 89,
+   159→    limit: 100,
+   160→    perCustomer: 1,
+   161→    status: "active",
+   162→  },
+   163→  {
+   164→    id: "cp2",
+   165→    code: "CUMPLE15",
+   166→    desc: "15% descuento cumpleaños",
+   167→    type: "percent",
+   168→    value: "15%",
+   169→    validFrom: "2025-01-01",
+   170→    validTo: "2025-12-31",
+   171→    validDays: "Lun-Dom",
+   172→    validHours: "Todo el día",
+   173→    minOrder: 30,
+   174→    segment: "Cumpleañeros",
+   175→    used: 47,
+   176→    limit: 200,
+   177→    perCustomer: 1,
+   178→    status: "active",
+   179→  },
+   180→  {
+   181→    id: "cp3",
+   182→    code: "MEDIO14",
+   183→    desc: "Menú mediodía €14,50",
+   184→    type: "fixed",
+   185→    value: "€5",
+   186→    validFrom: "2025-09-01",
+   187→    validTo: "2025-12-31",
+   188→    validDays: "Lun-Jue",
+   189→    validHours: "13:00-16:00",
+   190→    minOrder: 20,
+   191→    segment: "Locales",
+   192→    used: 62,
+   193→    limit: 100,
+   194→    perCustomer: 4,
+   195→    status: "active",
+   196→  },
+   197→  {
+   198→    id: "cp4",
+   199→    code: "BOTELLAREGALO",
+   200→    desc: "Botella de vino gratis",
+   201→    type: "free_item",
+   202→    value: "Vino",
+   203→    validFrom: "2025-10-15",
+   204→    validTo: "2025-12-31",
+   205→    validDays: "Vie-Sáb",
+   206→    validHours: "20:00-23:30",
+   207→    minOrder: 80,
+   208→    segment: "VIP",
+   209→    used: 18,
+   210→    limit: 30,
+   211→    perCustomer: 1,
+   212→    status: "active",
+   213→  },
+   214→  {
+   215→    id: "cp5",
+   216→    code: "CENAVIP",
+   217→    desc: "Cena VIP para 2 personas",
+   218→    type: "experience",
+   219→    value: "Cena",
+   220→    validFrom: "2025-11-01",
+   221→    validTo: "2026-01-31",
+   222→    validDays: "Lun-Dom",
+   223→    validHours: "20:00-22:00",
+   224→    minOrder: 0,
+   225→    segment: "Diamond",
+   226→    used: 3,
+   227→    limit: 10,
+   228→    perCustomer: 1,
+   229→    status: "active",
+   230→  },
+   231→  {
+   232→    id: "cp6",
+   233→    code: "PRIMERAVEZ",
+   234→    desc: "10% en tu primera visita",
+   235→    type: "first_visit",
+   236→    value: "10%",
+   237→    validFrom: "2025-01-01",
+   238→    validTo: "2025-12-31",
+   239→    validDays: "Lun-Dom",
+   240→    validHours: "Todo el día",
+   241→    minOrder: 25,
+   242→    segment: "Nuevos",
+   243→    used: 28,
+   244→    limit: 500,
+   245→    perCustomer: 1,
+   246→    status: "active",
+   247→  },
+   248→  {
+   249→    id: "cp7",
+   250→    code: "VERANO25",
+   251→    desc: "Promo terraza verano",
+   252→    type: "percent",
+   253→    value: "25%",
+   254→    validFrom: "2025-06-01",
+   255→    validTo: "2025-08-31",
+   256→    validDays: "Lun-Dom",
+   257→    validHours: "13:00-18:00",
+   258→    minOrder: 0,
+   259→    segment: "Todos",
+   260→    used: 0,
+   261→    limit: 100,
+   262→    perCustomer: 2,
+   263→    status: "expired",
+   264→  },
+   265→  {
+   266→    id: "cp8",
+   267→    code: "REYES20",
+   268→    desc: "20% Reyes Magos",
+   269→    type: "percent",
+   270→    value: "20%",
+   271→    validFrom: "2026-01-05",
+   272→    validTo: "2026-01-06",
+   273→    validDays: "Lun-Dom",
+   274→    validHours: "13:00-23:00",
+   275→    minOrder: 0,
+   276→    segment: "Todos",
+   277→    used: 0,
+   278→    limit: 100,
+   279→    perCustomer: 1,
+   280→    status: "scheduled",
+   281→  },
+   282→];
+   283→
+   284→const COUPON_TYPE_META: Record<CouponType, { label: string; icon: React.ElementType; cls: string }> = {
+   285→  percent: { label: "% Descuento", icon: Percent, cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]" },
+   286→  fixed: { label: "Importe fijo", icon: Euro, cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]" },
+   287→  free_item: { label: "Artículo gratis", icon: Gift, cls: "border-rose-400/40 bg-rose-400/10 text-rose-300" },
+   288→  experience: { label: "Experiencia", icon: Star, cls: "border-violet-400/40 bg-violet-400/10 text-violet-300" },
+   289→  first_visit: { label: "1ª visita", icon: Sparkles, cls: "border-amber-400/40 bg-amber-400/10 text-amber-300" },
+   290→};
+   291→
+   292→const COUPON_STATUS_META: Record<CouponStatus, { label: string; cls: string; dot: string }> = {
+   293→  active: { label: "Activo", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400" },
+   294→  scheduled: { label: "Programado", cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]", dot: "bg-[var(--teal)]" },
+   295→  paused: { label: "Pausado", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400" },
+   296→  expired: { label: "Expirado", cls: "border-foreground/20 bg-foreground/5 text-muted-foreground", dot: "bg-foreground/40" },
+   297→};
+   298→
+   299→const GIFT_CARDS: GiftCard[] = [
+   300→  {
+   301→    id: "gc1",
+   302→    code: "GC-2025-0142",
+   303→    amount: 100,
+   304→    balance: 65,
+   305→    purchaser: "María García",
+   306→    recipient: "Carlos Ruiz",
+   307→    date: "2025-10-15",
+   308→    expiry: "2026-10-15",
+   309→    status: "active",
+   310→    history: [
+   311→      { date: "2025-10-15", desc: "Compra gift card", amount: 100 },
+   312→      { date: "2025-10-22", desc: "Cena 2 personas", amount: -35 },
+   313→    ],
+   314→  },
+   315→  {
+   316→    id: "gc2",
+   317→    code: "GC-2025-0143",
+   318→    amount: 200,
+   319→    balance: 0,
+   320→    purchaser: "Ana López",
+   321→    recipient: "Pedro Martín",
+   322→    date: "2025-09-30",
+   323→    expiry: "2026-09-30",
+   324→    status: "redeemed",
+   325→    history: [
+   326→      { date: "2025-09-30", desc: "Compra gift card", amount: 200 },
+   327→      { date: "2025-10-05", desc: "Cena aniversario", amount: -180 },
+   328→      { date: "2025-10-12", desc: "Resto saldo", amount: -20 },
+   329→    ],
+   330→  },
+   331→  {
+   332→    id: "gc3",
+   333→    code: "GC-2025-0144",
+   334→    amount: 50,
+   335→    balance: 50,
+   336→    purchaser: "Luis Fernández",
+   337→    recipient: "Lucía Díaz",
+   338→    date: "2025-11-10",
+   339→    expiry: "2026-11-10",
+   340→    status: "active",
+   341→    history: [{ date: "2025-11-10", desc: "Compra gift card", amount: 50 }],
+   342→  },
+   343→  {
+   344→    id: "gc4",
+   345→    code: "GC-2024-0089",
+   346→    amount: 100,
+   347→    balance: 100,
+   348→    purchaser: "Elena Sanz",
+   349→    recipient: "Javier Molina",
+   350→    date: "2024-11-20",
+   351→    expiry: "2025-11-20",
+   352→    status: "expired",
+   353→    history: [{ date: "2024-11-20", desc: "Compra gift card", amount: 100 }],
+   354→  },
+   355→  {
+   356→    id: "gc5",
+   357→    code: "GC-2025-0145",
+   358→    amount: 150,
+   359→    balance: 150,
+   360→    purchaser: "Marta Vega",
+   361→    recipient: "Roberto Gil",
+   362→    date: "2025-11-18",
+   363→    expiry: "2026-11-18",
+   364→    status: "blocked",
+   365→    history: [
+   366→      { date: "2025-11-18", desc: "Compra gift card", amount: 150 },
+   367→      { date: "2025-11-22", desc: "Bloqueada por fraude sospechoso", amount: 0 },
+   368→    ],
+   369→  },
+   370→];
+   371→
+   372→const GIFT_STATUS_META: Record<GiftCard["status"], { label: string; cls: string }> = {
+   373→  active: { label: "Activa", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" },
+   374→  redeemed: { label: "Canjeada", cls: "border-foreground/20 bg-foreground/5 text-muted-foreground" },
+   375→  expired: { label: "Expirada", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300" },
+   376→  blocked: { label: "Bloqueada", cls: "border-rose-400/40 bg-rose-400/10 text-rose-300" },
+   377→};
+   378→
+   379→const TOP_REFERRERS: Referrer[] = [
+   380→  { id: "r1", name: "María García", code: "MARIA20", invites: 18, converted: 12, revenue: 1240, rewards: "€120" },
+   381→  { id: "r2", name: "Carlos Ruiz", code: "CARLOS10", invites: 14, converted: 9, revenue: 980, rewards: "€90" },
+   382→  { id: "r3", name: "Ana López", code: "ANA15", invites: 11, converted: 7, revenue: 720, rewards: "€70" },
+   383→  { id: "r4", name: "Pedro Martín", code: "PEDRO20", invites: 9, converted: 6, revenue: 620, rewards: "€60" },
+   384→  { id: "r5", name: "Lucía Díaz", code: "LUCIA25", invites: 7, converted: 5, revenue: 540, rewards: "€50" },
+   385→  { id: "r6", name: "Luis Fernández", code: "LUIS10", invites: 5, converted: 3, revenue: 320, rewards: "€30" },
+   386→  { id: "r7", name: "Elena Sanz", code: "ELENA20", invites: 4, converted: 2, revenue: 180, rewards: "€20" },
+   387→];
+   388→
+   389→const RECENT_REFERRALS: Referral[] = [
+   390→  { id: "rf1", inviter: "María García", invitee: "Sofía M.", date: "Hace 2 días", status: "converted", reward: "€10 + 10%" },
+   391→  { id: "rf2", inviter: "Carlos Ruiz", invitee: "Diego F.", date: "Hace 4 días", status: "pending", reward: "— (pendiente)" },
+   392→  { id: "rf3", inviter: "Ana López", invitee: "Pablo R.", date: "Hace 6 días", status: "converted", reward: "€10 + 10%" },
+   393→  { id: "rf4", inviter: "Pedro Martín", invitee: "Nuria V.", date: "Hace 8 días", status: "expired", reward: "—" },
+   394→  { id: "rf5", inviter: "Lucía Díaz", invitee: "Iván S.", date: "Hace 10 días", status: "converted", reward: "€10 + 10%" },
+   395→];
+   396→
+   397→const TIERS: Tier[] = [
+   398→  {
+   399→    id: "bronze",
+   400→    name: "Bronze",
+   401→    icon: Medal,
+   402→    minVisits: 0,
+   403→    minSpend: 0,
+   404→    benefits: ["1 punto por cada €10", "Ofertas mensuales"],
+   405→    members: 412,
+   406→    color: "#cd7f32",
+   407→    bg: "bg-orange-500/10",
+   408→    border: "border-orange-500/40",
+   409→    text: "text-orange-300",
+   410→  },
+   411→  {
+   412→    id: "silver",
+   413→    name: "Silver",
+   414→    icon: Award,
+   415→    minVisits: 5,
+   416→    minSpend: 250,
+   417→    benefits: ["1.5 puntos por €10", "Prioridad en reservas", "Cumpleaños 15%"],
+   418→    members: 234,
+   419→    color: "#c0c0c0",
+   420→    bg: "bg-slate-400/10",
+   421→    border: "border-slate-400/40",
+   422→    text: "text-slate-300",
+   423→  },
+   424→  {
+   425→    id: "gold",
+   426→    name: "Gold",
+   427→    icon: Crown,
+   428→    minVisits: 15,
+   429→    minSpend: 800,
+   430→    benefits: ["2 puntos por €10", "Terraza privada", "Cumpleaños postre gratis", "Invitado VIP"],
+   431→    members: 142,
+   432→    color: "#D4AF37",
+   433→    bg: "bg-[var(--gold)]/10",
+   434→    border: "border-[var(--gold)]/40",
+   435→    text: "text-[var(--gold-soft)]",
+   436→  },
+   437→  {
+   438→    id: "platinum",
+   439→    name: "Platinum",
+   440→    icon: Sparkles,
+   441→    minVisits: 30,
+   442→    minSpend: 2000,
+   443→    benefits: ["3 puntos por €10", "Maitre dedicado", "Acceso evento privado", "Cena anual gratis"],
+   444→    members: 47,
+   445→    color: "#3DD6C9",
+   446→    bg: "bg-[var(--teal)]/10",
+   447→    border: "border-[var(--teal)]/40",
+   448→    text: "text-[var(--teal)]",
+   449→  },
+   450→  {
+   451→    id: "diamond",
+   452→    name: "Diamond",
+   453→    icon: Star,
+   454→    minVisits: 50,
+   455→    minSpend: 5000,
+   456→    benefits: ["5 puntos por €10", "Mesa reservada 24/7", "Chef a domicilio", "Experiencias exclusivas"],
+   457→    members: 12,
+   458→    color: "#a78bfa",
+   459→    bg: "bg-violet-500/10",
+   460→    border: "border-violet-500/40",
+   461→    text: "text-violet-300",
+   462→  },
+   463→];
+   464→
+   465→const POINTS_RULES = [
+   466→  { id: "pr1", spend: "100€", points: "10 pts", icon: DollarSign },
+   467→  { id: "pr2", points: "100 pts", reward: "Botella de vino", icon: Wine },
+   468→  { id: "pr3", points: "300 pts", reward: "Cena para 2", icon: UtensilsCrossed },
+   469→  { id: "pr4", points: "500 pts", reward: "Experiencia VIP", icon: Star },
+   470→];
+   471→
+   472→const MILESTONES = [
+   473→  { id: "m1", points: 10, reward: "Descuento 5%", icon: Percent },
+   474→  { id: "m2", points: 50, reward: "Botella de vino", icon: Wine },
+   475→  { id: "m3", points: 100, reward: "Cena VIP para 2", icon: UtensilsCrossed },
+   476→  { id: "m4", points: 200, reward: "Experiencia chef", icon: Sparkles },
+   477→];
+   478→
+   479→const REFERRAL_STATUS_META: Record<Referral["status"], { label: string; cls: string }> = {
+   480→  pending: { label: "Pendiente", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300" },
+   481→  converted: { label: "Convertido", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" },
+   482→  expired: { label: "Expirado", cls: "border-foreground/20 bg-foreground/5 text-muted-foreground" },
+   483→};
+   484→
+   485→/* =====================================================================
+   486→ * Helpers
+   487→ * ===================================================================== */
+   488→
+   489→function fmtEUR(n: number): string {
+   490→  return n.toLocaleString("es-ES", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 });
+   491→}
+   492→
+   493→/* =====================================================================
+   494→ * Shared atoms
+   495→ * ===================================================================== */
+   496→
+   497→function DemoBadge() {
+   498→  return (
+   499→    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+   500→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+   501→      demo
+   502→    </span>
+   503→  );
+   504→}
+   505→
+   506→function HeaderBar({ title, desc }: { title: string; desc: string }) {
+   507→  return (
+   508→    <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+   509→      <div>
+   510→        <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">{title}</h1>
+   511→        <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{desc}</p>
+   512→      </div>
+   513→      <DemoBadge />
+   514→    </div>
+   515→  );
+   516→}
+   517→
+   518→function IconBtn({
+   519→  icon: Icon,
+   520→  label,
+   521→  onClick,
+   522→  tone = "default",
+   523→}: {
+   524→  icon: React.ElementType;
+   525→  label: string;
+   526→  onClick?: () => void;
+   527→  tone?: "default" | "amber" | "destructive" | "teal";
+   528→}) {
+   529→  const cls =
+   530→    tone === "amber"
+   531→      ? "text-amber-300 hover:bg-amber-400/10 border-amber-400/30"
+   532→      : tone === "destructive"
+   533→      ? "text-rose-300 hover:bg-rose-500/10 border-rose-500/30"
+   534→      : tone === "teal"
+   535→      ? "text-[var(--teal)] hover:bg-[var(--teal)]/10 border-[var(--teal)]/30"
+   536→      : "text-muted-foreground hover:bg-foreground/5 border-border/40";
+   537→  return (
+   538→    <TooltipProvider delayDuration={150}>
+   539→      <Tooltip>
+   540→        <TooltipTrigger asChild>
+   541→          <button
+   542→            onClick={onClick}
+   543→            aria-label={label}
+   544→            className={cn("inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors", cls)}
+   545→          >
+   546→            <Icon className="h-3.5 w-3.5" />
+   547→          </button>
+   548→        </TooltipTrigger>
+   549→        <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
+   550→      </Tooltip>
+   551→    </TooltipProvider>
+   552→  );
+   553→}
+   554→
+   555→/* =====================================================================
+   556→ * Main component
+   557→ * ===================================================================== */
+   558→
+   559→export function GrowthPromotions() {
+   560→  const [tab, setTab] = React.useState("cupones");
+   561→
+   562→  return (
+   563→    <div className="space-y-5">
+   564→      <HeaderBar
+   565→        title="Promociones"
+   566→        desc="Cupones, gift cards, programa de referidos y fidelización con tiers y gamificación."
+   567→      />
+   568→
+   569→      <Tabs value={tab} onValueChange={setTab}>
+   570→        <TabsList className="bg-foreground/[0.04] border border-border/60">
+   571→          <TabsTrigger value="cupones" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   572→            <Ticket className="h-4 w-4 mr-1.5" /> Cupones
+   573→          </TabsTrigger>
+   574→          <TabsTrigger value="giftcards" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   575→            <Gift className="h-4 w-4 mr-1.5" /> Gift Cards
+   576→          </TabsTrigger>
+   577→          <TabsTrigger value="referidos" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   578→            <Users className="h-4 w-4 mr-1.5" /> Referidos
+   579→          </TabsTrigger>
+   580→          <TabsTrigger value="fidelizacion" className="data-[state=active]:bg-[var(--gold)]/10 data-[state=active]:text-[var(--gold-soft)] min-h-[40px]">
+   581→            <Crown className="h-4 w-4 mr-1.5" /> Fidelización
+   582→          </TabsTrigger>
+   583→        </TabsList>
+   584→
+   585→        <TabsContent value="cupones" className="mt-5">
+   586→          <CouponsTab />
+   587→        </TabsContent>
+   588→        <TabsContent value="giftcards" className="mt-5">
+   589→          <GiftCardsTab />
+   590→        </TabsContent>
+   591→        <TabsContent value="referidos" className="mt-5">
+   592→          <ReferralsTab />
+   593→        </TabsContent>
+   594→        <TabsContent value="fidelizacion" className="mt-5">
+   595→          <LoyaltyTab />
+   596→        </TabsContent>
+   597→      </Tabs>
+   598→    </div>
+   599→  );
+   600→}
+   601→
+   602→/* =====================================================================
+   603→ * Tab 1 — Cupones
+   604→ * ===================================================================== */
+   605→
+   606→function CouponsTab() {
+   607→  const reduce = useReducedMotion();
+   608→  const [items, setItems] = React.useState<Coupon[]>(COUPONS);
+   609→  const [createOpen, setCreateOpen] = React.useState(false);
+   610→  const [deactivateId, setDeactivateId] = React.useState<string | null>(null);
+   611→
+   612→  const analytics = [
+   613→    { id: "a1", label: "Redimidos", value: "247", tone: "default" as const, icon: Ticket },
+   614→    { id: "a2", label: "Ingresos", value: fmtEUR(4820), tone: "gold" as const, icon: DollarSign },
+   615→    { id: "a3", label: "Más popular", value: "BLACKFRIDAY (89)", tone: "teal" as const, icon: TrendingUp },
+   616→    { id: "a4", label: "ROI", value: "380%", tone: "gold" as const, icon: Sparkles },
+   617→  ];
+   618→
+   619→  function deactivate() {
+   620→    if (!deactivateId) return;
+   621→    setItems((prev) => prev.map((c) => (c.id === deactivateId ? { ...c, status: "paused" } : c)));
+   622→    toast({ title: "Cupón desactivado", description: items.find((c) => c.id === deactivateId)?.code });
+   623→    setDeactivateId(null);
+   624→  }
+   625→
+   626→  return (
+   627→    <div className="space-y-5">
+   628→      {/* Analytics */}
+   629→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   630→        {analytics.map((a, i) => {
+   631→          const Icon = a.icon;
+   632→          return (
+   633→            <motion.div
+   634→              key={a.id}
+   635→              initial={reduce ? false : { opacity: 0, y: 6 }}
+   636→              animate={{ opacity: 1, y: 0 }}
+   637→              transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.3) }}
+   638→              className="rp-glass rounded-xl p-4"
+   639→            >
+   640→              <div className="flex items-center justify-between">
+   641→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{a.label}</span>
+   642→                <Icon
+   643→                  className={cn(
+   644→                    "h-3.5 w-3.5",
+   645→                    a.tone === "gold" && "text-[var(--gold)]",
+   646→                    a.tone === "teal" && "text-[var(--teal)]",
+   647→                    a.tone === "default" && "text-muted-foreground"
+   648→                  )}
+   649→                />
+   650→              </div>
+   651→              <div className={cn(
+   652→                "mt-1.5 font-display text-xl font-light tabular-nums",
+   653→                a.tone === "gold" && "rp-gold-text",
+   654→                a.tone === "teal" && "rp-teal-text",
+   655→                a.tone === "default" && "text-foreground"
+   656→              )}>
+   657→                {a.value}
+   658→              </div>
+   659→            </motion.div>
+   660→          );
+   661→        })}
+   662→      </div>
+   663→
+   664→      {/* Coupons table */}
+   665→      <div className="rp-glass rounded-2xl overflow-hidden">
+   666→        <div className="flex items-center justify-between gap-3 p-4 border-b border-border/60">
+   667→          <div>
+   668→            <h2 className="font-display text-lg">Cupones</h2>
+   669→            <p className="text-xs text-muted-foreground">{items.length} cupones · {items.filter((c) => c.status === "active").length} activos</p>
+   670→          </div>
+   671→          <Button onClick={() => setCreateOpen(true)} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]">
+   672→            <Plus className="h-4 w-4 mr-1.5" /> Crear cupón
+   673→          </Button>
+   674→        </div>
+   675→        <div className="overflow-x-auto rp-scroll-thin">
+   676→          <table className="w-full text-sm">
+   677→            <thead>
+   678→              <tr className="text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/60">
+   679→                <th className="px-4 py-3 font-medium">Código</th>
+   680→                <th className="px-3 py-3 font-medium">Tipo</th>
+   681→                <th className="px-3 py-3 font-medium hidden md:table-cell">Validez</th>
+   682→                <th className="px-3 py-3 font-medium hidden lg:table-cell">Días/Horas</th>
+   683→                <th className="px-3 py-3 font-medium text-right hidden xl:table-cell">Mín.</th>
+   684→                <th className="px-3 py-3 font-medium hidden md:table-cell">Segmento</th>
+   685→                <th className="px-3 py-3 font-medium text-right">Uso</th>
+   686→                <th className="px-3 py-3 font-medium text-right hidden lg:table-cell">Límite/cliente</th>
+   687→                <th className="px-3 py-3 font-medium">Estado</th>
+   688→                <th className="px-3 py-3 font-medium text-right">Acciones</th>
+   689→              </tr>
+   690→            </thead>
+   691→            <tbody>
+   692→              {items.map((c) => {
+   693→                const tMeta = COUPON_TYPE_META[c.type];
+   694→                const TIcon = tMeta.icon;
+   695→                const sMeta = COUPON_STATUS_META[c.status];
+   696→                const usagePct = c.limit > 0 ? Math.round((c.used / c.limit) * 100) : 0;
+   697→                return (
+   698→                  <tr key={c.id} className="border-b border-border/40 hover:bg-foreground/[0.02] transition-colors">
+   699→                    <td className="px-4 py-3">
+   700→                      <button
+   701→                        onClick={() => { navigator.clipboard?.writeText(c.code); toast({ title: "Código copiado", description: c.code }); }}
+   702→                        className="inline-flex items-center gap-1.5 font-mono text-xs text-foreground hover:text-[var(--gold)] transition-colors"
+   703→                      >
+   704→                        <Copy className="h-3 w-3 text-muted-foreground" />
+   705→                        {c.code}
+   706→                      </button>
+   707→                      <div className="text-[11px] text-muted-foreground mt-0.5 max-w-[180px] truncate">{c.desc}</div>
+   708→                    </td>
+   709→                    <td className="px-3 py-3">
+   710→                      <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono", tMeta.cls)}>
+   711→                        <TIcon className="h-3 w-3" />
+   712→                        {c.value}
+   713→                      </span>
+   714→                      <div className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">{tMeta.label}</div>
+   715→                    </td>
+   716→                    <td className="px-3 py-3 hidden md:table-cell">
+   717→                      <div className="text-xs font-mono">{c.validFrom}</div>
+   718→                      <div className="text-[10px] text-muted-foreground">→ {c.validTo}</div>
+   719→                    </td>
+   720→                    <td className="px-3 py-3 hidden lg:table-cell text-xs text-muted-foreground">
+   721→                      <div>{c.validDays}</div>
+   722→                      <div className="text-[10px]">{c.validHours}</div>
+   723→                    </td>
+   724→                    <td className="px-3 py-3 text-right hidden xl:table-cell font-mono tabular-nums">
+   725→                      {c.minOrder > 0 ? fmtEUR(c.minOrder) : <span className="text-muted-foreground">—</span>}
+   726→                    </td>
+   727→                    <td className="px-3 py-3 hidden md:table-cell text-muted-foreground">{c.segment}</td>
+   728→                    <td className="px-3 py-3 text-right">
+   729→                      <div className="font-mono tabular-nums text-sm">{c.used}/{c.limit}</div>
+   730→                      <div className="mt-1 h-1 w-16 ml-auto rounded-full bg-foreground/10 overflow-hidden">
+   731→                        <div
+   732→                          className={cn("h-full rounded-full", usagePct >= 80 ? "bg-rose-400" : usagePct >= 50 ? "bg-[var(--gold)]" : "bg-[var(--teal)]")}
+   733→                          style={{ width: `${Math.min(usagePct, 100)}%` }}
+   734→                        />
+   735→                      </div>
+   736→                    </td>
+   737→                    <td className="px-3 py-3 text-right hidden lg:table-cell font-mono tabular-nums text-muted-foreground">{c.perCustomer}</td>
+   738→                    <td className="px-3 py-3">
+   739→                      <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider", sMeta.cls)}>
+   740→                        <span className={cn("h-1.5 w-1.5 rounded-full", sMeta.dot)} />
+   741→                        {sMeta.label}
+   742→                      </span>
+   743→                    </td>
+   744→                    <td className="px-3 py-3">
+   745→                      <div className="flex items-center justify-end gap-1">
+   746→                        <IconBtn icon={Eye} label="Ver uso" onClick={() => toast({ title: "Uso del cupón", description: `${c.code} · ${c.used} redenciones` })} />
+   747→                        <IconBtn icon={Copy} label="Duplicar" onClick={() => toast({ title: "Cupón duplicado", description: c.code })} />
+   748→                        {c.status === "active" ? (
+   749→                          <IconBtn icon={Ban} label="Desactivar" tone="amber" onClick={() => setDeactivateId(c.id)} />
+   750→                        ) : null}
+   751→                      </div>
+   752→                    </td>
+   753→                  </tr>
+   754→                );
+   755→              })}
+   756→            </tbody>
+   757→          </table>
+   758→        </div>
+   759→      </div>
+   760→
+   761→      <CreateCouponDialog open={createOpen} onOpenChange={setCreateOpen} />
+   762→      <AlertDialog open={!!deactivateId} onOpenChange={(o) => !o && setDeactivateId(null)}>
+   763→        <AlertDialogContent className="rp-glass-strong">
+   764→          <AlertDialogHeader>
+   765→            <AlertDialogTitle>¿Desactivar cupón?</AlertDialogTitle>
+   766→            <AlertDialogDescription>
+   767→              El cupón dejará de ser canjeable inmediatamente. Podrás reactivarlo más tarde.
+   768→            </AlertDialogDescription>
+   769→          </AlertDialogHeader>
+   770→          <AlertDialogFooter>
+   771→            <AlertDialogCancel className="min-h-[44px]">Cancelar</AlertDialogCancel>
+   772→            <AlertDialogAction onClick={deactivate} className="bg-amber-500 text-black hover:bg-amber-400 min-h-[44px]">
+   773→              Desactivar
+   774→            </AlertDialogAction>
+   775→          </AlertDialogFooter>
+   776→        </AlertDialogContent>
+   777→      </AlertDialog>
+   778→    </div>
+   779→  );
+   780→}
+   781→
+   782→function CreateCouponDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   783→  const [code, setCode] = React.useState("");
+   784→  const [type, setType] = React.useState<CouponType>("percent");
+   785→  const [value, setValue] = React.useState("15");
+   786→  const [limit, setLimit] = React.useState("100");
+   787→  const [validFrom, setValidFrom] = React.useState("2025-12-01");
+   788→  const [validTo, setValidTo] = React.useState("2025-12-31");
+   789→  const [segment, setSegment] = React.useState("Todos");
+   790→
+   791→  function submit() {
+   792→    if (!code.trim() || !value.trim()) {
+   793→      toast({ title: "Faltan campos", description: "Código y valor son obligatorios.", variant: "destructive" });
+   794→      return;
+   795→    }
+   796→    toast({ title: "Cupón creado", description: `${code} · ${value}${type === "percent" ? "%" : ""}` });
+   797→    setCode(""); setValue("15"); setLimit("100");
+   798→    onOpenChange(false);
+   799→  }
+   800→
+   801→  const tMeta = COUPON_TYPE_META[type];
+   802→
+   803→  return (
+   804→    <Dialog open={open} onOpenChange={onOpenChange}>
+   805→      <DialogContent className="rp-glass-strong sm:max-w-2xl">
+   806→        <DialogHeader>
+   807→          <DialogTitle>Crear cupón</DialogTitle>
+   808→          <DialogDescription>Configura el cupón y previsualiza cómo lo verán los clientes.</DialogDescription>
+   809→        </DialogHeader>
+   810→        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-1">
+   811→          {/* Form */}
+   812→          <div className="space-y-3 max-h-[60vh] overflow-y-auto rp-scroll-thin pr-1">
+   813→            <div className="space-y-1.5">
+   814→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Código</label>
+   815→              <Input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Ej. NAVIDAD20" className="bg-foreground/[0.04] font-mono min-h-[44px]" maxLength={20} />
+   816→            </div>
+   817→            <div className="space-y-1.5">
+   818→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Tipo</label>
+   819→              <div className="flex flex-wrap gap-1.5">
+   820→                {(Object.keys(COUPON_TYPE_META) as CouponType[]).map((t) => {
+   821→                  const M = COUPON_TYPE_META[t];
+   822→                  const I = M.icon;
+   823→                  const active = type === t;
+   824→                  return (
+   825→                    <button
+   826→                      key={t}
+   827→                      onClick={() => setType(t)}
+   828→                      aria-pressed={active}
+   829→                      className={cn(
+   830→                        "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-2 text-xs transition-colors min-h-[40px]",
+   831→                        active ? cn(M.cls, "ring-1") : "border-border/40 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   832→                      )}
+   833→                    >
+   834→                      <I className="h-3 w-3" /> {M.label}
+   835→                    </button>
+   836→                  );
+   837→                })}
+   838→              </div>
+   839→            </div>
+   840→            <div className="grid grid-cols-2 gap-2">
+   841→              <div className="space-y-1.5">
+   842→                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Valor</label>
+   843→                <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="15" className="bg-foreground/[0.04] min-h-[44px]" />
+   844→              </div>
+   845→              <div className="space-y-1.5">
+   846→                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Uso total</label>
+   847→                <Input type="number" value={limit} onChange={(e) => setLimit(e.target.value)} className="bg-foreground/[0.04] min-h-[44px]" />
+   848→              </div>
+   849→            </div>
+   850→            <div className="grid grid-cols-2 gap-2">
+   851→              <div className="space-y-1.5">
+   852→                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Desde</label>
+   853→                <Input type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} className="bg-foreground/[0.04] min-h-[44px]" />
+   854→              </div>
+   855→              <div className="space-y-1.5">
+   856→                <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Hasta</label>
+   857→                <Input type="date" value={validTo} onChange={(e) => setValidTo(e.target.value)} className="bg-foreground/[0.04] min-h-[44px]" />
+   858→              </div>
+   859→            </div>
+   860→            <div className="space-y-1.5">
+   861→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Segmento</label>
+   862→              <select value={segment} onChange={(e) => setSegment(e.target.value)} className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-2 text-xs w-full min-h-[44px]">
+   863→                <option>Todos</option>
+   864→                <option>VIP</option>
+   865→                <option>Frecuentes</option>
+   866→                <option>Nuevos</option>
+   867→                <option>Dormidos</option>
+   868→                <option>Cumpleañeros</option>
+   869→              </select>
+   870→            </div>
+   871→          </div>
+   872→
+   873→          {/* Live preview */}
+   874→          <div className="space-y-2">
+   875→            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Previsualización</span>
+   876→            <div className="rounded-2xl border border-[var(--gold)]/40 bg-gradient-to-br from-[var(--gold)]/[0.08] to-transparent p-5 text-center">
+   877→              <div className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider mb-3", tMeta.cls)}>
+   878→                <tMeta.icon className="h-3 w-3" />
+   879→                {tMeta.label}
+   880→              </div>
+   881→              <div className="font-display text-4xl font-light rp-gold-text tabular-nums">
+   882→                {value || "0"}{type === "percent" && "%"}
+   883→              </div>
+   884→              <div className="mt-2 font-mono text-sm tracking-widest text-foreground/80">
+   885→                {code || "TU-CODIGO"}
+   886→              </div>
+   887→              <div className="mt-3 text-[11px] text-muted-foreground">
+   888→                Válido {validFrom || "—"} → {validTo || "—"}
+   889→              </div>
+   890→              <div className="text-[11px] text-muted-foreground">
+   891→                {segment} · {limit || "∞"} usos totales
+   892→              </div>
+   893→            </div>
+   894→          </div>
+   895→        </div>
+   896→        <DialogFooter>
+   897→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cancelar</Button>
+   898→          <Button onClick={submit} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]">Crear cupón</Button>
+   899→        </DialogFooter>
+   900→      </DialogContent>
+   901→    </Dialog>
+   902→  );
+   903→}
+   904→
+   905→/* =====================================================================
+   906→ * Tab 2 — Gift Cards
+   907→ * ===================================================================== */
+   908→
+   909→function GiftCardsTab() {
+   910→  const reduce = useReducedMotion();
+   911→  const [sellOpen, setSellOpen] = React.useState(false);
+   912→  const [expandedId, setExpandedId] = React.useState<string | null>("gc1");
+   913→  const [blockId, setBlockId] = React.useState<string | null>(null);
+   914→
+   915→  const analytics = [
+   916→    { id: "a1", label: "Vendidas", value: "47", tone: "default" as const, icon: Gift },
+   917→    { id: "a2", label: "Saldo activo", value: fmtEUR(3200), tone: "gold" as const, icon: DollarSign },
+   918→    { id: "a3", label: "Canjeadas", value: fmtEUR(1840), tone: "teal" as const, icon: Check },
+   919→    { id: "a4", label: "Caducan 30d", value: "3", tone: "default" as const, icon: Calendar },
+   920→  ];
+   921→
+   922→  function block() {
+   923→    if (!blockId) return;
+   924→    toast({ title: "Gift card bloqueada", description: GIFT_CARDS.find((g) => g.id === blockId)?.code });
+   925→    setBlockId(null);
+   926→  }
+   927→
+   928→  return (
+   929→    <div className="space-y-5">
+   930→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   931→        {analytics.map((a, i) => {
+   932→          const Icon = a.icon;
+   933→          return (
+   934→            <motion.div
+   935→              key={a.id}
+   936→              initial={reduce ? false : { opacity: 0, y: 6 }}
+   937→              animate={{ opacity: 1, y: 0 }}
+   938→              transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.3) }}
+   939→              className="rp-glass rounded-xl p-4"
+   940→            >
+   941→              <div className="flex items-center justify-between">
+   942→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{a.label}</span>
+   943→                <Icon
+   944→                  className={cn(
+   945→                    "h-3.5 w-3.5",
+   946→                    a.tone === "gold" && "text-[var(--gold)]",
+   947→                    a.tone === "teal" && "text-[var(--teal)]",
+   948→                    a.tone === "default" && "text-muted-foreground"
+   949→                  )}
+   950→                />
+   951→              </div>
+   952→              <div className={cn(
+   953→                "mt-1.5 font-display text-xl font-light tabular-nums",
+   954→                a.tone === "gold" && "rp-gold-text",
+   955→                a.tone === "teal" && "rp-teal-text",
+   956→                a.tone === "default" && "text-foreground"
+   957→              )}>
+   958→                {a.value}
+   959→              </div>
+   960→            </motion.div>
+   961→          );
+   962→        })}
+   963→      </div>
+   964→
+   965→      <div className="rp-glass rounded-2xl overflow-hidden">
+   966→        <div className="flex items-center justify-between gap-3 p-4 border-b border-border/60">
+   967→          <div>
+   968→            <h2 className="font-display text-lg">Gift cards</h2>
+   969→            <p className="text-xs text-muted-foreground">{GIFT_CARDS.length} tarjetas · {GIFT_CARDS.filter((g) => g.status === "active").length} activas</p>
+   970→          </div>
+   971→          <Button onClick={() => setSellOpen(true)} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]">
+   972→            <Plus className="h-4 w-4 mr-1.5" /> Vender gift card
+   973→          </Button>
+   974→        </div>
+   975→        <ul>
+   976→          {GIFT_CARDS.map((g) => {
+   977→            const sMeta = GIFT_STATUS_META[g.status];
+   978→            const expanded = expandedId === g.id;
+   979→            const usagePct = g.amount > 0 ? Math.round(((g.amount - g.balance) / g.amount) * 100) : 0;
+   980→            return (
+   981→              <li key={g.id} className="border-b border-border/40 last:border-b-0">
+   982→                <div className="p-4 hover:bg-foreground/[0.02] transition-colors">
+   983→                  <div className="flex flex-wrap items-center gap-3">
+   984→                    {/* Card visual */}
+   985→                    <div className="rounded-lg border border-[var(--gold)]/40 bg-gradient-to-br from-[var(--gold)]/[0.1] to-transparent p-3 w-full sm:w-40 shrink-0">
+   986→                      <div className="flex items-center justify-between">
+   987→                        <Gift className="h-4 w-4 text-[var(--gold)]" />
+   988→                        <span className="text-[9px] font-mono uppercase tracking-wider text-muted-foreground">RestoPanel</span>
+   989→                      </div>
+   990→                      <div className="mt-2 font-display text-xl rp-gold-text tabular-nums">{fmtEUR(g.balance)}</div>
+   991→                      <div className="font-mono text-[10px] text-foreground/70 tracking-wider mt-1">{g.code}</div>
+   992→                    </div>
+   993→
+   994→                    {/* Info */}
+   995→                    <div className="flex-1 min-w-0 grid grid-cols-2 sm:grid-cols-4 gap-3">
+   996→                      <KV label="Comprador" value={g.purchaser} />
+   997→                      <KV label="Destinatario" value={g.recipient} />
+   998→                      <KV label="Compra" value={g.date} />
+   999→                      <KV label="Caduca" value={g.expiry} />
+  1000→                    </div>
+  1001→
+  1002→                    {/* Balance bar */}
+  1003→                    <div className="w-full sm:w-32 shrink-0">
+  1004→                      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Saldo</div>
+  1005→                      <div className="font-display text-lg tabular-nums">{fmtEUR(g.balance)}</div>
+  1006→                      <div className="text-[10px] text-muted-foreground">de {fmtEUR(g.amount)}</div>
+  1007→                      <div className="mt-1 h-1 w-full rounded-full bg-foreground/10 overflow-hidden">
+  1008→                        <div className="h-full bg-[var(--teal)] rounded-full" style={{ width: `${100 - usagePct}%` }} />
+  1009→                      </div>
+  1010→                    </div>
+  1011→
+  1012→                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+  1013→                      <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider", sMeta.cls)}>
+  1014→                        {sMeta.label}
+  1015→                      </span>
+  1016→                      <div className="flex items-center gap-1">
+  1017→                        <IconBtn icon={ChevronDown} label="Ver historial" onClick={() => setExpandedId(expanded ? null : g.id)} />
+  1018→                        <IconBtn icon={Ban} label="Bloquear" tone="destructive" onClick={() => setBlockId(g.id)} />
+  1019→                        <IconBtn icon={RotateCcw} label="Reembolsar" tone="teal" onClick={() => toast({ title: "Reembolso solicitado", description: g.code })} />
+  1020→                      </div>
+  1021→                    </div>
+  1022→                  </div>
+  1023→                </div>
+  1024→                <AnimatePresence initial={false}>
+  1025→                  {expanded && (
+  1026→                    <motion.div
+  1027→                      initial={reduce ? false : { opacity: 0, height: 0 }}
+  1028→                      animate={{ opacity: 1, height: "auto" }}
+  1029→                      exit={reduce ? undefined : { opacity: 0, height: 0 }}
+  1030→                      transition={{ duration: 0.2 }}
+  1031→                      className="overflow-hidden"
+  1032→                    >
+  1033→                      <div className="px-4 pb-4 pt-1 bg-foreground/[0.02]">
+  1034→                        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">Historial de uso</div>
+  1035→                        <ul className="space-y-1.5">
+  1036→                          {g.history.map((h, idx) => (
+  1037→                            <li key={idx} className="flex items-center justify-between gap-2 text-xs">
+  1038→                              <span className="font-mono text-muted-foreground shrink-0 w-24">{h.date}</span>
+  1039→                              <span className="flex-1 truncate">{h.desc}</span>
+  1040→                              <span className={cn("font-mono tabular-nums shrink-0", h.amount > 0 ? "text-[var(--teal)]" : h.amount < 0 ? "text-foreground" : "text-muted-foreground")}>
+  1041→                                {h.amount > 0 ? "+" : ""}{fmtEUR(h.amount)}
+  1042→                              </span>
+  1043→                            </li>
+  1044→                          ))}
+  1045→                        </ul>
+  1046→                      </div>
+  1047→                    </motion.div>
+  1048→                  )}
+  1049→                </AnimatePresence>
+  1050→              </li>
+  1051→            );
+  1052→          })}
+  1053→        </ul>
+  1054→      </div>
+  1055→
+  1056→      <SellGiftCardDialog open={sellOpen} onOpenChange={setSellOpen} />
+  1057→      <AlertDialog open={!!blockId} onOpenChange={(o) => !o && setBlockId(null)}>
+  1058→        <AlertDialogContent className="rp-glass-strong">
+  1059→          <AlertDialogHeader>
+  1060→            <AlertDialogTitle>¿Bloquear gift card?</AlertDialogTitle>
+  1061→            <AlertDialogDescription>
+  1062→              La tarjeta quedará bloqueada y no podrá canjearse. El saldo quedará retenido para revisión.
+  1063→            </AlertDialogDescription>
+  1064→          </AlertDialogHeader>
+  1065→          <AlertDialogFooter>
+  1066→            <AlertDialogCancel className="min-h-[44px]">Cancelar</AlertDialogCancel>
+  1067→            <AlertDialogAction onClick={block} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 min-h-[44px]">
+  1068→              Bloquear
+  1069→            </AlertDialogAction>
+  1070→          </AlertDialogFooter>
+  1071→        </AlertDialogContent>
+  1072→      </AlertDialog>
+  1073→    </div>
+  1074→  );
+  1075→}
+  1076→
+  1077→function KV({ label, value }: { label: string; value: string }) {
+  1078→  return (
+  1079→    <div className="min-w-0">
+  1080→      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</div>
+  1081→      <div className="text-sm font-medium truncate">{value}</div>
+  1082→    </div>
+  1083→  );
+  1084→}
+  1085→
+  1086→function SellGiftCardDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  1087→  const [amount, setAmount] = React.useState<number>(100);
+  1088→  const [custom, setCustom] = React.useState("");
+  1089→  const [purchaser, setPurchaser] = React.useState("");
+  1090→  const [recipient, setRecipient] = React.useState("");
+  1091→  const [message, setMessage] = React.useState("");
+  1092→  const [expiry, setExpiry] = React.useState("12");
+  1093→
+  1094→  function submit() {
+  1095→    if (!purchaser.trim() || !recipient.trim()) {
+  1096→      toast({ title: "Faltan campos", description: "Comprador y destinatario son obligatorios.", variant: "destructive" });
+  1097→      return;
+  1098→    }
+  1099→    const finalAmount = amount === 0 && custom ? Number(custom) : amount;
+  1100→    toast({ title: "Gift card vendida", description: `${fmtEUR(finalAmount)} · ${recipient}` });
+  1101→    setPurchaser(""); setRecipient(""); setMessage(""); setCustom("");
+  1102→    onOpenChange(false);
+  1103→  }
+  1104→
+  1105→  const displayAmount = amount === 0 && custom ? (Number(custom) || 0) : amount;
+  1106→
+  1107→  return (
+  1108→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1109→      <DialogContent className="rp-glass-strong sm:max-w-lg">
+  1110→        <DialogHeader>
+  1111→          <DialogTitle>Vender gift card</DialogTitle>
+  1112→          <DialogDescription>Genera una gift card y envíala al destinatario.</DialogDescription>
+  1113→        </DialogHeader>
+  1114→        <div className="space-y-3 py-1 max-h-[60vh] overflow-y-auto rp-scroll-thin pr-1">
+  1115→          {/* Amount preset */}
+  1116→          <div className="space-y-1.5">
+  1117→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Importe</label>
+  1118→            <div className="flex flex-wrap gap-1.5">
+  1119→              {[50, 100, 200].map((a) => (
+  1120→                <button
+  1121→                  key={a}
+  1122→                  onClick={() => { setAmount(a); setCustom(""); }}
+  1123→                  aria-pressed={amount === a && !custom}
+  1124→                  className={cn(
+  1125→                    "inline-flex items-center rounded-md border px-3 py-2 text-sm font-mono transition-colors min-h-[40px]",
+  1126→                    amount === a && !custom
+  1127→                      ? "border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+  1128→                      : "border-border/40 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+  1129→                  )}
+  1130→                >
+  1131→                  {fmtEUR(a)}
+  1132→                </button>
+  1133→              ))}
+  1134→              <div className={cn(
+  1135→                "inline-flex items-center rounded-md border overflow-hidden",
+  1136→                amount === 0 ? "border-[var(--gold)]/50 bg-[var(--gold)]/10" : "border-border/40"
+  1137→              )}>
+  1138→                <input
+  1139→                  type="number"
+  1140→                  value={custom}
+  1141→                  onChange={(e) => { setCustom(e.target.value); setAmount(0); }}
+  1142→                  placeholder="Otro"
+  1143→                  className="w-20 bg-transparent px-3 py-2 text-sm font-mono outline-none min-h-[40px]"
+  1144→                  aria-label="Importe personalizado"
+  1145→                />
+  1146→              </div>
+  1147→            </div>
+  1148→          </div>
+  1149→
+  1150→          <div className="grid grid-cols-2 gap-2">
+  1151→            <div className="space-y-1.5">
+  1152→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Comprador</label>
+  1153→              <Input value={purchaser} onChange={(e) => setPurchaser(e.target.value)} placeholder="Nombre" className="bg-foreground/[0.04] min-h-[44px]" />
+  1154→            </div>
+  1155→            <div className="space-y-1.5">
+  1156→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Destinatario</label>
+  1157→              <Input value={recipient} onChange={(e) => setRecipient(e.target.value)} placeholder="Nombre / email" className="bg-foreground/[0.04] min-h-[44px]" />
+  1158→            </div>
+  1159→          </div>
+  1160→
+  1161→          <div className="space-y-1.5">
+  1162→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Mensaje</label>
+  1163→            <Textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={2} placeholder="Mensaje opcional para el destinatario" className="bg-foreground/[0.04] min-h-[60px] resize-none" />
+  1164→          </div>
+  1165→
+  1166→          <div className="space-y-1.5">
+  1167→            <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Validez (meses)</label>
+  1168→            <select value={expiry} onChange={(e) => setExpiry(e.target.value)} className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-2 text-xs w-full min-h-[44px]">
+  1169→              <option value="6">6 meses</option>
+  1170→              <option value="12">12 meses</option>
+  1171→              <option value="24">24 meses</option>
+  1172→            </select>
+  1173→          </div>
+  1174→
+  1175→          {/* Preview */}
+  1176→          <div className="rounded-xl border border-[var(--gold)]/40 bg-gradient-to-br from-[var(--gold)]/[0.08] to-transparent p-4 text-center">
+  1177→            <Gift className="h-5 w-5 text-[var(--gold)] mx-auto mb-1" />
+  1178→            <div className="font-display text-3xl font-light rp-gold-text tabular-nums">{fmtEUR(displayAmount)}</div>
+  1179→            <div className="text-[11px] text-muted-foreground mt-1">
+  1180→              {recipient ? `Para ${recipient}` : "Para: —"} · {expiry} meses
+  1181→            </div>
+  1182→          </div>
+  1183→        </div>
+  1184→        <DialogFooter>
+  1185→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cancelar</Button>
+  1186→          <Button onClick={submit} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]">Vender gift card</Button>
+  1187→        </DialogFooter>
+  1188→      </DialogContent>
+  1189→    </Dialog>
+  1190→  );
+  1191→}
+  1192→
+  1193→/* =====================================================================
+  1194→ * Tab 3 — Referidos
+  1195→ * ===================================================================== */
+  1196→
+  1197→function ReferralsTab() {
+  1198→  const reduce = useReducedMotion();
+  1199→  const [configOpen, setConfigOpen] = React.useState(false);
+  1200→
+  1201→  const analytics = [
+  1202→    { id: "a1", label: "Activos", value: "34", tone: "gold" as const, icon: Users },
+  1203→    { id: "a2", label: "Total referidos", value: "89", tone: "default" as const, icon: Ticket },
+  1204→    { id: "a3", label: "Convertidos", value: "52 (58%)", tone: "teal" as const, icon: Check },
+  1205→    { id: "a4", label: "Ingresos", value: fmtEUR(4680), tone: "gold" as const, icon: DollarSign },
+  1206→    { id: "a5", label: "Coste", value: fmtEUR(520), tone: "default" as const, icon: TrendingUp },
+  1207→    { id: "a6", label: "ROI", value: "900%", tone: "teal" as const, icon: Sparkles },
+  1208→  ];
+  1209→
+  1210→  return (
+  1211→    <div className="space-y-5">
+  1212→      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+  1213→        {analytics.map((a, i) => {
+  1214→          const Icon = a.icon;
+  1215→          return (
+  1216→            <motion.div
+  1217→              key={a.id}
+  1218→              initial={reduce ? false : { opacity: 0, y: 6 }}
+  1219→              animate={{ opacity: 1, y: 0 }}
+  1220→              transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.3) }}
+  1221→              className="rp-glass rounded-xl p-4"
+  1222→            >
+  1223→              <div className="flex items-center justify-between">
+  1224→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{a.label}</span>
+  1225→                <Icon
+  1226→                  className={cn(
+  1227→                    "h-3.5 w-3.5",
+  1228→                    a.tone === "gold" && "text-[var(--gold)]",
+  1229→                    a.tone === "teal" && "text-[var(--teal)]",
+  1230→                    a.tone === "default" && "text-muted-foreground"
+  1231→                  )}
+  1232→                />
+  1233→              </div>
+  1234→              <div className={cn(
+  1235→                "mt-1.5 font-display text-xl font-light tabular-nums",
+  1236→                a.tone === "gold" && "rp-gold-text",
+  1237→                a.tone === "teal" && "rp-teal-text",
+  1238→                a.tone === "default" && "text-foreground"
+  1239→              )}>
+  1240→                {a.value}
+  1241→              </div>
+  1242→            </motion.div>
+  1243→          );
+  1244→        })}
+  1245→      </div>
+  1246→
+  1247→      {/* Program overview */}
+  1248→      <div className="rp-glass rounded-2xl p-5">
+  1249→        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+  1250→          <div>
+  1251→            <h2 className="font-display text-lg">Programa de referidos</h2>
+  1252→            <p className="text-xs text-muted-foreground mt-0.5">Configuración actual del programa</p>
+  1253→          </div>
+  1254→          <Button variant="outline" onClick={() => setConfigOpen(true)} className="min-h-[40px] border-[var(--gold)]/40 text-[var(--gold-soft)] hover:bg-[var(--gold)]/10">
+  1255→            <Settings2 className="h-3.5 w-3.5 mr-1.5" /> Configurar programa
+  1256→          </Button>
+  1257→        </div>
+  1258→        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+  1259→          <div className="rounded-xl border border-[var(--gold)]/30 bg-[var(--gold)]/[0.06] p-4">
+  1260→            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">Formato del código</div>
+  1261→            <div className="font-display text-2xl mt-1">MARIA20</div>
+  1262→            <div className="text-[11px] text-muted-foreground mt-1">Nombre + descuento</div>
+  1263→          </div>
+  1264→          <div className="rounded-xl border border-[var(--teal)]/30 bg-[var(--teal)]/[0.06] p-4">
+  1265→            <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">Invitador recibe</div>
+  1266→            <div className="font-display text-2xl mt-1 rp-teal-text tabular-nums">€10</div>
+  1267→            <div className="text-[11px] text-muted-foreground mt-1">Por cada referido convertido</div>
+  1268→          </div>
+  1269→          <div className="rounded-xl border border-foreground/15 bg-foreground/[0.03] p-4">
+  1270→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Invitado recibe</div>
+  1271→            <div className="font-display text-2xl mt-1">10%</div>
+  1272→            <div className="text-[11px] text-muted-foreground mt-1">Descuento en primera visita</div>
+  1273→          </div>
+  1274→        </div>
+  1275→
+  1276→        {/* Anti-fraud note */}
+  1277→        <div className="mt-4 rounded-md border border-amber-400/30 bg-amber-400/[0.06] p-3 flex gap-2.5">
+  1278→          <ShieldCheck className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" />
+  1279→          <div className="text-xs text-foreground/80 leading-relaxed">
+  1280→            <strong className="text-amber-300">Protección anti-fraude:</strong> previene auto-referidos (valida email + teléfono), valida primer consumo antes de liberar beneficios, y revierte beneficios automáticamente ante detección de fraude.
+  1281→          </div>
+  1282→        </div>
+  1283→      </div>
+  1284→
+  1285→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  1286→        {/* Top referrers */}
+  1287→        <div className="rp-glass rounded-2xl overflow-hidden">
+  1288→          <div className="p-4 border-b border-border/60">
+  1289→            <h3 className="font-display text-base">Top referrers</h3>
+  1290→            <p className="text-xs text-muted-foreground">Los 7 clientes que más refieren</p>
+  1291→          </div>
+  1292→          <div className="overflow-x-auto rp-scroll-thin">
+  1293→            <table className="w-full text-sm">
+  1294→              <thead>
+  1295→                <tr className="text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/40">
+  1296→                  <th className="px-4 py-2.5 font-medium">#</th>
+  1297→                  <th className="px-3 py-2.5 font-medium">Cliente</th>
+  1298→                  <th className="px-3 py-2.5 font-medium">Código</th>
+  1299→                  <th className="px-3 py-2.5 font-medium text-right">Inv.</th>
+  1300→                  <th className="px-3 py-2.5 font-medium text-right">Conv.</th>
+  1301→                  <th className="px-3 py-2.5 font-medium text-right hidden sm:table-cell">Ingresos</th>
+  1302→                  <th className="px-3 py-2.5 font-medium text-right">Premio</th>
+  1303→                </tr>
+  1304→              </thead>
+  1305→              <tbody>
+  1306→                {TOP_REFERRERS.map((r, idx) => (
+  1307→                  <tr key={r.id} className="border-b border-border/30 last:border-b-0 hover:bg-foreground/[0.02] transition-colors">
+  1308→                    <td className="px-4 py-2.5">
+  1309→                      <span className={cn(
+  1310→                        "inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-mono",
+  1311→                        idx === 0 ? "bg-[var(--gold)]/20 text-[var(--gold-soft)]" : "bg-foreground/5 text-muted-foreground"
+  1312→                      )}>
+  1313→                        {idx + 1}
+  1314→                      </span>
+  1315→                    </td>
+  1316→                    <td className="px-3 py-2.5 font-medium">{r.name}</td>
+  1317→                    <td className="px-3 py-2.5">
+  1318→                      <button
+  1319→                        onClick={() => { navigator.clipboard?.writeText(r.code); toast({ title: "Código copiado", description: r.code }); }}
+  1320→                        className="inline-flex items-center gap-1 font-mono text-xs text-[var(--teal)] hover:underline"
+  1321→                      >
+  1322→                        <Copy className="h-3 w-3" />{r.code}
+  1323→                      </button>
+  1324→                    </td>
+  1325→                    <td className="px-3 py-2.5 text-right tabular-nums">{r.invites}</td>
+  1326→                    <td className="px-3 py-2.5 text-right tabular-nums">{r.converted}</td>
+  1327→                    <td className="px-3 py-2.5 text-right tabular-nums hidden sm:table-cell font-mono">{fmtEUR(r.revenue)}</td>
+  1328→                    <td className="px-3 py-2.5 text-right font-mono text-[var(--gold-soft)] tabular-nums">{r.rewards}</td>
+  1329→                  </tr>
+  1330→                ))}
+  1331→              </tbody>
+  1332→            </table>
+  1333→          </div>
+  1334→        </div>
+  1335→
+  1336→        {/* Recent referrals */}
+  1337→        <div className="rp-glass rounded-2xl p-4">
+  1338→          <h3 className="font-display text-base mb-1">Referidos recientes</h3>
+  1339→          <p className="text-xs text-muted-foreground mb-3">Últimos 7 días</p>
+  1340→          <ul className="space-y-2 max-h-96 overflow-y-auto rp-scroll-thin pr-1">
+  1341→            {RECENT_REFERRALS.map((r) => {
+  1342→              const sMeta = REFERRAL_STATUS_META[r.status];
+  1343→              return (
+  1344→                <li key={r.id} className="rounded-md border border-border/40 bg-foreground/[0.02] p-3">
+  1345→                  <div className="flex items-center justify-between gap-2">
+  1346→                    <div className="min-w-0 flex-1">
+  1347→                      <div className="text-sm">
+  1348→                        <span className="font-medium">{r.inviter}</span>
+  1349→                        <ChevronRight className="inline h-3 w-3 mx-1 text-muted-foreground" />
+  1350→                        <span className="text-muted-foreground">{r.invitee}</span>
+  1351→                      </div>
+  1352→                      <div className="text-[11px] text-muted-foreground mt-0.5">{r.date}</div>
+  1353→                    </div>
+  1354→                    <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider shrink-0", sMeta.cls)}>
+  1355→                      {sMeta.label}
+  1356→                    </span>
+  1357→                  </div>
+  1358→                  {r.status === "converted" && (
+  1359→                    <div className="mt-1.5 text-[11px] text-[var(--teal)] flex items-center gap-1">
+  1360→                      <Check className="h-3 w-3" />
+  1361→                      Beneficio otorgado: {r.reward}
+  1362→                    </div>
+  1363→                  )}
+  1364→                </li>
+  1365→              );
+  1366→            })}
+  1367→          </ul>
+  1368→        </div>
+  1369→      </div>
+  1370→
+  1371→      <ReferralConfigDialog open={configOpen} onOpenChange={setConfigOpen} />
+  1372→    </div>
+  1373→  );
+  1374→}
+  1375→
+  1376→function ReferralConfigDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  1377→  const [inviterReward, setInviterReward] = React.useState("10");
+  1378→  const [inviteeReward, setInviteeReward] = React.useState("10");
+  1379→  const [autoRevert, setAutoRevert] = React.useState(true);
+  1380→
+  1381→  function submit() {
+  1382→    toast({ title: "Programa actualizado", description: `Invitador €${inviterReward} · Invitado ${inviteeReward}%` });
+  1383→    onOpenChange(false);
+  1384→  }
+  1385→
+  1386→  return (
+  1387→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1388→      <DialogContent className="rp-glass-strong sm:max-w-md">
+  1389→        <DialogHeader>
+  1390→          <DialogTitle>Configurar programa de referidos</DialogTitle>
+  1391→          <DialogDescription>Define los beneficios y las reglas anti-fraude.</DialogDescription>
+  1392→        </DialogHeader>
+  1393→        <div className="space-y-3 py-1">
+  1394→          <div className="grid grid-cols-2 gap-2">
+  1395→            <div className="space-y-1.5">
+  1396→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Invitador (€)</label>
+  1397→              <Input type="number" value={inviterReward} onChange={(e) => setInviterReward(e.target.value)} className="bg-foreground/[0.04] min-h-[44px]" />
+  1398→            </div>
+  1399→            <div className="space-y-1.5">
+  1400→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Invitado (%)</label>
+  1401→              <Input type="number" value={inviteeReward} onChange={(e) => setInviteeReward(e.target.value)} className="bg-foreground/[0.04] min-h-[44px]" />
+  1402→            </div>
+  1403→          </div>
+  1404→          <div className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-foreground/[0.02] p-3">
+  1405→            <div className="min-w-0">
+  1406→              <div className="text-sm font-medium">Reversión automática anti-fraude</div>
+  1407→              <div className="text-[11px] text-muted-foreground">Revierte beneficios si se detecta auto-referido o cancelación antes de consumo.</div>
+  1408→            </div>
+  1409→            <Switch checked={autoRevert} onCheckedChange={setAutoRevert} aria-label="Reversión automática" />
+  1410→          </div>
+  1411→        </div>
+  1412→        <DialogFooter>
+  1413→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cancelar</Button>
+  1414→          <Button onClick={submit} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]">Guardar</Button>
+  1415→        </DialogFooter>
+  1416→      </DialogContent>
+  1417→    </Dialog>
+  1418→  );
+  1419→}
+  1420→
+  1421→/* =====================================================================
+  1422→ * Tab 4 — Fidelización
+  1423→ * ===================================================================== */
+  1424→
+  1425→function LoyaltyTab() {
+  1426→  const reduce = useReducedMotion();
+  1427→
+  1428→  const analytics = [
+  1429→    { id: "a1", label: "Miembros", value: "847", tone: "gold" as const, icon: Users },
+  1430→    { id: "a2", label: "Activos 30d", value: "412", tone: "teal" as const, icon: Check },
+  1431→    { id: "a3", label: "Pts media", value: "14.6", tone: "default" as const, icon: Sparkles },
+  1432→    { id: "a4", label: "Redención", value: "66%", tone: "teal" as const, icon: RotateCcw },
+  1433→    { id: "a5", label: "Tier top", value: "Gold (89)", tone: "gold" as const, icon: Crown },
+  1434→  ];
+  1435→
+  1436→  return (
+  1437→    <div className="space-y-5">
+  1438→      {/* Analytics */}
+  1439→      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+  1440→        {analytics.map((a, i) => {
+  1441→          const Icon = a.icon;
+  1442→          return (
+  1443→            <motion.div
+  1444→              key={a.id}
+  1445→              initial={reduce ? false : { opacity: 0, y: 6 }}
+  1446→              animate={{ opacity: 1, y: 0 }}
+  1447→              transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.3) }}
+  1448→              className="rp-glass rounded-xl p-4"
+  1449→            >
+  1450→              <div className="flex items-center justify-between">
+  1451→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{a.label}</span>
+  1452→                <Icon
+  1453→                  className={cn(
+  1454→                    "h-3.5 w-3.5",
+  1455→                    a.tone === "gold" && "text-[var(--gold)]",
+  1456→                    a.tone === "teal" && "text-[var(--teal)]",
+  1457→                    a.tone === "default" && "text-muted-foreground"
+  1458→                  )}
+  1459→                />
+  1460→              </div>
+  1461→              <div className={cn(
+  1462→                "mt-1.5 font-display text-xl font-light tabular-nums",
+  1463→                a.tone === "gold" && "rp-gold-text",
+  1464→                a.tone === "teal" && "rp-teal-text",
+  1465→                a.tone === "default" && "text-foreground"
+  1466→              )}>
+  1467→                {a.value}
+  1468→              </div>
+  1469→            </motion.div>
+  1470→          );
+  1471→        })}
+  1472→      </div>
+  1473→
+  1474→      {/* Tiers */}
+  1475→      <div className="rp-glass rounded-2xl p-5">
+  1476→        <div className="flex items-center justify-between mb-4">
+  1477→          <div>
+  1478→            <h2 className="font-display text-lg">Niveles de fidelización</h2>
+  1479→            <p className="text-xs text-muted-foreground mt-0.5">5 tiers escalonados · del Bronze al Diamond</p>
+  1480→          </div>
+  1481→        </div>
+  1482→        <div className="flex gap-3 overflow-x-auto rp-scroll-thin pb-2 -mx-1 px-1">
+  1483→          {TIERS.map((t, idx) => {
+  1484→            const I = t.icon;
+  1485→            return (
+  1486→              <motion.div
+  1487→                key={t.id}
+  1488→                initial={reduce ? false : { opacity: 0, y: 8 }}
+  1489→                animate={{ opacity: 1, y: 0 }}
+  1490→                transition={{ duration: 0.3, delay: Math.min(idx * 0.06, 0.4) }}
+  1491→                className={cn(
+  1492→                  "min-w-[220px] shrink-0 rounded-2xl border p-4 flex flex-col",
+  1493→                  t.bg, t.border
+  1494→                )}
+  1495→              >
+  1496→                <div className="flex items-center justify-between">
+  1497→                  <div
+  1498→                    className="h-10 w-10 rounded-full flex items-center justify-center border"
+  1499→                    style={{ borderColor: t.color, background: `${t.color}20` }}
+  1500→                  >
+  1501→                    <I className="h-5 w-5" style={{ color: t.color }} />
+  1502→                  </div>
+  1503→                  <span className={cn("font-display text-lg", t.text)}>{t.name}</span>
+  1504→                </div>
+  1505→                <div className="mt-3 space-y-1 text-xs">
+  1506→                  <div className="flex items-center justify-between">
+  1507→                    <span className="text-muted-foreground">Visitas mín.</span>
+  1508→                    <span className="font-mono tabular-nums">{t.minVisits}</span>
+  1509→                  </div>
+  1510→                  <div className="flex items-center justify-between">
+  1511→                    <span className="text-muted-foreground">Gasto mín.</span>
+  1512→                    <span className="font-mono tabular-nums">{fmtEUR(t.minSpend)}</span>
+  1513→                  </div>
+  1514→                </div>
+  1515→                <ul className="mt-3 space-y-1 text-[11px] text-foreground/80 flex-1">
+  1516→                  {t.benefits.map((b, i) => (
+  1517→                    <li key={i} className="flex items-start gap-1.5">
+  1518→                      <Check className="h-3 w-3 mt-0.5 shrink-0" style={{ color: t.color }} />
+  1519→                      <span>{b}</span>
+  1520→                    </li>
+  1521→                  ))}
+  1522→                </ul>
+  1523→                <div className="mt-3 pt-3 border-t border-border/40">
+  1524→                  <div className="flex items-center justify-between">
+  1525→                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Miembros</span>
+  1526→                    <span className={cn("font-display text-lg tabular-nums", t.text)}>{t.members}</span>
+  1527→                  </div>
+  1528→                </div>
+  1529→                <Button
+  1530→                  size="sm"
+  1531→                  variant="outline"
+  1532→                  className="mt-3 min-h-[36px] border-border/40"
+  1533→                  onClick={() => toast({ title: "Configurar tier", description: t.name })}
+  1534→                >
+  1535→                  <Settings2 className="h-3 w-3 mr-1.5" /> Configurar
+  1536→                </Button>
+  1537→              </motion.div>
+  1538→            );
+  1539→          })}
+  1540→        </div>
+  1541→      </div>
+  1542→
+  1543→      {/* Points system + Milestones */}
+  1544→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  1545→        {/* Points system */}
+  1546→        <div className="rp-glass rounded-2xl p-5">
+  1547→          <h3 className="font-display text-base mb-1">Sistema de puntos</h3>
+  1548→          <p className="text-xs text-muted-foreground mb-4">Acumula y canjea puntos</p>
+  1549→          <ul className="space-y-2">
+  1550→            {POINTS_RULES.map((r) => {
+  1551→              const I = r.icon;
+  1552→              return (
+  1553→                <li key={r.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-foreground/[0.02] p-3">
+  1554→                  <div className="h-9 w-9 rounded-md bg-[var(--gold)]/15 flex items-center justify-center shrink-0">
+  1555→                    <I className="h-4 w-4 text-[var(--gold)]" />
+  1556→                  </div>
+  1557→                  <div className="min-w-0 flex-1">
+  1558→                    <div className="text-sm font-medium">
+  1559→                      {"spend" in r ? r.spend : r.points}
+  1560→                    </div>
+  1561→                    <div className="text-[11px] text-muted-foreground">
+  1562→                      {"reward" in r ? `→ ${r.reward}` : `→ ${r.points}`}
+  1563→                    </div>
+  1564→                  </div>
+  1565→                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+  1566→                </li>
+  1567→              );
+  1568→            })}
+  1569→          </ul>
+  1570→        </div>
+  1571→
+  1572→        {/* Gamification milestones */}
+  1573→        <div className="rp-glass rounded-2xl p-5">
+  1574→          <h3 className="font-display text-base mb-1">Hitos de gamificación</h3>
+  1575→          <p className="text-xs text-muted-foreground mb-4">Recompensas al alcanzar puntos</p>
+  1576→          <div className="space-y-3">
+  1577→            {MILESTONES.map((m, idx) => {
+  1578→              const I = m.icon;
+  1579→              const pct = Math.min((m.points / 200) * 100, 100);
+  1580→              return (
+  1581→                <div key={m.id}>
+  1582→                  <div className="flex items-center gap-3">
+  1583→                    <div className="h-9 w-9 rounded-md bg-[var(--teal)]/15 flex items-center justify-center shrink-0">
+  1584→                      <I className="h-4 w-4 text-[var(--teal)]" />
+  1585→                    </div>
+  1586→                    <div className="min-w-0 flex-1">
+  1587→                      <div className="flex items-center justify-between">
+  1588→                        <span className="text-sm font-medium">{m.reward}</span>
+  1589→                        <span className="font-mono text-xs text-muted-foreground tabular-nums">{m.points} pts</span>
+  1590→                      </div>
+  1591→                      <div className="mt-1.5 h-1.5 w-full rounded-full bg-foreground/10 overflow-hidden">
+  1592→                        <motion.div
+  1593→                          initial={reduce ? false : { width: 0 }}
+  1594→                          animate={{ width: `${pct}%` }}
+  1595→                          transition={{ duration: 0.6, delay: 0.2 + idx * 0.1 }}
+  1596→                          className="h-full bg-gradient-to-r from-[var(--gold)] to-[var(--teal)] rounded-full"
+  1597→                        />
+  1598→                      </div>
+  1599→                    </div>
+  1600→                  </div>
+  1601→                </div>
+  1602→              );
+  1603→            })}
+  1604→          </div>
+  1605→        </div>
+  1606→      </div>
+  1607→    </div>
+  1608→  );
+  1609→}
+  1610→

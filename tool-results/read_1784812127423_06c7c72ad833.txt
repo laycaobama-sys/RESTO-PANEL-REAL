@@ -1,0 +1,1934 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     5→import { cn } from "@/lib/utils";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Textarea } from "@/components/ui/textarea";
+     9→import { Input } from "@/components/ui/input";
+    10→import { Switch } from "@/components/ui/switch";
+    11→import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+    12→import {
+    13→  Tooltip,
+    14→  TooltipContent,
+    15→  TooltipProvider,
+    16→  TooltipTrigger,
+    17→} from "@/components/ui/tooltip";
+    18→import {
+    19→  AlertDialog,
+    20→  AlertDialogAction,
+    21→  AlertDialogCancel,
+    22→  AlertDialogContent,
+    23→  AlertDialogDescription,
+    24→  AlertDialogFooter,
+    25→  AlertDialogHeader,
+    26→  AlertDialogTitle,
+    27→} from "@/components/ui/alert-dialog";
+    28→import { toast } from "@/hooks/use-toast";
+    29→import {
+    30→  Star,
+    31→  Info,
+    32→  Sparkles,
+    33→  RefreshCw,
+    34→  Send,
+    35→  Check,
+    36→  X,
+    37→  AlertTriangle,
+    38→  ShieldAlert,
+    39→  TrendingUp,
+    40→  TrendingDown,
+    41→  Clock,
+    42→  MapPin,
+    43→  ThumbsUp,
+    44→  MessageSquare,
+    45→  Bell,
+    46→  Settings2,
+    47→  Filter,
+    48→  Globe,
+    49→  ChevronDown,
+    50→  ChevronRight,
+    51→  Plus,
+    52→  Trash2,
+    53→  Gauge,
+    54→} from "lucide-react";
+    55→
+    56→/* =====================================================================
+    57→ * Types
+    58→ * ===================================================================== */
+    59→
+    60→type ReviewPlatform =
+    61→  | "google"
+    62→  | "tripadvisor"
+    63→  | "facebook"
+    64→  | "instagram"
+    65→  | "thefork"
+    66→  | "yelp"
+    67→  | "internal";
+    68→
+    69→type Sentiment = "positive" | "neutral" | "negative";
+    70→type ReviewStatus = "new" | "replied" | "pending_approval" | "escalated";
+    71→
+    72→interface Review {
+    73→  id: string;
+    74→  platform: ReviewPlatform;
+    75→  author: string;
+    76→  rating: number;
+    77→  text: string;
+    78→  sentiment: Sentiment;
+    79→  sentimentScore: number;
+    80→  topics: string[];
+    81→  date: string;
+    82→  status: ReviewStatus;
+    83→  reply?: string;
+    84→  replyApproved?: boolean;
+    85→  location?: string;
+    86→  aiReplySuggestion?: string;
+    87→}
+    88→
+    89→type Tone = "profesional" | "cercano" | "formal" | "disculpas";
+    90→
+    91→/* =====================================================================
+    92→ * Platform metadata
+    93→ * ===================================================================== */
+    94→
+    95→const PLATFORM_META: Record<
+    96→  ReviewPlatform,
+    97→  { label: string; color: string; bg: string; border: string; text: string; icon: React.ElementType }
+    98→> = {
+    99→  google: {
+   100→    label: "Google",
+   101→    color: "#4285F4",
+   102→    bg: "bg-blue-500/10",
+   103→    border: "border-blue-500/40",
+   104→    text: "text-blue-300",
+   105→    icon: Globe,
+   106→  },
+   107→  tripadvisor: {
+   108→    label: "TripAdvisor",
+   109→    color: "#34A853",
+   110→    bg: "bg-emerald-500/10",
+   111→    border: "border-emerald-500/40",
+   112→    text: "text-emerald-300",
+   113→    icon: Globe,
+   114→  },
+   115→  facebook: {
+   116→    label: "Facebook",
+   117→    color: "#1877F2",
+   118→    bg: "bg-blue-600/10",
+   119→    border: "border-blue-600/40",
+   120→    text: "text-blue-300",
+   121→    icon: Globe,
+   122→  },
+   123→  instagram: {
+   124→    label: "Instagram",
+   125→    color: "#E1306C",
+   126→    bg: "bg-pink-500/10",
+   127→    border: "border-pink-500/40",
+   128→    text: "text-pink-300",
+   129→    icon: Globe,
+   130→  },
+   131→  thefork: {
+   132→    label: "TheFork",
+   133→    color: "#E63946",
+   134→    bg: "bg-red-500/10",
+   135→    border: "border-red-500/40",
+   136→    text: "text-red-300",
+   137→    icon: Globe,
+   138→  },
+   139→  yelp: {
+   140→    label: "Yelp",
+   141→    color: "#D32323",
+   142→    bg: "bg-red-600/10",
+   143→    border: "border-red-600/40",
+   144→    text: "text-red-300",
+   145→    icon: Globe,
+   146→  },
+   147→  internal: {
+   148→    label: "Interna",
+   149→    color: "#3DD6C9",
+   150→    bg: "bg-[var(--teal)]/10",
+   151→    border: "border-[var(--teal)]/40",
+   152→    text: "text-[var(--teal)]",
+   153→    icon: MessageSquare,
+   154→  },
+   155→};
+   156→
+   157→const TOPIC_LABELS: Record<string, string> = {
+   158→  food: "Comida",
+   159→  service: "Servicio",
+   160→  ambiance: "Ambiente",
+   161→  price: "Precio",
+   162→  wait_time: "Tiempo espera",
+   163→  cleanliness: "Limpieza",
+   164→  staff: "Personal",
+   165→};
+   166→
+   167→/* =====================================================================
+   168→ * Demo data
+   169→ * ===================================================================== */
+   170→
+   171→const PLATFORM_COUNTS: { platform: ReviewPlatform; count: number }[] = [
+   172→  { platform: "google", count: 89 },
+   173→  { platform: "tripadvisor", count: 23 },
+   174→  { platform: "facebook", count: 12 },
+   175→  { platform: "instagram", count: 8 },
+   176→  { platform: "thefork", count: 15 },
+   177→  { platform: "yelp", count: 5 },
+   178→  { platform: "internal", count: 95 },
+   179→];
+   180→
+   181→const REVIEWS: Review[] = [
+   182→  {
+   183→    id: "rv1",
+   184→    platform: "google",
+   185→    author: "María G.",
+   186→    rating: 5,
+   187→    text: "Servicio excelente, comida deliciosa. El cochinillo estaba espectacular y el equipo nos atendió de maravilla. Volveremos seguro.",
+   188→    sentiment: "positive",
+   189→    sentimentScore: 95,
+   190→    topics: ["food", "service"],
+   191→    date: "Hace 2 días",
+   192→    status: "new",
+   193→    location: "Madrid",
+   194→    aiReplySuggestion:
+   195→      "¡Gracias María! Nos alegra muchísimo que disfrutarais del cochinillo y el servicio. Ya le hemos hecho llegar tus palabras al equipo. ¡Os esperamos pronto! — Equipo RestoPanel Madrid",
+   196→  },
+   197→  {
+   198→    id: "rv2",
+   199→    platform: "google",
+   200→    author: "Carlos R.",
+   201→    rating: 4,
+   202→    text: "Muy bueno pero algo caro. La calidad justifica el precio en parte, pero el menú mediodía podría ser más accesible.",
+   203→    sentiment: "positive",
+   204→    sentimentScore: 72,
+   205→    topics: ["food", "price"],
+   206→    date: "Hace 3 días",
+   207→    status: "new",
+   208→    location: "Madrid",
+   209→    aiReplySuggestion:
+   210→      "Carlos, gracias por tu reseña. Valoramos tu comentario sobre el precio del menú mediodía: lo revisaremos con el equipo. ¡Esperamos verte pronto! — Equipo RestoPanel",
+   211→  },
+   212→  {
+   213→    id: "rv3",
+   214→    platform: "tripadvisor",
+   215→    author: "Annette B.",
+   216→    rating: 2,
+   217→    text: "Esperamos 40 minutos para sentarnos pese a tener reserva. El camarero estaba agobiado y el ritmo del servicio se resintió.",
+   218→    sentiment: "negative",
+   219→    sentimentScore: 78,
+   220→    topics: ["wait_time", "service"],
+   221→    date: "Hace 4 días",
+   222→    status: "pending_approval",
+   223→    location: "Madrid",
+   224→    aiReplySuggestion:
+   225→      "Annette, sentimos muchísimo la espera. No es nuestra norma: tenemos un protocolo de reserva que falló esa noche. Nos gustaría invitarte a volver para mostrarte el servicio que sí podemos dar. Escribenos a hola@restopanel.com. — Equipo RestoPanel Madrid",
+   226→  },
+   227→  {
+   228→    id: "rv4",
+   229→    platform: "google",
+   230→    author: "Javier M.",
+   231→    rating: 5,
+   232→    text: "Mejor terraza de Madrid. Ambiente íntimo, vistas increíbles y servicio impecable. Reservé para aniversario y nos sorprendieron con detalle.",
+   233→    sentiment: "positive",
+   234→    sentimentScore: 98,
+   235→    topics: ["ambiance", "service"],
+   236→    date: "Hace 5 días",
+   237→    status: "replied",
+   238→    reply: "¡Gracias Javier! Fue un placer celebrar vuestro aniversario. ¡Hasta pronto!",
+   239→    replyApproved: true,
+   240→    location: "Madrid",
+   241→  },
+   242→  {
+   243→    id: "rv5",
+   244→    platform: "thefork",
+   245→    author: "Laura P.",
+   246→    rating: 3,
+   247→    text: "Comida correcta pero sin destacar. El pulpo estaba bien de cocción pero le faltaba chispa. Relación calidad-precio media.",
+   248→    sentiment: "neutral",
+   249→    sentimentScore: 52,
+   250→    topics: ["food"],
+   251→    date: "Hace 6 días",
+   252→    status: "new",
+   253→    location: "Madrid",
+   254→    aiReplySuggestion:
+   255→      "Laura, gracias por la reseña. Tomamos nota del comentario sobre el pulpo: lo comentaremos con cocina. Te animamos a probar nuestro menú degustación en la próxima visita. — Equipo RestoPanel",
+   256→  },
+   257→  {
+   258→    id: "rv6",
+   259→    platform: "internal",
+   260→    author: "Cliente #1234",
+   261→    rating: 1,
+   262→    text: "Cliente insatisfecho con el trato del camarero. Indica que fue descortés al pedir cambiar un plato. Solicita que lo gestione un supervisor.",
+   263→    sentiment: "negative",
+   264→    sentimentScore: 88,
+   265→    topics: ["service", "staff"],
+   266→    date: "Hace 1 día",
+   267→    status: "escalated",
+   268→    location: "Barcelona",
+   269→    aiReplySuggestion: "",
+   270→  },
+   271→  {
+   272→    id: "rv7",
+   273→    platform: "facebook",
+   274→    author: "Sofía L.",
+   275→    rating: 5,
+   276→    text: "Celebré mi cumpleaños, espectacular. Tarta sorpresa, atención cercana y ambiente perfecto para grupo de 10. Repetiremos.",
+   277→    sentiment: "positive",
+   278→    sentimentScore: 96,
+   279→    topics: ["ambiance", "service"],
+   280→    date: "Hace 1 semana",
+   281→    status: "replied",
+   282→    reply: "¡Gracias por celebrarlo con nosotros, Sofia! Fue un día especial.",
+   283→    replyApproved: true,
+   284→    location: "Madrid",
+   285→  },
+   286→  {
+   287→    id: "rv8",
+   288→    platform: "google",
+   289→    author: "Andrés V.",
+   290→    rating: 4,
+   291→    text: "Volveré, pero mejorar la limpieza del baño. La comida y el servicio estupendos. Solo ese detalle a mejorar.",
+   292→    sentiment: "positive",
+   293→    sentimentScore: 68,
+   294→    topics: ["cleanliness"],
+   295→    date: "Hace 1 semana",
+   296→    status: "new",
+   297→    location: "Madrid",
+   298→    aiReplySuggestion:
+   299→      "Andrés, gracias por tus palabras sobre comida y servicio. Tomamos muy en serio tu comentario sobre limpieza: lo hemos trasladado a responsabilidad de sala. ¡Gracias por avisar! — Equipo RestoPanel",
+   300→  },
+   301→];
+   302→
+   303→const SENTIMENT_DISTRIBUTION = [
+   304→  { sentiment: "positive" as const, pct: 89, count: 1110, color: "var(--teal)" },
+   305→  { sentiment: "neutral" as const, pct: 8, count: 100, color: "var(--gold)" },
+   306→  { sentiment: "negative" as const, pct: 3, count: 37, color: "#ef4444" },
+   307→];
+   308→
+   309→const TOPICS_ANALYSIS = [
+   310→  { topic: "food", count: 842, label: "Comida" },
+   311→  { topic: "service", count: 678, label: "Servicio" },
+   312→  { topic: "ambiance", count: 412, label: "Ambiente" },
+   313→  { topic: "price", count: 287, label: "Precio" },
+   314→  { topic: "wait_time", count: 154, label: "Tiempo espera" },
+   315→  { topic: "cleanliness", count: 86, label: "Limpieza" },
+   316→];
+   317→
+   318→const RATING_EVOLUTION = [
+   319→  { month: "Oct", value: 4.4 },
+   320→  { month: "Nov", value: 4.5 },
+   321→  { month: "Dic", value: 4.5 },
+   322→  { month: "Ene", value: 4.6 },
+   323→  { month: "Feb", value: 4.6 },
+   324→  { month: "Mar", value: 4.6 },
+   325→];
+   326→
+   327→const RECURRING_PROBLEMS = [
+   328→  { issue: "Tiempo de espera en hora punta", mentions: 38, pct: 12 },
+   329→  { issue: "Limpieza del baño", mentions: 14, pct: 4 },
+   330→  { issue: "Precio elevado en menú mediodía", mentions: 11, pct: 3 },
+   331→  { issue: "Falta de vegetarianos en carta", mentions: 7, pct: 2 },
+   332→  { issue: "Ruido en sala principal", mentions: 5, pct: 1 },
+   333→];
+   334→
+   335→const BEST_WORST = {
+   336→  byWaiter: {
+   337→    best: { name: "Lucía F.", rating: 4.9, mentions: 124 },
+   338→    worst: { name: "Marco D.", rating: 4.1, mentions: 38 },
+   339→  },
+   340→  byDish: {
+   341→    best: { name: "Cochinillo", rating: 4.9, mentions: 218 },
+   342→    worst: { name: "Pulpo a la gallega", rating: 3.8, mentions: 52 },
+   343→  },
+   344→  byZone: {
+   345→    best: { name: "Terraza", rating: 4.8, mentions: 196 },
+   346→    worst: { name: "Sala interior", rating: 4.3, mentions: 142 },
+   347→  },
+   348→};
+   349→
+   350→const PLATFORM_COMPARISON = [
+   351→  { platform: "google" as ReviewPlatform, avgRating: 4.7, count: 89, responseRate: 92, responseTime: "3h" },
+   352→  { platform: "tripadvisor" as ReviewPlatform, avgRating: 4.4, count: 23, responseRate: 78, responseTime: "8h" },
+   353→  { platform: "facebook" as ReviewPlatform, avgRating: 4.8, count: 12, responseRate: 65, responseTime: "1d" },
+   354→  { platform: "instagram" as ReviewPlatform, avgRating: 4.6, count: 8, responseRate: 0, responseTime: "—" },
+   355→  { platform: "thefork" as ReviewPlatform, avgRating: 4.3, count: 15, responseRate: 60, responseTime: "1d" },
+   356→  { platform: "yelp" as ReviewPlatform, avgRating: 4.2, count: 5, responseRate: 40, responseTime: "2d" },
+   357→  { platform: "internal" as ReviewPlatform, avgRating: 4.5, count: 95, responseRate: 100, responseTime: "0h" },
+   358→];
+   359→
+   360→const NPS_EVOLUTION = [
+   361→  { month: "Oct", value: 62 },
+   362→  { month: "Nov", value: 65 },
+   363→  { month: "Dic", value: 64 },
+   364→  { month: "Ene", value: 68 },
+   365→  { month: "Feb", value: 70 },
+   366→  { month: "Mar", value: 72 },
+   367→];
+   368→
+   369→const NPS_BY_LOCATION = [
+   370→  { location: "Madrid", score: 74, promoters: 70, passives: 22, detractors: 8 },
+   371→  { location: "Barcelona", score: 69, promoters: 65, passives: 26, detractors: 9 },
+   372→  { location: "Valencia", score: 71, promoters: 67, passives: 24, detractors: 9 },
+   373→];
+   374→
+   375→const NPS_BY_SHIFT = [
+   376→  { shift: "Comida", score: 75, promoters: 71, passives: 22, detractors: 7 },
+   377→  { shift: "Cena", score: 69, promoters: 65, passives: 26, detractors: 9 },
+   378→];
+   379→
+   380→const NPS_AUTO_ACTIONS = [
+   381→  {
+   382→    bucket: "Promotores (9-10)",
+   383→    pct: 68,
+   384→    action: "Solicitar reseña pública",
+   385→    detail: "Se envía automáticamente email + WhatsApp 24h tras visita con enlace a Google.",
+   386→    tone: "teal" as const,
+   387→    icon: Star,
+   388→  },
+   389→  {
+   390→    bucket: "Pasivos (7-8)",
+   391→    pct: 24,
+   392→    action: "Enviar oferta de retorno",
+   393→    detail: "Oferta -15% en próxima reserva, enviada 7 días tras la visita.",
+   394→    tone: "gold" as const,
+   395→    icon: RefreshCw,
+   396→  },
+   397→  {
+   398→    bucket: "Detractores (0-6)",
+   399→    pct: 8,
+   400→    action: "Derivar a atención al cliente",
+   401→    detail: "Crea incidente + notifica al gerente. SLA de respuesta: 2h.",
+   402→    tone: "red" as const,
+   403→    icon: ShieldAlert,
+   404→  },
+   405→];
+   406→
+   407→const SURVEY_QUESTIONS = [
+   408→  { id: "q1", label: "Valoración de la comida", type: "rating", active: true },
+   409→  { id: "q2", label: "Valoración del servicio", type: "rating", active: true },
+   410→  { id: "q3", label: "Valoración del ambiente", type: "rating", active: true },
+   411→  { id: "q4", label: "NPS (¿recomendarías?)", type: "nps", active: true },
+   412→  { id: "q5", label: "Comentario abierto", type: "text", active: true },
+   413→];
+   414→
+   415→const SURVEY_METRICS = {
+   416→  sent: 247,
+   417→  opened: 189,
+   418→  completed: 142,
+   419→};
+   420→
+   421→const SURVEY_RESULTS = [
+   422→  { label: "Comida", rating: 4.5 },
+   423→  { label: "Servicio", rating: 4.3 },
+   424→  { label: "Ambiente", rating: 4.7 },
+   425→  { label: "NPS medio", rating: 7.2, suffix: "/10" },
+   426→];
+   427→
+   428→const OPEN_COMMENTS = [
+   429→  { id: "oc1", text: "El servicio fue excelente, pero el tiempo de espera fue largo.", sentiment: "neutral" as const, score: 52, author: "Cliente #1192", date: "Hace 2 horas" },
+   430→  { id: "oc2", text: "Volveré sin duda, todo perfecto.", sentiment: "positive" as const, score: 95, author: "Cliente #1188", date: "Hace 5 horas" },
+   431→  { id: "oc3", text: "El pulpo necesitaba más sabor, pero el ambiente es top.", sentiment: "neutral" as const, score: 60, author: "Cliente #1184", date: "Hace 8 horas" },
+   432→  { id: "oc4", text: "Nos trataron mal al pedir cambio de plato.", sentiment: "negative" as const, score: 82, author: "Cliente #1179", date: "Hace 1 día" },
+   433→  { id: "oc5", text: "Celebramos aniversario y fue inolvidable.", sentiment: "positive" as const, score: 98, author: "Cliente #1172", date: "Hace 1 día" },
+   434→];
+   435→
+   436→/* =====================================================================
+   437→ * Helpers
+   438→ * ===================================================================== */
+   439→
+   440→function sentimentColor(s: Sentiment): string {
+   441→  return s === "positive" ? "var(--teal)" : s === "neutral" ? "var(--gold)" : "#ef4444";
+   442→}
+   443→
+   444→function sentimentLabel(s: Sentiment): string {
+   445→  return s === "positive" ? "Positivo" : s === "neutral" ? "Neutral" : "Negativo";
+   446→}
+   447→
+   448→function statusMeta(s: ReviewStatus): { label: string; cls: string } {
+   449→  switch (s) {
+   450→    case "new":
+   451→      return { label: "Nueva", cls: "border-amber-400/40 bg-amber-400/10 text-amber-300" };
+   452→    case "replied":
+   453→      return { label: "Respondida", cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" };
+   454→    case "pending_approval":
+   455→      return { label: "Pendiente aprobación", cls: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]" };
+   456→    case "escalated":
+   457→      return { label: "Escalada", cls: "border-destructive/40 bg-destructive/10 text-destructive" };
+   458→  }
+   459→}
+   460→
+   461→function npsColor(score: number): string {
+   462→  if (score >= 50) return "var(--teal)";
+   463→  if (score >= 20) return "var(--gold)";
+   464→  return "#ef4444";
+   465→}
+   466→
+   467→function confidenceColor(c: number): string {
+   468→  if (c >= 90) return "text-emerald-300";
+   469→  if (c >= 80) return "rp-teal-text";
+   470→  if (c >= 70) return "text-amber-300";
+   471→  return "text-destructive";
+   472→}
+   473→
+   474→/* =====================================================================
+   475→ * Shared UI atoms
+   476→ * ===================================================================== */
+   477→
+   478→function InfoDot({ text }: { text: string }) {
+   479→  return (
+   480→    <TooltipProvider delayDuration={150}>
+   481→      <Tooltip>
+   482→        <TooltipTrigger asChild>
+   483→          <button
+   484→            type="button"
+   485→            aria-label="Definición"
+   486→            className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-foreground/20 text-muted-foreground transition-colors hover:border-[var(--gold)]/50 hover:text-[var(--gold)]"
+   487→          >
+   488→            <Info className="h-2.5 w-2.5" />
+   489→          </button>
+   490→        </TooltipTrigger>
+   491→        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed border-border/60">
+   492→          {text}
+   493→        </TooltipContent>
+   494→      </Tooltip>
+   495→    </TooltipProvider>
+   496→  );
+   497→}
+   498→
+   499→function DemoBadge() {
+   500→  return (
+   501→    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+   502→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+   503→      demo
+   504→    </span>
+   505→  );
+   506→}
+   507→
+   508→function MiniBadge({
+   509→  children,
+   510→  tone = "default",
+   511→}: {
+   512→  children: React.ReactNode;
+   513→  tone?: "default" | "gold" | "teal";
+   514→}) {
+   515→  const tones: Record<string, string> = {
+   516→    default: "border-foreground/15 bg-foreground/5 text-muted-foreground",
+   517→    gold: "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   518→    teal: "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]",
+   519→  };
+   520→  return (
+   521→    <span
+   522→      className={cn(
+   523→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   524→        tones[tone]
+   525→      )}
+   526→    >
+   527→      {children}
+   528→    </span>
+   529→  );
+   530→}
+   531→
+   532→function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
+   533→  return (
+   534→    <span className="inline-flex items-center gap-0.5" aria-label={`${rating} de 5 estrellas`}>
+   535→      {[1, 2, 3, 4, 5].map((n) => (
+   536→        <Star
+   537→          key={n}
+   538→          style={{ width: size, height: size }}
+   539→          className={cn(
+   540→            n <= rating ? "fill-[var(--gold)] text-[var(--gold)]" : "fill-none text-foreground/25"
+   541→          )}
+   542→        />
+   543→      ))}
+   544→    </span>
+   545→  );
+   546→}
+   547→
+   548→/* =====================================================================
+   549→ * Bandeja tab
+   550→ * ===================================================================== */
+   551→
+   552→function Summary() {
+   553→  const reduce = useReducedMotion();
+   554→  const cells = [
+   555→    { label: "Rating medio", value: "4.6", suffix: "★", tone: "gold" as const, def: "Media ponderada de todas las plataformas." },
+   556→    { label: "Reseñas totales", value: "1.247", tone: "default" as const, def: "Reseñas agregadas de todas las plataformas conectadas." },
+   557→    { label: "Positivas", value: "89%", tone: "teal" as const, def: "Reseñas con sentimiento positive (score ≥60)." },
+   558→    { label: "Neutras", value: "8%", tone: "gold" as const, def: "Reseñas con sentimiento neutral (40-59)." },
+   559→    { label: "Negativas", value: "3%", tone: "default" as const, def: "Reseñas con sentimiento negative (<40)." },
+   560→    { label: "Pendientes", value: "42", tone: "default" as const, def: "Reseñas nuevas o pendientes de aprobación." },
+   561→  ];
+   562→  return (
+   563→    <div className="rp-glass rounded-2xl p-5">
+   564→      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+   565→        {cells.map((c, i) => (
+   566→          <motion.div
+   567→            key={c.label}
+   568→            initial={reduce ? false : { opacity: 0, y: 6 }}
+   569→            animate={{ opacity: 1, y: 0 }}
+   570→            transition={{ duration: 0.3, delay: Math.min(i * 0.04, 0.3) }}
+   571→            className="rounded-xl bg-foreground/[0.025] border border-foreground/10 p-3"
+   572→          >
+   573→            <div className="flex items-center justify-between gap-1">
+   574→              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   575→                {c.label}
+   576→              </span>
+   577→              <InfoDot text={c.def} />
+   578→            </div>
+   579→            <div
+   580→              className={cn(
+   581→                "mt-1.5 font-display text-xl font-light",
+   582→                c.tone === "gold" && "rp-gold-text",
+   583→                c.tone === "teal" && "rp-teal-text",
+   584→                c.tone === "default" && "text-foreground"
+   585→              )}
+   586→            >
+   587→              {c.value}
+   588→              {c.suffix && <span className="text-sm ml-0.5">{c.suffix}</span>}
+   589→            </div>
+   590→          </motion.div>
+   591→        ))}
+   592→      </div>
+   593→    </div>
+   594→  );
+   595→}
+   596→
+   597→function PlatformFilters({
+   598→  active,
+   599→  onChange,
+   600→}: {
+   601→  active: ReviewPlatform | "all";
+   602→  onChange: (p: ReviewPlatform | "all") => void;
+   603→}) {
+   604→  return (
+   605→    <div className="flex flex-wrap items-center gap-1.5">
+   606→      <button
+   607→        onClick={() => onChange("all")}
+   608→        className={cn(
+   609→          "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors min-h-[32px]",
+   610→          active === "all"
+   611→            ? "border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   612→            : "border-foreground/15 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   613→        )}
+   614→      >
+   615→        Todas ({PLATFORM_COUNTS.reduce((a, p) => a + p.count, 0)})
+   616→      </button>
+   617→      {PLATFORM_COUNTS.map((p) => {
+   618→        const meta = PLATFORM_META[p.platform];
+   619→        const Icon = meta.icon;
+   620→        const isActive = active === p.platform;
+   621→        return (
+   622→          <button
+   623→            key={p.platform}
+   624→            onClick={() => onChange(p.platform)}
+   625→            aria-pressed={isActive}
+   626→            className={cn(
+   627→              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition-colors min-h-[32px]",
+   628→              isActive
+   629→                ? cn(meta.border, meta.bg, meta.text)
+   630→                : "border-foreground/15 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   631→            )}
+   632→          >
+   633→            <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+   634→            {meta.label} ({p.count})
+   635→          </button>
+   636→        );
+   637→      })}
+   638→    </div>
+   639→  );
+   640→}
+   641→
+   642→function RatingFilter({
+   643→  active,
+   644→  onChange,
+   645→}: {
+   646→  active: number | "all";
+   647→  onChange: (r: number | "all") => void;
+   648→}) {
+   649→  const opts: (number | "all")[] = ["all", 5, 4, 3, 2, 1];
+   650→  const labels: Record<string, string> = { all: "Todas", "5": "5★", "4": "4★", "3": "3★", "2": "2★", "1": "1★" };
+   651→  return (
+   652→    <div className="flex flex-wrap items-center gap-1.5">
+   653→      <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mr-1">
+   654→        Rating
+   655→      </span>
+   656→      {opts.map((o) => (
+   657→        <button
+   658→          key={String(o)}
+   659→          onClick={() => onChange(o)}
+   660→          aria-pressed={active === o}
+   661→          className={cn(
+   662→            "inline-flex items-center rounded-md border px-2.5 py-1 text-xs transition-colors min-h-[28px]",
+   663→            active === o
+   664→              ? "border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   665→              : "border-foreground/15 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   666→          )}
+   667→        >
+   668→          {labels[String(o)]}
+   669→        </button>
+   670→      ))}
+   671→    </div>
+   672→  );
+   673→}
+   674→
+   675→const TONE_LABELS: Record<Tone, string> = {
+   676→  profesional: "Profesional",
+   677→  cercano: "Cercano",
+   678→  formal: "Formal",
+   679→  disculpas: "Con disculpas",
+   680→};
+   681→
+   682→const TONE_VARIANTS: Record<Tone, (author: string) => string> = {
+   683→  profesional: (a) =>
+   684→    `Estimado/a ${a}, agradecemos sinceramente sus comentarios. Su opinión nos ayuda a mejorar. Le esperamos en su próxima visita. — Equipo RestoPanel`,
+   685→  cercano: (a) =>
+   686→    `¡Mil gracias, ${a}! Nos hace mucha ilusión leer esto. Ya le hemos dicho al equipo lo que escribiste. ¡Te esperamos pronto! — Equipo RestoPanel`,
+   687→  formal: (a) =>
+   688→    `${a}, le agradecemos sus comentarios. Tomamos nota de su observación y trabajaremos en ello. Quedamos a su disposición. — Dirección RestoPanel`,
+   689→  disculpas: (a) =>
+   690→    `${a}, le pedimos nuestras más sinceras disculpas por la experiencia descrita. No es nuestro estándar. Nos gustaría compensarle en su próxima visita. — Equipo RestoPanel`,
+   691→};
+   692→
+   693→function ReviewCard({ review }: { review: Review }) {
+   694→  const reduce = useReducedMotion();
+   695→  const meta = PLATFORM_META[review.platform];
+   696→  const Icon = meta.icon;
+   697→  const sMeta = statusMeta(review.status);
+   698→  const [expanded, setExpanded] = React.useState(false);
+   699→  const [showAI, setShowAI] = React.useState(review.status === "new" || review.status === "pending_approval");
+   700→  const [tone, setTone] = React.useState<Tone>("profesional");
+   701→  const [draft, setDraft] = React.useState(review.aiReplySuggestion || "");
+   702→  const [regenerating, setRegenerating] = React.useState(false);
+   703→  const [confirmOpen, setConfirmOpen] = React.useState(false);
+   704→  const [escalateOpen, setEscalateOpen] = React.useState(false);
+   705→  const [discarded, setDiscarded] = React.useState(false);
+   706→
+   707→  React.useEffect(() => {
+   708→    if (!showAI) return;
+   709→    setDraft(review.aiReplySuggestion || TONE_VARIANTS.profesional(review.author));
+   710→  }, [review.aiReplySuggestion, review.author, showAI]);
+   711→
+   712→  function regenerate() {
+   713→    setRegenerating(true);
+   714→    setTimeout(() => {
+   715→      setDraft(TONE_VARIANTS[tone](review.author));
+   716→      setRegenerating(false);
+   717→      toast({ title: "Respuesta regenerada", description: `Tono: ${TONE_LABELS[tone]}` });
+   718→    }, 700);
+   719→  }
+   720→
+   721→  function publish() {
+   722→    setConfirmOpen(false);
+   723→    toast({
+   724→      title: "Respuesta publicada",
+   725→      description: `Se publicó en ${meta.label}.`,
+   726→    });
+   727→    setShowAI(false);
+   728→    setDiscarded(false);
+   729→  }
+   730→
+   731→  function escalate() {
+   732→    setEscalateOpen(false);
+   733→    toast({
+   734→      title: "Incidente creado",
+   735→      description: `Reseña escalada a gestión. SLA 2h.`,
+   736→    });
+   737→  }
+   738→
+   739→  const isNegative = review.sentiment === "negative";
+   740→  const textTruncated = review.text.length > 140 && !expanded;
+   741→  const displayText = textTruncated ? review.text.slice(0, 140) + "…" : review.text;
+   742→
+   743→  return (
+   744→    <motion.div
+   745→      layout={!reduce}
+   746→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   747→      animate={{ opacity: 1, y: 0 }}
+   748→      className={cn(
+   749→        "rp-glass rounded-2xl p-4 sm:p-5 transition-colors",
+   750→        review.status === "escalated" && "border-l-2 border-l-destructive/60"
+   751→      )}
+   752→    >
+   753→      {/* Header */}
+   754→      <div className="flex flex-wrap items-start justify-between gap-3">
+   755→        <div className="flex items-start gap-3 min-w-0 flex-1">
+   756→          <span
+   757→            className={cn(
+   758→              "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border",
+   759→              meta.bg,
+   760→              meta.border,
+   761→              meta.text
+   762→            )}
+   763→            title={meta.label}
+   764→          >
+   765→            <Icon className="h-4 w-4" />
+   766→          </span>
+   767→          <div className="min-w-0 flex-1">
+   768→            <div className="flex flex-wrap items-center gap-2">
+   769→              <span className="font-medium text-foreground">{review.author}</span>
+   770→              <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono", meta.border, meta.bg, meta.text)}>
+   771→                {meta.label}
+   772→              </span>
+   773→              <Stars rating={review.rating} />
+   774→            </div>
+   775→            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
+   776→              <span className="inline-flex items-center gap-1">
+   777→                <Clock className="h-3 w-3" />
+   778→                {review.date}
+   779→              </span>
+   780→              {review.location && (
+   781→                <span className="inline-flex items-center gap-1">
+   782→                  <MapPin className="h-3 w-3" />
+   783→                  {review.location}
+   784→                </span>
+   785→              )}
+   786→            </div>
+   787→          </div>
+   788→        </div>
+   789→        <div className="flex flex-wrap items-center gap-1.5">
+   790→          <span
+   791→            className={cn(
+   792→              "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   793→              "border-foreground/15 bg-foreground/[0.04]",
+   794→              "text-foreground/80"
+   795→            )}
+   796→            style={{ color: sentimentColor(review.sentiment) }}
+   797→          >
+   798→            <span className="h-1.5 w-1.5 rounded-full" style={{ background: sentimentColor(review.sentiment) }} />
+   799→            {sentimentLabel(review.sentiment)} · {review.sentimentScore}%
+   800→          </span>
+   801→          <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider", sMeta.cls)}>
+   802→            {sMeta.label}
+   803→          </span>
+   804→        </div>
+   805→      </div>
+   806→
+   807→      {/* Text */}
+   808→      <p className="mt-3 text-sm leading-relaxed text-foreground/90">
+   809→        {displayText}
+   810→        {textTruncated && (
+   811→          <button
+   812→            onClick={() => setExpanded(true)}
+   813→            className="ml-1 text-[var(--teal)] hover:underline"
+   814→          >
+   815→            ver más
+   816→          </button>
+   817→        )}
+   818→        {expanded && review.text.length > 140 && (
+   819→          <button
+   820→            onClick={() => setExpanded(false)}
+   821→            className="ml-1 text-[var(--teal)] hover:underline"
+   822→          >
+   823→            ver menos
+   824→          </button>
+   825→        )}
+   826→      </p>
+   827→
+   828→      {/* Topics */}
+   829→      {review.topics.length > 0 && (
+   830→        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+   831→          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   832→            Temas
+   833→          </span>
+   834→          {review.topics.map((t) => (
+   835→            <span
+   836→              key={t}
+   837→              className="inline-flex items-center rounded-md border border-foreground/15 bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] text-foreground/80"
+   838→            >
+   839→              {TOPIC_LABELS[t] || t}
+   840→            </span>
+   841→          ))}
+   842→        </div>
+   843→      )}
+   844→
+   845→      {/* Existing reply */}
+   846→      {review.status === "replied" && review.reply && (
+   847→        <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-400/[0.06] p-3">
+   848→          <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-emerald-300 mb-1">
+   849→            <Check className="h-3 w-3" />
+   850→            Respuesta publicada
+   851→          </div>
+   852→          <p className="text-sm text-foreground/90">{review.reply}</p>
+   853→        </div>
+   854→      )}
+   855→
+   856→      {/* Escalated notice */}
+   857→      {review.status === "escalated" && (
+   858→        <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/[0.06] p-3">
+   859→          <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-destructive mb-1">
+   860→            <ShieldAlert className="h-3 w-3" />
+   861→            Incidente creado · SLA 2h
+   862→          </div>
+   863→          <p className="text-sm text-foreground/90">
+   864→            Reseña escalada a gestión. Notificado al gerente.
+   865→          </p>
+   866→        </div>
+   867→      )}
+   868→
+   869→      {/* AI Reply section */}
+   870→      {showAI && !discarded && (review.status === "new" || review.status === "pending_approval") && (
+   871→        <motion.div
+   872→          initial={reduce ? false : { opacity: 0, height: 0 }}
+   873→          animate={{ opacity: 1, height: "auto" }}
+   874→          className="mt-4 rounded-xl border border-[var(--teal)]/30 bg-[var(--teal)]/[0.04] p-3 sm:p-4"
+   875→        >
+   876→          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+   877→            <div className="flex items-center gap-1.5">
+   878→              <Sparkles className="h-3.5 w-3.5 text-[var(--teal)]" />
+   879→              <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--teal)]">
+   880→                IA sugiere respuesta
+   881→              </span>
+   882→            </div>
+   883→            <div className="flex items-center gap-1">
+   884→              {(Object.keys(TONE_LABELS) as Tone[])
+   885→                .filter((t) => t !== "disculpas" || isNegative)
+   886→                .map((t) => (
+   887→                  <button
+   888→                    key={t}
+   889→                    onClick={() => setTone(t)}
+   890→                    aria-pressed={tone === t}
+   891→                    className={cn(
+   892→                      "rounded-md border px-2 py-0.5 text-[10px] transition-colors min-h-[24px]",
+   893→                      tone === t
+   894→                        ? "border-[var(--teal)]/50 bg-[var(--teal)]/15 text-[var(--teal)]"
+   895→                        : "border-foreground/15 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   896→                    )}
+   897→                  >
+   898→                    {TONE_LABELS[t]}
+   899→                  </button>
+   900→                ))}
+   901→            </div>
+   902→          </div>
+   903→
+   904→          <Textarea
+   905→            value={draft}
+   906→            onChange={(e) => setDraft(e.target.value)}
+   907→            rows={4}
+   908→            className="bg-foreground/[0.04] border-foreground/15 text-sm resize-y"
+   909→            aria-label="Borrador de respuesta"
+   910→          />
+   911→
+   912→          <div className="mt-3 flex flex-wrap gap-2">
+   913→            <Button
+   914→              size="sm"
+   915→              onClick={() => setConfirmOpen(true)}
+   916→              className="h-8 bg-[var(--gold)] text-[var(--primary-foreground)] hover:bg-[var(--gold-deep)]"
+   917→            >
+   918→              <Send className="h-3.5 w-3.5 mr-1" />
+   919→              Aprobar y publicar
+   920→            </Button>
+   921→            <Button
+   922→              size="sm"
+   923→              variant="outline"
+   924→              onClick={regenerate}
+   925→              disabled={regenerating}
+   926→              className="h-8 border-foreground/15"
+   927→            >
+   928→              <RefreshCw className={cn("h-3.5 w-3.5 mr-1", regenerating && "animate-spin")} />
+   929→              Regenerar
+   930→            </Button>
+   931→            <Button
+   932→              size="sm"
+   933→              variant="ghost"
+   934→              onClick={() => {
+   935→                setDiscarded(true);
+   936→                toast({ title: "Sugerencia descartada" });
+   937→              }}
+   938→              className="h-8 text-muted-foreground hover:text-destructive"
+   939→            >
+   940→              <X className="h-3.5 w-3.5 mr-1" />
+   941→              Descartar
+   942→            </Button>
+   943→            {isNegative && (
+   944→              <Button
+   945→                size="sm"
+   946→                variant="outline"
+   947→                onClick={() => setEscalateOpen(true)}
+   948→                className="h-8 border-destructive/40 text-destructive hover:bg-destructive/10"
+   949→              >
+   950→                <ShieldAlert className="h-3.5 w-3.5 mr-1" />
+   951→                Escalar a gestión
+   952→              </Button>
+   953→            )}
+   954→          </div>
+   955→        </motion.div>
+   956→      )}
+   957→
+   958→      {/* Confirm publish dialog */}
+   959→      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+   960→        <AlertDialogContent className="bg-card border-border/60">
+   961→          <AlertDialogHeader>
+   962→            <AlertDialogTitle>¿Publicar respuesta?</AlertDialogTitle>
+   963→            <AlertDialogDescription>
+   964→              Se publicará en <strong className="text-foreground">{meta.label}</strong>. Esta acción
+   965→              es visible públicamente y no se puede deshacer.
+   966→            </AlertDialogDescription>
+   967→          </AlertDialogHeader>
+   968→          <AlertDialogFooter>
+   969→            <AlertDialogCancel className="h-9">Cancelar</AlertDialogCancel>
+   970→            <AlertDialogAction
+   971→              onClick={publish}
+   972→              className="h-9 bg-[var(--gold)] text-[var(--primary-foreground)] hover:bg-[var(--gold-deep)]"
+   973→            >
+   974→              Publicar
+   975→            </AlertDialogAction>
+   976→          </AlertDialogFooter>
+   977→        </AlertDialogContent>
+   978→      </AlertDialog>
+   979→
+   980→      {/* Escalate dialog */}
+   981→      <AlertDialog open={escalateOpen} onOpenChange={setEscalateOpen}>
+   982→        <AlertDialogContent className="bg-card border-border/60">
+   983→          <AlertDialogHeader>
+   984→            <AlertDialogTitle>¿Escalar a gestión?</AlertDialogTitle>
+   985→            <AlertDialogDescription>
+   986→              Se creará un incidente vinculado a esta reseña y se notificará al gerente. SLA de
+   987→              respuesta: 2 horas.
+   988→            </AlertDialogDescription>
+   989→          </AlertDialogHeader>
+   990→          <AlertDialogFooter>
+   991→            <AlertDialogCancel className="h-9">Cancelar</AlertDialogCancel>
+   992→            <AlertDialogAction
+   993→              onClick={escalate}
+   994→              className="h-9 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+   995→            >
+   996→              Escalar
+   997→            </AlertDialogAction>
+   998→          </AlertDialogFooter>
+   999→        </AlertDialogContent>
+  1000→      </AlertDialog>
+  1001→    </motion.div>
+  1002→  );
+  1003→}
+  1004→
+  1005→function BandejaTab() {
+  1006→  const [platform, setPlatform] = React.useState<ReviewPlatform | "all">("all");
+  1007→  const [rating, setRating] = React.useState<number | "all">("all");
+  1008→
+  1009→  const filtered = REVIEWS.filter((r) => {
+  1010→    if (platform !== "all" && r.platform !== platform) return false;
+  1011→    if (rating !== "all" && r.rating !== rating) return false;
+  1012→    return true;
+  1013→  });
+  1014→
+  1015→  return (
+  1016→    <div className="space-y-5">
+  1017→      <Summary />
+  1018→      <div className="rp-glass rounded-2xl p-4 sm:p-5 space-y-3">
+  1019→        <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1020→          <Filter className="h-3.5 w-3.5" />
+  1021→          Filtros
+  1022→        </div>
+  1023→        <PlatformFilters active={platform} onChange={setPlatform} />
+  1024→        <RatingFilter active={rating} onChange={setRating} />
+  1025→      </div>
+  1026→      <div className="space-y-3">
+  1027→        <AnimatePresence mode="popLayout">
+  1028→          {filtered.map((r) => (
+  1029→            <ReviewCard key={r.id} review={r} />
+  1030→          ))}
+  1031→        </AnimatePresence>
+  1032→        {filtered.length === 0 && (
+  1033→          <div className="rp-glass rounded-2xl p-8 text-center text-sm text-muted-foreground">
+  1034→            No hay reseñas con estos filtros.
+  1035→          </div>
+  1036→        )}
+  1037→      </div>
+  1038→    </div>
+  1039→  );
+  1040→}
+  1041→
+  1042→/* =====================================================================
+  1043→ * Análisis tab
+  1044→ * ===================================================================== */
+  1045→
+  1046→function SentimentDonut() {
+  1047→  const reduce = useReducedMotion();
+  1048→  const size = 200;
+  1049→  const cx = size / 2;
+  1050→  const cy = size / 2;
+  1051→  const r = 70;
+  1052→  const C = 2 * Math.PI * r;
+  1053→  // Precompute cumulative offsets (avoid mutating state during render)
+  1054→  const segments = SENTIMENT_DISTRIBUTION.reduce<
+  1055→    Array<{ d: (typeof SENTIMENT_DISTRIBUTION)[number]; dash: number; offset: number }>
+  1056→  >((acc, d) => {
+  1057→    const dash = (d.pct / 100) * C;
+  1058→    const offset = acc.length ? acc[acc.length - 1].offset + acc[acc.length - 1].dash : 0;
+  1059→    acc.push({ d, dash, offset });
+  1060→    return acc;
+  1061→  }, []);
+  1062→  return (
+  1063→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1064→      <div className="mb-3 flex items-center justify-between gap-2">
+  1065→        <h3 className="font-display text-lg font-medium">Distribución de sentimiento</h3>
+  1066→        <MiniBadge>1.247 reseñas</MiniBadge>
+  1067→      </div>
+  1068→      <div className="flex flex-col sm:flex-row items-center gap-5">
+  1069→        <svg viewBox={`0 0 ${size} ${size}`} className="w-[180px] h-[180px] shrink-0" role="img" aria-label="Distribución de sentimiento">
+  1070→          <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" className="text-foreground/8" strokeWidth="20" />
+  1071→          {segments.map((seg, i) => (
+  1072→            <motion.circle
+  1073→              key={seg.d.sentiment}
+  1074→              cx={cx}
+  1075→              cy={cy}
+  1076→              r={r}
+  1077→              fill="none"
+  1078→              stroke={seg.d.color}
+  1079→              strokeWidth="20"
+  1080→              strokeDasharray={`${reduce ? seg.dash : 0} ${C}`}
+  1081→              strokeDashoffset={-seg.offset}
+  1082→              transform={`rotate(-90 ${cx} ${cy})`}
+  1083→              initial={false}
+  1084→              animate={{ strokeDasharray: `${seg.dash} ${C}` }}
+  1085→              transition={{ duration: 0.7, delay: i * 0.12, ease: "easeOut" }}
+  1086→            />
+  1087→          ))}
+  1088→          <text x={cx} y={cy - 4} textAnchor="middle" className="fill-foreground font-display" fontSize="22" fontWeight="600">
+  1089→            4.6
+  1090→          </text>
+  1091→          <text x={cx} y={cy + 14} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
+  1092→            rating medio
+  1093→          </text>
+  1094→        </svg>
+  1095→        <div className="flex-1 w-full space-y-2">
+  1096→          {SENTIMENT_DISTRIBUTION.map((d) => (
+  1097→            <div key={d.sentiment} className="flex items-center justify-between gap-3 text-sm">
+  1098→              <span className="inline-flex items-center gap-2">
+  1099→                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: d.color }} />
+  1100→                <span className="text-foreground/90">{sentimentLabel(d.sentiment)}</span>
+  1101→              </span>
+  1102→              <span className="font-mono text-foreground/80">
+  1103→                {d.pct}% · {d.count}
+  1104→              </span>
+  1105→            </div>
+  1106→          ))}
+  1107→        </div>
+  1108→      </div>
+  1109→    </div>
+  1110→  );
+  1111→}
+  1112→
+  1113→function TopicsBar() {
+  1114→  const reduce = useReducedMotion();
+  1115→  const max = Math.max(...TOPICS_ANALYSIS.map((t) => t.count));
+  1116→  return (
+  1117→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1118→      <div className="mb-4 flex items-center justify-between gap-2">
+  1119→        <h3 className="font-display text-lg font-medium">Análisis de temas</h3>
+  1120→        <MiniBadge>6 temas</MiniBadge>
+  1121→      </div>
+  1122→      <div className="space-y-3">
+  1123→        {TOPICS_ANALYSIS.map((t, i) => (
+  1124→          <div key={t.topic}>
+  1125→            <div className="flex items-center justify-between text-xs mb-1">
+  1126→              <span className="text-foreground/85">{t.label}</span>
+  1127→              <span className="font-mono text-muted-foreground">{t.count}</span>
+  1128→            </div>
+  1129→            <div className="h-2 rounded-full bg-foreground/[0.06] overflow-hidden">
+  1130→              <motion.div
+  1131→                className="h-full rounded-full"
+  1132→                style={{ background: "linear-gradient(90deg, var(--gold), var(--gold-soft))" }}
+  1133→                initial={reduce ? false : { width: 0 }}
+  1134→                animate={{ width: `${(t.count / max) * 100}%` }}
+  1135→                transition={{ duration: 0.6, delay: i * 0.06, ease: "easeOut" }}
+  1136→              />
+  1137→            </div>
+  1138→          </div>
+  1139→        ))}
+  1140→      </div>
+  1141→    </div>
+  1142→  );
+  1143→}
+  1144→
+  1145→function RatingEvolutionChart() {
+  1146→  const reduce = useReducedMotion();
+  1147→  const w = 480;
+  1148→  const h = 200;
+  1149→  const padL = 30;
+  1150→  const padR = 16;
+  1151→  const padT = 16;
+  1152→  const padB = 28;
+  1153→  const innerW = w - padL - padR;
+  1154→  const innerH = h - padT - padB;
+  1155→  const minV = 4.2;
+  1156→  const maxV = 4.8;
+  1157→  const points: Array<[number, number]> = RATING_EVOLUTION.map((d, i) => [
+  1158→    padL + (i / (RATING_EVOLUTION.length - 1)) * innerW,
+  1159→    padT + innerH - ((d.value - minV) / (maxV - minV)) * innerH,
+  1160→  ]);
+  1161→  const linePath = points.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+  1162→  const areaPath = `${linePath} L${points[points.length - 1][0]},${padT + innerH} L${points[0][0]},${padT + innerH} Z`;
+  1163→
+  1164→  return (
+  1165→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1166→      <div className="mb-3 flex items-center justify-between gap-2">
+  1167→        <h3 className="font-display text-lg font-medium">Evolución del rating</h3>
+  1168→        <MiniBadge tone="gold">6 meses</MiniBadge>
+  1169→      </div>
+  1170→      <div className="overflow-x-auto rp-scroll-thin -mx-1">
+  1171→        <svg viewBox={`0 0 ${w} ${h}`} className="w-full min-w-[440px]" role="img" aria-label="Evolución del rating medio">
+  1172→          <defs>
+  1173→            <linearGradient id="ratingArea" x1="0" y1="0" x2="0" y2="1">
+  1174→              <stop offset="0%" stopColor="var(--gold)" stopOpacity="0.28" />
+  1175→              <stop offset="100%" stopColor="var(--gold)" stopOpacity="0" />
+  1176→            </linearGradient>
+  1177→          </defs>
+  1178→          {[4.3, 4.5, 4.7].map((t, i) => {
+  1179→            const y = padT + innerH - ((t - minV) / (maxV - minV)) * innerH;
+  1180→            return (
+  1181→              <g key={i}>
+  1182→                <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
+  1183→                <text x={padL - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
+  1184→                  {t.toFixed(1)}
+  1185→                </text>
+  1186→              </g>
+  1187→            );
+  1188→          })}
+  1189→          <motion.path
+  1190→            d={areaPath}
+  1191→            fill="url(#ratingArea)"
+  1192→            initial={reduce ? false : { opacity: 0 }}
+  1193→            animate={{ opacity: 1 }}
+  1194→            transition={{ duration: 0.6, delay: 0.2 }}
+  1195→          />
+  1196→          <motion.path
+  1197→            d={linePath}
+  1198→            fill="none"
+  1199→            stroke="var(--gold)"
+  1200→            strokeWidth="2"
+  1201→            strokeLinecap="round"
+  1202→            strokeLinejoin="round"
+  1203→            initial={reduce ? false : { pathLength: 0 }}
+  1204→            animate={{ pathLength: 1 }}
+  1205→            transition={{ duration: 0.8, ease: "easeOut" }}
+  1206→          />
+  1207→          {points.map(([x, y], i) => (
+  1208→            <motion.circle
+  1209→              key={i}
+  1210→              cx={x}
+  1211→              cy={y}
+  1212→              r="3"
+  1213→              fill="var(--gold)"
+  1214→              stroke="var(--background)"
+  1215→              strokeWidth="1.5"
+  1216→              initial={reduce ? false : { opacity: 0 }}
+  1217→              animate={{ opacity: 1 }}
+  1218→              transition={{ delay: 0.4 + i * 0.06 }}
+  1219→            />
+  1220→          ))}
+  1221→          {RATING_EVOLUTION.map((d, i) => (
+  1222→            <text
+  1223→              key={i}
+  1224→              x={padL + (i / (RATING_EVOLUTION.length - 1)) * innerW}
+  1225→              y={padT + innerH + 16}
+  1226→              textAnchor="middle"
+  1227→              className="fill-muted-foreground font-mono"
+  1228→              fontSize="9"
+  1229→            >
+  1230→              {d.month}
+  1231→            </text>
+  1232→          ))}
+  1233→        </svg>
+  1234→      </div>
+  1235→    </div>
+  1236→  );
+  1237→}
+  1238→
+  1239→function RecurringProblems() {
+  1240→  return (
+  1241→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1242→      <div className="mb-3 flex items-center justify-between gap-2">
+  1243→        <h3 className="font-display text-lg font-medium">Problemas recurrentes</h3>
+  1244→        <MiniBadge>Top 5 · negativas</MiniBadge>
+  1245→      </div>
+  1246→      <ul className="space-y-3">
+  1247→        {RECURRING_PROBLEMS.map((p, i) => (
+  1248→          <li key={i} className="flex items-start gap-3">
+  1249→            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-destructive/70" />
+  1250→            <div className="flex-1">
+  1251→              <div className="flex items-center justify-between gap-3 text-sm">
+  1252→                <span className="text-foreground/90">{p.issue}</span>
+  1253→                <span className="font-mono text-xs text-muted-foreground">{p.mentions} ({p.pct}%)</span>
+  1254→              </div>
+  1255→              <div className="mt-1.5 h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
+  1256→                <motion.div
+  1257→                  className="h-full rounded-full bg-destructive/60"
+  1258→                  initial={{ width: 0 }}
+  1259→                  whileInView={{ width: `${p.pct * 7}%` }}
+  1260→                  viewport={{ once: true }}
+  1261→                  transition={{ duration: 0.5, delay: i * 0.06 }}
+  1262→                />
+  1263→              </div>
+  1264→            </div>
+  1265→          </li>
+  1266→        ))}
+  1267→      </ul>
+  1268→    </div>
+  1269→  );
+  1270→}
+  1271→
+  1272→function BestWorstCard() {
+  1273→  const items = [
+  1274→    { label: "Por camarero", data: BEST_WORST.byWaiter },
+  1275→    { label: "Por plato", data: BEST_WORST.byDish },
+  1276→    { label: "Por zona", data: BEST_WORST.byZone },
+  1277→  ];
+  1278→  return (
+  1279→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1280→      <div className="mb-3 flex items-center justify-between gap-2">
+  1281→        <h3 className="font-display text-lg font-medium">Mejor y peor valorado</h3>
+  1282→        <MiniBadge>3 dimensiones</MiniBadge>
+  1283→      </div>
+  1284→      <div className="space-y-4">
+  1285→        {items.map((it) => (
+  1286→          <div key={it.label} className="grid grid-cols-2 gap-3">
+  1287→            <div className="rounded-lg border border-emerald-400/30 bg-emerald-400/[0.06] p-3">
+  1288→              <div className="text-[10px] font-mono uppercase tracking-wider text-emerald-300">
+  1289→                Mejor · {it.label}
+  1290→              </div>
+  1291→              <div className="mt-1 flex items-center justify-between gap-2">
+  1292→                <span className="text-sm font-medium truncate">{it.data.best.name}</span>
+  1293→                <span className="font-mono text-xs text-emerald-300">
+  1294→                  {it.data.best.rating}★
+  1295→                </span>
+  1296→              </div>
+  1297→              <div className="mt-0.5 text-[10px] text-muted-foreground">
+  1298→                {it.data.best.mentions} menciones
+  1299→              </div>
+  1300→            </div>
+  1301→            <div className="rounded-lg border border-amber-400/30 bg-amber-400/[0.06] p-3">
+  1302→              <div className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
+  1303→                Peor · {it.label}
+  1304→              </div>
+  1305→              <div className="mt-1 flex items-center justify-between gap-2">
+  1306→                <span className="text-sm font-medium truncate">{it.data.worst.name}</span>
+  1307→                <span className="font-mono text-xs text-amber-300">
+  1308→                  {it.data.worst.rating}★
+  1309→                </span>
+  1310→              </div>
+  1311→              <div className="mt-0.5 text-[10px] text-muted-foreground">
+  1312→                {it.data.worst.mentions} menciones
+  1313→              </div>
+  1314→            </div>
+  1315→          </div>
+  1316→        ))}
+  1317→      </div>
+  1318→    </div>
+  1319→  );
+  1320→}
+  1321→
+  1322→function PlatformComparisonTable() {
+  1323→  return (
+  1324→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1325→      <div className="mb-3 flex items-center justify-between gap-2">
+  1326→        <h3 className="font-display text-lg font-medium">Comparativa por plataforma</h3>
+  1327→        <MiniBadge>7 plataformas</MiniBadge>
+  1328→      </div>
+  1329→      <div className="overflow-x-auto rp-scroll-thin">
+  1330→        <table className="w-full border-collapse text-sm min-w-[640px]">
+  1331→          <thead>
+  1332→            <tr className="border-b border-border/60 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1333→              <th className="px-3 py-2.5">Plataforma</th>
+  1334→              <th className="px-3 py-2.5 text-right">Rating</th>
+  1335→              <th className="px-3 py-2.5 text-right">Reseñas</th>
+  1336→              <th className="px-3 py-2.5 text-right">Respuesta</th>
+  1337→              <th className="px-3 py-2.5 text-right">T. medio</th>
+  1338→            </tr>
+  1339→          </thead>
+  1340→          <tbody>
+  1341→            {PLATFORM_COMPARISON.map((p) => {
+  1342→              const meta = PLATFORM_META[p.platform];
+  1343→              return (
+  1344→                <tr key={p.platform} className="border-b border-border/40 last:border-0 hover:bg-foreground/[0.025]">
+  1345→                  <td className="px-3 py-2.5 font-medium">
+  1346→                    <span className="inline-flex items-center gap-2">
+  1347→                      <span className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+  1348→                      {meta.label}
+  1349→                    </span>
+  1350→                  </td>
+  1351→                  <td className="px-3 py-2.5 text-right font-mono rp-gold-text">{p.avgRating}</td>
+  1352→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{p.count}</td>
+  1353→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{p.responseRate}%</td>
+  1354→                  <td className="px-3 py-2.5 text-right font-mono text-foreground/80">{p.responseTime}</td>
+  1355→                </tr>
+  1356→              );
+  1357→            })}
+  1358→          </tbody>
+  1359→        </table>
+  1360→      </div>
+  1361→    </div>
+  1362→  );
+  1363→}
+  1364→
+  1365→function AISummary() {
+  1366→  return (
+  1367→    <div className="rp-glass rp-glow-teal rounded-2xl p-5 sm:p-6">
+  1368→      <div className="mb-3 flex items-center gap-2.5">
+  1369→        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--teal)]/12 border border-[var(--teal)]/40">
+  1370→          <Sparkles className="h-4 w-4 text-[var(--teal)]" />
+  1371→        </span>
+  1372→        <h3 className="font-display text-lg font-medium">Análisis IA</h3>
+  1373→        <MiniBadge tone="teal">glm-4-flash</MiniBadge>
+  1374→      </div>
+  1375→      <p className="text-sm leading-relaxed text-foreground/90">
+  1376→        El 89% de las reseñas son positivas. El tema más mencionado positivamente es{" "}
+  1377→        <span className="rp-gold-text font-medium">'comida' (67%)</span>. El problema recurrente es{" "}
+  1378→        <span className="text-destructive font-medium">'tiempo de espera' (12% de negativas)</span>. Se
+  1379→        recomienda optimizar el flujo de sala en hora punta.
+  1380→      </p>
+  1381→      <div className="mt-3 flex items-start gap-2 rounded-lg border border-foreground/10 bg-foreground/[0.02] p-3">
+  1382→        <Info className="h-3.5 w-3.5 mt-0.5 text-muted-foreground shrink-0" />
+  1383→        <p className="text-[11px] leading-relaxed text-muted-foreground">
+  1384→          Análisis automático sobre 1.247 reseñas agregadas. La IA no garantiza conclusiones
+  1385→          definitivas: el humano decide acciones.
+  1386→        </p>
+  1387→      </div>
+  1388→    </div>
+  1389→  );
+  1390→}
+  1391→
+  1392→function AnalisisTab() {
+  1393→  return (
+  1394→    <div className="space-y-5">
+  1395→      <div className="grid gap-5 lg:grid-cols-2">
+  1396→        <SentimentDonut />
+  1397→        <TopicsBar />
+  1398→      </div>
+  1399→      <div className="grid gap-5 lg:grid-cols-2">
+  1400→        <RatingEvolutionChart />
+  1401→        <RecurringProblems />
+  1402→      </div>
+  1403→      <div className="grid gap-5 lg:grid-cols-2">
+  1404→        <BestWorstCard />
+  1405→        <PlatformComparisonTable />
+  1406→      </div>
+  1407→      <AISummary />
+  1408→    </div>
+  1409→  );
+  1410→}
+  1411→
+  1412→/* =====================================================================
+  1413→ * NPS tab
+  1414→ * ===================================================================== */
+  1415→
+  1416→function NpsScoreCard() {
+  1417→  const reduce = useReducedMotion();
+  1418→  const score = 72;
+  1419→  const color = npsColor(score);
+  1420→  return (
+  1421→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1422→      <div className="mb-3 flex items-center justify-between gap-2">
+  1423→        <h3 className="font-display text-lg font-medium">NPS</h3>
+  1424→        <MiniBadge tone="teal">Últimos 30 días</MiniBadge>
+  1425→      </div>
+  1426→      <div className="flex flex-col sm:flex-row items-center gap-5">
+  1427→        <div className="relative">
+  1428→          <svg width="160" height="160" viewBox="0 0 160 160" role="img" aria-label={`NPS ${score}`}>
+  1429→            <circle cx="80" cy="80" r="68" fill="none" stroke="currentColor" className="text-foreground/8" strokeWidth="10" />
+  1430→            <motion.circle
+  1431→              cx="80"
+  1432→              cy="80"
+  1433→              r="68"
+  1434→              fill="none"
+  1435→              stroke={color}
+  1436→              strokeWidth="10"
+  1437→              strokeLinecap="round"
+  1438→              transform="rotate(-90 80 80)"
+  1439→              strokeDasharray={2 * Math.PI * 68}
+  1440→              initial={reduce ? false : { strokeDashoffset: 2 * Math.PI * 68 }}
+  1441→              animate={{ strokeDashoffset: 2 * Math.PI * 68 * (1 - (score + 100) / 200) }}
+  1442→              transition={{ duration: 0.9, ease: "easeOut" }}
+  1443→            />
+  1444→            <text x="80" y="80" textAnchor="middle" dominantBaseline="middle" fontSize="48" fontWeight="600" className="fill-foreground font-display">
+  1445→              {score}
+  1446→            </text>
+  1447→            <text x="80" y="108" textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
+  1448→              / 100
+  1449→            </text>
+  1450→          </svg>
+  1451→        </div>
+  1452→        <div className="flex-1 w-full space-y-2">
+  1453→          {[
+  1454→            { label: "Promotores (9-10)", pct: 68, color: "var(--teal)" },
+  1455→            { label: "Pasivos (7-8)", pct: 24, color: "var(--gold)" },
+  1456→            { label: "Detractores (0-6)", pct: 8, color: "#ef4444" },
+  1457→          ].map((d) => (
+  1458→            <div key={d.label}>
+  1459→              <div className="flex items-center justify-between text-xs mb-1">
+  1460→                <span className="text-foreground/90">{d.label}</span>
+  1461→                <span className="font-mono text-muted-foreground">{d.pct}%</span>
+  1462→              </div>
+  1463→              <div className="h-2 rounded-full bg-foreground/[0.06] overflow-hidden">
+  1464→                <motion.div
+  1465→                  className="h-full rounded-full"
+  1466→                  style={{ background: d.color }}
+  1467→                  initial={reduce ? false : { width: 0 }}
+  1468→                  animate={{ width: `${d.pct}%` }}
+  1469→                  transition={{ duration: 0.6, ease: "easeOut" }}
+  1470→                />
+  1471→              </div>
+  1472→            </div>
+  1473→          ))}
+  1474→          <div className="pt-2 text-[11px] text-muted-foreground font-mono">
+  1475→            NPS = % Promotores − % Detractores = 68 − 8 = 72
+  1476→          </div>
+  1477→        </div>
+  1478→      </div>
+  1479→    </div>
+  1480→  );
+  1481→}
+  1482→
+  1483→function NpsEvolutionChart() {
+  1484→  const reduce = useReducedMotion();
+  1485→  const w = 480;
+  1486→  const h = 200;
+  1487→  const padL = 30;
+  1488→  const padR = 16;
+  1489→  const padT = 16;
+  1490→  const padB = 28;
+  1491→  const innerW = w - padL - padR;
+  1492→  const innerH = h - padT - padB;
+  1493→  const minV = 50;
+  1494→  const maxV = 80;
+  1495→  const points: Array<[number, number]> = NPS_EVOLUTION.map((d, i) => [
+  1496→    padL + (i / (NPS_EVOLUTION.length - 1)) * innerW,
+  1497→    padT + innerH - ((d.value - minV) / (maxV - minV)) * innerH,
+  1498→  ]);
+  1499→  const linePath = points.map(([x, y], i) => (i === 0 ? `M${x},${y}` : `L${x},${y}`)).join(" ");
+  1500→  const areaPath = `${linePath} L${points[points.length - 1][0]},${padT + innerH} L${points[0][0]},${padT + innerH} Z`;
+  1501→  return (
+  1502→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1503→      <div className="mb-3 flex items-center justify-between gap-2">
+  1504→        <h3 className="font-display text-lg font-medium">Evolución NPS</h3>
+  1505→        <MiniBadge tone="teal">6 meses</MiniBadge>
+  1506→      </div>
+  1507→      <div className="overflow-x-auto rp-scroll-thin -mx-1">
+  1508→        <svg viewBox={`0 0 ${w} ${h}`} className="w-full min-w-[440px]" role="img" aria-label="Evolución del NPS">
+  1509→          <defs>
+  1510→            <linearGradient id="npsArea" x1="0" y1="0" x2="0" y2="1">
+  1511→              <stop offset="0%" stopColor="var(--teal)" stopOpacity="0.28" />
+  1512→              <stop offset="100%" stopColor="var(--teal)" stopOpacity="0" />
+  1513→            </linearGradient>
+  1514→          </defs>
+  1515→          {[55, 65, 75].map((t, i) => {
+  1516→            const y = padT + innerH - ((t - minV) / (maxV - minV)) * innerH;
+  1517→            return (
+  1518→              <g key={i}>
+  1519→                <line x1={padL} x2={w - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
+  1520→                <text x={padL - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
+  1521→                  {t}
+  1522→                </text>
+  1523→              </g>
+  1524→            );
+  1525→          })}
+  1526→          <motion.path d={areaPath} fill="url(#npsArea)" initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6, delay: 0.2 }} />
+  1527→          <motion.path
+  1528→            d={linePath}
+  1529→            fill="none"
+  1530→            stroke="var(--teal)"
+  1531→            strokeWidth="2"
+  1532→            strokeLinecap="round"
+  1533→            strokeLinejoin="round"
+  1534→            initial={reduce ? false : { pathLength: 0 }}
+  1535→            animate={{ pathLength: 1 }}
+  1536→            transition={{ duration: 0.8, ease: "easeOut" }}
+  1537→          />
+  1538→          {points.map(([x, y], i) => (
+  1539→            <motion.circle
+  1540→              key={i}
+  1541→              cx={x}
+  1542→              cy={y}
+  1543→              r="3"
+  1544→              fill="var(--teal)"
+  1545→              stroke="var(--background)"
+  1546→              strokeWidth="1.5"
+  1547→              initial={reduce ? false : { opacity: 0 }}
+  1548→              animate={{ opacity: 1 }}
+  1549→              transition={{ delay: 0.4 + i * 0.06 }}
+  1550→            />
+  1551→          ))}
+  1552→          {NPS_EVOLUTION.map((d, i) => (
+  1553→            <text key={i} x={padL + (i / (NPS_EVOLUTION.length - 1)) * innerW} y={padT + innerH + 16} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
+  1554→              {d.month}
+  1555→            </text>
+  1556→          ))}
+  1557→        </svg>
+  1558→      </div>
+  1559→    </div>
+  1560→  );
+  1561→}
+  1562→
+  1563→function NpsBreakdownTable({
+  1564→  title,
+  1565→  rows,
+  1566→  labelKey,
+  1567→}: {
+  1568→  title: string;
+  1569→  rows: Array<Record<string, number | string>>;
+  1570→  labelKey: string;
+  1571→}) {
+  1572→  return (
+  1573→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1574→      <h3 className="font-display text-lg font-medium mb-3">{title}</h3>
+  1575→      <div className="overflow-x-auto rp-scroll-thin">
+  1576→        <table className="w-full border-collapse text-sm">
+  1577→          <thead>
+  1578→            <tr className="border-b border-border/60 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1579→              <th className="px-3 py-2.5">{labelKey}</th>
+  1580→              <th className="px-3 py-2.5 text-right">NPS</th>
+  1581→              <th className="px-3 py-2.5 text-right">Prom.</th>
+  1582→              <th className="px-3 py-2.5 text-right">Pas.</th>
+  1583→              <th className="px-3 py-2.5 text-right">Detr.</th>
+  1584→            </tr>
+  1585→          </thead>
+  1586→          <tbody>
+  1587→            {rows.map((r, i) => (
+  1588→              <tr key={i} className="border-b border-border/40 last:border-0 hover:bg-foreground/[0.025]">
+  1589→                <td className="px-3 py-2.5 font-medium">{r[labelKey === "Local" ? "location" : "shift"] as string}</td>
+  1590→                <td className="px-3 py-2.5 text-right font-mono" style={{ color: npsColor(r.score as number) }}>
+  1591→                  {r.score as number}
+  1592→                </td>
+  1593→                <td className="px-3 py-2.5 text-right font-mono text-[var(--teal)]">{r.promoters}%</td>
+  1594→                <td className="px-3 py-2.5 text-right font-mono text-[var(--gold-soft)]">{r.passives}%</td>
+  1595→                <td className="px-3 py-2.5 text-right font-mono text-destructive">{r.detractors}%</td>
+  1596→              </tr>
+  1597→            ))}
+  1598→          </tbody>
+  1599→        </table>
+  1600→      </div>
+  1601→    </div>
+  1602→  );
+  1603→}
+  1604→
+  1605→function NpsAutoActions() {
+  1606→  return (
+  1607→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1608→      <div className="mb-3 flex items-center justify-between gap-2">
+  1609→        <h3 className="font-display text-lg font-medium">Acciones automáticas por NPS</h3>
+  1610→        <MiniBadge tone="gold">3 reglas activas</MiniBadge>
+  1611→      </div>
+  1612→      <div className="space-y-3">
+  1613→        {NPS_AUTO_ACTIONS.map((a) => {
+  1614→          const Icon = a.icon;
+  1615→          const toneCls =
+  1616→            a.tone === "teal"
+  1617→              ? "border-[var(--teal)]/40 bg-[var(--teal)]/[0.06] text-[var(--teal)]"
+  1618→              : a.tone === "gold"
+  1619→              ? "border-[var(--gold)]/40 bg-[var(--gold)]/[0.06] text-[var(--gold-soft)]"
+  1620→              : "border-destructive/40 bg-destructive/[0.06] text-destructive";
+  1621→          return (
+  1622→            <div key={a.bucket} className={cn("rounded-xl border p-3.5", toneCls)}>
+  1623→              <div className="flex flex-wrap items-center justify-between gap-2">
+  1624→                <div className="flex items-center gap-2.5">
+  1625→                  <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-foreground/[0.05]">
+  1626→                    <Icon className="h-3.5 w-3.5" />
+  1627→                  </span>
+  1628→                  <div>
+  1629→                    <div className="text-sm font-medium text-foreground">{a.bucket}</div>
+  1630→                    <div className="text-[11px] text-muted-foreground">{a.pct}% de clientes</div>
+  1631→                  </div>
+  1632→                </div>
+  1633→                <div className="text-right">
+  1634→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Acción</div>
+  1635→                  <div className="text-sm font-medium">{a.action}</div>
+  1636→                </div>
+  1637→              </div>
+  1638→              <p className="mt-2 text-xs text-muted-foreground leading-relaxed">{a.detail}</p>
+  1639→            </div>
+  1640→          );
+  1641→        })}
+  1642→      </div>
+  1643→    </div>
+  1644→  );
+  1645→}
+  1646→
+  1647→function NpsTab() {
+  1648→  return (
+  1649→    <div className="space-y-5">
+  1650→      <div className="grid gap-5 lg:grid-cols-2">
+  1651→        <NpsScoreCard />
+  1652→        <NpsEvolutionChart />
+  1653→      </div>
+  1654→      <div className="grid gap-5 lg:grid-cols-2">
+  1655→        <NpsBreakdownTable title="NPS por local" rows={NPS_BY_LOCATION} labelKey="Local" />
+  1656→        <NpsBreakdownTable title="NPS por turno" rows={NPS_BY_SHIFT} labelKey="Turno" />
+  1657→      </div>
+  1658→      <NpsAutoActions />
+  1659→    </div>
+  1660→  );
+  1661→}
+  1662→
+  1663→/* =====================================================================
+  1664→ * Encuestas tab
+  1665→ * ===================================================================== */
+  1666→
+  1667→function SurveyConfig() {
+  1668→  return (
+  1669→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1670→      <div className="mb-4 flex items-center justify-between gap-2">
+  1671→        <div className="flex items-center gap-2.5">
+  1672→          <Settings2 className="h-4 w-4 text-[var(--gold)]" />
+  1673→          <h3 className="font-display text-lg font-medium">Configuración de encuesta</h3>
+  1674→        </div>
+  1675→        <MiniBadge>5 preguntas</MiniBadge>
+  1676→      </div>
+  1677→      <ul className="space-y-2">
+  1678→        {SURVEY_QUESTIONS.map((q) => (
+  1679→          <li
+  1680→            key={q.id}
+  1681→            className="flex items-center justify-between gap-3 rounded-lg border border-foreground/10 bg-foreground/[0.025] p-3"
+  1682→          >
+  1683→            <div className="min-w-0">
+  1684→              <div className="text-sm font-medium truncate">{q.label}</div>
+  1685→              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground mt-0.5">
+  1686→                {q.type === "rating" ? "Estrellas 1-5" : q.type === "nps" ? "Escala 0-10" : "Texto libre"}
+  1687→              </div>
+  1688→            </div>
+  1689→            <div className="flex items-center gap-2">
+  1690→              <span className={cn("text-[10px] font-mono uppercase", q.active ? "text-[var(--teal)]" : "text-muted-foreground")}>
+  1691→                {q.active ? "Activa" : "Inactiva"}
+  1692→              </span>
+  1693→              <Switch defaultChecked={q.active} aria-label={`Activar ${q.label}`} />
+  1694→            </div>
+  1695→          </li>
+  1696→        ))}
+  1697→      </ul>
+  1698→      <div className="mt-3 flex flex-wrap gap-2">
+  1699→        <Button size="sm" variant="outline" className="h-8 border-foreground/15">
+  1700→          <Plus className="h-3.5 w-3.5 mr-1" />
+  1701→          Añadir pregunta
+  1702→        </Button>
+  1703→        <Button size="sm" variant="ghost" className="h-8 text-muted-foreground hover:text-destructive">
+  1704→          <Trash2 className="h-3.5 w-3.5 mr-1" />
+  1705→          Eliminar plantilla
+  1706→        </Button>
+  1707→      </div>
+  1708→    </div>
+  1709→  );
+  1710→}
+  1711→
+  1712→function SurveyMetrics() {
+  1713→  const reduce = useReducedMotion();
+  1714→  const { sent, opened, completed } = SURVEY_METRICS;
+  1715→  const openRate = Math.round((opened / sent) * 100);
+  1716→  const completionRate = Math.round((completed / opened) * 100);
+  1717→  const cells = [
+  1718→    { label: "Enviadas", value: sent, tone: "default" as const, def: "Encuestas enviadas 2h tras visita." },
+  1719→    { label: "Abiertas", value: opened, suffix: `· ${openRate}%`, tone: "teal" as const, def: "Encuestas abiertas por el cliente." },
+  1720→    { label: "Completadas", value: completed, suffix: `· ${completionRate}%`, tone: "gold" as const, def: "Encuestas completadas / abiertas." },
+  1721→  ];
+  1722→  return (
+  1723→    <div className="rp-glass rounded-2xl p-5">
+  1724→      <div className="grid grid-cols-3 gap-3">
+  1725→        {cells.map((c, i) => (
+  1726→          <motion.div
+  1727→            key={c.label}
+  1728→            initial={reduce ? false : { opacity: 0, y: 6 }}
+  1729→            animate={{ opacity: 1, y: 0 }}
+  1730→            transition={{ duration: 0.3, delay: i * 0.06 }}
+  1731→            className="rounded-xl bg-foreground/[0.025] border border-foreground/10 p-3 text-center"
+  1732→          >
+  1733→            <div className="flex items-center justify-center gap-1">
+  1734→              <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1735→                {c.label}
+  1736→              </span>
+  1737→              <InfoDot text={c.def} />
+  1738→            </div>
+  1739→            <div
+  1740→              className={cn(
+  1741→                "mt-1.5 font-display text-2xl font-light",
+  1742→                c.tone === "gold" && "rp-gold-text",
+  1743→                c.tone === "teal" && "rp-teal-text",
+  1744→                c.tone === "default" && "text-foreground"
+  1745→              )}
+  1746→            >
+  1747→              {c.value}
+  1748→            </div>
+  1749→            {c.suffix && <div className="text-[10px] text-muted-foreground font-mono">{c.suffix}</div>}
+  1750→          </motion.div>
+  1751→        ))}
+  1752→      </div>
+  1753→    </div>
+  1754→  );
+  1755→}
+  1756→
+  1757→function SurveyResults() {
+  1758→  return (
+  1759→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1760→      <div className="mb-4 flex items-center justify-between gap-2">
+  1761→        <h3 className="font-display text-lg font-medium">Resultados por pregunta</h3>
+  1762→        <MiniBadge tone="gold">142 completadas</MiniBadge>
+  1763→      </div>
+  1764→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+  1765→        {SURVEY_RESULTS.map((r) => (
+  1766→          <div key={r.label} className="rounded-xl border border-foreground/10 bg-foreground/[0.025] p-3 text-center">
+  1767→            <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1768→              {r.label}
+  1769→            </div>
+  1770→            <div className="mt-1 font-display text-2xl font-light rp-gold-text">
+  1771→              {r.rating}
+  1772→              {r.suffix ? <span className="text-sm">{r.suffix}</span> : <span className="text-sm"> ★</span>}
+  1773→            </div>
+  1774→          </div>
+  1775→        ))}
+  1776→      </div>
+  1777→    </div>
+  1778→  );
+  1779→}
+  1780→
+  1781→function SurveyComments() {
+  1782→  return (
+  1783→    <div className="rp-glass rounded-2xl p-5 sm:p-6">
+  1784→      <div className="mb-4 flex items-center justify-between gap-2">
+  1785→        <h3 className="font-display text-lg font-medium">Comentarios abiertos</h3>
+  1786→        <MiniBadge>5 recientes</MiniBadge>
+  1787→      </div>
+  1788→      <ul className="space-y-3 max-h-96 overflow-y-auto rp-scroll-thin pr-1">
+  1789→        {OPEN_COMMENTS.map((c) => (
+  1790→          <li
+  1791→            key={c.id}
+  1792→            className={cn(
+  1793→              "rounded-lg border p-3",
+  1794→              c.sentiment === "positive"
+  1795→                ? "border-[var(--teal)]/30 bg-[var(--teal)]/[0.04]"
+  1796→                : c.sentiment === "negative"
+  1797→                ? "border-destructive/30 bg-destructive/[0.04]"
+  1798→                : "border-foreground/10 bg-foreground/[0.025]"
+  1799→            )}
+  1800→          >
+  1801→            <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground mb-1">
+  1802→              <span className="font-mono">{c.author} · {c.date}</span>
+  1803→              <span
+  1804→                className="inline-flex items-center gap-1 font-mono"
+  1805→                style={{ color: sentimentColor(c.sentiment) }}
+  1806→              >
+  1807→                ● {c.score}%
+  1808→              </span>
+  1809→            </div>
+  1810→            <p className="text-sm text-foreground/90">{c.text}</p>
+  1811→          </li>
+  1812→        ))}
+  1813→      </ul>
+  1814→    </div>
+  1815→  );
+  1816→}
+  1817→
+  1818→function SurveyAutomation() {
+  1819→  return (
+  1820→    <div className="rp-glass rp-glow-gold rounded-2xl p-5 sm:p-6">
+  1821→      <div className="flex flex-wrap items-center justify-between gap-3">
+  1822→        <div className="flex items-center gap-2.5">
+  1823→          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--gold)]/12 border border-[var(--gold)]/40">
+  1824→            <Bell className="h-4 w-4 text-[var(--gold)]" />
+  1825→          </span>
+  1826→          <div>
+  1827→            <h3 className="font-display text-lg font-medium">Automatización de envío</h3>
+  1828→            <p className="text-xs text-muted-foreground mt-0.5">
+  1829→              Enviar encuesta 2h después de completar la visita
+  1830→            </p>
+  1831→          </div>
+  1832→        </div>
+  1833→        <div className="flex items-center gap-2">
+  1834→          <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--teal)]">Activa</span>
+  1835→          <Switch defaultChecked aria-label="Activar automatización" />
+  1836→        </div>
+  1837→      </div>
+  1838→      <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+  1839→        <div className="rounded-lg border border-foreground/10 bg-foreground/[0.025] p-3">
+  1840→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Disparador</div>
+  1841→          <div className="text-sm mt-0.5">Visita completada</div>
+  1842→        </div>
+  1843→        <div className="rounded-lg border border-foreground/10 bg-foreground/[0.025] p-3">
+  1844→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Espera</div>
+  1845→          <div className="text-sm mt-0.5">2 horas</div>
+  1846→        </div>
+  1847→        <div className="rounded-lg border border-foreground/10 bg-foreground/[0.025] p-3">
+  1848→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Canales</div>
+  1849→          <div className="text-sm mt-0.5">Email + WhatsApp</div>
+  1850→        </div>
+  1851→      </div>
+  1852→    </div>
+  1853→  );
+  1854→}
+  1855→
+  1856→function EncuestasTab() {
+  1857→  return (
+  1858→    <div className="space-y-5">
+  1859→      <SurveyAutomation />
+  1860→      <SurveyMetrics />
+  1861→      <div className="grid gap-5 lg:grid-cols-2">
+  1862→        <SurveyConfig />
+  1863→        <SurveyResults />
+  1864→      </div>
+  1865→      <SurveyComments />
+  1866→    </div>
+  1867→  );
+  1868→}
+  1869→
+  1870→/* =====================================================================
+  1871→ * Main component
+  1872→ * ===================================================================== */
+  1873→
+  1874→export function GrowthReputation() {
+  1875→  const reduce = useReducedMotion();
+  1876→  return (
+  1877→    <div className="space-y-5">
+  1878→      <motion.header
+  1879→        initial={reduce ? false : { opacity: 0, y: 8 }}
+  1880→        animate={{ opacity: 1, y: 0 }}
+  1881→        transition={{ duration: 0.35, ease: "easeOut" }}
+  1882→        className="flex flex-wrap items-center justify-between gap-3"
+  1883→      >
+  1884→        <div>
+  1885→          <div className="flex items-center gap-2.5">
+  1886→            <h2 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
+  1887→              Centro de Reputación
+  1888→            </h2>
+  1889→            <DemoBadge />
+  1890→          </div>
+  1891→          <p className="mt-1 text-sm text-muted-foreground">
+  1892→            Reseñas multiplataforma, respuestas con IA, sentimiento, NPS y encuestas.
+  1893→          </p>
+  1894→        </div>
+  1895→        <div className="hidden sm:flex items-center gap-2">
+  1896→          <MiniBadge>7 plataformas</MiniBadge>
+  1897→          <MiniBadge tone="teal">1.247 reseñas</MiniBadge>
+  1898→        </div>
+  1899→      </motion.header>
+  1900→
+  1901→      <Tabs defaultValue="bandeja" className="w-full">
+  1902→        <TabsList className="bg-foreground/[0.04] border border-foreground/10 h-10 p-1 rounded-xl overflow-x-auto rp-scroll-thin">
+  1903→          <TabsTrigger value="bandeja" className="data-[state=active]:bg-[var(--gold)]/15 data-[state=active]:text-[var(--gold-soft)] min-h-[32px]">
+  1904→            Bandeja
+  1905→          </TabsTrigger>
+  1906→          <TabsTrigger value="analisis" className="data-[state=active]:bg-[var(--gold)]/15 data-[state=active]:text-[var(--gold-soft)] min-h-[32px]">
+  1907→            Análisis
+  1908→          </TabsTrigger>
+  1909→          <TabsTrigger value="nps" className="data-[state=active]:bg-[var(--gold)]/15 data-[state=active]:text-[var(--gold-soft)] min-h-[32px]">
+  1910→            NPS
+  1911→          </TabsTrigger>
+  1912→          <TabsTrigger value="encuestas" className="data-[state=active]:bg-[var(--gold)]/15 data-[state=active]:text-[var(--gold-soft)] min-h-[32px]">
+  1913→            Encuestas
+  1914→          </TabsTrigger>
+  1915→        </TabsList>
+  1916→        <TabsContent value="bandeja" className="mt-5 focus-visible:outline-none">
+  1917→          <BandejaTab />
+  1918→        </TabsContent>
+  1919→        <TabsContent value="analisis" className="mt-5 focus-visible:outline-none">
+  1920→          <AnalisisTab />
+  1921→        </TabsContent>
+  1922→        <TabsContent value="nps" className="mt-5 focus-visible:outline-none">
+  1923→          <NpsTab />
+  1924→        </TabsContent>
+  1925→        <TabsContent value="encuestas" className="mt-5 focus-visible:outline-none">
+  1926→          <EncuestasTab />
+  1927→        </TabsContent>
+  1928→      </Tabs>
+  1929→    </div>
+  1930→  );
+  1931→}
+  1932→
+  1933→export default GrowthReputation;
+  1934→

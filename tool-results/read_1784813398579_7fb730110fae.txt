@@ -1,0 +1,602 @@
+   550→              >
+   551→                {k.value}
+   552→              </div>
+   553→            </motion.div>
+   554→          );
+   555→        })}
+   556→      </div>
+   557→
+   558→      {/* Table */}
+   559→      <div className="rp-glass rounded-2xl overflow-hidden">
+   560→        <div className="flex items-center justify-between gap-3 p-4 border-b border-border/60">
+   561→          <div>
+   562→            <h2 className="font-display text-lg">Todas las campañas</h2>
+   563→            <p className="text-xs text-muted-foreground">{items.length} campañas · últimos 30 días</p>
+   564→          </div>
+   565→          <Button
+   566→            onClick={() => setNewOpen(true)}
+   567→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]"
+   568→          >
+   569→            <Plus className="h-4 w-4 mr-1.5" /> Nueva campaña
+   570→          </Button>
+   571→        </div>
+   572→
+   573→        <div className="overflow-x-auto rp-scroll-thin">
+   574→          <table className="w-full text-sm">
+   575→            <thead>
+   576→              <tr className="text-left text-[10px] font-mono uppercase tracking-wider text-muted-foreground border-b border-border/60">
+   577→                <th className="px-4 py-3 font-medium">Campaña</th>
+   578→                <th className="px-3 py-3 font-medium">Estado</th>
+   579→                <th className="px-3 py-3 font-medium">Canal</th>
+   580→                <th className="px-3 py-3 font-medium hidden md:table-cell">Segmento</th>
+   581→                <th className="px-3 py-3 font-medium text-right hidden lg:table-cell">Audiencia</th>
+   582→                <th className="px-3 py-3 font-medium text-right hidden lg:table-cell">Enviados</th>
+   583→                <th className="px-3 py-3 font-medium text-right hidden xl:table-cell">Abiertos</th>
+   584→                <th className="px-3 py-3 font-medium text-right hidden xl:table-cell">Clics</th>
+   585→                <th className="px-3 py-3 font-medium text-right">Conv.</th>
+   586→                <th className="px-3 py-3 font-medium text-right hidden md:table-cell">Ingresos</th>
+   587→                <th className="px-3 py-3 font-medium text-right">ROI</th>
+   588→                <th className="px-3 py-3 font-medium text-right">Acciones</th>
+   589→              </tr>
+   590→            </thead>
+   591→            <tbody>
+   592→              {items.map((c) => {
+   593→                const sMeta = STATUS_META[c.status];
+   594→                const cMeta = CHANNEL_META[c.channel];
+   595→                const CIcon = cMeta.icon;
+   596→                const roi = roiOf(c);
+   597→                return (
+   598→                  <tr key={c.id} className="border-b border-border/40 hover:bg-foreground/[0.02] transition-colors">
+   599→                    <td className="px-4 py-3">
+   600→                      <div className="font-medium text-foreground">{c.name}</div>
+   601→                      <div className="text-[10px] font-mono text-muted-foreground mt-0.5">{c.id.toUpperCase()}</div>
+   602→                    </td>
+   603→                    <td className="px-3 py-3">
+   604→                      <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider", sMeta.cls)}>
+   605→                        <span className={cn("h-1.5 w-1.5 rounded-full", sMeta.dot)} />
+   606→                        {sMeta.label}
+   607→                      </span>
+   608→                    </td>
+   609→                    <td className="px-3 py-3">
+   610→                      <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono", cMeta.cls)}>
+   611→                        <CIcon className="h-3 w-3" />
+   612→                        {c.channel}
+   613→                      </span>
+   614→                    </td>
+   615→                    <td className="px-3 py-3 hidden md:table-cell text-muted-foreground">{c.segment}</td>
+   616→                    <td className="px-3 py-3 text-right hidden lg:table-cell tabular-nums">{c.audience.toLocaleString("es-ES")}</td>
+   617→                    <td className="px-3 py-3 text-right hidden lg:table-cell tabular-nums">{c.sent.toLocaleString("es-ES")}</td>
+   618→                    <td className="px-3 py-3 text-right hidden xl:table-cell tabular-nums">
+   619→                      <div>{c.opened.toLocaleString("es-ES")}</div>
+   620→                      <div className="text-[10px] text-muted-foreground">{pct(c.opened, c.sent)}</div>
+   621→                    </td>
+   622→                    <td className="px-3 py-3 text-right hidden xl:table-cell tabular-nums">
+   623→                      <div>{c.clicked.toLocaleString("es-ES")}</div>
+   624→                      <div className="text-[10px] text-muted-foreground">{pct(c.clicked, c.opened)}</div>
+   625→                    </td>
+   626→                    <td className="px-3 py-3 text-right tabular-nums">
+   627→                      <div className="font-medium">{c.converted.toLocaleString("es-ES")}</div>
+   628→                      <div className="text-[10px] text-[var(--teal)]">{pct(c.converted, c.sent)}</div>
+   629→                    </td>
+   630→                    <td className="px-3 py-3 text-right hidden md:table-cell font-mono tabular-nums">
+   631→                      {c.revenue > 0 ? fmtEUR(c.revenue) : <span className="text-muted-foreground">—</span>}
+   632→                    </td>
+   633→                    <td className={cn("px-3 py-3 text-right font-mono tabular-nums font-medium", roiColor(roi))}>
+   634→                      {roi >= 999 ? "∞" : `${roi}%`}
+   635→                    </td>
+   636→                    <td className="px-3 py-3">
+   637→                      <div className="flex items-center justify-end gap-1">
+   638→                        <IconBtn icon={Eye} label="Ver detalle" onClick={() => toast({ title: "Detalle campaña", description: c.name })} />
+   639→                        {c.status === "activa" ? (
+   640→                          <IconBtn icon={Pause} label="Pausar" tone="amber" onClick={() => toast({ title: "Campaña pausada", description: c.name })} />
+   641→                        ) : null}
+   642→                        <IconBtn icon={Copy} label="Duplicar" onClick={() => toast({ title: "Campaña duplicada", description: c.name })} />
+   643→                        <IconBtn icon={Trash2} label="Eliminar" tone="destructive" onClick={() => setDeleteId(c.id)} />
+   644→                      </div>
+   645→                    </td>
+   646→                  </tr>
+   647→                );
+   648→              })}
+   649→            </tbody>
+   650→          </table>
+   651→        </div>
+   652→      </div>
+   653→
+   654→      <NewCampaignDialog open={newOpen} onOpenChange={setNewOpen} />
+   655→      <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>
+   656→        <AlertDialogContent className="rp-glass-strong">
+   657→          <AlertDialogHeader>
+   658→            <AlertDialogTitle>¿Eliminar campaña?</AlertDialogTitle>
+   659→            <AlertDialogDescription>
+   660→              Esta acción no se puede deshacer. La campaña se eliminará permanentemente del listado.
+   661→            </AlertDialogDescription>
+   662→          </AlertDialogHeader>
+   663→          <AlertDialogFooter>
+   664→            <AlertDialogCancel className="min-h-[44px]">Cancelar</AlertDialogCancel>
+   665→            <AlertDialogAction
+   666→              onClick={onDelete}
+   667→              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 min-h-[44px]"
+   668→            >
+   669→              Eliminar
+   670→            </AlertDialogAction>
+   671→          </AlertDialogFooter>
+   672→        </AlertDialogContent>
+   673→      </AlertDialog>
+   674→    </div>
+   675→  );
+   676→}
+   677→
+   678→function IconBtn({
+   679→  icon: Icon,
+   680→  label,
+   681→  onClick,
+   682→  tone = "default",
+   683→}: {
+   684→  icon: React.ElementType;
+   685→  label: string;
+   686→  onClick?: () => void;
+   687→  tone?: "default" | "amber" | "destructive";
+   688→}) {
+   689→  const cls =
+   690→    tone === "amber"
+   691→      ? "text-amber-300 hover:bg-amber-400/10 border-amber-400/30"
+   692→      : tone === "destructive"
+   693→      ? "text-rose-300 hover:bg-rose-500/10 border-rose-500/30"
+   694→      : "text-muted-foreground hover:bg-foreground/5 border-border/40";
+   695→  return (
+   696→    <TooltipProvider delayDuration={150}>
+   697→      <Tooltip>
+   698→        <TooltipTrigger asChild>
+   699→          <button
+   700→            onClick={onClick}
+   701→            aria-label={label}
+   702→            className={cn(
+   703→              "inline-flex h-9 w-9 items-center justify-center rounded-md border transition-colors",
+   704→              cls
+   705→            )}
+   706→          >
+   707→            <Icon className="h-3.5 w-3.5" />
+   708→          </button>
+   709→        </TooltipTrigger>
+   710→        <TooltipContent side="top" className="text-xs">{label}</TooltipContent>
+   711→      </Tooltip>
+   712→    </TooltipProvider>
+   713→  );
+   714→}
+   715→
+   716→function NewCampaignDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   717→  const [name, setName] = React.useState("");
+   718→  const [channel, setChannel] = React.useState<Channel>("Email");
+   719→  function submit() {
+   720→    if (!name.trim()) {
+   721→      toast({ title: "Falta el nombre", description: "Asigna un nombre a la campaña.", variant: "destructive" });
+   722→      return;
+   723→    }
+   724→    toast({ title: "Campaña creada", description: `${name} (${channel}) · borrador guardado.` });
+   725→    setName("");
+   726→    onOpenChange(false);
+   727→  }
+   728→  return (
+   729→    <Dialog open={open} onOpenChange={onOpenChange}>
+   730→      <DialogContent className="rp-glass-strong sm:max-w-md">
+   731→        <DialogHeader>
+   732→          <DialogTitle>Nueva campaña</DialogTitle>
+   733→          <DialogDescription>Crea una campaña en estado borrador. Podrás editarla y programarla después.</DialogDescription>
+   734→        </DialogHeader>
+   735→        <div className="space-y-4 py-2">
+   736→          <div className="space-y-1.5">
+   737→            <label htmlFor="nc-name" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Nombre</label>
+   738→            <Input
+   739→              id="nc-name"
+   740→              value={name}
+   741→              onChange={(e) => setName(e.target.value)}
+   742→              placeholder="Ej. Menú Navidad 2025"
+   743→              className="bg-foreground/[0.04] min-h-[44px]"
+   744→            />
+   745→          </div>
+   746→          <div className="space-y-1.5">
+   747→            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Canal</span>
+   748→            <div className="flex flex-wrap gap-1.5">
+   749→              {(Object.keys(CHANNEL_META) as Channel[]).map((ch) => {
+   750→                const M = CHANNEL_META[ch];
+   751→                const I = M.icon;
+   752→                const active = channel === ch;
+   753→                return (
+   754→                  <button
+   755→                    key={ch}
+   756→                    onClick={() => setChannel(ch)}
+   757→                    aria-pressed={active}
+   758→                    className={cn(
+   759→                      "inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-xs transition-colors min-h-[40px]",
+   760→                      active ? cn(M.cls, "ring-1 ring-offset-0") : "border-border/40 bg-foreground/[0.03] text-muted-foreground hover:border-foreground/30"
+   761→                    )}
+   762→                  >
+   763→                    <I className="h-3.5 w-3.5" /> {ch}
+   764→                  </button>
+   765→                );
+   766→              })}
+   767→            </div>
+   768→          </div>
+   769→        </div>
+   770→        <DialogFooter>
+   771→          <Button variant="outline" onClick={() => onOpenChange(false)} className="min-h-[44px]">Cancelar</Button>
+   772→          <Button onClick={submit} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[44px]">
+   773→            Crear borrador
+   774→          </Button>
+   775→        </DialogFooter>
+   776→      </DialogContent>
+   777→    </Dialog>
+   778→  );
+   779→}
+   780→
+   781→/* =====================================================================
+   782→ * Tab 2 — Calendario
+   783→ * ===================================================================== */
+   784→
+   785→function CalendarTab({ reduce }: { reduce: boolean | null }) {
+   786→  const [selectedDay, setSelectedDay] = React.useState<number | null>(12);
+   787→
+   788→  const upcoming = CAMPAIGNS.filter((c) => c.status === "programada" || c.status === "activa")
+   789→    .sort((a, b) => a.date.localeCompare(b.date))
+   790→    .slice(0, 6);
+   791→
+   792→  const selectedCampaigns = campaignsForDay(selectedDay);
+   793→
+   794→  return (
+   795→    <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-5">
+   796→      {/* Calendar */}
+   797→      <div className="rp-glass rounded-2xl p-4 sm:p-5">
+   798→        <div className="flex items-center justify-between mb-4">
+   799→          <div>
+   800→            <h2 className="font-display text-lg">{CALENDAR_MONTH}</h2>
+   801→            <p className="text-xs text-muted-foreground">Campañas programadas y activas</p>
+   802→          </div>
+   803→          <div className="flex items-center gap-1">
+   804→            <button aria-label="Mes anterior" className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   805→              <ChevronLeft className="h-4 w-4" />
+   806→            </button>
+   807→            <button aria-label="Mes siguiente" className="h-9 w-9 inline-flex items-center justify-center rounded-md border border-border/40 text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   808→              <ChevronRight className="h-4 w-4" />
+   809→            </button>
+   810→          </div>
+   811→        </div>
+   812→
+   813→        {/* Weekday header */}
+   814→        <div className="grid grid-cols-7 gap-1 mb-1">
+   815→          {CALENDAR_WEEKDAYS.map((d) => (
+   816→            <div key={d} className="text-center text-[10px] font-mono uppercase tracking-wider text-muted-foreground py-1.5">
+   817→              {d}
+   818→            </div>
+   819→          ))}
+   820→        </div>
+   821→
+   822→        {/* Day cells */}
+   823→        <div className="grid grid-cols-7 gap-1">
+   824→          {CALENDAR_DAYS.map((day, idx) => {
+   825→            const dayCampaigns = campaignsForDay(day);
+   826→            const isSelected = selectedDay === day;
+   827→            const isToday = day === 12;
+   828→            return (
+   829→              <button
+   830→                key={idx}
+   831→                onClick={() => day !== null && setSelectedDay(day)}
+   832→                disabled={day === null}
+   833→                aria-label={day !== null ? `${day} de noviembre — ${dayCampaigns.length} campañas` : "Celda vacía"}
+   834→                className={cn(
+   835→                  "aspect-square min-h-[44px] sm:min-h-[64px] rounded-md border p-1 sm:p-1.5 text-left transition-colors flex flex-col",
+   836→                  day === null
+   837→                    ? "border-transparent bg-foreground/[0.015] cursor-default"
+   838→                    : isSelected
+   839→                    ? "border-[var(--gold)]/60 bg-[var(--gold)]/10"
+   840→                    : "border-border/40 bg-foreground/[0.02] hover:border-foreground/30 hover:bg-foreground/[0.04]"
+   841→                )}
+   842→              >
+   843→                {day !== null && (
+   844→                  <>
+   845→                    <span
+   846→                      className={cn(
+   847→                        "text-xs font-mono",
+   848→                        isToday ? "text-[var(--gold)] font-medium" : "text-muted-foreground"
+   849→                      )}
+   850→                    >
+   851→                      {day}
+   852→                    </span>
+   853→                    <div className="mt-auto flex flex-wrap gap-0.5">
+   854→                      {dayCampaigns.slice(0, 4).map((c) => {
+   855→                        const dot = STATUS_META[c.status].dot;
+   856→                        return <span key={c.id} className={cn("h-1.5 w-1.5 rounded-full", dot)} />;
+   857→                      })}
+   858→                      {dayCampaigns.length > 4 && (
+   859→                        <span className="text-[8px] font-mono text-muted-foreground">+{dayCampaigns.length - 4}</span>
+   860→                      )}
+   861→                    </div>
+   862→                  </>
+   863→                )}
+   864→              </button>
+   865→            );
+   866→          })}
+   867→        </div>
+   868→
+   869→        {/* Legend */}
+   870→        <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t border-border/40">
+   871→          {(Object.keys(STATUS_META) as CampaignStatus[]).map((s) => (
+   872→            <span key={s} className="inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   873→              <span className={cn("h-2 w-2 rounded-full", STATUS_META[s].dot)} />
+   874→              {STATUS_META[s].label}
+   875→            </span>
+   876→          ))}
+   877→        </div>
+   878→      </div>
+   879→
+   880→      {/* Side panel: selected day + upcoming + AI suggestion */}
+   881→      <div className="space-y-4">
+   882→        <div className="rp-glass rounded-2xl p-4">
+   883→          <div className="flex items-center justify-between mb-3">
+   884→            <h3 className="font-display text-base">
+   885→              {selectedDay !== null ? `Día ${selectedDay} nov` : "Selecciona un día"}
+   886→            </h3>
+   887→            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   888→              {selectedCampaigns.length} campaña(s)
+   889→            </span>
+   890→          </div>
+   891→          {selectedCampaigns.length === 0 ? (
+   892→            <div className="text-sm text-muted-foreground py-6 text-center">
+   893→              No hay campañas este día.
+   894→            </div>
+   895→          ) : (
+   896→            <ul className="space-y-2">
+   897→              {selectedCampaigns.map((c) => {
+   898→                const M = STATUS_META[c.status];
+   899→                return (
+   900→                  <li key={c.id} className="rounded-md border border-border/40 bg-foreground/[0.02] p-2.5">
+   901→                    <div className="flex items-center justify-between gap-2">
+   902→                      <span className="text-sm font-medium truncate">{c.name}</span>
+   903→                      <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider shrink-0", M.cls)}>
+   904→                        <span className={cn("h-1 w-1 rounded-full", M.dot)} />
+   905→                        {M.label}
+   906→                      </span>
+   907→                    </div>
+   908→                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+   909→                      <span className="font-mono">{c.channel}</span>
+   910→                      <span>·</span>
+   911→                      <span>{c.segment}</span>
+   912→                      <span>·</span>
+   913→                      <span>{c.audience.toLocaleString("es-ES")} contactos</span>
+   914→                    </div>
+   915→                  </li>
+   916→                );
+   917→              })}
+   918→            </ul>
+   919→          )}
+   920→        </div>
+   921→
+   922→        {/* AI suggestion */}
+   923→        <motion.div
+   924→          initial={reduce ? false : { opacity: 0, y: 6 }}
+   925→          animate={{ opacity: 1, y: 0 }}
+   926→          transition={{ duration: 0.3 }}
+   927→          className="rounded-2xl p-4 border border-[var(--teal)]/40 bg-[var(--teal)]/[0.06]"
+   928→        >
+   929→          <div className="flex items-center gap-2 mb-1.5">
+   930→            <Sparkles className="h-4 w-4 text-[var(--teal)]" />
+   931→            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">IA · mejor momento</span>
+   932→          </div>
+   933→          <p className="text-sm text-foreground leading-relaxed">
+   934→            Mejor momento para enviar: <strong className="text-[var(--teal)]">WhatsApp · martes 11:00</strong>. Histórico de apertura del 85% en esa franja.
+   935→          </p>
+   936→        </motion.div>
+   937→
+   938→        {/* Upcoming */}
+   939→        <div className="rp-glass rounded-2xl p-4">
+   940→          <h3 className="font-display text-base mb-3">Próximas campañas (30 días)</h3>
+   941→          <ul className="space-y-2 max-h-72 overflow-y-auto rp-scroll-thin pr-1">
+   942→            {upcoming.map((c) => {
+   943→              const M = STATUS_META[c.status];
+   944→              return (
+   945→                <li key={c.id} className="flex items-center gap-3 rounded-md border border-border/40 bg-foreground/[0.02] p-2.5">
+   946→                  <div className="h-9 w-9 rounded-md bg-foreground/[0.04] flex flex-col items-center justify-center shrink-0">
+   947→                    <span className="text-[8px] font-mono uppercase text-muted-foreground leading-none">{c.date.slice(5, 7)}</span>
+   948→                    <span className="text-sm font-display leading-none">{c.date.slice(8, 10)}</span>
+   949→                  </div>
+   950→                  <div className="min-w-0 flex-1">
+   951→                    <div className="text-sm font-medium truncate">{c.name}</div>
+   952→                    <div className="text-[11px] text-muted-foreground">{c.channel} · {c.segment}</div>
+   953→                  </div>
+   954→                  <span className={cn("inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider shrink-0", M.cls)}>
+   955→                    <span className={cn("h-1 w-1 rounded-full", M.dot)} />
+   956→                    {M.label}
+   957→                  </span>
+   958→                </li>
+   959→              );
+   960→            })}
+   961→          </ul>
+   962→        </div>
+   963→      </div>
+   964→    </div>
+   965→  );
+   966→}
+   967→
+   968→/* =====================================================================
+   969→ * Tab 3 — Builder (visual flow editor)
+   970→ * ===================================================================== */
+   971→
+   972→function BuilderTab({ reduce }: { reduce: boolean | null }) {
+   973→  const [nodes, setNodes] = React.useState<FlowNode[]>(FLOW_NODES);
+   974→  const [selectedId, setSelectedId] = React.useState<string>("n1");
+   975→  const [testOpen, setTestOpen] = React.useState(false);
+   976→  const [publishOpen, setPublishOpen] = React.useState(false);
+   977→  const [abActive, setAbActive] = React.useState(false);
+   978→  const [abMetric, setAbMetric] = React.useState("open_rate");
+   979→  const [abDist, setAbDist] = React.useState(50);
+   980→
+   981→  const selected = nodes.find((n) => n.id === selectedId);
+   982→
+   983→  function addNode(type: NodeType, subtype: string, title: string) {
+   984→    const id = `n${Date.now()}`;
+   985→    setNodes((prev) => [...prev, { id, type, subtype, title, summary: "Configurar…" }]);
+   986→    setSelectedId(id);
+   987→    toast({ title: "Nodo añadido", description: title });
+   988→  }
+   989→
+   990→  function deleteNode(id: string) {
+   991→    setNodes((prev) => prev.filter((n) => n.id !== id));
+   992→    if (selectedId === id) setSelectedId(nodes[0]?.id ?? "");
+   993→    toast({ title: "Nodo eliminado" });
+   994→  }
+   995→
+   996→  function updateNode(id: string, patch: Partial<FlowNode>) {
+   997→    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+   998→  }
+   999→
+  1000→  function loadPreset(p: AutomationPreset) {
+  1001→    setNodes(FLOW_NODES);
+  1002→    setSelectedId(FLOW_NODES[0].id);
+  1003→    toast({ title: "Plantilla cargada", description: `${p.name} (${p.nodes} nodos)` });
+  1004→  }
+  1005→
+  1006→  return (
+  1007→    <div className="space-y-4">
+  1008→      {/* Toolbar */}
+  1009→      <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center gap-2 sticky top-16 z-20">
+  1010→        <div className="flex items-center gap-2 mr-auto">
+  1011→          <Workflow className="h-4 w-4 text-[var(--gold)]" />
+  1012→          <span className="font-display text-base">Recuperación inactivos</span>
+  1013→          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground border border-border/40 rounded px-1.5 py-0.5">borrador</span>
+  1014→        </div>
+  1015→        <Button variant="outline" onClick={() => toast({ title: "Borrador guardado" })} className="min-h-[40px]">
+  1016→          <Save className="h-3.5 w-3.5 mr-1.5" /> Guardar
+  1017→        </Button>
+  1018→        <Button variant="outline" onClick={() => setTestOpen(true)} className="min-h-[40px]">
+  1019→          <Play className="h-3.5 w-3.5 mr-1.5" /> Probar
+  1020→        </Button>
+  1021→        <Button variant="outline" onClick={() => toast({ title: "Flujo duplicado" })} className="min-h-[40px]">
+  1022→          <Copy className="h-3.5 w-3.5 mr-1.5" /> Duplicar
+  1023→        </Button>
+  1024→        <Button onClick={() => setPublishOpen(true)} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-[40px]">
+  1025→          <Zap className="h-3.5 w-3.5 mr-1.5" /> Publicar
+  1026→        </Button>
+  1027→      </div>
+  1028→
+  1029→      {/* A/B testing strip */}
+  1030→      <div className="rp-glass rounded-2xl p-4">
+  1031→        <div className="flex flex-wrap items-center gap-3 justify-between">
+  1032→          <div className="flex items-center gap-2">
+  1033→            <GitBranch className="h-4 w-4 text-[var(--gold)]" />
+  1034→            <span className="font-display text-sm">Test A/B</span>
+  1035→            <Switch checked={abActive} onCheckedChange={setAbActive} aria-label="Activar test A/B" />
+  1036→          </div>
+  1037→          {abActive && (
+  1038→            <div className="flex flex-wrap items-center gap-3">
+  1039→              <div className="flex items-center gap-2">
+  1040→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Variante</span>
+  1041→                <span className="rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2 py-0.5 text-xs font-mono text-[var(--gold-soft)]">A 50%</span>
+  1042→                <span className="rounded-md border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-xs font-mono text-[var(--teal)]">B 50%</span>
+  1043→              </div>
+  1044→              <div className="flex items-center gap-1.5">
+  1045→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Distribución</span>
+  1046→                <input
+  1047→                  type="range"
+  1048→                  min={10}
+  1049→                  max={90}
+  1050→                  step={5}
+  1051→                  value={abDist}
+  1052→                  onChange={(e) => setAbDist(Number(e.target.value))}
+  1053→                  className="w-24 accent-[var(--gold)]"
+  1054→                  aria-label="Distribución A/B"
+  1055→                />
+  1056→                <span className="text-xs font-mono tabular-nums">{abDist}/{100 - abDist}</span>
+  1057→              </div>
+  1058→              <div className="flex items-center gap-1.5">
+  1059→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Métrica</span>
+  1060→                <select
+  1061→                  value={abMetric}
+  1062→                  onChange={(e) => setAbMetric(e.target.value)}
+  1063→                  className="bg-foreground/[0.04] border border-border/40 rounded-md px-2 py-1 text-xs min-h-[36px]"
+  1064→                  aria-label="Métrica primaria"
+  1065→                >
+  1066→                  <option value="open_rate">Tasa de apertura</option>
+  1067→                  <option value="ctr">CTR</option>
+  1068→                  <option value="conversion">Conversión</option>
+  1069→                  <option value="revenue">Ingresos</option>
+  1070→                </select>
+  1071→              </div>
+  1072→              <Button size="sm" className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80 min-h-[36px]" onClick={() => toast({ title: "Test A/B iniciado", description: "Reparto 50/50 entre variantes" })}>
+  1073→                Iniciar test
+  1074→              </Button>
+  1075→            </div>
+  1076→          )}
+  1077→        </div>
+  1078→      </div>
+  1079→
+  1080→      {/* 3-panel builder: palette | canvas | config */}
+  1081→      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_260px] gap-4">
+  1082→        {/* Palette */}
+  1083→        <div className="rp-glass rounded-2xl p-3 lg:max-h-[600px] lg:overflow-y-auto rp-scroll-thin">
+  1084→          <h3 className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2 px-1">Nodos</h3>
+  1085→          <div className="flex lg:flex-col gap-2 overflow-x-auto rp-scroll-thin pb-1 lg:pb-0">
+  1086→            {PALETTE.map((group) => {
+  1087→              const meta = NODE_TYPE_META[group.type];
+  1088→              const GIcon = meta.icon;
+  1089→              return (
+  1090→                <div key={group.type} className="min-w-[180px] lg:min-w-0 shrink-0">
+  1091→                  <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-mono uppercase tracking-wider", meta.bg, meta.text)}>
+  1092→                    <GIcon className="h-3 w-3" />
+  1093→                    {meta.label}
+  1094→                  </div>
+  1095→                  <ul className="mt-1 space-y-0.5">
+  1096→                    {group.items.map((it) => {
+  1097→                      const I = it.icon;
+  1098→                      return (
+  1099→                        <li key={it.subtype}>
+  1100→                          <button
+  1101→                            onClick={() => addNode(group.type, it.subtype, it.title)}
+  1102→                            className="w-full flex items-center gap-2 rounded-md px-2 py-1.5 text-xs text-left text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors min-h-[36px]"
+  1103→                          >
+  1104→                            <I className="h-3 w-3 shrink-0" style={{ color: meta.color }} />
+  1105→                            <span className="truncate">{it.title}</span>
+  1106→                            <Plus className="h-3 w-3 ml-auto shrink-0 opacity-50" />
+  1107→                          </button>
+  1108→                        </li>
+  1109→                      );
+  1110→                    })}
+  1111→                  </ul>
+  1112→                </div>
+  1113→              );
+  1114→            })}
+  1115→          </div>
+  1116→        </div>
+  1117→
+  1118→        {/* Canvas */}
+  1119→        <div className="rp-glass rounded-2xl p-4 min-w-0">
+  1120→          <div className="flex items-center justify-between mb-3">
+  1121→            <h3 className="font-display text-sm">Flujo de automatización</h3>
+  1122→            <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{nodes.length} nodos</span>
+  1123→          </div>
+  1124→          <div className="overflow-x-auto rp-scroll-thin pb-2">
+  1125→            <div className="flex items-stretch gap-2 min-w-max">
+  1126→              {nodes.map((node, idx) => {
+  1127→                const meta = NODE_TYPE_META[node.type];
+  1128→                const Icon = meta.icon;
+  1129→                const isSelected = selectedId === node.id;
+  1130→                return (
+  1131→                  <React.Fragment key={node.id}>
+  1132→                    <motion.button
+  1133→                      layout={!reduce}
+  1134→                      initial={reduce ? false : { opacity: 0, scale: 0.96 }}
+  1135→                      animate={{ opacity: 1, scale: 1 }}
+  1136→                      transition={{ duration: 0.2 }}
+  1137→                      onClick={() => setSelectedId(node.id)}
+  1138→                      className={cn(
+  1139→                        "w-[180px] shrink-0 rounded-xl border p-3 text-left transition-colors",
+  1140→                        isSelected ? cn(meta.border, meta.bg, "ring-1 ring-offset-0") : "border-border/40 bg-foreground/[0.02] hover:bg-foreground/[0.04]"
+  1141→                      )}
+  1142→                      aria-pressed={isSelected}
+  1143→                    >
+  1144→                      <div className="flex items-center justify-between">
+  1145→                        <span className={cn("inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider", meta.bg, meta.text, meta.border, "border")}>
+  1146→                          <Icon className="h-2.5 w-2.5" />
+  1147→                          {meta.label}
+  1148→                        </span>
+  1149→                        <span
+
+[showing lines 550-1149 of 1535; use offset=1150 with limit to continue reading]
