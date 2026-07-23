@@ -9,6 +9,7 @@ import {
   Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
   Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
   CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
+  Crown,
 } from "lucide-react";
 import {
   Dialog,
@@ -19,6 +20,7 @@ import {
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
+  { id: "executive", label: "Centro Ejecutivo", icon: Crown, group: "Operación" },
   { id: "reservas", label: "Reservas", icon: CalendarDays, group: "Operación" },
   { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
   { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
@@ -244,7 +246,7 @@ function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: strin
       </button>
       {/* Right cluster: period selector, notifications, help, avatar */}
       <div className="ml-auto flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
-        <div className="hidden lg:flex items-center rounded-md border border-border/60 p-0.5">
+        <div className="hidden 2xl:flex items-center rounded-md border border-border/60 p-0.5">
           {(["hoy", "semana", "mes"] as const).map((p) => (
             <button
               key={p}
@@ -313,6 +315,7 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
       run: () => useNav.getState().go(n.id),
     }));
     const quick: CmdAction[] = [
+      { id: "qa-executive", label: "Abrir Centro Ejecutivo", hint: "IA + Alertas", icon: Crown, group: "Acciones", run: () => useNav.getState().go("executive") },
       { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
       { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
       { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
@@ -482,6 +485,7 @@ function SectionRenderer({ section }: { section: Section }) {
   const Lazy = React.useMemo(() => {
     const map: Record<Section, React.LazyExoticComponent<React.ComponentType>> = {
       dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then((m) => ({ default: m.Home }))),
+      executive: React.lazy(() => import("@/components/rp/executive/executive-view").then((m) => ({ default: m.ExecutiveView }))),
       reservas: React.lazy(() => import("@/components/rp/reservas/reservas-view").then((m) => ({ default: m.ReservasView }))),
       crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
       marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),

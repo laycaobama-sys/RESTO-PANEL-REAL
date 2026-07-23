@@ -5,6 +5,7 @@ import { create } from "zustand";
 export type View = "landing" | "app";
 export type Section =
   | "dashboard"
+  | "executive"
   | "reservas"
   | "crm"
   | "marketing"
