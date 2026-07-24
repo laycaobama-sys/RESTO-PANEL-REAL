@@ -9,7 +9,7 @@ import {
   Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
   Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
   CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
-  Crown,
+  Crown, BrainCircuit, BookOpen, UtensilsCrossed,
 } from "lucide-react";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { AiCopilot } from "@/components/rp/ai-center/ai-copilot";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
@@ -35,6 +36,9 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group: string 
   { id: "billing", label: "Facturación", icon: CreditCard, group: "Plataforma" },
   { id: "equipo", label: "Equipo", icon: UserCog, group: "Plataforma" },
   { id: "configuracion", label: "Configuración", icon: Settings, group: "Plataforma" },
+  { id: "ai-center", label: "Centro de IA", icon: BrainCircuit, group: "Plataforma" },
+  { id: "ai-knowledge", label: "Conocimiento IA", icon: BookOpen, group: "Plataforma" },
+  { id: "ai-menu", label: "IA Menú", icon: UtensilsCrossed, group: "Plataforma" },
   { id: "superadmin", label: "Super Admin", icon: ShieldCheck, group: "Plataforma" },
 ];
 
@@ -174,6 +178,9 @@ export function AppShell() {
 
       {/* Command palette (⌘K) */}
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+
+      {/* Global floating AI Copilot — available across all app sections */}
+      <AiCopilot />
     </div>
   );
 }
@@ -501,6 +508,9 @@ function SectionRenderer({ section }: { section: Section }) {
       equipo: React.lazy(() => import("@/components/rp/superadmin/team-view").then((m) => ({ default: m.TeamView }))),
       configuracion: React.lazy(() => import("@/components/rp/superadmin/settings-view").then((m) => ({ default: m.SettingsView }))),
       superadmin: React.lazy(() => import("@/components/rp/superadmin/super-admin-view").then((m) => ({ default: m.SuperAdminView }))),
+      "ai-center": React.lazy(() => import("@/components/rp/ai-center/ai-center").then((m) => ({ default: m.AiCenter }))),
+      "ai-knowledge": React.lazy(() => import("@/components/rp/ai-center/ai-knowledge").then((m) => ({ default: m.AiKnowledge }))),
+      "ai-menu": React.lazy(() => import("@/components/rp/ai-center/ai-menu").then((m) => ({ default: m.AiMenu }))),
     };
     return map[section];
   }, [section]);

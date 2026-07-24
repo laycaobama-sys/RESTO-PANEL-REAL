@@ -20,7 +20,10 @@ export type Section =
   | "billing"
   | "equipo"
   | "configuracion"
-  | "superadmin";
+  | "superadmin"
+  | "ai-center"
+  | "ai-knowledge"
+  | "ai-menu";
 
 interface NavState {
   view: View;

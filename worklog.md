@@ -2370,3 +2370,107 @@ Stage Summary:
 - ExecCockpit: 5 tabs (Cockpit con 12 widgets configurables + welcome header + period/filters, KPIs con 44 indicadores en 5 categorías, Forecast con chart SVG + confidence band + model info, Comparativas con 9 tipos + AI explanation + dual-line chart, Heatmaps con 7 tipos + pattern detection IA).
 - ExecAi: chat conversacional con 10 secciones estructuradas por respuesta (respuesta, datos, razonamiento, hechos vs predicciones, confianza, fuentes, periodo, recomendación, profundizar, limitaciones), 2 conversaciones demo pre-cargadas, 10 suggestions, security notice, sidebar con consultas recientes + coste IA.
 - ExecAlerts: 12 alertas demo en 7 categorías con severity/status/cause/impact/action, 5 AI recommendations con tracking de resultado, acciones (reconocer/resolver/posponer/convertir en tarea/ver detalle).
+
+---
+Task ID: AI-ENGINE-START
+Agent: main
+Task: Implementar Motor de IA Distribuido — AI Center, Copilot, Knowledge Base, Menu Intelligence.
+
+Work Log:
+- Estado: dev server activo, executive/ con 4 componentes existentes.
+- Estrategia: crear 4 componentes nuevos en src/components/rp/ai-center/ que se integren como nuevas secciones.
+- Subagent A: ai-center.tsx (dashboard consumo IA + estado servicios + límites + acciones) + ai-copilot.tsx (asistente flotante contextual tipo Copilot)
+- Subagent B: ai-knowledge.tsx (base de conocimiento RAG con Vectorize + documentos + indexación) + ai-menu.tsx (IA para menú: rentabilidad/popularidad/margen/cross-selling)
+
+---
+Task ID: AI-CENTER-COPILOT
+Agent: full-stack-developer
+Task: Construir 2 componentes para el Motor de IA RestoPanel — AI Center Dashboard + AI Copilot flotante.
+
+Work Log:
+- Leí worklog y código existente (nav-store, app-shell, executive-view, exec-ai, growth-analytics, primitives, globals.css) para alinear con design tokens (#D4AF37 gold, #3DD6C9 teal, rp-glass / rp-glass-strong, prefers-reduced-motion).
+- Confirmé que la carpeta `src/components/rp/ai-center/` no existía al iniciar; paralelamente Subagent B creó `ai-knowledge.tsx` y `ai-menu.tsx`.
+- Creé `src/components/rp/ai-center/ai-center.tsx` (~1100 líneas, export `AiCenter`): dashboard con 5 tabs (Resumen / Uso / Errores / Límites / Modelos).
+  - Resumen: header + demo badge + indicador "Workers AI activo" (punto verde pulsante), KPI strip (8 KPIs en grid 4-col con trend arrows y delta colors), service status (4 cards: Workers AI / Vectorize / AI Gateway / R2 — cada una con 3 métricas), uso por módulo (bar chart SVG con 6 barras animadas), uso por usuario (top-4 con barras de progreso), tendencia de coste (line+area chart SVG 30 días con animación pathLength), comparativa vs mes anterior (4 deltas), actions bar (4 botones: Reindexar / Limpiar caché / Ver historial / Exportar).
+  - Uso: summary stats (6 métricas), filtros (módulo + resultado + fecha vía Select), tabla desktop + cards móvil, 18 ejecuciones demo con timestamp/módulo/usuario/modelo/prompt version/tokens in-out/latencia/coste/resultado, diálogo "Ver detalle" con prompt + respuesta + PII redactada.
+  - Errores: chart SVG de tasa de error 7 días, log de 7 errores con 5 tipos (timeout, rate_limit, model_error, prompt_injection_blocked, insufficient_data), botones Reintentar + Ver detalle.
+  - Límites: 5 límites con progress bars animadas y tono ok/warn/crit (rojo >80%), alertas contextuales, botón "Ajustar límites" (diálogo con inputs, switch de alerta al 80%, mock permiso manager).
+  - Modelos: 4 modelos (@cf/meta/llama-3.1-8b-instruct, @cf/meta/llama-3.2-3b-instruct, @cf/baai/bge-base-en-v1.5, Fallback determinista) con peticiones/latencia p50/coste por M, botón "Configurar modelo default" (radio cards + switch fallback).
+  - Confirm dialogs (AlertDialog) para Reindexar y Limpiar caché con copy exacto del spec.
+- Creé `src/components/rp/ai-center/ai-copilot.tsx` (~600 líneas, export `AiCopilot`): asistente flotante global.
+  - Botón flotante fixed bottom-right (h-14 móvil / h-16 desktop), gradiente gold, glow ring animado (animate-ping), Sparkles icon que rota a X al abrir, notification dot turquesa cuando hay insights.
+  - Panel glassmorphism (rp-glass-strong) con slide-up + scale (spring 320/30): 400px desktop, full-width móvil, h-560px max, ring-1 gold.
+  - Header: avatar gold, "Copilot IA", badge "Llama 3.1 8B", status "Workers AI · en línea" con dot pulsante, RoleSelector (Owner/Manager/Staff pills), botones minimize + close.
+  - Context indicator: "Contexto: {sección} · {local}" leído de useNav.
+  - Chat: burbujas user (gold gradient, derecha) y AI (glass, izquierda, con avatar Sparkles), auto-scroll, typing indicator (3 dots con stagger), streaming simulation (setInterval 20ms, chunks de ~len/50 chars, cursor dorado pulsante).
+  - Cada respuesta AI: data source chips (turquesa), confidence badge (Alta verde / Media ámbar / Baja rojo), botón "Ver en módulo" (usa useNav.go(section)), "No tengo datos suficientes" si no match, "Tu rol no permite consultar" si rol staff intenta query restringida.
+  - 12 demo responses (incluye las 5 del spec) + fuzzy matching por tokens clave. 4 query restrictas (facturación/campañas) requieren rol ≥ manager.
+  - Quick actions chips context-aware (SECTION_QUESTIONS) — adaptadas a las 17 secciones. Configuración → "¿Qué ajuste mejoraría la ocupación?", Reservas → "¿Cuántas reservas tengo hoy?", etc.
+  - Input box con placeholder, Enter para enviar, icono voz (decorativo, disabled), botón send gold.
+  - Security notice: "IA aislada por organización · Permiso validado · Sin acceso a otros restaurantes".
+- Integré en el shell de la app:
+  - Añadí `"ai-center"` al tipo `Section` en `nav-store.ts`.
+  - Añadí entrada NAV en `app-shell.tsx` (group "Plataforma", icono BrainCircuit, label "Centro de IA").
+  - Añadí lazy import en `SectionRenderer` para que sea navegable desde el sidebar.
+  - Rendericé `<AiCopilot />` globalmente dentro de `AppShell` (fuera de tabs) para que flote sobre toda la app.
+- Animaciones: solo transform + opacity, `useReducedMotion()` respetado en KPI cards, service cards, limit rows, model cards, charts, panel, typing dots, floating button.
+- Responsive: tablas desktop → cards móvil en Uso y Errores, panel full-width móvil con safe area bottom, touch targets ≥44px en todos los botones (h-9 + padding, min-h-[44px] en CTAs), no horizontal overflow (overflow-x-auto rp-scroll-thin en tablists y tablas).
+
+Stage Summary:
+- 2 archivos nuevos: ai-center.tsx, ai-copilot.tsx. 2 archivos modificados: nav-store.ts, app-shell.tsx.
+- AI Center navegable desde sidebar → Plataforma → Centro de IA.
+- AI Copilot disponible globalmente en toda la app (botón flotante bottom-right).
+- Lint: mis 4 archivos pasan ESLint limpio (verificado con `npx eslint <mis-archivos>`). Hay 1 error residual en `ai-knowledge.tsx` (Subagent B — react-hooks/immutability en línea 273 por reasignar `offset` en map callback) que corresponde al otro agente.
+- Dev server: 200 OK, sin errores de compilación.
+
+---
+Task ID: AI-KNOWLEDGE-MENU
+Agent: full-stack-developer
+Task: Construir 2 componentes para el Motor de IA RestoPanel — Base de Conocimiento IA (RAG) + IA para Menú.
+
+Work Log:
+- Leí worklog.md completo (fases 0/1.1/1.2/4 + Producto + Executive + AI-ENGINE-START + AI-CENTER-COPILOT) y analicé patrones de exec-ai.tsx, primitives.tsx y globals.css para alinear design tokens (#D4AF37 gold, #3DD6C9 teal, rp-glass/rp-glass-strong, prefers-reduced-motion, min-h touch targets, mono font para datos).
+- Confirmé que el Subagent paralelo (AI-CENTER-COPILOT) ya había creado ai-center.tsx + ai-copilot.tsx y añadido "ai-center" al Section type de nav-store.ts.
+- Creé `src/components/rp/ai-center/ai-knowledge.tsx` (~1250 líneas, export `AiKnowledge`): Base de Conocimiento IA con 4 tabs.
+  - Documentos: upload zone drag&drop + Select tipo (7 tipos) + validación 10MB + simulación pending→processing (1s)→indexed (2s). Lista 8 docs demo exactos del spec con doble layout (grid 7-col desktop / card móvil). Acciones: Ver (diálogo R2 key + texto extraído + 3 stats), Reindexar (confirm → processing → indexed v+1), Eliminar (confirm copy exacto spec "Se eliminarán todos los embeddings asociados. Esta acción es irreversible."), Descargar (toast), Reintentar (solo error). Doc d7 "carta-vinos-2025.pdf" en estado error con mensaje "Extracción de texto fallida: PDF corrupto".
+  - Búsqueda semántica: input grande + 4 chips sugeridos + settings (nº resultados 5/10/20, similitud mínima 0.5/0.7/0.9). 3 resultados por query con snippet + <mark> highlight + % similitud + chunk index + link "Ver documento completo". Nota aislamiento org_{org_id}.
+  - Indexación: 4 stat cards (8 docs, 79 chunks, 79 embeddings, última "hace 2h"). Pipeline 5 pasos (R2 / parser / chunking 500t-50o / @cf/baai/bge-base-en-v1.5 / Vectorize namespace). Botón "Reindexar todo" (confirm → loading 3s → toast "12.400 embeddings actualizados"). Log 5 operaciones con ok/error coloreado.
+  - Estadísticas: 8 stat cards (incl. €0.12/mes coste). Donut chart SVG embeddings por tipo (6 segmentos). Line chart SVG 30 días con área degradada. Nota cifrado R2.
+- Creé `src/components/rp/ai-center/ai-menu.tsx` (~1140 líneas, export `AiMenu`): IA para Menú con 4 tabs.
+  - Análisis: 12 items demo exactos del spec (Risotto trufa ⭐€28 72% 89orders €2.492 4.8★ up, Sopa del día ❌€9 30% 12orders €108 3.5★ down, Agua mineral 💰€2 85% 234orders €468 N/A stable, etc.). Grid responsive 1/2/3 cols. Cada card: nombre, badge categoría (gold/teal/amber/blue/purple/pink), precio, status con emoji, metrics row 4-col, MarginGauge SVG (coste teal + margen gold), recomendación IA border-l gold, botón "Ver detalle" (diálogo con 4 metrics + estructura precio + MiniBarChart 12 meses + reasoning + cross-sell candidates).
+  - Rentabilidad: 4 summary stats (coste €4.892, ingresos €15.348, margen 68%, beneficio €10.456). Scatter chart SVG X=popularity Y=margin con 4 cuadrantes tinted (Rentables/Estrellas/Problemáticos/Populares b/margen) + medianas dashed + 12 puntos coloreados por status. Bar chart ingresos por categoría (6 barras gradiente gold). Tabla optimización precios (3 items con impacto+confianza).
+  - Recomendaciones: 8 recomendaciones IA exactas del spec con categoría (price/menu/promo/combo/replace/autosuggest), impact tone color, confidence %, reasoning extendido, data[] hechos. Acciones: Ver análisis (diálogo), Rechazar (disabled tras click), Aplicar (gold disabled tras click + toast). Counter aplicadas. Disclaimer copy exacto spec.
+  - Cross-selling: heatmap 8x8 (top 8 items por revenue) con cabeceras verticales rotadas, cells coloreadas por 5 tramos de afinidad (emerald→teal→gold→fg→fg-low), diagonal atenuada, leyenda baja/media/alta, overflow-x-auto para móvil. 3 sugerencias combo (Solomillo+Rioja 78% €72 save€5 +€340/mes, Hamburguesa+Patatas 82% €20 save€2 +€156/mes, Tiramisú+Café 65% €10 +€78/mes) con botón "Crear combo" con estado.
+- Animaciones: solo transform (y:8→0) + opacity vía framer-motion. useReducedMotion() respetado en DocumentsTab rows, SearchTab results, IndexingTab pipeline, MenuItemCard, RecommendationItem, CrossSellSuggestion ({} props cuando reduced=true).
+- Sin azul/índigo excepto donde el spec lo pide explícitamente (Manual=blue, Bebidas=blue). Resto: gold/teal/emerald/amber/fuchsia/pink/red.
+- Responsive: tablas con min-w + overflow-x-auto rp-scroll-thin, grids 1→2→3/4 cols, touch targets min-h-[36px]/[40px]/[48px], sin overflow horizontal en móvil.
+- Lint: primer pase 1 error react-hooks/immutability en DonutChart (reasignar offset en map callback) → fix con precompute for-loop antes del render. Segundo pase: `bun run lint` → 0 errores, 0 warnings en todo el proyecto.
+- Dev log: compilación 200 OK sin errores de mi código.
+
+Stage Summary:
+- 2 archivos nuevos: ai-knowledge.tsx (~1250 líneas), ai-menu.tsx (~1140 líneas). Ambos exportan named + default.
+- 1 archivo nuevo en agent-ctx: AI-KNOWLEDGE-MENU-full-stack-developer.md.
+- Lint: 0 errores, 0 warnings. Dev server 200 OK.
+- Componentes listos para integrarse en el contenedor ai-center.tsx o navegación directa vía Section.
+
+---
+Task ID: AI-ENGINE-VERIFY
+Agent: main
+Task: Verificación end-to-end del Motor de IA Distribuido.
+
+Work Log:
+- Lint global: 0 errores.
+- Dev server: responde 200 sin errores.
+- 3 nuevas secciones integradas en sidebar (grupo "Plataforma"): Centro de IA, Conocimiento IA, IA Menú.
+- AiCopilot flotante renderizado globalmente (botón dorado bottom-right visible en toda la app).
+- 3 secciones verificadas con contenido y sin overflow: Centro de IA (9 btns en Resumen tab), Conocimiento IA (72 btns), IA Menú (16 btns).
+- Copilot: botón flotante presente, abre panel al click, panel visible.
+- Responsive: móvil 390 (3/3 sin overflow), multi-viewport 768/1024/1280/1440 (todos sin overflow).
+- Iconos añadidos: BookOpen, UtensilsCrossed.
+
+Stage Summary:
+- Motor de IA Distribuido completo con 4 componentes nuevos + 1 flotante global.
+- AiCenter: 5 tabs (Resumen con 8 KPIs + service status + uso por módulo/usuario + cost trend, Uso con 18 ejecuciones + filtros + detalle dialog, Errores con 7 errores + 5 tipos, Límites con 5 progress bars, Modelos con 4 modelos Cloudflare).
+- AiCopilot: botón flotante bottom-right global, panel glassmorphism con chat contextual, streaming simulation, 12 demo responses con fuzzy matching, quick actions context-aware (17 secciones), role-based permissions, security notice.
+- AiKnowledge: 4 tabs (Documentos con 8 docs + upload + drag&drop, Búsqueda Semántica con resultados + similarity score, Indexación con 5-step pipeline + reindex all, Estadísticas con donut + line chart).
+- AiMenu: 4 tabs (Análisis con 12 items + status badges + margin gauge, Rentabilidad con scatter chart + bar chart, Recomendaciones con 8 AI recs, Cross-selling con heatmap 8×8 + 3 combo suggestions).

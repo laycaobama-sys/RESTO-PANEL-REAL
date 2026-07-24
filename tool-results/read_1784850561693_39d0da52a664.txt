@@ -1999,4 +1999,4 @@
   1999→  * Header con icono Bell, badge demo, badge count total, 3 SevCountBadge (críticas/adv./info) con colores.
   2000→  * Filter tabs (Todas/Críticas/Advertencias/Info) con role="tablist"/"tab" aria-selected, count por filtro.
 
-[showing lines 1-2000 of 2236; use offset=2001 with limit to continue reading]
+[showing lines 1-2000 of 2384; use offset=2001 with limit to continue reading]

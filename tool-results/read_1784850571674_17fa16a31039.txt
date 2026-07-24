@@ -1,0 +1,778 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     7→import {
+     8→  Sparkles, Send, Mic, ShieldCheck, ChevronRight,
+     9→  Database, TrendingUp, Clock, BookOpen,
+    10→  Lightbulb, AlertTriangle, CheckCircle2, History, Euro,
+    11→  Zap, ArrowRight, Lock, FileText, BarChart3, ExternalLink,
+    12→} from "lucide-react";
+    13→
+    14→/* ============================================================
+    15→   Types
+    16→============================================================ */
+    17→
+    18→type Confidence = "alta" | "media" | "baja";
+    19→
+    20→interface AiSource {
+    21→  label: string;
+    22→}
+    23→
+    24→interface AiDrillDown {
+    25→  label: string;
+    26→  icon: React.ElementType;
+    27→}
+    28→
+    29→interface AiRecommendation {
+    30→  text: string;
+    31→  requiresApproval: boolean;
+    32→  ctaLabel: string;
+    33→}
+    34→
+    35→interface AiMessage {
+    36→  id: string;
+    37→  role: "user" | "ai";
+    38→  content: string;
+    39→  ts: string;
+    40→  // AI structured payload
+    41→  dataAnalyzed?: string;
+    42→  reasoning?: string;
+    43→  facts?: string;
+    44→  predictions?: string;
+    45→  confidence?: { level: Confidence; pct: number };
+    46→  sources?: AiSource[];
+    47→  period?: string;
+    48→  recommendation?: AiRecommendation;
+    49→  drillDown?: AiDrillDown[];
+    50→  limitations?: string;
+    51→  isDemo?: boolean;
+    52→}
+    53→
+    54→interface RecentQuery {
+    55→  id: string;
+    56→  text: string;
+    57→  ago: string;
+    58→}
+    59→
+    60→/* ============================================================
+    61→   Demo data — pre-loaded conversation
+    62→============================================================ */
+    63→
+    64→const SUGGESTED_QUESTIONS = [
+    65→  "¿Qué está pasando hoy?",
+    66→  "¿Por qué han bajado las reservas?",
+    67→  "¿Qué camarero vende más?",
+    68→  "¿Qué mesa genera más ingresos?",
+    69→  "¿Qué cliente debo recuperar?",
+    70→  "¿Cuánto voy a facturar mañana?",
+    71→  "¿Por qué aumentaron los no-shows?",
+    72→  "¿Qué campaña funcionó mejor?",
+    73→  "¿Qué restaurante está rindiendo peor?",
+    74→  "¿Qué acción tendría mayor impacto esta semana?",
+    75→];
+    76→
+    77→const RECENT_QUERIES: RecentQuery[] = [
+    78→  { id: "q1", text: "¿Por qué han bajado las reservas?", ago: "hace 2 min" },
+    79→  { id: "q2", text: "¿Qué acción tendría mayor impacto esta semana?", ago: "hace 5 min" },
+    80→  { id: "q3", text: "¿Cuánto voy a facturar mañana?", ago: "hace 12 min" },
+    81→  { id: "q4", text: "¿Qué cliente debo recuperar?", ago: "hace 28 min" },
+    82→  { id: "q5", text: "¿Qué camarero vende más?", ago: "hace 1 h" },
+    83→];
+    84→
+    85→const INITIAL_MESSAGES: AiMessage[] = [
+    86→  {
+    87→    id: "m1",
+    88→    role: "user",
+    89→    content: "¿Por qué han bajado las reservas?",
+    90→    ts: "10:42",
+    91→  },
+    92→  {
+    93→    id: "m2",
+    94→    role: "ai",
+    95→    content:
+    96→      "Las reservas han caído un 18% frente al mismo martes del mes anterior. La principal causa parece ser una reducción del 31% en reservas procedentes de campañas de Instagram.",
+    97→    ts: "10:42",
+    98→    dataAnalyzed: "1-21 enero 2025 vs 1-21 diciembre 2024 · D1 + Campaign attribution",
+    99→    reasoning:
+   100→      "1) Reservas totales: 1.247 vs 1.521 (-18%). 2) Desglose por canal: Web +2%, Google +5%, WhatsApp +8%, Instagram -31%, Phone -12%. 3) La caída de Instagram explica el 68% de la disminución total. 4) La campaña 'Enero sin reservas' en Instagram se pausó el 8 de enero.",
+   101→    facts: "Reservas cayeron 18%. Instagram -31%. Campaña pausada 8 ene.",
+   102→    predictions:
+   103→      "Si no se reactiva la campaña, se proyecta -22% la próxima semana.",
+   104→    confidence: { level: "media", pct: 65 },
+   105→    sources: [
+   106→      { label: "D1 reservations" },
+   107→      { label: "Campaign attribution" },
+   108→      { label: "Instagram Ads API" },
+   109→    ],
+   110→    period: "1-21 enero 2025 vs 1-21 diciembre 2024",
+   111→    recommendation: {
+   112→      text: "Reactivar campaña Instagram 'Enero sin reservas' y lanzar acción específica para turno de noche.",
+   113→      requiresApproval: true,
+   114→      ctaLabel: "Reactivar campaña",
+   115→    },
+   116→    drillDown: [
+   117→      { label: "Ver campaña", icon: BarChart3 },
+   118→      { label: "Ver datos reservas", icon: Database },
+   119→      { label: "Ver atribución", icon: ExternalLink },
+   120→    ],
+   121→    limitations: "Faltan datos completos de atribución para el 15% de las reservas.",
+   122→  },
+   123→  {
+   124→    id: "m3",
+   125→    role: "user",
+   126→    content: "¿Qué acción tendría mayor impacto esta semana?",
+   127→    ts: "10:44",
+   128→  },
+   129→  {
+   130→    id: "m4",
+   131→    role: "ai",
+   132→    content:
+   133→      "Recuperar 14 clientes VIP que no visitan en 60+ días. Impacto estimado: +€2.380 ingresos, +8 reservas. Es la acción de mayor ROI disponible.",
+   134→    ts: "10:44",
+   135→    dataAnalyzed: "CRM + Billing + Reservations · Últimos 90 días",
+   136→    reasoning:
+   137→      "1) 14 clientes VIP con LTV medio €3.840 sin visita en 60+ días. 2) Tasa de recuperación histórica con WhatsApp personalizado: 57%. 3) Ingreso medio por recuperación: €170. 4) ROI estimado: 900% (coste €0 con WhatsApp incluido en plan). 5) Alternativas evaluadas: campaña email (ROI 310%), promoción martes (ROI 280%).",
+   138→    facts: "14 VIPs inactivos. 57% recuperación histórica. €170 ingreso medio.",
+   139→    predictions: "8 de 14 VIPs responderán, generando ~€1.360-€2.380.",
+   140→    confidence: { level: "alta", pct: 82 },
+   141→    sources: [
+   142→      { label: "CRM customer_profiles" },
+   143→      { label: "CRM customer_events" },
+   144→      { label: "Billing invoices" },
+   145→    ],
+   146→    period: "Datos: últimos 90 días. Proyección: próximos 7 días.",
+   147→    recommendation: {
+   148→      text: "Enviar WhatsApp personalizado a 14 VIPs inactivos con oferta de retorno.",
+   149→      requiresApproval: true,
+   150→      ctaLabel: "Crear campaña WhatsApp",
+   151→    },
+   152→    drillDown: [
+   153→      { label: "Ver lista VIPs", icon: BookOpen },
+   154→      { label: "Crear campaña", icon: Zap },
+   155→      { label: "Ver histórico recuperaciones", icon: History },
+   156→    ],
+   157→  },
+   158→];
+   159→
+   160→/* ============================================================
+   161→   Demo response generator — for new user questions
+   162→============================================================ */
+   163→
+   164→const DEMO_RESPONSES: Array<Omit<AiMessage, "id" | "role" | "ts" | "content">> = [
+   165→  {
+   166→    content:
+   167→      "Hoy hay 47 reservas confirmadas (+12% vs ayer), ocupación prevista 78% y proyección de ingresos €4.100. El servicio de cena está al 92% con 2 mesas aún disponibles. (demo)",
+   168→    dataAnalyzed: "Hoy · D1 + Analytics Engine + Billing",
+   169→    reasoning:
+   170→      "1) Reservas confirmadas: 47 (comida 21, cena 26). 2) Ocupación: 78% sobre 66 cubiertos. 3) Ingresos a las 14:00: €1.842 (45% del objetivo). 4) Pico de cena previsto a las 21:00. 5) No-shows actuales: 3 (tasa 6.4%).",
+   171→    facts: "47 reservas. €1.842 facturados hasta ahora. Ocupación 78%.",
+   172→    predictions: "Cierre estimado: €4.100 (±5%) si no hay cancelaciones adicionales.",
+   173→    confidence: { level: "alta", pct: 88 },
+   174→    sources: [
+   175→      { label: "D1 reservations" },
+   176→      { label: "Analytics Engine" },
+   177→      { label: "Billing invoices" },
+   178→    ],
+   179→    period: "Hoy 27 ene 2025 · 14:00 CET",
+   180→    recommendation: {
+   181→      text: "Mantener plan actual. Monitorizar mesa 14 (reserva de 5 pax sin confirmar).",
+   182→      requiresApproval: false,
+   183→      ctaLabel: "Ver plano de mesas",
+   184→    },
+   185→    drillDown: [
+   186→      { label: "Ver datos", icon: Database },
+   187→      { label: "Ver reservas", icon: BookOpen },
+   188→      { label: "Ver clientes", icon: ExternalLink },
+   189→    ],
+   190→    limitations: "Proyección de cierre puede variar según cancelaciones de última hora.",
+   191→  },
+   192→  {
+   193→    content:
+   194→      "María García (camarera turno noche) es la que más vende: €48/ticket medio, +27% sobre la media del equipo. Le sigue Javier Ruiz con €41/ticket. (demo)",
+   195→    dataAnalyzed: "Últimos 30 días · Staff + POS + Reservations",
+   196→    reasoning:
+   197→      "1) Tickets por camarero: María €48, Javier €41, Carlos €35, Laura €33. 2) María recomienda postres en 68% de mesas vs 24% media. 3) Upselling de vinos: María 42%, Javier 28%. 4) Horas trabajadas: María 180h, Javier 165h.",
+   198→    facts: "María €48/ticket. +27% sobre media. Recomendación postres 68%.",
+   199→    predictions: "Si María capacita al equipo en técnicas de upselling, ticket medio +8% en 4 semanas.",
+   200→    confidence: { level: "alta", pct: 84 },
+   201→    sources: [
+   202→      { label: "POS tickets" },
+   203→      { label: "Staff shifts" },
+   204→      { label: "Reservations" },
+   205→    ],
+   206→    period: "1-27 enero 2025",
+   207→    recommendation: {
+   208→      text: "Sesión de capacitación de 30 min con María sobre upselling de postres y vinos.",
+   209→      requiresApproval: false,
+   210→      ctaLabel: "Programar sesión",
+   211→    },
+   212→    drillDown: [
+   213→      { label: "Ver equipo", icon: BookOpen },
+   214→      { label: "Ver tickets", icon: Database },
+   215→      { label: "Ver rankings", icon: BarChart3 },
+   216→    ],
+   217→  },
+   218→  {
+   219→    content:
+   220→      "La Mesa 7 (sala VIP) genera más ingresos: €12.480 este mes, ticket medio €84, ocupación 91%. Es la mesa con mayor rentabilidad por m². (demo)",
+   221→    dataAnalyzed: "Mes en curso · Floor + POS + Billing",
+   222→    reasoning:
+   223→      "1) Ingresos por mesa: M7 €12.480, M14 €9.230, M4 €7.810, M12 €6.450. 2) Ticket medio M7: €84 vs media €38. 3) Ocupación M7: 91%. 4) Rotación M7: 2.8 servicios/día. 5) M7 suele asignarse a reservas VIP y eventos.",
+   224→    facts: "M7 €12.480/mes. Ticket €84. Ocupación 91%.",
+   225→    predictions: "M7 generará ~€14.200 al cierre de mes si mantiene la tendencia.",
+   226→    confidence: { level: "media", pct: 76 },
+   227→    sources: [
+   228→      { label: "POS tickets" },
+   229→      { label: "Floor assignments" },
+   230→      { label: "Billing" },
+   231→    ],
+   232→    period: "1-27 enero 2025",
+   233→    recommendation: {
+   234→      text: "Priorizar M7 para reservas VIP y eventos premium. Considerar menú degustación exclusivo.",
+   235→      requiresApproval: true,
+   236→      ctaLabel: "Ver configuración mesa",
+   237→    },
+   238→    drillDown: [
+   239→      { label: "Ver plano", icon: BookOpen },
+   240→      { label: "Ver ingresos por mesa", icon: Database },
+   241→      { label: "Ver histórico M7", icon: History },
+   242→    ],
+   243→    limitations: "Datos de eventos privados no completamente desglosados.",
+   244→  },
+   245→];
+   246→
+   247→function pickDemoResponse(): Omit<AiMessage, "id" | "role" | "ts"> {
+   248→  const base = DEMO_RESPONSES[Math.floor(Math.random() * DEMO_RESPONSES.length)];
+   249→  return { ...base, isDemo: true };
+   250→}
+   251→
+   252→/* ============================================================
+   253→   Sub-components
+   254→============================================================ */
+   255→
+   256→function ConfidenceBadge({ level, pct }: { level: Confidence; pct: number }) {
+   257→  const styles: Record<Confidence, string> = {
+   258→    alta: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   259→    media: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   260→    baja: "border-destructive/40 bg-destructive/10 text-destructive",
+   261→  };
+   262→  return (
+   263→    <span
+   264→      className={cn(
+   265→        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider",
+   266→        styles[level]
+   267→      )}
+   268→    >
+   269→      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+   270→      Confianza {level} · {pct}%
+   271→    </span>
+   272→  );
+   273→}
+   274→
+   275→function SourceChip({ label }: { label: string }) {
+   276→  return (
+   277→    <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--teal)]/30 bg-[var(--teal)]/8 px-2 py-0.5 text-[11px] font-mono text-[var(--teal)]">
+   278→      <Database className="h-3 w-3" aria-hidden />
+   279→      {label}
+   280→    </span>
+   281→  );
+   282→}
+   283→
+   284→function SectionLabel({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+   285→  return (
+   286→    <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   287→      <Icon className="h-3 w-3" aria-hidden />
+   288→      {children}
+   289→    </div>
+   290→  );
+   291→}
+   292→
+   293→function TypingIndicator() {
+   294→  return (
+   295→    <div className="flex items-center gap-1.5 py-1.5" aria-label="IA escribiendo">
+   296→      {[0, 1, 2].map((i) => (
+   297→        <motion.span
+   298→          key={i}
+   299→          className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]"
+   300→          animate={{ opacity: [0.3, 1, 0.3], y: [0, -2, 0] }}
+   301→          transition={{ duration: 1, repeat: Infinity, delay: i * 0.15 }}
+   302→        />
+   303→      ))}
+   304→    </div>
+   305→  );
+   306→}
+   307→
+   308→/* ============================================================
+   309→   AI Message bubble
+   310→============================================================ */
+   311→
+   312→function AiBubble({ message }: { message: AiMessage }) {
+   313→  const { toast } = useToast();
+   314→  const [executed, setExecuted] = React.useState(false);
+   315→
+   316→  return (
+   317→    <motion.div
+   318→      initial={{ opacity: 0, y: 8 }}
+   319→      animate={{ opacity: 1, y: 0 }}
+   320→      transition={{ duration: 0.25 }}
+   321→      className="flex gap-3 max-w-full"
+   322→    >
+   323→      {/* Avatar */}
+   324→      <div className="shrink-0 h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black ring-1 ring-[var(--gold)]/40">
+   325→        <Sparkles className="h-4 w-4" aria-hidden />
+   326→      </div>
+   327→
+   328→      {/* Bubble */}
+   329→      <div className="flex-1 min-w-0 rp-glass rounded-2xl rounded-tl-md p-4 sm:p-5 space-y-4">
+   330→        {/* Header row */}
+   331→        <div className="flex items-center justify-between gap-2 flex-wrap">
+   332→          <div className="flex items-center gap-2">
+   333→            <span className="text-sm font-medium text-[var(--gold-soft)]">IA Ejecutiva</span>
+   334→            {message.isDemo && (
+   335→              <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-400/10 text-amber-300">
+   336→                demo
+   337→              </span>
+   338→            )}
+   339→          </div>
+   340→          <span className="text-[10px] font-mono text-muted-foreground">{message.ts}</span>
+   341→        </div>
+   342→
+   343→        {/* 1. Respuesta directa */}
+   344→        <div>
+   345→          <SectionLabel icon={Sparkles}>Respuesta directa</SectionLabel>
+   346→          <p className="mt-1.5 text-sm sm:text-[15px] leading-relaxed text-foreground">
+   347→            {message.content}
+   348→          </p>
+   349→        </div>
+   350→
+   351→        {/* 2. Datos analizados */}
+   352→        {message.dataAnalyzed && (
+   353→          <div className="flex flex-col gap-1">
+   354→            <SectionLabel icon={Database}>Datos analizados</SectionLabel>
+   355→            <p className="text-xs text-muted-foreground font-mono">{message.dataAnalyzed}</p>
+   356→          </div>
+   357→        )}
+   358→
+   359→        {/* 3. Razonamiento */}
+   360→        {message.reasoning && (
+   361→          <div className="rounded-lg border border-border/60 bg-foreground/[0.03] p-3">
+   362→            <SectionLabel icon={Lightbulb}>Razonamiento</SectionLabel>
+   363→            <p className="mt-1.5 text-xs sm:text-[13px] leading-relaxed text-foreground/85 whitespace-pre-line">
+   364→              {message.reasoning}
+   365→            </p>
+   366→          </div>
+   367→        )}
+   368→
+   369→        {/* 4. Hechos vs Predicciones */}
+   370→        <div className="grid sm:grid-cols-2 gap-2">
+   371→          {message.facts && (
+   372→            <div className="rounded-lg border border-[var(--teal)]/30 bg-[var(--teal)]/8 p-3">
+   373→              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
+   374→                <CheckCircle2 className="h-3 w-3" aria-hidden />
+   375→                Hechos
+   376→              </div>
+   377→              <p className="mt-1.5 text-xs leading-relaxed text-foreground/90">{message.facts}</p>
+   378→            </div>
+   379→          )}
+   380→          {message.predictions && (
+   381→            <div className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 p-3">
+   382→              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+   383→                <TrendingUp className="h-3 w-3" aria-hidden />
+   384→                Predicción
+   385→              </div>
+   386→              <p className="mt-1.5 text-xs leading-relaxed text-foreground/90">{message.predictions}</p>
+   387→            </div>
+   388→          )}
+   389→        </div>
+   390→
+   391→        {/* 5. Confianza + 7. Periodo */}
+   392→        <div className="flex flex-wrap items-center gap-2">
+   393→          {message.confidence && (
+   394→            <ConfidenceBadge level={message.confidence.level} pct={message.confidence.pct} />
+   395→          )}
+   396→          {message.period && (
+   397→            <span className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-foreground/[0.03] px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+   398→              <Clock className="h-3 w-3" aria-hidden />
+   399→              {message.period}
+   400→            </span>
+   401→          )}
+   402→        </div>
+   403→
+   404→        {/* 6. Fuentes citadas */}
+   405→        {message.sources && message.sources.length > 0 && (
+   406→          <div className="flex flex-col gap-1.5">
+   407→            <SectionLabel icon={FileText}>Fuentes citadas</SectionLabel>
+   408→            <div className="flex flex-wrap gap-1.5">
+   409→              {message.sources.map((s, i) => (
+   410→                <SourceChip key={i} label={s.label} />
+   411→              ))}
+   412→            </div>
+   413→          </div>
+   414→        )}
+   415→
+   416→        {/* 8. Recomendación */}
+   417→        {message.recommendation && (
+   418→          <div className="rounded-lg border-l-2 border-[var(--gold)]/60 bg-[var(--gold)]/[0.06] p-3">
+   419→            <SectionLabel icon={Zap}>Recomendación</SectionLabel>
+   420→            <p className="mt-1.5 text-sm leading-relaxed text-foreground">
+   421→              {message.recommendation.text}
+   422→            </p>
+   423→            <div className="mt-3 flex flex-wrap items-center gap-2">
+   424→              <button
+   425→                onClick={() => {
+   426→                  setExecuted(true);
+   427→                  toast({
+   428→                    title: "Acción iniciada",
+   429→                    description: message.recommendation!.ctaLabel,
+   430→                  });
+   431→                }}
+   432→                disabled={executed}
+   433→                className="min-h-[40px] inline-flex items-center gap-1.5 rounded-md bg-[var(--gold)] px-3 py-1.5 text-xs font-medium text-black hover:bg-[var(--gold-soft)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+   434→              >
+   435→                {executed ? (
+   436→                  <>
+   437→                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+   438→                    Ejecutada
+   439→                  </>
+   440→                ) : (
+   441→                  <>
+   442→                    <Zap className="h-3.5 w-3.5" aria-hidden />
+   443→                    {message.recommendation.ctaLabel}
+   444→                  </>
+   445→                )}
+   446→              </button>
+   447→              {message.recommendation.requiresApproval && (
+   448→                <span className="inline-flex items-center gap-1 text-[11px] text-amber-300">
+   449→                  <Lock className="h-3 w-3" aria-hidden />
+   450→                  Requiere aprobación
+   451→                </span>
+   452→              )}
+   453→            </div>
+   454→          </div>
+   455→        )}
+   456→
+   457→        {/* 9. Profundizar */}
+   458→        {message.drillDown && message.drillDown.length > 0 && (
+   459→          <div className="flex flex-col gap-1.5">
+   460→            <SectionLabel icon={ArrowRight}>Profundizar</SectionLabel>
+   461→            <div className="flex flex-wrap gap-1.5">
+   462→              {message.drillDown.map((d, i) => (
+   463→                <button
+   464→                  key={i}
+   465→                  onClick={() =>
+   466→                    toast({
+   467→                      title: "Abriendo detalle",
+   468→                      description: d.label,
+   469→                    })
+   470→                  }
+   471→                  className="min-h-[36px] inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-foreground/[0.03] px-2.5 py-1 text-xs text-foreground/80 hover:border-[var(--gold)]/40 hover:text-[var(--gold-soft)] transition-colors"
+   472→                >
+   473→                  <d.icon className="h-3.5 w-3.5" aria-hidden />
+   474→                  {d.label}
+   475→                  <ChevronRight className="h-3 w-3 opacity-60" aria-hidden />
+   476→                </button>
+   477→              ))}
+   478→            </div>
+   479→          </div>
+   480→        )}
+   481→
+   482→        {/* 10. Limitaciones */}
+   483→        {message.limitations && (
+   484→          <div className="flex items-start gap-2 rounded-md border border-amber-400/30 bg-amber-400/[0.06] p-2.5">
+   485→            <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-300" aria-hidden />
+   486→            <div>
+   487→              <div className="text-[10px] font-mono uppercase tracking-wider text-amber-300">
+   488→                Limitaciones
+   489→              </div>
+   490→              <p className="mt-0.5 text-xs text-foreground/80">{message.limitations}</p>
+   491→            </div>
+   492→          </div>
+   493→        )}
+   494→      </div>
+   495→    </motion.div>
+   496→  );
+   497→}
+   498→
+   499→function UserBubble({ message }: { message: AiMessage }) {
+   500→  return (
+   501→    <motion.div
+   502→      initial={{ opacity: 0, y: 8 }}
+   503→      animate={{ opacity: 1, y: 0 }}
+   504→      transition={{ duration: 0.25 }}
+   505→      className="flex justify-end"
+   506→    >
+   507→      <div className="max-w-[85%] sm:max-w-[75%]">
+   508→        <div className="rounded-2xl rounded-tr-md border border-[var(--gold)]/30 bg-[var(--gold)]/[0.10] px-4 py-2.5">
+   509→          <p className="text-sm leading-relaxed text-foreground">{message.content}</p>
+   510→        </div>
+   511→        <div className="mt-1 text-right text-[10px] font-mono text-muted-foreground">
+   512→          {message.ts}
+   513→        </div>
+   514→      </div>
+   515→    </motion.div>
+   516→  );
+   517→}
+   518→
+   519→/* ============================================================
+   520→   Sidebar (desktop only)
+   521→============================================================ */
+   522→
+   523→function AiSidebar() {
+   524→  return (
+   525→    <aside className="hidden xl:flex flex-col w-72 shrink-0 rp-glass-strong rounded-2xl p-5 gap-5 h-fit sticky top-4">
+   526→      {/* Consultas recientes */}
+   527→      <div>
+   528→        <div className="flex items-center gap-2 mb-3">
+   529→          <History className="h-4 w-4 text-[var(--gold)]" aria-hidden />
+   530→          <h3 className="text-sm font-medium">Consultas recientes</h3>
+   531→        </div>
+   532→        <div className="space-y-1.5">
+   533→          {RECENT_QUERIES.map((q) => (
+   534→            <button
+   535→              key={q.id}
+   536→              className="w-full min-h-[40px] text-left rounded-md border border-border/60 bg-foreground/[0.02] px-3 py-2 hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/[0.06] transition-colors group"
+   537→            >
+   538→              <div className="text-xs font-medium text-foreground/90 truncate group-hover:text-[var(--gold-soft)]">
+   539→                {q.text}
+   540→              </div>
+   541→              <div className="text-[10px] font-mono text-muted-foreground mt-0.5">{q.ago}</div>
+   542→            </button>
+   543→          ))}
+   544→        </div>
+   545→      </div>
+   546→
+   547→      <div className="h-px rp-divider" />
+   548→
+   549→      {/* Datos utilizados hoy */}
+   550→      <div>
+   551→        <div className="flex items-center gap-2 mb-3">
+   552→          <Database className="h-4 w-4 text-[var(--teal)]" aria-hidden />
+   553→          <h3 className="text-sm font-medium">Datos utilizados hoy</h3>
+   554→        </div>
+   555→        <div className="space-y-1.5 text-xs">
+   556→          {[
+   557→            { src: "D1 reservations", n: 47 },
+   558→            { src: "Analytics Engine", n: 12 },
+   559→            { src: "CRM profiles", n: 8 },
+   560→            { src: "Billing invoices", n: 23 },
+   561→            { src: "Campaign attribution", n: 5 },
+   562→            { src: "Instagram Ads API", n: 3 },
+   563→          ].map((d) => (
+   564→            <div key={d.src} className="flex items-center justify-between">
+   565→              <span className="text-foreground/80 truncate">{d.src}</span>
+   566→              <span className="font-mono text-[var(--teal)] shrink-0 ml-2">{d.n}</span>
+   567→            </div>
+   568→          ))}
+   569→        </div>
+   570→      </div>
+   571→
+   572→      <div className="h-px rp-divider" />
+   573→
+   574→      {/* Coste IA hoy */}
+   575→      <div className="rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/[0.06] p-3">
+   576→        <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+   577→          <Euro className="h-3 w-3" aria-hidden />
+   578→          Coste IA hoy
+   579→        </div>
+   580→        <div className="mt-1 font-display text-2xl font-light rp-gold-text">€0,42</div>
+   581→        <div className="text-[10px] text-muted-foreground mt-0.5">98 consultas · 1,2 s media</div>
+   582→      </div>
+   583→    </aside>
+   584→  );
+   585→}
+   586→
+   587→/* ============================================================
+   588→   Main component
+   589→============================================================ */
+   590→
+   591→export function ExecAi() {
+   592→  const reduceMotion = useReducedMotion();
+   593→  const [messages, setMessages] = React.useState<AiMessage[]>(INITIAL_MESSAGES);
+   594→  const [input, setInput] = React.useState("");
+   595→  const [isTyping, setIsTyping] = React.useState(false);
+   596→  const scrollRef = React.useRef<HTMLDivElement>(null);
+   597→  const inputRef = React.useRef<HTMLInputElement>(null);
+   598→
+   599→  // Auto-scroll to bottom on new message
+   600→  React.useEffect(() => {
+   601→    const el = scrollRef.current;
+   602→    if (el) {
+   603→      el.scrollTo({ top: el.scrollHeight, behavior: reduceMotion ? "auto" : "smooth" });
+   604→    }
+   605→  }, [messages, isTyping, reduceMotion]);
+   606→
+   607→  function send(text: string) {
+   608→    const trimmed = text.trim();
+   609→    if (!trimmed || isTyping) return;
+   610→    const now = new Date();
+   611→    const ts = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+   612→    const userMsg: AiMessage = {
+   613→      id: `u-${Date.now()}`,
+   614→      role: "user",
+   615→      content: trimmed,
+   616→      ts,
+   617→    };
+   618→    setMessages((m) => [...m, userMsg]);
+   619→    setInput("");
+   620→    setIsTyping(true);
+   621→
+   622→    // Simulate AI thinking + response
+   623→    window.setTimeout(() => {
+   624→      const demo = pickDemoResponse();
+   625→      const aiMsg: AiMessage = {
+   626→        id: `a-${Date.now()}`,
+   627→        role: "ai",
+   628→        ts,
+   629→        ...demo,
+   630→      };
+   631→      setMessages((m) => [...m, aiMsg]);
+   632→      setIsTyping(false);
+   633→    }, 1400);
+   634→  }
+   635→
+   636→  function handleSubmit(e: React.FormEvent) {
+   637→    e.preventDefault();
+   638→    send(input);
+   639→  }
+   640→
+   641→  return (
+   642→    <div className="flex gap-5">
+   643→      {/* Chat column */}
+   644→      <div className="flex-1 min-w-0 flex flex-col rp-glass-strong rounded-2xl overflow-hidden">
+   645→        {/* Header */}
+   646→        <header className="flex items-center justify-between gap-3 px-4 sm:px-5 py-3.5 border-b border-border/60">
+   647→          <div className="flex items-center gap-2.5 min-w-0">
+   648→            <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black ring-1 ring-[var(--gold)]/40 shrink-0">
+   649→              <Sparkles className="h-4 w-4" aria-hidden />
+   650→            </div>
+   651→            <div className="min-w-0">
+   652→              <div className="flex items-center gap-2">
+   653→                <h2 className="font-display text-base sm:text-lg font-medium tracking-tight truncate">
+   654→                  IA Ejecutiva
+   655→                </h2>
+   656→                <span className="text-[10px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded border border-amber-400/40 bg-amber-400/10 text-amber-300">
+   657→                  demo
+   658→                </span>
+   659→              </div>
+   660→              <div className="text-[11px] font-mono text-muted-foreground truncate">
+   661→                Modelo: glm-4-flash vía AI Gateway · 1.2s latencia media
+   662→              </div>
+   663→            </div>
+   664→          </div>
+   665→          <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-[var(--teal)] shrink-0">
+   666→            <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)] animate-pulse" />
+   667→            en línea
+   668→          </div>
+   669→        </header>
+   670→
+   671→        {/* Messages area */}
+   672→        <div
+   673→          ref={scrollRef}
+   674→          className="flex-1 overflow-y-auto rp-scroll-thin px-4 sm:px-5 py-5 space-y-5 max-h-[58vh] min-h-[420px]"
+   675→          aria-live="polite"
+   676→        >
+   677→          {messages.map((m) =>
+   678→            m.role === "user" ? (
+   679→              <UserBubble key={m.id} message={m} />
+   680→            ) : (
+   681→              <AiBubble key={m.id} message={m} />
+   682→            )
+   683→          )}
+   684→
+   685→          <AnimatePresence>
+   686→            {isTyping && (
+   687→              <motion.div
+   688→                initial={{ opacity: 0, y: 6 }}
+   689→                animate={{ opacity: 1, y: 0 }}
+   690→                exit={{ opacity: 0, y: 6 }}
+   691→                transition={{ duration: 0.2 }}
+   692→                className="flex gap-3"
+   693→              >
+   694→                <div className="shrink-0 h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black ring-1 ring-[var(--gold)]/40">
+   695→                  <Sparkles className="h-4 w-4" aria-hidden />
+   696→                </div>
+   697→                <div className="rp-glass rounded-2xl rounded-tl-md px-4 py-2.5">
+   698→                  <TypingIndicator />
+   699→                </div>
+   700→              </motion.div>
+   701→            )}
+   702→          </AnimatePresence>
+   703→        </div>
+   704→
+   705→        {/* Suggestions */}
+   706→        <div className="px-4 sm:px-5 pt-3 border-t border-border/60">
+   707→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+   708→            Preguntas sugeridas
+   709→          </div>
+   710→          <div className="flex gap-1.5 overflow-x-auto rp-scroll-thin pb-2 -mx-1 px-1">
+   711→            {SUGGESTED_QUESTIONS.map((q, i) => (
+   712→              <button
+   713→                key={i}
+   714→                onClick={() => send(q)}
+   715→                disabled={isTyping}
+   716→                className="shrink-0 min-h-[36px] inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-foreground/[0.03] px-3 py-1.5 text-xs text-foreground/80 hover:border-[var(--gold)]/40 hover:text-[var(--gold-soft)] hover:bg-[var(--gold)]/[0.06] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+   717→              >
+   718→                <Sparkles className="h-3 w-3 text-[var(--gold)]" aria-hidden />
+   719→                {q}
+   720→              </button>
+   721→            ))}
+   722→          </div>
+   723→        </div>
+   724→
+   725→        {/* Input */}
+   726→        <form onSubmit={handleSubmit} className="px-4 sm:px-5 py-3 border-t border-border/60">
+   727→          <div className="flex items-center gap-2">
+   728→            <div className="flex-1 flex items-center gap-2 rounded-xl border border-border/60 bg-foreground/[0.03] px-3 py-2 focus-within:border-[var(--gold)]/40 transition-colors">
+   729→              <input
+   730→                ref={inputRef}
+   731→                type="text"
+   732→                value={input}
+   733→                onChange={(e) => setInput(e.target.value)}
+   734→                placeholder="Pregunta a la IA Ejecutiva…"
+   735→                disabled={isTyping}
+   736→                className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-muted-foreground disabled:opacity-50"
+   737→                aria-label="Pregunta a la IA Ejecutiva"
+   738→              />
+   739→              <button
+   740→                type="button"
+   741→                onClick={() => inputRef.current?.focus()}
+   742→                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-[var(--teal)] hover:bg-foreground/5 transition-colors"
+   743→                aria-label="Entrada de voz (decorativo)"
+   744→                tabIndex={-1}
+   745→              >
+   746→                <Mic className="h-4 w-4" aria-hidden />
+   747→              </button>
+   748→            </div>
+   749→            <button
+   750→              type="submit"
+   751→              disabled={!input.trim() || isTyping}
+   752→              className="shrink-0 min-h-[44px] min-w-[44px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--gold)] px-4 py-2 text-sm font-medium text-black hover:bg-[var(--gold-soft)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+   753→              aria-label="Enviar pregunta"
+   754→            >
+   755→              <Send className="h-4 w-4" aria-hidden />
+   756→              <span className="hidden sm:inline">Enviar</span>
+   757→            </button>
+   758→          </div>
+   759→
+   760→          {/* Security notice */}
+   761→          <div className="mt-2.5 flex items-start gap-2 text-[11px] text-muted-foreground">
+   762→            <ShieldCheck className="h-3.5 w-3.5 shrink-0 mt-0.5 text-[var(--teal)]" aria-hidden />
+   763→            <p className="leading-relaxed">
+   764→              La IA utiliza únicamente datos autorizados del restaurante. Respeta permisos RBAC.
+   765→              No accede a datos de otros restaurantes. Toda consulta se registra con{" "}
+   766→              <span className="font-mono text-[var(--teal)]">correlation_id</span>. Protección contra
+   767→              prompt injection activada.
+   768→            </p>
+   769→          </div>
+   770→        </form>
+   771→      </div>
+   772→
+   773→      {/* Sidebar (desktop only) */}
+   774→      <AiSidebar />
+   775→    </div>
+   776→  );
+   777→}
+   778→
