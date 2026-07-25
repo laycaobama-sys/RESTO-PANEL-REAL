@@ -6,6 +6,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useNav, type Section } from "@/components/rp/app/nav-store";
 import { BrandMark, Logo } from "@/components/rp/app/brand";
+import { HeroDashboard, TrustLogos, BeforeAfter, WhyBento, AnimatedCounter } from "@/components/rp/marketing";
+import { DemoFloor, DemoCrm, DemoAi, DemoReviews, RoiCalculator, FaqSection } from "@/components/rp/marketing";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -161,18 +163,21 @@ export function Landing() {
       <LandingHeader />
       <main id="landing-top">
         <Hero />
-        <SocialProof />
+        <SocialProofV2 />
         <Problems />
         <Platform />
-        <DeepDiveReservas />
-        <DeepDiveCRM />
-        <DeepDiveIA />
+        <DemoFloor />
+        <DemoCrm />
+        <DemoAi />
+        <DemoReviews />
         <SectionRulesAuto />
         <SectionRealTime />
         <SectionCrmVip />
         <SectionPartner />
+        <RoiCalculator />
+        <WhyBento />
         <Pricing />
-        <FAQ />
+        <FaqSection />
         <FinalCTA />
       </main>
     </div>
@@ -655,6 +660,21 @@ const METRICS: {
   { label: "Clientas fidelizadas", target: 2.1, format: (v) => `${v.toFixed(1)}M` },
   { label: "Mejora media valoración", target: 0.6, format: (v) => `+${v.toFixed(1)}★` },
 ];
+
+function SocialProofV2() {
+  return (
+    <section className="border-t border-border/60 py-16 sm:py-20">
+      <div className="mx-auto max-w-6xl px-5 sm:px-8">
+        <div className="text-center mb-8">
+          <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground mb-3">
+            Con la confianza de 1.200+ restaurantes
+          </p>
+        </div>
+        <TrustLogos />
+      </div>
+    </section>
+  );
+}
 
 function SocialProof() {
   const { ref, inView } = useInView<HTMLDivElement>();

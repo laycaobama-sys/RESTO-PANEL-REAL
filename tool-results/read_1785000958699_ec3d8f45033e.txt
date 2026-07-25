@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import Image from "next/image";
+     5→import Link from "next/link";
+     6→import { cn } from "@/lib/utils";
+     7→import { useNav, type Section } from "@/components/rp/app/nav-store";
+     8→import { BrandMark, Logo } from "@/components/rp/app/brand";
+     9→import { Button } from "@/components/ui/button";
+    10→import {
+    11→  Sheet,
+    12→  SheetContent,
+    13→  SheetHeader,
+    14→  SheetTitle,
+    15→  SheetTrigger,
+    16→  SheetClose,
+    17→} from "@/components/ui/sheet";
+    18→import { Slider } from "@/components/ui/slider";
+    19→import { Switch } from "@/components/ui/switch";
+    20→import {
+    21→  Accordion,
+    22→  AccordionContent,
+    23→  AccordionItem,
+    24→  AccordionTrigger,
+    25→} from "@/components/ui/accordion";
+    26→import {
+    27→  Menu,
+    28→  X,
+    29→  ArrowRight,
+    30→  ArrowUpRight,
+    31→  PlayCircle,
+    32→  Sparkles,
+    33→  ShieldCheck,
+    34→  CalendarCheck,
+    35→  LayoutGrid,
+    36→  Users,
+    37→  Megaphone,
+    38→  Workflow,
+    39→  Star,
+    40→  BarChart3,
+    41→  Bot,
+    42→  Hourglass,
+    43→  Store,
+    44→  Plug,
+    45→  CalendarX,
+    46→  CalendarClock,
+    47→  UserX,
+    48→  Database,
+    49→  Hand,
+    50→  Unplug,
+    51→  TrendingDown,
+    52→  Check,
+    53→  ChevronRight,
+    54→  Circle,
+    55→  Clock,
+    56→  Zap,
+    57→  Quote,
+    58→  RefreshCw,
+    59→  Share2,
+    60→  LifeBuoy,
+    61→  Bell,
+    62→  type LucideIcon,
+    63→} from "lucide-react";
+    64→
+    65→/* ===================================================================== *
+    66→ *  RestoPanel · Landing premium (dark, gold #D4AF37, turquoise #3DD6C9) *
+    67→ * ===================================================================== */
+    68→
+    69→const NAV_LINKS = [
+    70→  "Producto",
+    71→  "Soluciones",
+    72→  "Reservas",
+    73→  "CRM",
+    74→  "IA",
+    75→  "Analytics",
+    76→  "Integraciones",
+    77→  "Precios",
+    78→  "Recursos",
+    79→  "Blog",
+    80→  "Centro de ayuda",
+    81→] as const;
+    82→
+    83→/* ------------------------------ helpers ------------------------------ */
+    84→
+    85→function useReducedMotion() {
+    86→  const [reduced, setReduced] = React.useState(false);
+    87→  React.useEffect(() => {
+    88→    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    89→    const update = () => setReduced(mq.matches);
+    90→    update();
+    91→    mq.addEventListener?.("change", update);
+    92→    return () => mq.removeEventListener?.("change", update);
+    93→  }, []);
+    94→  return reduced;
+    95→}
+    96→
+    97→function useInView<T extends HTMLElement>(opts?: IntersectionObserverInit) {
+    98→  const ref = React.useRef<T | null>(null);
+    99→  const [inView, setInView] = React.useState(false);
+   100→  React.useEffect(() => {
+   101→    const el = ref.current;
+   102→    if (!el) return;
+   103→    const ob = new IntersectionObserver(
+   104→      ([entry]) => {
+   105→        if (entry.isIntersecting) {
+   106→          setInView(true);
+   107→          ob.disconnect();
+   108→        }
+   109→      },
+   110→      opts ?? { threshold: 0.2 },
+   111→    );
+   112→    ob.observe(el);
+   113→    return () => ob.disconnect();
+   114→  }, [opts]);
+   115→  return { ref, inView };
+   116→}
+   117→
+   118→function useCountUp(target: number, run: boolean, duration = 1400) {
+   119→  const reduced = useReducedMotion();
+   120→  const [val, setVal] = React.useState(0);
+   121→  React.useEffect(() => {
+   122→    if (!run) return;
+   123→    if (reduced) {
+   124→      setVal(target);
+   125→      return;
+   126→    }
+   127→    let raf = 0;
+   128→    const start = performance.now();
+   129→    const tick = (now: number) => {
+   130→      const t = Math.min(1, (now - start) / duration);
+   131→      const eased = 1 - Math.pow(1 - t, 3);
+   132→      setVal(target * eased);
+   133→      if (t < 1) raf = requestAnimationFrame(tick);
+   134→      else setVal(target);
+   135→    };
+   136→    raf = requestAnimationFrame(tick);
+   137→    return () => cancelAnimationFrame(raf);
+   138→  }, [target, run, reduced, duration]);
+   139→  return val;
+   140→}
+   141→
+   142→function DemoBadge({ className }: { className?: string }) {
+   143→  return (
+   144→    <span
+   145→      className={cn(
+   146→        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
+   147→        className,
+   148→      )}
+   149→    >
+   150→      <Circle className="h-1.5 w-1.5 fill-amber-300 text-amber-300" aria-hidden />
+   151→      demo
+   152→    </span>
+   153→  );
+   154→}
+   155→
+   156→/* ------------------------------ Landing ------------------------------ */
+   157→
+   158→export function Landing() {
+   159→  return (
+   160→    <div className="bg-background">
+   161→      <LandingHeader />
+   162→      <main id="landing-top">
+   163→        <Hero />
+   164→        <SocialProof />
+   165→        <Problems />
+   166→        <Platform />
+   167→        <DeepDiveReservas />
+   168→        <DeepDiveCRM />
+   169→        <DeepDiveIA />
+   170→        <SectionRulesAuto />
+   171→        <SectionRealTime />
+   172→        <SectionCrmVip />
+   173→        <SectionPartner />
+   174→        <Pricing />
+   175→        <FAQ />
+   176→        <FinalCTA />
+   177→      </main>
+   178→    </div>
+   179→  );
+   180→}
+   181→
+   182→/* ------------------------------ Header ------------------------------- */
+   183→
+   184→function LandingHeader() {
+   185→  const setView = useNav((s) => s.setView);
+   186→  const [open, setOpen] = React.useState(false);
+   187→  const [scrolled, setScrolled] = React.useState(false);
+   188→
+   189→  React.useEffect(() => {
+   190→    const onScroll = () => setScrolled(window.scrollY > 8);
+   191→    onScroll();
+   192→    window.addEventListener("scroll", onScroll, { passive: true });
+   193→    return () => window.removeEventListener("scroll", onScroll);
+   194→  }, []);
+   195→
+   196→  const goApp = () => {
+   197→    setOpen(false);
+   198→    setView("app");
+   199→  };
+   200→
+   201→  return (
+   202→    <header
+   203→      className={cn(
+   204→        "sticky top-0 z-40 transition-all duration-300",
+   205→        scrolled
+   206→          ? "rp-glass-strong border-b border-border/60"
+   207→          : "border-b border-transparent",
+   208→      )}
+   209→    >
+   210→      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
+   211→        <Link
+   212→          href="#landing-top"
+   213→          className="flex items-center gap-2.5"
+   214→          aria-label="RestoPanel — inicio"
+   215→        >
+   216→          <BrandMark className="h-8 w-8" />
+   217→          <span className="font-display text-lg tracking-tight">RestoPanel</span>
+   218→        </Link>
+   219→
+   220→        <nav
+   221→          aria-label="Navegación principal"
+   222→          className="ml-4 hidden 2xl:flex items-center gap-0.5 min-w-0"
+   223→        >
+   224→          {NAV_LINKS.map((label) => (
+   225→            <Link
+   226→              key={label}
+   227→              href="#p-plataforma"
+   228→              className="rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-foreground/5 whitespace-nowrap"
+   229→            >
+   230→              {label}
+   231→            </Link>
+   232→          ))}
+   233→        </nav>
+   234→
+   235→        <div className="ml-auto hidden items-center gap-2 lg:flex">
+   236→          <Button variant="ghost" size="sm" onClick={goApp}>
+   237→            Iniciar sesión
+   238→          </Button>
+   239→          <Button variant="outline" size="sm" onClick={goApp}>
+   240→            Entrar al panel
+   241→          </Button>
+   242→          <Button
+   243→            size="sm"
+   244→            onClick={goApp}
+   245→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   246→          >
+   247→            Crear cuenta
+   248→            <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+   249→          </Button>
+   250→        </div>
+   251→
+   252→        {/* Mobile CTA (compact) — visible below lg */}
+   253→        <Button
+   254→          size="sm"
+   255→          onClick={goApp}
+   256→          className="ml-auto bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black lg:hidden"
+   257→        >
+   258→          Crear cuenta
+   259→        </Button>
+   260→
+   261→        {/* Hamburger — visible below xl (covers lg–xl where desktop nav is hidden) */}
+   262→        <Sheet open={open} onOpenChange={setOpen}>
+   263→          <SheetTrigger asChild>
+   264→            <Button
+   265→              variant="outline"
+   266→              size="icon"
+   267→              aria-label="Abrir menú"
+   268→              className="2xl:hidden"
+   269→            >
+   270→              <Menu className="h-5 w-5" aria-hidden />
+   271→            </Button>
+   272→          </SheetTrigger>
+   273→          <SheetContent side="right" className="w-[88%] sm:max-w-sm rp-glass-strong">
+   274→            <SheetHeader className="px-5 pt-5">
+   275→              <SheetTitle className="text-left">
+   276→                <Logo />
+   277→              </SheetTitle>
+   278→            </SheetHeader>
+   279→            <nav
+   280→              aria-label="Navegación móvil"
+   281→              className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-4"
+   282→            >
+   283→              <ul className="space-y-0.5">
+   284→                {NAV_LINKS.map((label) => (
+   285→                  <li key={label}>
+   286→                    <SheetClose asChild>
+   287→                      <Link
+   288→                        href="#p-plataforma"
+   289→                        className="flex items-center justify-between rounded-md px-3 py-3 min-h-11 text-sm text-foreground/85 hover:bg-foreground/5 hover:text-foreground"
+   290→                      >
+   291→                        {label}
+   292→                        <ChevronRight className="h-4 w-4 text-muted-foreground" aria-hidden />
+   293→                      </Link>
+   294→                    </SheetClose>
+   295→                  </li>
+   296→                ))}
+   297→              </ul>
+   298→            </nav>
+   299→            <div className="border-t border-border/60 p-4 space-y-2">
+   300→              <Button variant="ghost" className="w-full justify-start" onClick={goApp}>
+   301→                Iniciar sesión
+   302→              </Button>
+   303→              <Button variant="outline" className="w-full justify-center" onClick={goApp}>
+   304→                Entrar al panel
+   305→              </Button>
+   306→              <Button
+   307→                className="w-full justify-center bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   308→                onClick={goApp}
+   309→              >
+   310→                Crear cuenta
+   311→                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+   312→              </Button>
+   313→            </div>
+   314→          </SheetContent>
+   315→        </Sheet>
+   316→      </div>
+   317→    </header>
+   318→  );
+   319→}
+   320→
+   321→/* ------------------------------- Hero -------------------------------- */
+   322→
+   323→function Hero() {
+   324→  const setView = useNav((s) => s.setView);
+   325→
+   326→  return (
+   327→    <section
+   328→      className="relative overflow-hidden"
+   329→      aria-labelledby="hero-title"
+   330→    >
+   331→      {/* Background layers */}
+   332→      <div
+   333→        className="absolute inset-0 -z-10 rp-grid-bg opacity-60"
+   334→        aria-hidden
+   335→      />
+   336→      <div
+   337→        className="absolute inset-0 -z-10"
+   338→        aria-hidden
+   339→        style={{
+   340→          background:
+   341→            "radial-gradient(900px 500px at 12% 8%, color-mix(in oklab, var(--gold) 18%, transparent) 0%, transparent 60%)," +
+   342→            "radial-gradient(800px 500px at 92% 22%, color-mix(in oklab, var(--teal) 16%, transparent) 0%, transparent 55%)," +
+   343→            "radial-gradient(700px 700px at 50% 100%, color-mix(in oklab, var(--gold) 8%, transparent) 0%, transparent 60%)",
+   344→        }}
+   345→      />
+   346→      <div
+   347→        className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-40"
+   348→        aria-hidden
+   349→        style={{
+   350→          background:
+   351→            "linear-gradient(to top, var(--background) 0%, transparent 100%)",
+   352→        }}
+   353→      />
+   354→
+   355→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-16 pb-20 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32">
+   356→        <div className="grid lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-10 items-center">
+   357→          {/* Left: copy */}
+   358→          <div className="max-w-2xl">
+   359→            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--gold)]/30 bg-[var(--gold)]/8 px-3 py-1 text-xs font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+   360→              <Sparkles className="h-3.5 w-3.5" aria-hidden />
+   361→              SaaS Enterprise para restaurantes
+   362→            </div>
+   363→
+   364→            <h1
+   365→              id="hero-title"
+   366→              className="mt-5 font-display text-4xl sm:text-5xl lg:text-6xl font-light leading-[1.05] tracking-tight text-balance"
+   367→            >
+   368→              Software para restaurantes que convierte{" "}
+   369→              <span className="rp-gold-gradient font-normal">cada servicio</span>{" "}
+   370→              en más ingresos
+   371→            </h1>
+   372→
+   373→            <p className="mt-6 text-base sm:text-lg leading-relaxed text-muted-foreground max-w-xl">
+   374→              Gestiona reservas, mesas, clientes, marketing, reputación y
+   375→              rendimiento desde una única plataforma diseñada para crecer con tu
+   376→              restaurante.
+   377→            </p>
+   378→
+   379→            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+   380→              <Button
+   381→                size="lg"
+   382→                onClick={() => setView("app")}
+   383→                className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+   384→              >
+   385→                Crear cuenta
+   386→                <ArrowRight className="h-4 w-4" aria-hidden />
+   387→              </Button>
+   388→              <Button
+   389→                size="lg"
+   390→                variant="outline"
+   391→                onClick={() => setView("app")}
+   392→              >
+   393→                Explorar RestoPanel
+   394→              </Button>
+   395→              <Button
+   396→                size="lg"
+   397→                variant="ghost"
+   398→                onClick={() => setView("app")}
+   399→              >
+   400→                <PlayCircle className="h-4 w-4" aria-hidden />
+   401→                Ver cómo funciona
+   402→              </Button>
+   403→            </div>
+   404→
+   405→            <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted-foreground">
+   406→              <span className="inline-flex items-center gap-1.5">
+   407→                <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+   408→                Sin tarjeta para probar
+   409→              </span>
+   410→              <span className="inline-flex items-center gap-1.5">
+   411→                <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+   412→                Onboarding en 24-48h
+   413→              </span>
+   414→              <span className="inline-flex items-center gap-1.5">
+   415→                <Check className="h-3.5 w-3.5 text-[var(--teal)]" aria-hidden />
+   416→                Datos migrados desde TheFork y POS
+   417→              </span>
+   418→            </div>
+   419→          </div>
+   420→
+   421→          {/* Right: dashboard preview */}
+   422→          <HeroPreview />
+   423→        </div>
+   424→      </div>
+   425→    </section>
+   426→  );
+   427→}
+   428→
+   429→function HeroPreview() {
+   430→  const reduced = useReducedMotion();
+   431→  return (
+   432→    <div className="relative min-w-0">
+   433→      <div
+   434→        className={cn(
+   435→          "relative rounded-2xl rp-glass-strong p-4 sm:p-5",
+   436→          !reduced && "animate-in fade-in slide-in-from-bottom-4 duration-700",
+   437→        )}
+   438→        style={{
+   439→          boxShadow:
+   440→            "0 0 0 1px color-mix(in oklab, var(--gold) 25%, transparent)," +
+   441→            "0 30px 80px -30px color-mix(in oklab, var(--gold) 40%, transparent)",
+   442→        }}
+   443→      >
+   444→        {/* Top bar */}
+   445→        <div className="flex items-center justify-between mb-4">
+   446→          <div className="flex items-center gap-2">
+   447→            <span className="relative inline-flex h-2.5 w-2.5">
+   448→              <span
+   449→                className={cn(
+   450→                  "absolute inset-0 rounded-full bg-[var(--teal)]",
+   451→                  !reduced && "animate-ping opacity-75",
+   452→                )}
+   453→                aria-hidden
+   454→              />
+   455→              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--teal)]" />
+   456→            </span>
+   457→            <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+   458→              Servicio · viernes 21:14
+   459→            </span>
+   460→          </div>
+   461→          <DemoBadge />
+   462→        </div>
+   463→
+   464→        {/* KPI grid */}
+   465→        <div className="grid grid-cols-2 gap-2.5">
+   466→          <PreviewKpi label="Reservas hoy" value="47" delta="+12%" tone="gold" />
+   467→          <PreviewKpi label="Ocupación" value="78%" delta="+5pp" tone="teal" />
+   468→          <PreviewKpi label="Ticket medio" value="38€" delta="+2€" tone="gold" />
+   469→          <PreviewKpi label="No-shows" value="3" delta="-1" tone="teal" invert />
+   470→        </div>
+   471→
+   472→        {/* Reservations mini list */}
+   473→        <div className="mt-3 rounded-xl border border-border/50 bg-background/40 overflow-hidden">
+   474→          <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+   475→            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   476→              Próximas reservas
+   477→            </span>
+   478→            <span className="text-[11px] text-muted-foreground">3 de 47</span>
+   479→          </div>
+   480→          <ul className="divide-y divide-border/40">
+   481→            {HERO_RESERVATIONS.map((r, i) => (
+   482→              <li
+   483→                key={r.name}
+   484→                className="flex items-center gap-3 px-3 py-2"
+   485→                style={{
+   486→                  animation: reduced
+   487→                    ? undefined
+   488→                    : `rp-fade-in 0.5s ease-out ${0.2 + i * 0.12}s both`,
+   489→                }}
+   490→              >
+   491→                <span className="text-xs font-mono text-[var(--gold-soft)] w-12">
+   492→                  {r.time}
+   493→                </span>
+   494→                <div className="min-w-0 flex-1">
+   495→                  <div className="text-sm font-medium truncate">{r.name}</div>
+   496→                  <div className="text-[11px] text-muted-foreground">
+   497→                    {r.pax} pax · {r.table}
+   498→                  </div>
+   499→                </div>
+   500→                <span
+   501→                  className={cn(
+   502→                    "rounded-full border px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   503→                    r.status === "Confirmada" &&
+   504→                      "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   505→                    r.status === "Pendiente" &&
+   506→                      "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   507→                    r.status === "En mesa" &&
+   508→                      "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   509→                  )}
+   510→                >
+   511→                  {r.status}
+   512→                </span>
+   513→              </li>
+   514→            ))}
+   515→          </ul>
+   516→        </div>
+   517→
+   518→        {/* Floor plan mini */}
+   519→        <div className="mt-3 rounded-xl border border-border/50 bg-background/40 p-3">
+   520→          <div className="flex items-center justify-between mb-2.5">
+   521→            <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   522→              Plano de sala
+   523→            </span>
+   524→            <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+   525→              <LegendDot className="bg-[var(--gold)]" label="Ocupada" />
+   526→              <LegendDot className="bg-[var(--teal)]" label="Reservada" />
+   527→              <LegendDot className="bg-foreground/25" label="Libre" />
+   528→            </div>
+   529→          </div>
+   530→          <div className="grid grid-cols-3 gap-2">
+   531→            {HERO_TABLES.map((t, i) => (
+   532→              <div
+   533→                key={t.id}
+   534→                className={cn(
+   535→                  "rounded-md border px-2 py-2 text-center text-[11px] font-mono",
+   536→                  t.state === "ocupada" &&
+   537→                    "border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold-soft)]",
+   538→                  t.state === "reservada" &&
+   539→                    "border-[var(--teal)]/45 bg-[var(--teal)]/12 text-[var(--teal)]",
+   540→                  t.state === "libre" &&
+   541→                    "border-border/50 bg-foreground/[0.03] text-muted-foreground",
+   542→                )}
+   543→                style={{
+   544→                  animation: reduced
+   545→                    ? undefined
+   546→                    : `rp-fade-in 0.4s ease-out ${0.4 + i * 0.06}s both`,
+   547→                }}
+   548→              >
+   549→                <div className="text-[10px] uppercase tracking-wider opacity-70">
+   550→                  {t.id}
+   551→                </div>
+   552→                <div className="mt-0.5 text-sm">{t.pax}p</div>
+   553→              </div>
+   554→            ))}
+   555→          </div>
+   556→        </div>
+   557→      </div>
+   558→
+   559→      {/* Floating chip */}
+   560→      <div
+   561→        className={cn(
+   562→          "absolute -left-4 top-1/3 hidden sm:flex rp-glass-strong rounded-lg px-3 py-2 items-center gap-2",
+   563→          !reduced && "animate-in fade-in slide-in-from-left-4 duration-700 delay-300",
+   564→        )}
+   565→        style={{
+   566→          boxShadow:
+   567→            "0 0 0 1px color-mix(in oklab, var(--teal) 30%, transparent)",
+   568→        }}
+   569→      >
+   570→        <Bot className="h-4 w-4 text-[var(--teal)]" aria-hidden />
+   571→        <div className="text-[11px] leading-tight">
+   572→          <div className="text-muted-foreground">IA Copilot</div>
+   573→          <div className="font-medium">Mesa 7 rinde -18%</div>
+   574→        </div>
+   575→      </div>
+   576→    </div>
+   577→  );
+   578→}
+   579→
+   580→function PreviewKpi({
+   581→  label,
+   582→  value,
+   583→  delta,
+   584→  tone,
+   585→  invert,
+   586→}: {
+   587→  label: string;
+   588→  value: string;
+   589→  delta: string;
+   590→  tone: "gold" | "teal";
+   591→  invert?: boolean;
+   592→}) {
+   593→  const isPositive = !invert;
+   594→  return (
+   595→    <div className="rounded-xl border border-border/50 bg-background/40 p-3">
+   596→      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   597→        {label}
+   598→      </div>
+   599→      <div className="mt-1 flex items-baseline gap-2">
+   600→        <span className="font-display text-2xl font-light">{value}</span>
+   601→        <span
+   602→          className={cn(
+   603→            "text-xs font-mono",
+   604→            tone === "gold"
+   605→              ? "text-[var(--gold-soft)]"
+   606→              : "text-[var(--teal)]",
+   607→            !isPositive && "text-[var(--teal)]",
+   608→          )}
+   609→        >
+   610→          {delta}
+   611→        </span>
+   612→      </div>
+   613→    </div>
+   614→  );
+   615→}
+   616→
+   617→function LegendDot({ className, label }: { className: string; label: string }) {
+   618→  return (
+   619→    <span className="inline-flex items-center gap-1">
+   620→      <span className={cn("h-1.5 w-1.5 rounded-full", className)} aria-hidden />
+   621→      {label}
+   622→    </span>
+   623→  );
+   624→}
+   625→
+   626→const HERO_RESERVATIONS = [
+   627→  { time: "21:30", name: "Familia Ortega", pax: 4, table: "Mesa 12", status: "Confirmada" as const },
+   628→  { time: "21:45", name: "Sra. Velasco", pax: 2, table: "Mesa 5", status: "Pendiente" as const },
+   629→  { time: "22:00", name: "Cumple Lara", pax: 6, table: "Mesa 18", status: "En mesa" as const },
+   630→];
+   631→
+   632→const HERO_TABLES = [
+   633→  { id: "M1", pax: 2, state: "ocupada" as const },
+   634→  { id: "M2", pax: 2, state: "libre" as const },
+   635→  { id: "M3", pax: 4, state: "reservada" as const },
+   636→  { id: "M5", pax: 2, state: "reservada" as const },
+   637→  { id: "M7", pax: 4, state: "ocupada" as const },
+   638→  { id: "M9", pax: 6, state: "libre" as const },
+   639→];
+   640→
+   641→/* --------------------------- Social proof ---------------------------- */
+   642→
+   643→const METRICS: {
+   644→  label: string;
+   645→  target: number;
+   646→  decimals?: number;
+   647→  prefix?: string;
+   648→  suffix?: string;
+   649→  format?: (v: number) => string;
+   650→}[] = [
+   651→  { label: "Reservas gestionadas", target: 1.2, format: (v) => `${v.toFixed(1)}M` },
+   652→  { label: "Restaurantes activos", target: 3400, format: (v) => Math.round(v).toLocaleString("es-ES") },
+   653→  { label: "No-shows reducidos", target: -42, format: (v) => `${Math.round(v)}%` },
+   654→  { label: "Horas ahorradas", target: 180, format: (v) => `${Math.round(v)}k/mes` },
+   655→  { label: "Clientas fidelizadas", target: 2.1, format: (v) => `${v.toFixed(1)}M` },
+   656→  { label: "Mejora media valoración", target: 0.6, format: (v) => `+${v.toFixed(1)}★` },
+   657→];
+   658→
+   659→function SocialProof() {
+   660→  const { ref, inView } = useInView<HTMLDivElement>();
+   661→  return (
+   662→    <section className="border-t border-border/40 bg-background/60 py-14 sm:py-20">
+   663→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   664→        <div className="flex items-center justify-between mb-8">
+   665→          <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   666→            La plataforma en cifras
+   667→          </p>
+   668→          <DemoBadge />
+   669→        </div>
+   670→        <div
+   671→          ref={ref}
+   672→          className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6"
+   673→        >
+   674→          {METRICS.map((m, i) => (
+   675→            <MetricCard key={m.label} metric={m} run={inView} delay={i * 80} />
+   676→          ))}
+   677→        </div>
+   678→      </div>
+   679→    </section>
+   680→  );
+   681→}
+   682→
+   683→function MetricCard({
+   684→  metric,
+   685→  run,
+   686→  delay,
+   687→}: {
+   688→  metric: (typeof METRICS)[number];
+   689→  run: boolean;
+   690→  delay: number;
+   691→}) {
+   692→  const val = useCountUp(metric.target, run);
+   693→  const reduced = useReducedMotion();
+   694→  return (
+   695→    <div
+   696→      className={cn(
+   697→        "rp-glass rounded-xl p-4 sm:p-5",
+   698→        !reduced && "animate-in fade-in slide-in-from-bottom-2 duration-500",
+   699→      )}
+   700→      style={{ animationDelay: reduced ? undefined : `${delay}ms` }}
+   701→    >
+   702→      <div className="font-display text-2xl sm:text-3xl font-light rp-gold-text">
+   703→        {metric.format(val)}
+   704→      </div>
+   705→      <div className="mt-1.5 text-xs text-muted-foreground leading-snug">
+   706→        {metric.label}
+   707→      </div>
+   708→    </div>
+   709→  );
+   710→}
+   711→
+   712→/* ----------------------------- Problems ------------------------------ */
+   713→
+   714→type Problem = {
+   715→  icon: LucideIcon;
+   716→  title: string;
+   717→  desc: string;
+   718→  sol: string;
+   719→  section: Section;
+   720→};
+   721→
+   722→const PROBLEMS: Problem[] = [
+   723→  {
+   724→    icon: CalendarX,
+   725→    title: "Reservas dispersas",
+   726→    desc: "WhatsApp, teléfono, TheFork y web sin una sola fuente de verdad.",
+   727→    sol: "Reservas inteligentes",
+   728→    section: "reservas",
+   729→  },
+   730→  {
+   731→    icon: CalendarClock,
+   732→    title: "Mesas vacías",
+   733→    desc: "Turnos sin optimizar y plano de sala sin visibilidad de ocupación real.",
+   734→    sol: "Plano de mesas",
+   735→    section: "reservas",
+   736→  },
+   737→  {
+   738→    icon: UserX,
+   739→    title: "No-shows",
+   740→    desc: "Huecos imprevistos que cuestan hasta el 15% de la facturación mensual.",
+   741→    sol: "Reservas inteligentes",
+   742→    section: "reservas",
+   743→  },
+   744→  {
+   745→    icon: Database,
+   746→    title: "Datos de clientes perdidos",
+   747→    desc: "Histórico, preferencias y alergias repartidos en cuadernos y teléfonos.",
+   748→    sol: "CRM",
+   749→    section: "crm",
+   750→  },
+   751→  {
+   752→    icon: Star,
+   753→    title: "Reseñas sin responder",
+   754→    desc: "Cada reseña sin respuesta es un cliente que no vuelve.",
+   755→    sol: "Google Reviews",
+   756→    section: "reviews",
+   757→  },
+   758→  {
+   759→    icon: Hand,
+   760→    title: "Procesos manuales",
+   761→    desc: "Confirmaciones, recordatorios y cumpleaños gestionados a mano.",
+   762→    sol: "Automatizaciones",
+   763→    section: "automatizaciones",
+   764→  },
+   765→  {
+   766→    icon: Unplug,
+   767→    title: "Herramientas desconectadas",
+   768→    desc: "POS, delivery, reservas y marketing en silos que no comparten datos.",
+   769→    sol: "Integraciones",
+   770→    section: "integraciones",
+   771→  },
+   772→  {
+   773→    icon: TrendingDown,
+   774→    title: "Sin visibilidad de rentabilidad",
+   775→    desc: "Decisiones sin datos: no sabes qué plato, turno o camarero pierde dinero.",
+   776→    sol: "Analytics",
+   777→    section: "analytics",
+   778→  },
+   779→];
+   780→
+   781→function Problems() {
+   782→  const go = useNav((s) => s.go);
+   783→  return (
+   784→    <section className="border-t border-border/60 py-16 sm:py-24">
+   785→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   786→        <header className="mb-10 sm:mb-14 max-w-3xl">
+   787→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   788→            <span className="rp-gold-text">01</span>
+   789→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+   790→            <span>El problema</span>
+   791→          </div>
+   792→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+   793→            Ocho problemas que cuestan dinero cada servicio
+   794→          </h2>
+   795→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+   796→            Cada cuello de botella se traduce en reservas perdidas, mesas vacías
+   797→            o clientes que no vuelven. RestoPanel ataca cada uno con un módulo
+   798→            concreto.
+   799→          </p>
+   800→        </header>
+   801→
+   802→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+   803→          {PROBLEMS.map((p) => (
+   804→            <div
+   805→              key={p.title}
+   806→              className="group rp-glass rounded-2xl p-5 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+   807→            >
+   808→              <div className="flex items-center justify-between">
+   809→                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border/60 bg-foreground/5 text-muted-foreground group-hover:text-[var(--gold-soft)] group-hover:border-[var(--gold)]/40 transition-colors">
+   810→                  <p.icon className="h-5 w-5" aria-hidden />
+   811→                </div>
+   812→                <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground/70">
+   813→                  problema
+   814→                </span>
+   815→              </div>
+   816→              <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+   817→                {p.title}
+   818→              </h3>
+   819→              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+   820→                {p.desc}
+   821→              </p>
+   822→              <button
+   823→                onClick={() => go(p.section)}
+   824→                className="mt-4 inline-flex items-center gap-1.5 min-h-11 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)]"
+   825→              >
+   826→                <span className="text-muted-foreground">→ Solución:</span>
+   827→                <span>{p.sol}</span>
+   828→                <ArrowUpRight className="h-3 w-3" aria-hidden />
+   829→              </button>
+   830→            </div>
+   831→          ))}
+   832→        </div>
+   833→      </div>
+   834→    </section>
+   835→  );
+   836→}
+   837→
+   838→/* ----------------------------- Platform ------------------------------ */
+   839→
+   840→type Module = {
+   841→  name: string;
+   842→  benefit: string;
+   843→  icon: LucideIcon;
+   844→  status: "Disponible" | "Próximamente";
+   845→  section: Section;
+   846→};
+   847→
+   848→const MODULES: Module[] = [
+   849→  {
+   850→    name: "Reservas inteligentes",
+   851→    benefit: "Calendario, timeline y confirmaciones automáticas que reducen no-shows.",
+   852→    icon: CalendarCheck,
+   853→    status: "Disponible",
+   854→    section: "reservas",
+   855→  },
+   856→  {
+   857→    name: "Plano de mesas",
+   858→    benefit: "Drag & drop de mesas en tiempo real con estados y turnos.",
+   859→    icon: LayoutGrid,
+   860→    status: "Disponible",
+   861→    section: "reservas",
+   862→  },
+   863→  {
+   864→    name: "CRM",
+   865→    benefit: "Historial, preferencias, alergias, VIP y consentimiento por cliente.",
+   866→    icon: Users,
+   867→    status: "Disponible",
+   868→    section: "crm",
+   869→  },
+   870→  {
+   871→    name: "Marketing",
+   872→    benefit: "Campañas SMS y email segmentadas y medibles desde el CRM.",
+   873→    icon: Megaphone,
+   874→    status: "Disponible",
+   875→    section: "marketing",
+   876→  },
+   877→  {
+   878→    name: "Automatizaciones",
+   879→    benefit: "Reglas if-this-then-that para reservas, no-shows y cumpleaños.",
+   880→    icon: Workflow,
+   881→    status: "Disponible",
+   882→    section: "automatizaciones",
+   883→  },
+   884→  {
+   885→    name: "Google Reviews",
+   886→    benefit: "Solicita reseñas en el momento justo y responde desde un buzón único.",
+   887→    icon: Star,
+   888→    status: "Disponible",
+   889→    section: "reviews",
+   890→  },
+   891→  {
+   892→    name: "Analytics",
+   893→    benefit: "Rentabilidad por servicio, plato, camarero y horario en tiempo real.",
+   894→    icon: BarChart3,
+   895→    status: "Disponible",
+   896→    section: "analytics",
+   897→  },
+   898→  {
+   899→    name: "IA Copilot",
+   900→    benefit: "Pregunta en lenguaje natural y actúa: “¿Qué mesa rinde menos?”.",
+   901→    icon: Bot,
+   902→    status: "Disponible",
+   903→    section: "dashboard",
+   904→  },
+   905→  {
+   906→    name: "Lista de espera",
+   907→    benefit: "Clientes sin reserva con SMS de aviso y estimación de espera en vivo.",
+   908→    icon: Hourglass,
+   909→    status: "Próximamente",
+   910→    section: "reservas",
+   911→  },
+   912→  {
+   913→    name: "Marketplace",
+   914→    benefit: "Conecta con proveedores y servicios para restaurantes.",
+   915→    icon: Store,
+   916→    status: "Próximamente",
+   917→    section: "integraciones",
+   918→  },
+   919→  {
+   920→    name: "Integraciones",
+   921→    benefit: "Stripe, WhatsApp, Google Business, SumUp, TheFork y más.",
+   922→    icon: Plug,
+   923→    status: "Disponible",
+   924→    section: "integraciones",
+   925→  },
+   926→];
+   927→
+   928→function Platform() {
+   929→  const go = useNav((s) => s.go);
+   930→  return (
+   931→    <section
+   932→      id="p-plataforma"
+   933→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+   934→    >
+   935→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   936→        <header className="mb-10 sm:mb-14 max-w-3xl">
+   937→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+   938→            <span className="rp-gold-text">02</span>
+   939→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+   940→            <span>La plataforma</span>
+   941→          </div>
+   942→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+   943→            Una plataforma conectada, no una colección de herramientas
+   944→          </h2>
+   945→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+   946→            Once módulos que comparten los mismos datos, los mismos permisos y la
+   947→            misma identidad de cliente. Lo que cambia en reservas aparece al
+   948→            instante en CRM, analytics y marketing.
+   949→          </p>
+   950→        </header>
+   951→
+   952→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+   953→          {MODULES.map((m) => (
+   954→            <div
+   955→              key={m.name}
+   956→              className="group flex flex-col rp-glass rounded-2xl p-5 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+   957→            >
+   958→              <div className="flex items-start justify-between">
+   959→                <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]">
+   960→                  <m.icon className="h-5 w-5" aria-hidden />
+   961→                </div>
+   962→                <StatusPill status={m.status} />
+   963→              </div>
+   964→              <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+   965→                {m.name}
+   966→              </h3>
+   967→              <p className="mt-1.5 flex-1 text-sm leading-relaxed text-muted-foreground">
+   968→                {m.benefit}
+   969→              </p>
+   970→              <button
+   971→                onClick={() => go(m.section)}
+   972→                className="mt-4 inline-flex items-center gap-1.5 min-h-11 text-xs font-medium text-[var(--gold-soft)] hover:text-[var(--gold)] self-start"
+   973→                aria-label={`Explorar módulo ${m.name}`}
+   974→              >
+   975→                Explorar
+   976→                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+   977→              </button>
+   978→            </div>
+   979→          ))}
+   980→        </div>
+   981→      </div>
+   982→    </section>
+   983→  );
+   984→}
+   985→
+   986→function StatusPill({ status }: { status: "Disponible" | "Próximamente" }) {
+   987→  if (status === "Disponible") {
+   988→    return (
+   989→      <span className="inline-flex items-center gap-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
+   990→        <span className="h-1.5 w-1.5 rounded-full bg-[var(--teal)]" aria-hidden />
+   991→        Disponible
+   992→      </span>
+   993→    );
+   994→  }
+   995→  return (
+   996→    <span className="inline-flex items-center gap-1 rounded-full border border-foreground/15 bg-foreground/5 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   997→      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" aria-hidden />
+   998→      Próximamente
+   999→    </span>
+  1000→  );
+  1001→}
+  1002→
+  1003→/* ----------------------- Deep dive: Reservas ------------------------- */
+  1004→
+  1005→function DeepDiveReservas() {
+  1006→  const go = useNav((s) => s.go);
+  1007→  return (
+  1008→    <section className="border-t border-border/60 py-16 sm:py-24">
+  1009→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1010→        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+  1011→          <div className="min-w-0">
+  1012→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1013→              <span className="rp-gold-text">03</span>
+  1014→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1015→              <span>Reservas y plano inteligente</span>
+  1016→            </div>
+  1017→            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-light tracking-tight text-balance">
+  1018→              Calendario, timeline y drag &amp; drop de mesas en una sola vista
+  1019→            </h2>
+  1020→            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+  1021→              Cada reserva entra al sistema una sola vez y aparece en el
+  1022→              calendario, en el plano y en el CRM. Las confirmaciones y
+  1023→              recordatorios se envían solos, y las reglas anti-no-show deciden
+  1024→              cuándo pedir depósito o tarjeta.
+  1025→            </p>
+  1026→            <ul className="mt-6 space-y-3">
+  1027→              {[
+  1028→                "Calendario por turnos con filtros de servicio, zona y pax.",
+  1029→                "Timeline horizontal con drag & drop entre mesas y horas.",
+  1030→                "Confirmaciones automáticas por SMS y WhatsApp con idempotencia.",
+  1031→                "Reglas anti-no-show: depósito, pre-autorización o lista de espera.",
+  1032→                "Sustitución de última hora con reasignación inteligente de mesas.",
+  1033→              ].map((t) => (
+  1034→                <li key={t} className="flex gap-3 text-sm leading-relaxed">
+  1035→                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--gold)]" aria-hidden />
+  1036→                  <span className="text-foreground/85">{t}</span>
+  1037→                </li>
+  1038→              ))}
+  1039→            </ul>
+  1040→            <div className="mt-7 flex flex-wrap gap-3">
+  1041→              <Button
+  1042→                onClick={() => go("reservas")}
+  1043→                className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1044→              >
+  1045→                Explorar reservas
+  1046→                <ArrowRight className="h-4 w-4" aria-hidden />
+  1047→              </Button>
+  1048→              <Button variant="outline" onClick={() => go("reservas")}>
+  1049→                Ver plano en vivo
+  1050→              </Button>
+  1051→            </div>
+  1052→          </div>
+  1053→
+  1054→          <ReservationsMock />
+  1055→        </div>
+  1056→      </div>
+  1057→    </section>
+  1058→  );
+  1059→}
+  1060→
+  1061→function ReservationsMock() {
+  1062→  const hours = ["13:00", "13:30", "14:00", "14:30", "15:00"];
+  1063→  const lanes = ["Mesa 5", "Mesa 7", "Mesa 12"];
+  1064→  const blocks: Record<string, { start: number; span: number; name: string; pax: number; tone: "gold" | "teal" | "muted" }> = {
+  1065→    "Mesa 5": { start: 0, span: 2, name: "Sra. Velasco", pax: 2, tone: "teal" },
+  1066→    "Mesa 7": { start: 1, span: 3, name: "Familia Ortega", pax: 4, tone: "gold" },
+  1067→    "Mesa 12": { start: 2, span: 2, name: "Cumple Lara", pax: 6, tone: "gold" },
+  1068→  };
+  1069→
+  1070→  return (
+  1071→    <div className="rp-glass-strong rounded-2xl p-4 sm:p-5 relative min-w-0">
+  1072→      <DemoBadge className="absolute right-4 top-4" />
+  1073→      <div className="flex items-center gap-2 mb-4">
+  1074→        <CalendarCheck className="h-4 w-4 text-[var(--gold-soft)]" aria-hidden />
+  1075→        <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1076→          Timeline · viernes · servicio de comida
+  1077→        </span>
+  1078→      </div>
+  1079→
+  1080→      {/* Calendar header — horizontally scrollable on narrow viewports */}
+  1081→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+  1082→      <div className="grid gap-2 min-w-[520px]" style={{ gridTemplateColumns: `120px repeat(${hours.length}, 1fr)` }}>
+  1083→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground" />
+  1084→        {hours.map((h) => (
+  1085→          <div
+  1086→            key={h}
+  1087→            className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground text-center"
+  1088→          >
+  1089→            {h}
+  1090→          </div>
+  1091→        ))}
+  1092→
+  1093→        {lanes.map((lane) => (
+  1094→          <React.Fragment key={lane}>
+  1095→            <div className="text-xs text-foreground/80 font-medium py-3">
+  1096→              {lane}
+  1097→            </div>
+  1098→            {hours.map((_, hi) => {
+  1099→              const b = blocks[lane];
+  1100→              const isStart = b && hi === b.start;
+  1101→              const isInside = b && hi > b.start && hi < b.start + b.span;
+  1102→              if (isStart) {
+  1103→                return (
+  1104→                  <div
+  1105→                    key={`${lane}-${hi}`}
+  1106→                    className={cn(
+  1107→                      "rounded-md border px-2 py-2 text-xs h-14 flex flex-col justify-center",
+  1108→                      b.tone === "gold" &&
+  1109→                        "border-[var(--gold)]/45 bg-[var(--gold)]/12 text-[var(--gold-soft)]",
+  1110→                      b.tone === "teal" &&
+  1111→                        "border-[var(--teal)]/45 bg-[var(--teal)]/12 text-[var(--teal)]",
+  1112→                      b.tone === "muted" &&
+  1113→                        "border-border/50 bg-foreground/5 text-muted-foreground",
+  1114→                    )}
+  1115→                    style={{ gridColumn: `span ${b.span}` }}
+  1116→                  >
+  1117→                    <div className="font-medium truncate">{b.name}</div>
+  1118→                    <div className="text-[10px] opacity-80">{b.pax} pax</div>
+  1119→                  </div>
+  1120→                );
+  1121→              }
+  1122→              if (isInside) return null;
+  1123→              return (
+  1124→                <div
+  1125→                  key={`${lane}-${hi}`}
+  1126→                  className="h-14 rounded-md border border-dashed border-border/40 bg-background/30"
+  1127→                />
+  1128→              );
+  1129→            })}
+  1130→          </React.Fragment>
+  1131→        ))}
+  1132→      </div>
+  1133→      </div>
+  1134→
+  1135→      <div className="mt-4 grid grid-cols-3 gap-2 text-[11px]">
+  1136→        <div className="rounded-md border border-border/50 bg-background/40 p-2">
+  1137→          <div className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+  1138→            Confirmadas
+  1139→          </div>
+  1140→          <div className="mt-1 font-display text-lg text-[var(--gold-soft)]">
+  1141→            47
+  1142→          </div>
+  1143→        </div>
+  1144→        <div className="rounded-md border border-border/50 bg-background/40 p-2">
+  1145→          <div className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+  1146→            Pendientes
+  1147→          </div>
+  1148→          <div className="mt-1 font-display text-lg text-amber-300">5</div>
+  1149→        </div>
+  1150→        <div className="rounded-md border border-border/50 bg-background/40 p-2">
+  1151→          <div className="text-muted-foreground font-mono uppercase tracking-wider text-[10px]">
+  1152→            Riesgo no-show
+  1153→          </div>
+  1154→          <div className="mt-1 font-display text-lg text-[var(--teal)]">2</div>
+  1155→        </div>
+  1156→      </div>
+  1157→    </div>
+  1158→  );
+  1159→}
+  1160→
+  1161→/* ------------------------- Deep dive: CRM ---------------------------- */
+  1162→
+  1163→function DeepDiveCRM() {
+  1164→  const go = useNav((s) => s.go);
+  1165→  return (
+  1166→    <section className="border-t border-border/60 py-16 sm:py-24 bg-foreground/[0.02]">
+  1167→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1168→        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+  1169→          <CrmMock />
+  1170→          <div className="lg:order-2">
+  1171→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1172→              <span className="rp-gold-text">04</span>
+  1173→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1174→              <span>CRM que recuerda</span>
+  1175→            </div>
+  1176→            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-light tracking-tight text-balance">
+  1177→              Cada cliente con su historia, no solo con su teléfono
+  1178→            </h2>
+  1179→            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+  1180→              El CRM de RestoPanel recuerda cada visita, cada preferencia y cada
+  1181→              alergia. Cuando el cliente vuelve, el equipo de sala sabe
+  1182→              exactamente cómo atenderle — y el marketing sabe qué mensaje
+  1183→              enviarle.
+  1184→            </p>
+  1185→            <div className="mt-6 grid sm:grid-cols-2 gap-3">
+  1186→              {[
+  1187→                { k: "Visitas", v: "Historial completo por cliente" },
+  1188→                { k: "Frecuencia", v: "Cadencia y última visita" },
+  1189→                { k: "Ticket medio", v: "Gasto acumulado y por servicio" },
+  1190→                { k: "Preferencias", v: "Mesa favorita, platos, vino" },
+  1191→                { k: "Alergias", v: "Avisos en sala y en cocina" },
+  1192→                { k: "Cumpleaños", v: "Campañas automáticas" },
+  1193→                { k: "Etiquetas", v: "VIP, business, regular, famoso" },
+  1194→                { k: "Consentimiento", v: "RGPD y preferencias de canal" },
+  1195→              ].map((it) => (
+  1196→                <div
+  1197→                  key={it.k}
+  1198→                  className="rp-glass rounded-lg p-3"
+  1199→                >
+  1200→                  <div className="text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1201→                    {it.k}
+  1202→                  </div>
+  1203→                  <div className="mt-1 text-sm text-foreground/85">{it.v}</div>
+  1204→                </div>
+  1205→              ))}
+  1206→            </div>
+  1207→            <Button
+  1208→              className="mt-7 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1209→              onClick={() => go("crm")}
+  1210→            >
+  1211→              Explorar CRM
+  1212→              <ArrowRight className="h-4 w-4" aria-hidden />
+  1213→            </Button>
+  1214→          </div>
+  1215→        </div>
+  1216→      </div>
+  1217→    </section>
+  1218→  );
+  1219→}
+  1220→
+  1221→function CrmMock() {
+  1222→  return (
+  1223→    <div className="rp-glass-strong rounded-2xl p-5 relative min-w-0">
+  1224→      <DemoBadge className="absolute right-4 top-4" />
+  1225→      <div className="flex items-center gap-3">
+  1226→        <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-lg font-medium">
+  1227→          EV
+  1228→        </div>
+  1229→        <div className="flex-1 min-w-0">
+  1230→          <div className="flex items-center gap-2">
+  1231→            <h3 className="font-display text-lg font-medium">Elena Velasco</h3>
+  1232→            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--gold)]/45 bg-[var(--gold)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+  1233→              <Star className="h-3 w-3" aria-hidden />
+  1234→              VIP
+  1235→            </span>
+  1236→          </div>
+  1237→          <div className="text-xs text-muted-foreground">
+  1238→            Cliente desde 2022 · +34 6•• ••• ••8
+  1239→          </div>
+  1240→        </div>
+  1241→      </div>
+  1242→
+  1243→      <div className="mt-4 grid grid-cols-3 gap-2">
+  1244→        <MiniStat label="Visitas" value="28" />
+  1245→        <MiniStat label="Freq." value="2,1/mes" />
+  1246→        <MiniStat label="Ticket" value="42€" />
+  1247→      </div>
+  1248→
+  1249→      <div className="mt-4 rounded-xl border border-border/50 bg-background/40 p-3">
+  1250→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+  1251→          Preferencias
+  1252→        </div>
+  1253→        <div className="flex flex-wrap gap-1.5">
+  1254→          {["Mesa 5 (ventana)", "Vino tinto Rioja", "Sin gluten", "Cumple 14/03"].map((t) => (
+  1255→            <span
+  1256→              key={t}
+  1257→              className="rounded-md border border-border/60 bg-foreground/5 px-2 py-0.5 text-[11px]"
+  1258→            >
+  1259→              {t}
+  1260→            </span>
+  1261→          ))}
+  1262→        </div>
+  1263→      </div>
+  1264→
+  1265→      <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-400/8 p-3">
+  1266→        <div className="flex items-center gap-2 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+  1267→          <ShieldCheck className="h-3 w-3" aria-hidden />
+  1268→          Alergias
+  1269→        </div>
+  1270→        <div className="mt-1 text-sm text-amber-200">
+  1271→          Apio · Mariscos (anafilaxia)
+  1272→        </div>
+  1273→      </div>
+  1274→
+  1275→      <div className="mt-3 rounded-xl border border-border/50 bg-background/40 p-3">
+  1276→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-2">
+  1277→          Últimas visitas
+  1278→        </div>
+  1279→        <ul className="space-y-1.5 text-xs">
+  1280→          {[
+  1281→            { d: "12 mar", t: "Comida · 2p · 44€" },
+  1282→            { d: "28 feb", t: "Cena · 4p · 168€" },
+  1283→            { d: "14 feb", t: "Cena · 2p · 38€" },
+  1284→          ].map((v) => (
+  1285→            <li key={v.d} className="flex items-center gap-3">
+  1286→              <span className="font-mono text-[var(--gold-soft)] w-12">{v.d}</span>
+  1287→              <span className="text-foreground/80">{v.t}</span>
+  1288→            </li>
+  1289→          ))}
+  1290→        </ul>
+  1291→      </div>
+  1292→    </div>
+  1293→  );
+  1294→}
+  1295→
+  1296→function MiniStat({ label, value }: { label: string; value: string }) {
+  1297→  return (
+  1298→    <div className="rounded-lg border border-border/50 bg-background/40 p-2 text-center">
+  1299→      <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1300→        {label}
+  1301→      </div>
+  1302→      <div className="mt-0.5 font-display text-base text-[var(--gold-soft)]">
+  1303→        {value}
+  1304→      </div>
+  1305→    </div>
+  1306→  );
+  1307→}
+  1308→
+  1309→/* ------------------------- Deep dive: IA ----------------------------- */
+  1310→
+  1311→function DeepDiveIA() {
+  1312→  const go = useNav((s) => s.go);
+  1313→  const [active, setActive] = React.useState(0);
+  1314→  const reduced = useReducedMotion();
+  1315→
+  1316→  return (
+  1317→    <section className="border-t border-border/60 py-16 sm:py-24">
+  1318→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1319→        <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+  1320→          <div className="min-w-0">
+  1321→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1322→              <span className="rp-gold-text">05</span>
+  1323→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1324→              <span>IA Copilot</span>
+  1325→            </div>
+  1326→            <h2 className="mt-4 font-display text-3xl sm:text-4xl font-light tracking-tight text-balance">
+  1327→              Pregunta en lenguaje natural. Recibe respuestas con fuentes y
+  1328→              confianza.
+  1329→            </h2>
+  1330→            <p className="mt-5 text-base leading-relaxed text-muted-foreground">
+  1331→              El Copilot lee tus datos de reservas, CRM y analytics y responde
+  1332→              con un nivel de confianza, las fuentes que usó y las acciones que
+  1333→              puedes ejecutar directamente desde el chat.
+  1334→            </p>
+  1335→
+  1336→            <div className="mt-6 flex flex-wrap gap-2">
+  1337→              {IA_QUERIES.map((q, i) => (
+  1338→                <button
+  1339→                  key={q}
+  1340→                  onClick={() => setActive(i)}
+  1341→                  className={cn(
+  1342→                    "inline-flex items-center min-h-11 rounded-full border px-3 py-2 text-xs transition-colors text-left",
+  1343→                    active === i
+  1344→                      ? "border-[var(--teal)]/50 bg-[var(--teal)]/10 text-[var(--teal)]"
+  1345→                      : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
+  1346→                  )}
+  1347→                >
+  1348→                  {q}
+  1349→                </button>
+  1350→              ))}
+  1351→            </div>
+  1352→
+  1353→            <Button
+  1354→              className="mt-7 bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
+  1355→              onClick={() => go("dashboard")}
+  1356→            >
+  1357→              Hablar con el Copilot
+  1358→              <ArrowRight className="h-4 w-4" aria-hidden />
+  1359→            </Button>
+  1360→          </div>
+  1361→
+  1362→          <div className="rp-glass-strong rounded-2xl p-5 relative">
+  1363→            <DemoBadge className="absolute right-4 top-4" />
+  1364→            <div className="flex items-center gap-2 mb-4">
+  1365→              <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]">
+  1366→                <Bot className="h-4 w-4" aria-hidden />
+  1367→              </div>
+  1368→              <div>
+  1369→                <div className="text-sm font-medium">RestoPanel Copilot</div>
+  1370→                <div className="text-[11px] text-muted-foreground">
+  1371→                  Conectado a reservas · CRM · analytics
+  1372→                </div>
+  1373→              </div>
+  1374→            </div>
+  1375→
+  1376→            <div
+  1377→              className="rounded-xl border border-border/50 bg-background/40 p-3 mb-3"
+  1378→              aria-live="polite"
+  1379→            >
+  1380→              <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+  1381→                <Quote className="h-3 w-3" aria-hidden />
+  1382→                Pregunta
+  1383→              </div>
+  1384→              <div className="text-sm text-foreground/90">
+  1385→                {IA_QUERIES[active]}
+  1386→              </div>
+  1387→            </div>
+  1388→
+  1389→            <div
+  1390→              key={active}
+  1391→              className={cn(
+  1392→                "rounded-xl border border-[var(--teal)]/30 bg-[var(--teal)]/5 p-3",
+  1393→                !reduced && "animate-in fade-in slide-in-from-bottom-2 duration-500",
+  1394→              )}
+  1395→            >
+  1396→              <div className="flex items-center justify-between mb-2">
+  1397→                <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-[var(--teal)]">
+  1398→                  <Sparkles className="h-3 w-3" aria-hidden />
+  1399→                  Respuesta
+  1400→                </div>
+  1401→                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono text-[var(--teal)]">
+  1402→                  Confianza {IA_ANSWERS[active].confidence}
+  1403→                </span>
+  1404→              </div>
+  1405→              <p className="text-sm leading-relaxed text-foreground/90">
+  1406→                {IA_ANSWERS[active].text}
+  1407→              </p>
+  1408→
+  1409→              <div className="mt-3">
+  1410→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1.5">
+  1411→                  Fuentes
+  1412→                </div>
+  1413→                <div className="flex flex-wrap gap-1.5">
+  1414→                  {IA_ANSWERS[active].sources.map((s) => (
+  1415→                    <span
+  1416→                      key={s}
+  1417→                      className="rounded-md border border-border/60 bg-foreground/5 px-2 py-0.5 text-[11px] text-muted-foreground"
+  1418→                    >
+  1419→                      {s}
+  1420→                    </span>
+  1421→                  ))}
+  1422→                </div>
+  1423→              </div>
+  1424→
+  1425→              <div className="mt-3 flex flex-wrap gap-2">
+  1426→                {IA_ANSWERS[active].actions.map((a) => (
+  1427→                  <button
+  1428→                    key={a}
+  1429→                    onClick={() => go("dashboard")}
+  1430→                    className="inline-flex items-center gap-1.5 min-h-11 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-2 text-xs text-[var(--gold-soft)] hover:bg-[var(--gold)]/20"
+  1431→                  >
+  1432→                    <Zap className="h-3 w-3" aria-hidden />
+  1433→                    {a}
+  1434→                  </button>
+  1435→                ))}
+  1436→              </div>
+  1437→            </div>
+  1438→          </div>
+  1439→        </div>
+  1440→      </div>
+  1441→    </section>
+  1442→  );
+  1443→}
+  1444→
+  1445→const IA_QUERIES = [
+  1446→  "¿Qué mesa rinde menos este mes?",
+  1447→  "¿Cuánto nos han costado los no-shows en marzo?",
+  1448→  "¿Qué clientes VIP no vienen desde hace 60 días?",
+  1449→  "¿Qué turno conviene abrir más?",
+  1450→];
+  1451→
+  1452→const IA_ANSWERS: {
+  1453→  confidence: string;
+  1454→  text: string;
+  1455→  sources: string[];
+  1456→  actions: string[];
+  1457→}[] = [
+  1458→  {
+  1459→    confidence: "92%",
+  1460→    text: "La Mesa 7 rinde un 18% menos que la media del comedor en marzo: ocupa 4 pax pero solo factura 28€ por servicio, frente a los 42€ de media. Suele asignarse a parejas en horas valle (15:00-16:00).",
+  1461→    sources: ["analytics.facturacion_por_mesa", "reservas.ocupacion_30d", "crm.ticket_medio"],
+  1462→    actions: ["Reasignar Mesa 7 a 4 pax", "Bloquear en horas valle", "Ver historial completo"],
+  1463→  },
+  1464→  {
+  1465→    confidence: "97%",
+  1466→    text: "En marzo tuviste 14 no-shows con un coste estimado de 532€ (14 × 38€ ticket medio). El 71% ocurrió en viernes y sábados. Con depósito de 10€ en esas franjas reducirías el riesgo entre un 40-60%.",
+  1467→    sources: ["reservas.no_shows", "analytics.ticket_medio", "automatizaciones.reglas"],
+  1468→    actions: ["Activar depósito en fines de semana", "Ver lista de no-shows", "Crear regla anti-no-show"],
+  1469→  },
+  1470→  {
+  1471→    confidence: "89%",
+  1472→    text: "Detecto 12 clientes VIP sin visita en 60+ días. El de mayor valor histórico es Elena Velasco (28 visitas, 1.176€ acumulados), última visita el 12 de marzo. Sugerencia: campaña SMS personalizada con invitación a su mesa favorita (Mesa 5).",
+  1473→    sources: ["crm.clientes_vip", "crm.visitas_60d", "reservas.preferencias"],
+  1474→    actions: ["Lanzar campaña VIP", "Ver ficha completa", "Reservar Mesa 5"],
+  1475→  },
+  1476→  {
+  1477→    confidence: "84%",
+  1478→    text: "El viernes de 21:30 a 22:30 concentra el 38% de la demanda pero solo el 24% de la oferta de mesas. Abrir 4 mesas más en esa franja durante marzo y abril podría sumar unos 2.400€/mes adicionales.",
+  1479→    sources: ["analytics.demanda_por_hora", "reservas.ocupacion", "crm.ticket_medio"],
+  1480→    actions: ["Abrir 4 mesas extra", "Crear turno viernes-noche", "Ver proyección"],
+  1481→  },
+  1482→];
+  1483→
+  1484→/* ----------------------------- Pricing ------------------------------- */
+  1485→
+  1486→type PlanKey = "starter" | "pro" | "enterprise";
+  1487→
+  1488→const PLANS: Record<
+  1489→  PlanKey,
+  1490→  {
+  1491→    name: string;
+  1492→    monthly: number;
+  1493→    annual: number;
+  1494→    baseLocals: number;
+  1495→    maxLocals: number;
+  1496→    baseUsers: number;
+  1497→    unlimited?: boolean;
+  1498→    highlight?: boolean;
+  1499→  }
+  1500→> = {
+  1501→  starter: {
+  1502→    name: "Starter",
+  1503→    monthly: 69,
+  1504→    annual: 690,
+  1505→    baseLocals: 1,
+  1506→    maxLocals: 1,
+  1507→    baseUsers: 3,
+  1508→  },
+  1509→  pro: {
+  1510→    name: "Pro",
+  1511→    monthly: 149,
+  1512→    annual: 1490,
+  1513→    baseLocals: 5,
+  1514→    maxLocals: 5,
+  1515→    baseUsers: 10,
+  1516→    highlight: true,
+  1517→  },
+  1518→  enterprise: {
+  1519→    name: "Enterprise",
+  1520→    monthly: 399,
+  1521→    annual: 3990,
+  1522→    baseLocals: 1,
+  1523→    maxLocals: 50,
+  1524→    baseUsers: 0,
+  1525→    unlimited: true,
+  1526→  },
+  1527→};
+  1528→
+  1529→const COMPARISON: {
+  1530→  feature: string;
+  1531→  starter: string | boolean;
+  1532→  pro: string | boolean;
+  1533→  enterprise: string | boolean;
+  1534→}[] = [
+  1535→  { feature: "Locales incluidos", starter: "1", pro: "5", enterprise: "Ilimitado" },
+  1536→  { feature: "Usuarios incluidos", starter: "3", pro: "10", enterprise: "Ilimitado" },
+  1537→  { feature: "Reservas inteligentes", starter: true, pro: true, enterprise: true },
+  1538→  { feature: "Plano de mesas", starter: true, pro: true, enterprise: true },
+  1539→  { feature: "CRM", starter: true, pro: true, enterprise: true },
+  1540→  { feature: "Marketing (SMS/email)", starter: "Pago por uso", pro: "5k incluidos", enterprise: "Ilimitado" },
+  1541→  { feature: "Automatizaciones", starter: "5 activas", pro: "50 activas", enterprise: "Ilimitado" },
+  1542→  { feature: "Google Reviews", starter: true, pro: true, enterprise: true },
+  1543→  { feature: "Analytics avanzado", starter: false, pro: true, enterprise: true },
+  1544→  { feature: "IA Copilot", starter: false, pro: true, enterprise: true },
+  1545→  { feature: "Lista de espera", starter: false, pro: false, enterprise: true },
+  1546→  { feature: "Marketplace", starter: false, pro: false, enterprise: true },
+  1547→  { feature: "Integraciones (Stripe, POS…)", starter: "3", pro: "Ilimitado", enterprise: "Ilimitado + API" },
+  1548→  { feature: "Soporte", starter: "Email", pro: "Chat prioritario", enterprise: "CSM dedicado + SLA" },
+  1549→  { feature: "Onboarding", starter: "Autoservicio", pro: "Guiado 24-48h", enterprise: "Personalizado" },
+  1550→  { feature: "SLA", starter: false, pro: "99,5%", enterprise: "99,9% + RTO 1h" },
+  1551→];
+  1552→
+  1553→/* ===================================================================== *
+  1554→ *  Secciones con imágenes de producto reales (TASK LANDING-IMAGES)      *
+  1555→ * ===================================================================== */
+  1556→
+  1557→/** Wrapper consistente para imágenes de producto con marco premium. */
+  1558→function ProductImage({
+  1559→  src,
+  1560→  alt,
+  1561→  sizes,
+  1562→  priority = false,
+  1563→  className,
+  1564→  aspect = "aspect-[16/10]",
+  1565→}: {
+  1566→  src: string;
+  1567→  alt: string;
+  1568→  sizes: string;
+  1569→  priority?: boolean;
+  1570→  className?: string;
+  1571→  aspect?: string;
+  1572→}) {
+  1573→  return (
+  1574→    <div
+  1575→      className={cn(
+  1576→        "relative w-full overflow-hidden rp-glass rounded-2xl border border-border/40 shadow-2xl shadow-[var(--gold)]/5",
+  1577→        aspect,
+  1578→        className,
+  1579→      )}
+  1580→    >
+  1581→      <Image
+  1582→        src={src}
+  1583→        alt={alt}
+  1584→        fill
+  1585→        sizes={sizes}
+  1586→        priority={priority}
+  1587→        loading={priority ? undefined : "lazy"}
+  1588→        className="object-cover"
+  1589→      />
+  1590→    </div>
+  1591→  );
+  1592→}
+  1593→
+  1594→/* --------- Section A: Tú defines las reglas. RestoPanel hace el trabajo. --------- */
+  1595→
+  1596→const RULES_FEATURES = [
+  1597→  {
+  1598→    icon: Bell,
+  1599→    title: "Confirmaciones y reconfirmaciones automáticas",
+  1600→    description:
+  1601→      "Email, SMS o WhatsApp según el canal por el que llegó la reserva. Tú eliges cuándo y cuántas veces.",
+  1602→    image: "/brand/product/confirmacion-reserva.jpg",
+  1603→    alt: "Pareja en mesa de restaurante recibiendo notificación de confirmación de reserva en el móvil",
+  1604→  },
+  1605→  {
+  1606→    icon: RefreshCw,
+  1607→    title: "Reposicionamiento y listas de espera",
+  1608→    description:
+  1609→      "Si alguien cancela, el sistema reposiciona automáticamente a quien estaba en cola y le avisa.",
+  1610→    image: "/brand/product/plano-mesas-calendario.jpg",
+  1611→    alt: "Personal de sala con tablet viendo el plano de mesas con calendario y estados de mesa en tiempo real",
+  1612→  },
+  1613→  {
+  1614→    icon: Share2,
+  1615→    title: "Sincronización multicanal",
+  1616→    description:
+  1617→      "La disponibilidad se actualiza al instante en tu web, Google Maps y redes sociales. Nadie reserva una mesa que ya no existe.",
+  1618→    image: "/brand/product/dashboard-reservas.jpg",
+  1619→    alt: "Dashboard de reservas con botón nueva reserva, pestañas restaurante terraza y zona VIP, gráficos y perfil de cliente",
+  1620→  },
+  1621→] as const;
+  1622→
+  1623→function SectionRulesAuto() {
+  1624→  return (
+  1625→    <section
+  1626→      id="p-reglas"
+  1627→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1628→    >
+  1629→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1630→        <header className="mb-10 sm:mb-14 max-w-3xl">
+  1631→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1632→            <span className="rp-gold-text">·</span>
+  1633→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1634→            <span>Automatización</span>
+  1635→          </div>
+  1636→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1637→            Tú defines las reglas.{" "}
+  1638→            <span className="rp-gold-gradient font-normal">RestoPanel hace el trabajo.</span>
+  1639→          </h2>
+  1640→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+  1641→            Configura una vez tus políticas de reserva, tiempos de mesa, cobros y
+  1642→            recordatorios. El sistema se encarga de ejecutarlas sin que tengas
+  1643→            que tocar nada más.
+  1644→          </p>
+  1645→        </header>
+  1646→
+  1647→        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+  1648→          {RULES_FEATURES.map((f, i) => (
+  1649→            <article
+  1650→              key={f.title}
+  1651→              className="group flex flex-col rp-glass rounded-2xl p-4 sm:p-5 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+  1652→            >
+  1653→              <ProductImage
+  1654→                src={f.image}
+  1655→                alt={f.alt}
+  1656→                sizes="(max-width: 768px) 100vw, 33vw"
+  1657→                priority={i === 0}
+  1658→                aspect="aspect-[4/3]"
+  1659→                className="mb-5"
+  1660→              />
+  1661→              <div className="flex items-center gap-2.5">
+  1662→                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]">
+  1663→                  <f.icon className="h-4 w-4" aria-hidden />
+  1664→                </span>
+  1665→                <h3 className="font-display text-lg font-medium tracking-tight leading-tight">
+  1666→                  {f.title}
+  1667→                </h3>
+  1668→              </div>
+  1669→              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+  1670→                {f.description}
+  1671→              </p>
+  1672→            </article>
+  1673→          ))}
+  1674→        </div>
+  1675→
+  1676→        <p className="mt-10 sm:mt-14 text-center font-display text-lg sm:text-xl font-light tracking-tight text-foreground/90 max-w-3xl mx-auto text-balance">
+  1677→          Menos llamadas y WhatsApps improvisados.{" "}
+  1678→          <span className="rp-gold-text">Más reservas confirmadas.</span>{" "}
+  1679→          Más tiempo para cuidar la experiencia en sala.
+  1680→        </p>
+  1681→      </div>
+  1682→    </section>
+  1683→  );
+  1684→}
+  1685→
+  1686→/* --------- Section B: Reservas confirmadas en tiempo real --------- */
+  1687→
+  1688→const REALTIME_BENEFITS = [
+  1689→  "Cada confirmación se refleja al instante en el plano de mesas y en el calendario de sala.",
+  1690→  "Email, SMS o WhatsApp al cliente sin que tengas que tocar nada: tú decides el canal y el momento.",
+  1691→  "Si alguien cancela, la mesa queda libre y disponible para reposicionar a la siguiente reserva en cola.",
+  1692→] as const;
+  1693→
+  1694→function SectionRealTime() {
+  1695→  return (
+  1696→    <section
+  1697→      id="p-tiempo-real"
+  1698→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1699→    >
+  1700→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1701→        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+  1702→          {/* Imagen */}
+  1703→          <div className="order-2 lg:order-1">
+  1704→            <ProductImage
+  1705→              src="/brand/product/dashboard-reservas.jpg"
+  1706→              alt="Dashboard completo de reservas con botón nueva reserva, pestañas restaurante terraza y zona VIP, gráficos y perfil de cliente Elena García con 85 reservas"
+  1707→              sizes="(max-width: 1024px) 100vw, 50vw"
+  1708→              priority
+  1709→              aspect="aspect-[16/10]"
+  1710→            />
+  1711→          </div>
+  1712→
+  1713→          {/* Texto */}
+  1714→          <div className="order-1 lg:order-2 max-w-xl">
+  1715→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1716→              <span className="rp-gold-text">·</span>
+  1717→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1718→              <span>Tiempo real</span>
+  1719→            </div>
+  1720→            <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1721→              Reservas confirmadas en{" "}
+  1722→              <span className="rp-gold-gradient font-normal">tiempo real</span>
+  1723→            </h2>
+  1724→            <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+  1725→              Cada confirmación llega al instante. Tus clientes no esperan, tú no
+  1726→              improvisas.
+  1727→            </p>
+  1728→
+  1729→            <ul className="mt-8 space-y-4">
+  1730→              {REALTIME_BENEFITS.map((b) => (
+  1731→                <li key={b} className="flex items-start gap-3">
+  1732→                  <span
+  1733→                    className="mt-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+  1734→                    aria-hidden
+  1735→                  >
+  1736→                    <Check className="h-3.5 w-3.5" />
+  1737→                  </span>
+  1738→                  <span className="text-sm sm:text-base leading-relaxed text-foreground/90">
+  1739→                    {b}
+  1740→                  </span>
+  1741→                </li>
+  1742→              ))}
+  1743→            </ul>
+  1744→          </div>
+  1745→        </div>
+  1746→      </div>
+  1747→    </section>
+  1748→  );
+  1749→}
+  1750→
+  1751→/* --------- Section C: Conoce a cada cliente como si fuera VIP --------- */
+  1752→
+  1753→const CRM_BENEFITS = [
+  1754→  "Historial completo de visitas, ticket medio, frecuencia y valor total aportado al restaurante.",
+  1755→  "Preferencias, alergias y observaciones de sala accesibles en un clic desde la ficha de reserva.",
+  1756→  "Segmentación automática por comportamiento para campañas de marketing que realmente convierten.",
+  1757→] as const;
+  1758→
+  1759→function SectionCrmVip() {
+  1760→  return (
+  1761→    <section
+  1762→      id="p-crm-vip"
+  1763→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1764→    >
+  1765→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1766→        <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+  1767→          {/* Texto */}
+  1768→          <div className="max-w-xl">
+  1769→            <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1770→              <span className="rp-gold-text">·</span>
+  1771→              <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1772→              <span>CRM</span>
+  1773→            </div>
+  1774→            <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1775→              Conoce a cada cliente como si fuera{" "}
+  1776→              <span className="rp-gold-gradient font-normal">VIP</span>
+  1777→            </h2>
+  1778→            <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+  1779→              Historial de visitas, ticket medio, preferencias y alergias. Todo
+  1780→              en una ficha.
+  1781→            </p>
+  1782→
+  1783→            <ul className="mt-8 space-y-4">
+  1784→              {CRM_BENEFITS.map((b) => (
+  1785→                <li key={b} className="flex items-start gap-3">
+  1786→                  <span
+  1787→                    className="mt-0.5 inline-flex h-6 w-6 flex-none items-center justify-center rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+  1788→                    aria-hidden
+  1789→                  >
+  1790→                    <Check className="h-3.5 w-3.5" />
+  1791→                  </span>
+  1792→                  <span className="text-sm sm:text-base leading-relaxed text-foreground/90">
+  1793→                    {b}
+  1794→                  </span>
+  1795→                </li>
+  1796→              ))}
+  1797→            </ul>
+  1798→          </div>
+  1799→
+  1800→          {/* Imagen */}
+  1801→          <div>
+  1802→            <ProductImage
+  1803→              src="/brand/product/crm-cliente-vip.jpg"
+  1804→              alt="Widget CRM flotante sobre escenario real con avatar de cliente VIP, insignia cliente VIP, gráfico de donut con puntuación 85, valor total de 38 euros y valoración de 5 estrellas"
+  1805→              sizes="(max-width: 1024px) 100vw, 50vw"
+  1806→              aspect="aspect-[4/3]"
+  1807→            />
+  1808→          </div>
+  1809→        </div>
+  1810→      </div>
+  1811→    </section>
+  1812→  );
+  1813→}
+  1814→
+  1815→/* --------- Section D: Tu partner de operaciones, no solo tu software --------- */
+  1816→
+  1817→const PARTNER_FEATURES = [
+  1818→  {
+  1819→    icon: Sparkles,
+  1820→    title: "Onboarding guiado",
+  1821→    description:
+  1822→      "Configuramos contigo tu sala, tus turnos y tus canales. No empiezas desde cero.",
+  1823→  },
+  1824→  {
+  1825→    icon: Workflow,
+  1826→    title: "Recomendaciones de configuración",
+  1827→    description:
+  1828→      "Te sugerimos flujos de reserva, políticas de no-show y reglas de mesa probadas en hostelería real.",
+  1829→  },
+  1830→  {
+  1831→    icon: LifeBuoy,
+  1832→    title: "Soporte humano y recursos",
+  1833→    description:
+  1834→      "Equipo de soporte, guías, vídeos y base de conocimiento. Cuando tengas una duda, ahí estamos.",
+  1835→  },
+  1836→] as const;
+  1837→
+  1838→function SectionPartner() {
+  1839→  return (
+  1840→    <section
+  1841→      id="p-partner"
+  1842→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1843→    >
+  1844→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1845→        <header className="mb-10 sm:mb-14 max-w-3xl">
+  1846→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1847→            <span className="rp-gold-text">·</span>
+  1848→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1849→            <span>Partner</span>
+  1850→          </div>
+  1851→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1852→            Tu partner de operaciones,{" "}
+  1853→            <span className="rp-gold-gradient font-normal">no solo tu software</span>
+  1854→          </h2>
+  1855→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+  1856→            RestoPanel no se instala y se abandona. Te acompañamos para que
+  1857→            saques el máximo desde el primer día.
+  1858→          </p>
+  1859→        </header>
+  1860→
+  1861→        <ProductImage
+  1862→          src="/brand/product/soporte-partner.jpg"
+  1863→          alt="Equipo de soporte de RestoPanel con tres empleados con auriculares en un call center, atención de hospitalidad los 365 días"
+  1864→          sizes="100vw"
+  1865→          aspect="aspect-[16/9]"
+  1866→          className="mb-8 sm:mb-10"
+  1867→        />
+  1868→
+  1869→        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
+  1870→          {PARTNER_FEATURES.map((f) => (
+  1871→            <article
+  1872→              key={f.title}
+  1873→              className="group flex flex-col rp-glass rounded-2xl p-5 sm:p-6 transition-all hover:border-[var(--gold)]/30 hover:-translate-y-0.5"
+  1874→            >
+  1875→              <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]">
+  1876→                <f.icon className="h-5 w-5" aria-hidden />
+  1877→              </div>
+  1878→              <h3 className="mt-4 font-display text-lg font-medium tracking-tight">
+  1879→                {f.title}
+  1880→              </h3>
+  1881→              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+  1882→                {f.description}
+  1883→              </p>
+  1884→            </article>
+  1885→          ))}
+  1886→        </div>
+  1887→      </div>
+  1888→    </section>
+  1889→  );
+  1890→}
+  1891→
+  1892→function Pricing() {
+  1893→  const setView = useNav((s) => s.setView);
+  1894→  const go = useNav((s) => s.go);
+  1895→  const [plan, setPlan] = React.useState<PlanKey>("pro");
+  1896→  const [annual, setAnnual] = React.useState(true);
+  1897→  const [locals, setLocals] = React.useState(5);
+  1898→
+  1899→  const p = PLANS[plan];
+  1900→  const isEnterprise = plan === "enterprise";
+  1901→
+  1902→  // Compute effective price
+  1903→  const { price, period, savings } = React.useMemo(() => {
+  1904→    if (isEnterprise) {
+  1905→      // Enterprise scales by locals beyond base
+  1906→      const extra = Math.max(0, locals - 1);
+  1907→      const perLocal = annual ? 90 : 110; // approx enterprise per-local delta
+  1908→      const base = annual ? p.annual : p.monthly * 12;
+  1909→      const total = base + extra * perLocal * (annual ? 1 : 12);
+  1910→      if (annual) {
+  1911→        const monthlyEquiv = p.monthly * 12 + extra * perLocal * 12;
+  1912→        return {
+  1913→          price: total,
+  1914→          period: "año",
+  1915→          savings: monthlyEquiv - total,
+  1916→        };
+  1917→      }
+  1918→      return { price: total, period: "año", savings: 0 };
+  1919→    }
+  1920→    if (annual) {
+  1921→      const monthlyEquiv = p.monthly * 12;
+  1922→      return { price: p.annual, period: "año", savings: monthlyEquiv - p.annual };
+  1923→    }
+  1924→    return { price: p.monthly, period: "mes", savings: 0 };
+  1925→  }, [plan, annual, locals, isEnterprise, p]);
+  1926→
+  1927→  const cta = `Crear cuenta ${p.name}`;
+  1928→
+  1929→  const onCta = () => {
+  1930→    if (isEnterprise) {
+  1931→      setView("app");
+  1932→    } else {
+  1933→      go("billing");
+  1934→    }
+  1935→  };
+  1936→
+  1937→  return (
+  1938→    <section
+  1939→      id="p-pricing"
+  1940→      className="border-t border-border/60 py-16 sm:py-24 scroll-mt-24"
+  1941→    >
+  1942→      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+  1943→        <header className="mb-10 sm:mb-14 max-w-3xl">
+  1944→          <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1945→            <span className="rp-gold-text">06</span>
+  1946→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1947→            <span>Precios</span>
+  1948→          </div>
+  1949→          <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
+  1950→            Precios honestos que escalan contigo
+  1951→          </h2>
+  1952→          <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
+  1953→            Elige plan, facturación y número de locales. El precio se actualiza
+  1954→            en tiempo real. Sin sorpresas, sin coste oculto por usuario.
+  1955→          </p>
+  1956→        </header>
+  1957→
+  1958→        {/* Calculator */}
+  1959→        <div className="rp-glass-strong rounded-2xl p-5 sm:p-8">
+  1960→          <div className="grid lg:grid-cols-[1fr_1fr] gap-8">
+  1961→            {/* Controls */}
+  1962→            <div className="space-y-6">
+  1963→              <div>
+  1964→                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
+  1965→                  Plan
+  1966→                </div>
+  1967→                <div className="grid grid-cols-3 gap-2">
+  1968→                  {(Object.keys(PLANS) as PlanKey[]).map((k) => (
+  1969→                    <button
+  1970→                      key={k}
+  1971→                      onClick={() => {
+  1972→                        setPlan(k);
+  1973→                        if (k === "enterprise") setLocals(1);
+  1974→                        else if (locals > PLANS[k].maxLocals) setLocals(PLANS[k].maxLocals);
+  1975→                      }}
+  1976→                      className={cn(
+  1977→                        "min-w-0 rounded-lg border px-2 sm:px-3 py-3 text-sm transition-all relative",
+  1978→                        plan === k
+  1979→                          ? "border-[var(--gold)]/60 bg-[var(--gold)]/10 text-[var(--gold-soft)] rp-glow-gold"
+  1980→                          : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
+  1981→                      )}
+  1982→                      aria-pressed={plan === k}
+  1983→                    >
+  1984→                      <div className="font-medium">{PLANS[k].name}</div>
+  1985→                      <div className="text-[11px] mt-0.5 opacity-80">
+  1986→                        {PLANS[k].unlimited
+  1987→                          ? "Ilimitado"
+  1988→                          : `hasta ${PLANS[k].maxLocals} local${PLANS[k].maxLocals > 1 ? "es" : ""}`}
+  1989→                      </div>
+  1990→                      {PLANS[k].highlight && (
+  1991→                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-[var(--teal)] px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-black">
+  1992→                          popular
+  1993→                        </span>
+  1994→                      )}
+  1995→                    </button>
+  1996→                  ))}
+  1997→                </div>
+  1998→              </div>
+  1999→
+  2000→              <div className="flex items-center justify-between gap-4">
+
+[showing lines 1-2000 of 2355; use offset=2001 with limit to continue reading]
