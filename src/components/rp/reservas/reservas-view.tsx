@@ -1914,11 +1914,19 @@ function ReservationRow(props: {
   } = props;
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onSelect();
+        }
+      }}
       aria-pressed={isSelected}
       className={cn(
-        "w-full text-left transition-colors",
+        "w-full text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/50 cursor-pointer",
         isSelected ? "bg-[var(--gold)]/10" : "hover:bg-foreground/[0.03]"
       )}
     >
@@ -2079,7 +2087,7 @@ function ReservationRow(props: {
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }
 

@@ -17,7 +17,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { AiCopilot } from "@/components/rp/ai-center/ai-copilot";
 
 const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
@@ -178,9 +177,6 @@ export function AppShell() {
 
       {/* Command palette (⌘K) */}
       <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
-
-      {/* Global floating AI Copilot — available across all app sections */}
-      <AiCopilot />
     </div>
   );
 }
