@@ -1090,93 +1090,107 @@ export function ExecAlerts() {
   }, [alerts, catFilter, sevFilter]);
 
   function handleAlertAction(alertId: string, action: string) {
-    setAlerts((prev) =>
-      prev.map((a) => {
-        if (a.id !== alertId) return a;
-        const now = new Date();
-        const ts = `hace ${Math.floor(Math.random() * 5) + 1} min`;
-        if (action === "acknowledge") {
-          toast({
-            title: "Alerta reconocida",
-            description: `${alertId} · esperando resolución`,
-          });
-          return {
-            ...a,
-            status: "acknowledged",
-            history: [
-              ...a.history,
-              { ts, status: "acknowledged", note: "Reconocida por Ana Martínez" },
-            ],
-          };
-        }
-        if (action === "resolve") {
-          toast({
-            title: "Alerta resuelta",
-            description: `${alertId} · marcada como resuelta`,
-          });
-          return {
-            ...a,
-            status: "resolved",
-            resolution: "Resuelta manualmente por Ana Martínez",
-            history: [
-              ...a.history,
-              { ts, status: "resolved", note: "Resuelta por Ana Martínez" },
-            ],
-          };
-        }
-        if (action.startsWith("snooze")) {
-          const hours = action.split(":")[1];
-          toast({
-            title: "Alerta pospuesta",
-            description: `${alertId} · ${hours}h`,
-          });
-          return {
-            ...a,
-            status: "snoozed",
-            history: [
-              ...a.history,
-              { ts, status: "snoozed", note: `Pospuesta ${hours}h` },
-            ],
-          };
-        }
-        if (action === "convert") {
-          toast({
-            title: "Tarea creada",
-            description: `${alertId} · convertida en tarea y asignada al equipo`,
-          });
-          return a;
-        }
-        return a;
-      })
-    );
+    const alert = alerts.find((a) => a.id === alertId);
+    if (!alert) return;
+
+    const now = new Date();
+    const ts = `hace ${Math.floor(Math.random() * 5) + 1} min`;
+    let toastTitle = "";
+    let toastDesc = "";
+    let nextAlert: ExecutiveAlert = alert;
+    let mutate = false;
+
+    if (action === "acknowledge") {
+      toastTitle = "Alerta reconocida";
+      toastDesc = `${alertId} · esperando resolución`;
+      nextAlert = {
+        ...alert,
+        status: "acknowledged",
+        history: [
+          ...alert.history,
+          { ts, status: "acknowledged", note: "Reconocida por Ana Martínez" },
+        ],
+      };
+      mutate = true;
+    } else if (action === "resolve") {
+      toastTitle = "Alerta resuelta";
+      toastDesc = `${alertId} · marcada como resuelta`;
+      nextAlert = {
+        ...alert,
+        status: "resolved",
+        resolution: "Resuelta manualmente por Ana Martínez",
+        history: [
+          ...alert.history,
+          { ts, status: "resolved", note: "Resuelta por Ana Martínez" },
+        ],
+      };
+      mutate = true;
+    } else if (action.startsWith("snooze")) {
+      const hours = action.split(":")[1];
+      toastTitle = "Alerta pospuesta";
+      toastDesc = `${alertId} · ${hours}h`;
+      nextAlert = {
+        ...alert,
+        status: "snoozed",
+        history: [
+          ...alert.history,
+          { ts, status: "snoozed", note: `Pospuesta ${hours}h` },
+        ],
+      };
+      mutate = true;
+    } else if (action === "convert") {
+      toastTitle = "Tarea creada";
+      toastDesc = `${alertId} · convertida en tarea y asignada al equipo`;
+    }
+
+    // Apply state change with a PURE updater (no side effects inside).
+    if (mutate) {
+      setAlerts((prev) =>
+        prev.map((a) => (a.id === alertId ? nextAlert : a))
+      );
+    }
+
+    // Fire the toast in the event handler body — never inside the updater.
+    if (toastTitle) {
+      toast({ title: toastTitle, description: toastDesc });
+    }
   }
 
   function handleRecAction(id: string, action: "execute" | "postpone" | "reject") {
-    setRecs((prev) =>
-      prev.map((r) => {
-        if (r.id !== id) return r;
-        if (action === "execute") {
-          toast({
-            title: "Recomendación ejecutada",
-            description: r.title,
-          });
-          return { ...r, status: "executed" as const };
-        }
-        if (action === "reject") {
-          toast({
-            title: "Recomendación rechazada",
-            description: r.title,
-          });
-          return { ...r, status: "rejected" as const };
-        }
-        // postpone
-        toast({
-          title: "Recomendación pospuesta",
-          description: r.title,
-        });
-        return r;
-      })
-    );
+    const rec = recs.find((r) => r.id === id);
+    if (!rec) return;
+
+    let toastTitle = "";
+    let toastDesc = "";
+    let nextStatus: AiRecommendation["status"] | null = null;
+
+    if (action === "execute") {
+      toastTitle = "Recomendación ejecutada";
+      toastDesc = rec.title;
+      nextStatus = "executed";
+    } else if (action === "reject") {
+      toastTitle = "Recomendación rechazada";
+      toastDesc = rec.title;
+      nextStatus = "rejected";
+    } else {
+      // postpone: original code did not mutate status, only fired the toast.
+      toastTitle = "Recomendación pospuesta";
+      toastDesc = rec.title;
+    }
+
+    // Apply state change with a PURE updater (only when status changes).
+    if (nextStatus) {
+      setRecs((prev) =>
+        prev.map((r) =>
+          r.id === id ? { ...r, status: nextStatus } : r
+        )
+      );
+    }
+
+    // Fire the toast in the event handler body.
+    if (toastTitle) {
+      toast({ title: toastTitle, description: toastDesc });
+    }
   }
 
   return (

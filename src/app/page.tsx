@@ -2,7 +2,7 @@
 
 import { useNav } from "@/components/rp/app/nav-store";
 import { Landing } from "@/components/rp/landing/landing";
-import { AppShell } from "@/components/rp/app/app-shell";
+import { AppShell, AuthDialog } from "@/components/rp/app/app-shell";
 import { BrandMark } from "@/components/rp/app/brand";
 
 export default function Page() {
@@ -11,6 +11,8 @@ export default function Page() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {view === "landing" ? <Landing /> : <AppShell />}
+      {/* Global auth dialog — available in both landing and app views */}
+      <AuthDialog />
       <Footer />
     </div>
   );

@@ -25,6 +25,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/hooks/use-toast";
 import {
+  useInView,
+  useEntranceProgress,
+  CursorTooltip,
+  ClickableLegend,
+  TimeRangeSelector,
+  Crosshair,
+  seriesOpacity,
+  type TimeRange,
+  type LegendItem,
+} from "@/components/rp/charts";
+import {
   TrendingUp,
   TrendingDown,
   Info,
@@ -249,6 +260,37 @@ const CAMPAIGNS: Campaign[] = [
   { id: "c6", name: "Promo Terraza", revenue: 460, cost: 140 },
 ];
 
+/**
+ * Multi-range campaign data — same campaign names, different revenue/cost
+ * scaled by the time range. Deterministic (no flicker on re-render).
+ */
+const CAMPAIGN_RANGES: Record<TimeRange, Campaign[]> = {
+  "7d": CAMPAIGNS.map((c) => ({
+    ...c,
+    revenue: Math.round(c.revenue * 0.24),
+    cost: Math.round(c.cost * 0.24),
+  })),
+  "30d": CAMPAIGNS,
+  "90d": CAMPAIGNS.map((c) => ({
+    ...c,
+    revenue: Math.round(c.revenue * 3.1),
+    cost: Math.round(c.cost * 3.0),
+  })),
+  año: CAMPAIGNS.map((c) => ({
+    ...c,
+    revenue: Math.round(c.revenue * 12.4),
+    cost: Math.round(c.cost * 12.1),
+  })),
+};
+
+/** Previous-period campaigns for tooltip comparison (e.g. 30d vs prev 30d). */
+const CAMPAIGN_PREV: Record<TimeRange, Campaign[]> = {
+  "7d": CAMPAIGN_RANGES["7d"].map((c) => ({ ...c, revenue: Math.round(c.revenue * 0.91), cost: c.cost })),
+  "30d": CAMPAIGN_RANGES["30d"].map((c) => ({ ...c, revenue: Math.round(c.revenue * 0.88), cost: c.cost })),
+  "90d": CAMPAIGN_RANGES["90d"].map((c) => ({ ...c, revenue: Math.round(c.revenue * 0.93), cost: c.cost })),
+  año: CAMPAIGN_RANGES.año.map((c) => ({ ...c, revenue: Math.round(c.revenue * 0.86), cost: c.cost })),
+};
+
 const AI_INSIGHTS: AIInsight[] = [
   {
     id: "ai1",
@@ -371,6 +413,46 @@ const FUNNEL: FunnelStage[] = [
   { id: "f5", label: "Recurrentes", value: 412, color: "var(--gold-deep)" },
   { id: "f6", label: "VIP", value: 48, color: "var(--gold)" },
 ];
+
+/**
+ * Multi-range funnel data — deterministic (seeded) per range.
+ * Longer ranges show larger absolute numbers (more visitors accumulated).
+ */
+const FUNNEL_RANGES: Record<TimeRange, FunnelStage[]> = {
+  "7d": [
+    { id: "f1", label: "Visitantes", value: 2840, color: "var(--gold-soft)" },
+    { id: "f2", label: "Leads", value: 920, color: "var(--gold)" },
+    { id: "f3", label: "Reservas", value: 286, color: "var(--teal)" },
+    { id: "f4", label: "Asistencias", value: 264, color: "var(--teal-deep)" },
+    { id: "f5", label: "Recurrentes", value: 92, color: "var(--gold-deep)" },
+    { id: "f6", label: "VIP", value: 11, color: "var(--gold)" },
+  ],
+  "30d": FUNNEL,
+  "90d": [
+    { id: "f1", label: "Visitantes", value: 38140, color: "var(--gold-soft)" },
+    { id: "f2", label: "Leads", value: 12720, color: "var(--gold)" },
+    { id: "f3", label: "Reservas", value: 3860, color: "var(--teal)" },
+    { id: "f4", label: "Asistencias", value: 3540, color: "var(--teal-deep)" },
+    { id: "f5", label: "Recurrentes", value: 1264, color: "var(--gold-deep)" },
+    { id: "f6", label: "VIP", value: 142, color: "var(--gold)" },
+  ],
+  año: [
+    { id: "f1", label: "Visitantes", value: 154820, color: "var(--gold-soft)" },
+    { id: "f2", label: "Leads", value: 51460, color: "var(--gold)" },
+    { id: "f3", label: "Reservas", value: 15680, color: "var(--teal)" },
+    { id: "f4", label: "Asistencias", value: 14390, color: "var(--teal-deep)" },
+    { id: "f5", label: "Recurrentes", value: 5120, color: "var(--gold-deep)" },
+    { id: "f6", label: "VIP", value: 580, color: "var(--gold)" },
+  ],
+};
+
+/** Previous-period funnel used to show comparison deltas in the tooltip. */
+const FUNNEL_PREV: Record<TimeRange, FunnelStage[]> = {
+  "7d": FUNNEL_RANGES["7d"].map((s, i) => ({ ...s, value: Math.round(s.value * (i % 2 === 0 ? 0.91 : 0.88)) })),
+  "30d": FUNNEL_RANGES["30d"].map((s, i) => ({ ...s, value: Math.round(s.value * (i % 2 === 0 ? 0.93 : 0.86)) })),
+  "90d": FUNNEL_RANGES["90d"].map((s, i) => ({ ...s, value: Math.round(s.value * (i % 2 === 0 ? 0.92 : 0.88)) })),
+  año: FUNNEL_RANGES.año.map((s, i) => ({ ...s, value: Math.round(s.value * (i % 2 === 0 ? 0.88 : 0.82)) })),
+};
 
 const CHAT_SUGGESTIONS = [
   "¿Qué campaña generó más ingresos?",
@@ -632,6 +714,15 @@ function KpiStrip() {
 
 function CampaignRoiChart() {
   const reduce = useReducedMotion();
+  const [range, setRange] = React.useState<TimeRange>("30d");
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const [mousePx, setMousePx] = React.useState<{ x: number; y: number } | null>(null);
+  const svgWrapRef = React.useRef<HTMLDivElement>(null);
+
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.2 });
+  const progress = useEntranceProgress(inView, 700);
+
   const width = 720;
   const height = 280;
   const padL = 40;
@@ -640,41 +731,111 @@ function CampaignRoiChart() {
   const padB = 56;
   const innerW = width - padL - padR;
   const innerH = height - padT - padB;
-  const maxV = Math.max(...CAMPAIGNS.map((c) => Math.max(c.revenue, c.cost))) * 1.1;
-  const groupW = innerW / CAMPAIGNS.length;
-  const barW = Math.min(18, groupW / 3.4);
 
-  const yTicks = [0, 500, 1000, 1500, 2000];
+  const data = CAMPAIGN_RANGES[range];
+  const prevData = CAMPAIGN_PREV[range];
+
+  const maxV = Math.max(...data.map((c) => Math.max(c.revenue, c.cost))) * 1.15;
+  const groupW = innerW / data.length;
+  const barW = Math.min(18, groupW / 3.4);
+  const niceStep = maxV > 5000 ? 5000 : maxV > 2000 ? 1000 : maxV > 1000 ? 500 : 250;
+  const yTicks: number[] = [];
+  for (let t = 0; t <= maxV; t += niceStep) yTicks.push(t);
+
+  const activeGroupKey = hoverIdx == null ? null : `c${hoverIdx}`;
+
+  const rangeLabel =
+    range === "7d"
+      ? "últimos 7 días"
+      : range === "30d"
+      ? "últimos 30 días"
+      : range === "90d"
+      ? "últimos 90 días"
+      : "último año";
+
+  const legendItems: LegendItem[] = [
+    { id: "revenue", label: "Ingresos", color: "var(--gold)" },
+    { id: "cost", label: "Coste", color: "#ef4444" },
+    { id: "roi", label: "ROI", color: "var(--teal)" },
+  ];
+
+  function toggle(id: string) {
+    setHidden((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const svgX = (px / rect.width) * width;
+    const i = Math.floor((svgX - padL) / groupW);
+    if (i >= 0 && i < data.length) {
+      setHoverIdx(i);
+      setMousePx({ x: px, y: py });
+    } else {
+      setHoverIdx(null);
+      setMousePx(null);
+    }
+  }
+
+  const hovered = hoverIdx != null ? data[hoverIdx] : null;
+  const hoveredPrev = hoverIdx != null ? prevData[hoverIdx] : null;
+  const revenueDelta =
+    hovered && hoveredPrev ? hovered.revenue - hoveredPrev.revenue : null;
+  const roiNow =
+    hovered && hovered.cost === 0
+      ? Infinity
+      : hovered
+      ? Math.round(((hovered.revenue - hovered.cost) / hovered.cost) * 100)
+      : null;
+  const roiPrev =
+    hoveredPrev && hoveredPrev.cost === 0
+      ? Infinity
+      : hoveredPrev
+      ? Math.round(((hoveredPrev.revenue - hoveredPrev.cost) / hoveredPrev.cost) * 100)
+      : null;
+  const roiDelta =
+    roiNow != null && roiPrev != null && Number.isFinite(roiNow) && Number.isFinite(roiPrev)
+      ? roiNow - roiPrev
+      : null;
+
   return (
     <div className="rp-glass rounded-2xl p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div>
           <h3 className="font-display text-lg font-medium">ROI por campaña</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Ingresos vs coste por campaña · 6 campañas activas
+            Ingresos vs coste por campaña · {rangeLabel} · {data.length} campañas activas
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--gold)" }} />
-            <span className="text-muted-foreground">Ingresos</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "#ef4444" }} />
-            <span className="text-muted-foreground">Coste</span>
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--teal)" }} />
-            <span className="text-muted-foreground">ROI</span>
-          </span>
+        <div className="flex flex-wrap items-center gap-3">
+          <TimeRangeSelector value={range} onChange={setRange} />
         </div>
       </div>
-      <div className="overflow-x-auto rp-scroll-thin -mx-1">
+      <div className="mb-3">
+        <ClickableLegend items={legendItems} hidden={hidden} onToggle={toggle} />
+      </div>
+      <div
+        ref={svgWrapRef}
+        className="relative overflow-x-auto rp-scroll-thin -mx-1"
+        style={{ aspectRatio: `${width} / ${height}` }}
+      >
         <svg
+          ref={viewRef}
           viewBox={`0 0 ${width} ${height}`}
           className="w-full min-w-[640px]"
           role="img"
           aria-label="Gráfico de barras de ROI por campaña"
+          onMouseMove={onMove}
+          onMouseLeave={() => {
+            setHoverIdx(null);
+            setMousePx(null);
+          }}
         >
           {/* y grid */}
           {yTicks.map((t, i) => {
@@ -697,85 +858,174 @@ function CampaignRoiChart() {
                   className="fill-muted-foreground font-mono"
                   fontSize="9"
                 >
-                  €{t}
+                  €{t.toLocaleString("es-ES")}
                 </text>
               </g>
             );
           })}
-          {/* bars */}
-          {CAMPAIGNS.map((c, i) => {
-            const x0 = padL + i * groupW + (groupW - barW * 2 - 6) / 2;
-            const revenueH = (c.revenue / maxV) * innerH;
-            const costH = (c.cost / maxV) * innerH;
-            const revenueY = padT + innerH - revenueH;
-            const costY = padT + innerH - costH;
-            const roi = c.cost === 0 ? Infinity : Math.round(((c.revenue - c.cost) / c.cost) * 100);
-            const roiLabel = c.cost === 0 ? "∞" : `${roi}%`;
-            return (
-              <g key={c.id}>
-                <motion.rect
-                  x={x0}
-                  y={reduce ? revenueY : padT + innerH}
-                  width={barW}
-                  height={reduce ? revenueH : 0}
-                  fill="var(--gold)"
-                  rx={2}
-                  initial={false}
-                  animate={
-                    reduce
-                      ? {}
-                      : { y: revenueY, height: revenueH }
-                  }
-                  transition={{ duration: 0.6, delay: i * 0.06, ease: "easeOut" }}
-                />
-                <motion.rect
-                  x={x0 + barW + 6}
-                  y={reduce ? costY : padT + innerH}
-                  width={barW}
-                  height={reduce ? costH : 0}
-                  fill="#ef4444"
-                  rx={2}
-                  initial={false}
-                  animate={reduce ? {} : { y: costY, height: costH }}
-                  transition={{ duration: 0.6, delay: i * 0.06 + 0.1, ease: "easeOut" }}
-                />
-                {/* ROI label on top */}
-                <motion.text
-                  x={x0 + barW + 3}
-                  y={revenueY - 6}
-                  textAnchor="middle"
-                  className="fill-[var(--teal)] font-mono"
-                  fontSize="10"
-                  fontWeight="600"
-                  initial={reduce ? false : { opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.3, delay: i * 0.06 + 0.5 }}
-                >
-                  {roiLabel}
-                </motion.text>
-                {/* x label */}
-                <text
-                  x={x0 + barW + 3}
-                  y={padT + innerH + 16}
-                  textAnchor="middle"
-                  className="fill-muted-foreground"
-                  fontSize="9.5"
-                >
-                  {c.name.length > 16 ? c.name.slice(0, 15) + "…" : c.name}
-                </text>
-                <text
-                  x={x0 + barW + 3}
-                  y={padT + innerH + 28}
-                  textAnchor="middle"
-                  className="fill-foreground/50 font-mono"
-                  fontSize="8.5"
-                >
-                  {fmtEUR(c.revenue)} · {fmtEUR(c.cost)}
-                </text>
-              </g>
-            );
-          })}
+          {/* Bars (crossfade between ranges via AnimatePresence) */}
+          <AnimatePresence initial={false}>
+            <motion.g
+              key={range}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              {data.map((c, i) => {
+                const x0 = padL + i * groupW + (groupW - barW * 2 - 6) / 2;
+                const revenueH = (c.revenue / maxV) * innerH;
+                const costH = (c.cost / maxV) * innerH;
+                const revenueY = padT + innerH - revenueH;
+                const costY = padT + innerH - costH;
+                const roi = c.cost === 0 ? Infinity : Math.round(((c.revenue - c.cost) / c.cost) * 100);
+                const roiLabel = c.cost === 0 ? "∞" : `${roi}%`;
+                const dimRevenue = hidden.has("revenue");
+                const dimCost = hidden.has("cost");
+                const dimRoi = hidden.has("roi");
+                const revenueOpacity = seriesOpacity(activeGroupKey, `c${i}`);
+                const hoveredGroupDim = hoverIdx != null && hoverIdx !== i ? 0.35 : 1;
+                const delay = Math.min(i * 0.06, 0.4);
+                return (
+                  <g key={c.id}>
+                    {!dimRevenue && (
+                      <motion.rect
+                        x={x0}
+                        y={revenueY}
+                        width={barW}
+                        height={revenueH}
+                        fill="var(--gold)"
+                        fillOpacity={0.92 * revenueOpacity * hoveredGroupDim}
+                        rx={2}
+                        initial={reduce ? false : { scaleY: 0, opacity: 0 }}
+                        animate={{ scaleY: progress, opacity: progress * revenueOpacity * hoveredGroupDim }}
+                        transition={{ duration: 0.6, delay, ease: "easeOut" }}
+                        style={{
+                          transformOrigin: `${x0 + barW / 2}px ${padT + innerH}px`,
+                          transformBox: "view-box",
+                        } as React.CSSProperties}
+                      />
+                    )}
+                    {!dimCost && (
+                      <motion.rect
+                        x={x0 + barW + 6}
+                        y={costY}
+                        width={barW}
+                        height={costH}
+                        fill="#ef4444"
+                        fillOpacity={0.92 * revenueOpacity * hoveredGroupDim}
+                        rx={2}
+                        initial={reduce ? false : { scaleY: 0, opacity: 0 }}
+                        animate={{ scaleY: progress, opacity: progress * revenueOpacity * hoveredGroupDim }}
+                        transition={{ duration: 0.6, delay: delay + 0.1, ease: "easeOut" }}
+                        style={{
+                          transformOrigin: `${x0 + barW + 6 + barW / 2}px ${padT + innerH}px`,
+                          transformBox: "view-box",
+                        } as React.CSSProperties}
+                      />
+                    )}
+                    {/* ROI label on top */}
+                    {!dimRoi && (
+                      <motion.text
+                        x={x0 + barW + 3}
+                        y={revenueY - 6}
+                        textAnchor="middle"
+                        className="fill-[var(--teal)] font-mono"
+                        fontSize="10"
+                        fontWeight="600"
+                        opacity={hoveredGroupDim}
+                        initial={reduce ? false : { opacity: 0 }}
+                        animate={{ opacity: progress * hoveredGroupDim }}
+                        transition={{ duration: 0.3, delay: delay + 0.5 }}
+                      >
+                        {roiLabel}
+                      </motion.text>
+                    )}
+                    {/* x label */}
+                    <text
+                      x={x0 + barW + 3}
+                      y={padT + innerH + 16}
+                      textAnchor="middle"
+                      className="fill-muted-foreground"
+                      fontSize="9.5"
+                      opacity={hoveredGroupDim}
+                    >
+                      {c.name.length > 16 ? c.name.slice(0, 15) + "…" : c.name}
+                    </text>
+                    <text
+                      x={x0 + barW + 3}
+                      y={padT + innerH + 28}
+                      textAnchor="middle"
+                      className="fill-foreground/50 font-mono"
+                      fontSize="8.5"
+                      opacity={hoveredGroupDim}
+                    >
+                      {fmtEUR(c.revenue)} · {fmtEUR(c.cost)}
+                    </text>
+                  </g>
+                );
+              })}
+            </motion.g>
+          </AnimatePresence>
+          {/* Crosshair (vertical line on hovered group) */}
+          {hoverIdx != null && (
+            <Crosshair
+              x={padL + hoverIdx * groupW + groupW / 2}
+              y1={padT}
+              y2={padT + innerH}
+              color="var(--gold)"
+            />
+          )}
         </svg>
+        <CursorTooltip
+          position={{ x: mousePx?.x ?? null, y: mousePx?.y ?? null }}
+          containerRef={svgWrapRef}
+          estimatedSize={{ width: 220, height: 110 }}
+        >
+          {hovered ? (
+            <div className="space-y-0.5">
+              <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {hovered.name}
+              </div>
+              <div className="font-display text-sm text-foreground">
+                <span className="text-[var(--gold-soft)]">{fmtEUR(hovered.revenue)}</span>
+                <span className="text-[10px] text-muted-foreground"> ingresos</span>
+              </div>
+              <div className="font-display text-sm text-foreground">
+                <span className="text-rose-300">{fmtEUR(hovered.cost)}</span>
+                <span className="text-[10px] text-muted-foreground"> coste</span>
+              </div>
+              <div className="font-display text-sm text-foreground">
+                <span className="text-[var(--teal)]">
+                  {hovered.cost === 0 ? "∞" : `${roiNow}%`}
+                </span>
+                <span className="text-[10px] text-muted-foreground"> ROI</span>
+              </div>
+              {revenueDelta != null && (
+                <div
+                  className={cn(
+                    "text-[10px] font-mono",
+                    revenueDelta >= 0 ? "text-emerald-300" : "text-rose-300"
+                  )}
+                >
+                  {revenueDelta >= 0 ? "+" : ""}
+                  {fmtEUR(revenueDelta)} vs período anterior
+                </div>
+              )}
+              {roiDelta != null && (
+                <div
+                  className={cn(
+                    "text-[10px] font-mono",
+                    roiDelta >= 0 ? "text-emerald-300" : "text-rose-300"
+                  )}
+                >
+                  {roiDelta >= 0 ? "+" : ""}
+                  {roiDelta}pp ROI vs anterior
+                </div>
+              )}
+            </div>
+          ) : null}
+        </CursorTooltip>
       </div>
     </div>
   );
@@ -1062,103 +1312,199 @@ function SegmentTable() {
 
 function FunnelChart() {
   const reduce = useReducedMotion();
+  const [range, setRange] = React.useState<TimeRange>("30d");
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const [mousePx, setMousePx] = React.useState<{ x: number; y: number } | null>(null);
+  const svgWrapRef = React.useRef<HTMLDivElement>(null);
+
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.2 });
+  const progress = useEntranceProgress(inView, 700);
+
   const width = 720;
   const height = 280;
   const padT = 16;
   const padB = 36;
   const innerH = height - padT - padB;
-  const maxV = FUNNEL[0].value;
-  const stageW = width / FUNNEL.length;
+
+  const data = FUNNEL_RANGES[range];
+  const prevData = FUNNEL_PREV[range];
+  const maxV = data[0].value;
+  const stageW = width / data.length;
+
+  const rangeLabel =
+    range === "7d"
+      ? "últimos 7 días"
+      : range === "30d"
+      ? "últimos 30 días"
+      : range === "90d"
+      ? "últimos 90 días"
+      : "último año";
+
+  const legendItems: LegendItem[] = data.map((s) => ({
+    id: s.id,
+    label: s.label,
+    color: s.color,
+  }));
+
+  function toggle(id: string) {
+    setHidden((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const svgX = (px / rect.width) * width;
+    const i = Math.floor(svgX / stageW);
+    if (i >= 0 && i < data.length) {
+      setHoverIdx(i);
+      setMousePx({ x: px, y: py });
+    } else {
+      setHoverIdx(null);
+      setMousePx(null);
+    }
+  }
+
+  const hovered = hoverIdx != null ? data[hoverIdx] : null;
+  const hoveredPrev = hoverIdx != null ? prevData[hoverIdx] : null;
+  const convNow =
+    hoverIdx != null && hoverIdx > 0
+      ? (data[hoverIdx].value / data[hoverIdx - 1].value) * 100
+      : null;
+  const convPrev =
+    hoverIdx != null && hoverIdx > 0
+      ? (prevData[hoverIdx].value / prevData[hoverIdx - 1].value) * 100
+      : null;
+  const convDelta = convNow != null && convPrev != null ? convNow - convPrev : null;
+  const valueDelta = hovered && hoveredPrev ? hovered.value - hoveredPrev.value : null;
 
   return (
     <div className="rp-glass rounded-2xl p-5 sm:p-6">
-      <div className="mb-4 flex items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h3 className="font-display text-lg font-medium">Embudo de conversión</h3>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Visitantes → Leads → Reservas → Asistencias → Recurrentes → VIP
+            Visitantes → Leads → Reservas → Asistencias → Recurrentes → VIP · {rangeLabel}
           </p>
         </div>
-        <MiniBadge tone="gold">6 etapas</MiniBadge>
+        <TimeRangeSelector value={range} onChange={setRange} />
       </div>
-      <div className="overflow-x-auto rp-scroll-thin -mx-1">
+      <div className="mb-3">
+        <ClickableLegend items={legendItems} hidden={hidden} onToggle={toggle} />
+      </div>
+      <div
+        ref={svgWrapRef}
+        className="relative overflow-x-auto rp-scroll-thin -mx-1"
+        style={{ aspectRatio: `${width} / ${height}` }}
+      >
         <svg
+          ref={viewRef}
           viewBox={`0 0 ${width} ${height}`}
           className="w-full min-w-[640px]"
           role="img"
           aria-label="Embudo de conversión de marketing"
+          onMouseMove={onMove}
+          onMouseLeave={() => {
+            setHoverIdx(null);
+            setMousePx(null);
+          }}
         >
-          {FUNNEL.map((stage, i) => {
-            const ratio = stage.value / maxV;
-            const w = stageW * 0.86 * ratio + stageW * 0.08;
-            const x = i * stageW + (stageW - w) / 2;
-            const h = innerH * 0.72;
-            const y = padT + (innerH - h) / 2;
-            const prevValue = i > 0 ? FUNNEL[i - 1].value : null;
-            const conv = prevValue ? ((stage.value / prevValue) * 100).toFixed(1) : null;
-            return (
-              <g key={stage.id}>
-                {conv && (
-                  <motion.g
-                    initial={reduce ? false : { opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: i * 0.08 + 0.3, duration: 0.3 }}
-                  >
-                    <line
-                      x1={i * stageW - 4}
-                      x2={i * stageW + 4}
-                      y1={y + h / 2}
-                      y2={y + h / 2}
-                      stroke="var(--teal)"
-                      strokeWidth="1"
-                      strokeDasharray="2 2"
+          <AnimatePresence initial={false}>
+            <motion.g
+              key={range}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              {data.map((stage, i) => {
+                if (hidden.has(stage.id)) return null;
+                const ratio = stage.value / maxV;
+                const w = stageW * 0.86 * ratio + stageW * 0.08;
+                const x = i * stageW + (stageW - w) / 2;
+                const h = innerH * 0.72;
+                const y = padT + (innerH - h) / 2;
+                const prevValue = i > 0 ? data[i - 1].value : null;
+                const conv = prevValue ? ((stage.value / prevValue) * 100).toFixed(1) : null;
+                const hoveredDim = hoverIdx != null && hoverIdx !== i ? 0.35 : 1;
+                const delay = i * 0.08;
+                return (
+                  <g key={stage.id}>
+                    {conv && (
+                      <motion.g
+                        initial={reduce ? false : { opacity: 0 }}
+                        animate={{ opacity: progress * hoveredDim }}
+                        transition={{ delay: delay + 0.3, duration: 0.3 }}
+                      >
+                        <line
+                          x1={i * stageW - 4}
+                          x2={i * stageW + 4}
+                          y1={y + h / 2}
+                          y2={y + h / 2}
+                          stroke="var(--teal)"
+                          strokeWidth="1"
+                          strokeDasharray="2 2"
+                        />
+                        <text
+                          x={i * stageW}
+                          y={y + h / 2 - 8}
+                          textAnchor="middle"
+                          className="fill-[var(--teal)] font-mono"
+                          fontSize="10"
+                          fontWeight="600"
+                        >
+                          {conv}%
+                        </text>
+                      </motion.g>
+                    )}
+                    <motion.rect
+                      x={x}
+                      y={y}
+                      width={w}
+                      height={h}
+                      rx={6}
+                      fill={stage.color}
+                      fillOpacity={0.92 * hoveredDim}
+                      initial={reduce ? false : { scaleY: 0, opacity: 0 }}
+                      animate={{ scaleY: progress, opacity: progress * hoveredDim }}
+                      transition={{ duration: 0.5, delay, ease: "easeOut" }}
+                      style={{
+                        transformOrigin: `${x + w / 2}px ${y + h}px`,
+                        transformBox: "view-box",
+                      } as React.CSSProperties}
                     />
                     <text
-                      x={i * stageW}
-                      y={y + h / 2 - 8}
+                      x={i * stageW + stageW / 2}
+                      y={y + h / 2 - 4}
                       textAnchor="middle"
-                      className="fill-[var(--teal)] font-mono"
-                      fontSize="10"
+                      className="fill-background font-display"
+                      fontSize="13"
                       fontWeight="600"
+                      opacity={hoveredDim}
                     >
-                      {conv}%
+                      {stage.value.toLocaleString("es-ES")}
                     </text>
-                  </motion.g>
-                )}
-                <motion.rect
-                  x={x}
-                  y={reduce ? y : y + h}
-                  width={w}
-                  height={reduce ? h : 0}
-                  rx={6}
-                  fill={stage.color}
-                  opacity={0.92}
-                  initial={false}
-                  animate={reduce ? {} : { y, height: h }}
-                  transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
-                />
-                <text
-                  x={i * stageW + stageW / 2}
-                  y={y + h / 2 - 4}
-                  textAnchor="middle"
-                  className="fill-background font-display"
-                  fontSize="13"
-                  fontWeight="600"
-                >
-                  {stage.value.toLocaleString("es-ES")}
-                </text>
-                <text
-                  x={i * stageW + stageW / 2}
-                  y={y + h / 2 + 12}
-                  textAnchor="middle"
-                  className="fill-background/80 font-mono"
-                  fontSize="9"
-                >
-                  {stage.label}
-                </text>
-              </g>
-            );
-          })}
+                    <text
+                      x={i * stageW + stageW / 2}
+                      y={y + h / 2 + 12}
+                      textAnchor="middle"
+                      className="fill-background/80 font-mono"
+                      fontSize="9"
+                      opacity={hoveredDim}
+                    >
+                      {stage.label}
+                    </text>
+                  </g>
+                );
+              })}
+            </motion.g>
+          </AnimatePresence>
           {/* baseline */}
           <line
             x1={0}
@@ -1168,7 +1514,60 @@ function FunnelChart() {
             stroke="currentColor"
             className="text-foreground/8"
           />
+          {/* Crosshair at hovered stage */}
+          {hoverIdx != null && (
+            <Crosshair
+              x={hoverIdx * stageW + stageW / 2}
+              y1={padT}
+              y2={height - padB}
+              color={data[hoverIdx].color}
+            />
+          )}
         </svg>
+        <CursorTooltip
+          position={{ x: mousePx?.x ?? null, y: mousePx?.y ?? null }}
+          containerRef={svgWrapRef}
+          estimatedSize={{ width: 220, height: 110 }}
+        >
+          {hovered ? (
+            <div className="space-y-0.5">
+              <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                Etapa {hoverIdx! + 1} · {hovered.label}
+              </div>
+              <div className="font-display text-base text-foreground">
+                {hovered.value.toLocaleString("es-ES")}
+                <span className="text-[10px] text-muted-foreground"> usuarios</span>
+              </div>
+              {convNow != null && (
+                <div className="text-[10px] font-mono text-[var(--teal)]">
+                  {convNow.toFixed(1)}% conversión desde etapa anterior
+                </div>
+              )}
+              {valueDelta != null && (
+                <div
+                  className={cn(
+                    "text-[10px] font-mono",
+                    valueDelta >= 0 ? "text-emerald-300" : "text-rose-300"
+                  )}
+                >
+                  {valueDelta >= 0 ? "+" : ""}
+                  {valueDelta.toLocaleString("es-ES")} vs período anterior
+                </div>
+              )}
+              {convDelta != null && (
+                <div
+                  className={cn(
+                    "text-[10px] font-mono",
+                    convDelta >= 0 ? "text-emerald-300" : "text-rose-300"
+                  )}
+                >
+                  {convDelta >= 0 ? "+" : ""}
+                  {convDelta.toFixed(1)}pp conversión vs anterior
+                </div>
+              )}
+            </div>
+          ) : null}
+        </CursorTooltip>
       </div>
     </div>
   );

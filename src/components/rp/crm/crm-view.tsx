@@ -1137,7 +1137,7 @@ function AddTagDialog({
   const available = ALL_TAGS.filter((t) => !existingTags.includes(t.id));
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin">
         <DialogHeader>
           <DialogTitle>Añadir etiqueta</DialogTitle>
           <DialogDescription>
@@ -1238,7 +1238,7 @@ function EditCustomerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto rp-scroll-thin">
         <DialogHeader>
           <DialogTitle>Editar cliente</DialogTitle>
           <DialogDescription>
@@ -1383,7 +1383,7 @@ function AddNoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin">
         <DialogHeader>
           <DialogTitle>Añadir nota interna · {customer.name}</DialogTitle>
           <DialogDescription>
@@ -1499,7 +1499,7 @@ function ComunicarDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto rp-scroll-thin">
         <DialogHeader>
           <DialogTitle>Comunicar con {customer.name}</DialogTitle>
           <DialogDescription>
@@ -1649,7 +1649,7 @@ function NewReservationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin">
         <DialogHeader>
           <DialogTitle>Crear reserva · {customer.name}</DialogTitle>
           <DialogDescription>

@@ -158,7 +158,7 @@ function DemoBadge({ className }: { className?: string }) {
 
 export function Landing() {
   return (
-    <div className="bg-background">
+    <div className="bg-background overflow-x-hidden">
       <LandingHeader />
       <main id="landing-top">
         <Hero />
@@ -187,6 +187,7 @@ export function Landing() {
 
 function LandingHeader() {
   const setView = useNav((s) => s.setView);
+  const openAuth = useNav((s) => s.openAuth);
   const [open, setOpen] = React.useState(false);
   const [scrolled, setScrolled] = React.useState(false);
 
@@ -237,7 +238,7 @@ function LandingHeader() {
         </nav>
 
         <div className="ml-auto hidden items-center gap-2 lg:flex">
-          <Button variant="ghost" size="sm" onClick={goApp}>
+          <Button variant="ghost" size="sm" onClick={() => openAuth("login")}>
             Iniciar sesión
           </Button>
           <Button variant="outline" size="sm" onClick={goApp}>
@@ -245,7 +246,7 @@ function LandingHeader() {
           </Button>
           <Button
             size="sm"
-            onClick={goApp}
+            onClick={() => { setOpen(false); openAuth("signup"); }}
             className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
           >
             Crear cuenta
@@ -256,7 +257,7 @@ function LandingHeader() {
         {/* Mobile CTA (compact) — visible below lg */}
         <Button
           size="sm"
-          onClick={goApp}
+          onClick={() => openAuth("signup")}
           className="ml-auto bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black lg:hidden"
         >
           Crear cuenta
@@ -301,7 +302,7 @@ function LandingHeader() {
               </ul>
             </nav>
             <div className="border-t border-border/60 p-4 space-y-2">
-              <Button variant="ghost" className="w-full justify-start" onClick={goApp}>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { setOpen(false); openAuth("login"); }}>
                 Iniciar sesión
               </Button>
               <Button variant="outline" className="w-full justify-center" onClick={goApp}>
@@ -309,7 +310,7 @@ function LandingHeader() {
               </Button>
               <Button
                 className="w-full justify-center bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
-                onClick={goApp}
+                onClick={() => { setOpen(false); openAuth("signup"); }}
               >
                 Crear cuenta
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden />
@@ -326,6 +327,7 @@ function LandingHeader() {
 
 function Hero() {
   const setView = useNav((s) => s.setView);
+  const openAuth = useNav((s) => s.openAuth);
 
   return (
     <section
@@ -383,7 +385,7 @@ function Hero() {
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Button
                 size="lg"
-                onClick={() => setView("app")}
+                onClick={() => openAuth("signup")}
                 className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
               >
                 Crear cuenta
@@ -1615,6 +1617,7 @@ function ProductImage({
   priority = false,
   className,
   aspect = "aspect-[16/10]",
+  objectPosition = "object-center sm:object-[center_30%]",
 }: {
   src: string;
   alt: string;
@@ -1622,6 +1625,12 @@ function ProductImage({
   priority?: boolean;
   className?: string;
   aspect?: string;
+  /**
+   * Posición del objeto dentro del recorte. Por defecto centra en móvil y
+   * sube el foco al 30% vertical en ≥sm para que salgan bien las personas
+   * y la comida (suele estar en el tercio superior de la composición).
+   */
+  objectPosition?: string;
 }) {
   return (
     <div
@@ -1638,7 +1647,7 @@ function ProductImage({
         sizes={sizes}
         priority={priority}
         loading={priority ? undefined : "lazy"}
-        className="object-cover"
+        className={cn("object-cover", objectPosition)}
       />
     </div>
   );
@@ -1942,16 +1951,58 @@ function SectionPartner() {
   );
 }
 
+/* Animated counter: count-up from previous value to new value in 300ms */
+function usePriceCountUp(value: number, duration = 300) {
+  const [display, setDisplay] = React.useState(value);
+  const fromRef = React.useRef(value);
+  const rafRef = React.useRef<number | null>(null);
+  React.useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce || fromRef.current === value) {
+      setDisplay(value);
+      return;
+    }
+    const from = fromRef.current;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      const next = Math.round(from + (value - from) * eased);
+      setDisplay(next);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = value;
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      fromRef.current = value;
+    };
+  }, [value, duration]);
+  return display;
+}
+
 function Pricing() {
   const setView = useNav((s) => s.setView);
-  const go = useNav((s) => s.go);
-  const [annual, setAnnual] = React.useState(true);
+  const openAuth = useNav((s) => s.openAuth);
+
+  // Persist billing toggle in localStorage (per user request)
+  const [annual, setAnnual] = React.useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem("rp-pricing-annual") !== "false";
+  });
+  React.useEffect(() => {
+    window.localStorage.setItem("rp-pricing-annual", String(annual));
+  }, [annual]);
 
   const onCta = (planKey: PlanKey) => {
     if (planKey === "enterprise") {
       setView("app");
     } else {
-      go("billing");
+      openAuth("signup");
     }
   };
 
@@ -1980,7 +2031,7 @@ function Pricing() {
         <div className="mb-10 flex items-center justify-center gap-3">
           <span
             className={cn(
-              "text-sm",
+              "text-sm transition-colors",
               !annual ? "text-foreground" : "text-muted-foreground",
             )}
           >
@@ -1993,17 +2044,15 @@ function Pricing() {
           />
           <span
             className={cn(
-              "text-sm",
+              "text-sm transition-colors",
               annual ? "text-[var(--gold-soft)]" : "text-muted-foreground",
             )}
           >
             Anual
           </span>
-          {annual && (
-            <span className="ml-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
-              ahorra
-            </span>
-          )}
+          <span className="ml-1 inline-flex items-center gap-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
+            -20%
+          </span>
         </div>
 
         {/* Plan cards */}
@@ -2013,105 +2062,31 @@ function Pricing() {
             const isEnterprise = k === "enterprise";
             const isPro = k === "professional";
 
-            // Effective displayed price
-            const monthlyPrice = p.monthly;
-            const annualPrice = p.annual;
-            const monthlyEquiv = p.monthly * 12;
-            const savings = annual ? Math.max(0, monthlyEquiv - p.annual) : 0;
+            // Annual billing: 20% discount on monthly price
+            const monthlyBase = p.monthly;
+            const monthlyAnnual = Math.round(p.monthly * 0.8); // 20% off
+            const displayedMonthly = annual ? monthlyAnnual : monthlyBase;
+            const annualTotal = monthlyAnnual * 12;
+            const monthlyEquiv = monthlyBase * 12;
+            const savings = Math.max(0, monthlyEquiv - annualTotal);
 
             return (
-              <article
+              <PlanCard
                 key={k}
-                className={cn(
-                  "relative flex flex-col rp-glass rounded-2xl p-6 sm:p-7 transition-all",
-                  isPro
-                    ? "border-[var(--gold)]/50 rp-glow-gold lg:-translate-y-2"
-                    : "border-border/60 hover:border-[var(--gold)]/30 hover:-translate-y-0.5",
-                )}
-                aria-label={`Plan ${p.name}`}
-              >
-                {p.highlight && (
-                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-[var(--teal)] px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-black">
-                    popular
-                  </span>
-                )}
-
-                {/* Plan name + tagline */}
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display text-xl font-medium">{p.name}</h3>
-                  <DemoBadge />
-                </div>
-                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[2.5rem]">
-                  {p.tagline}
-                </p>
-
-                {/* Price */}
-                <div className="mt-5 flex items-baseline gap-1.5">
-                  <span className="font-display text-4xl sm:text-5xl font-light rp-gold-text">
-                    {monthlyPrice.toLocaleString("es-ES")}
-                  </span>
-                  <span className="text-base text-muted-foreground">€</span>
-                  <span className="text-xs text-muted-foreground">/mes</span>
-                </div>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span
-                    className={cn(
-                      "text-sm tabular-nums",
-                      annual ? "text-[var(--gold-soft)]" : "text-muted-foreground",
-                    )}
-                  >
-                    {annualPrice.toLocaleString("es-ES")} €/año
-                  </span>
-                </div>
-                {annual && savings > 0 && (
-                  <div className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2.5 py-0.5 text-[10px] text-[var(--teal)]">
-                    <Check className="h-3 w-3" aria-hidden />
-                    Ahorras {savings.toLocaleString("es-ES")} €/año
-                  </div>
-                )}
-
-                {/* CTA */}
-                <Button
-                  size="lg"
-                  onClick={() => onCta(k)}
-                  className={cn(
-                    "mt-6 w-full justify-center",
-                    isEnterprise
-                      ? "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
-                      : "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black",
-                  )}
-                >
-                  {isEnterprise ? "Hablar con ventas" : `Crear cuenta ${p.name}`}
-                  <ArrowRight className="h-4 w-4" aria-hidden />
-                </Button>
-
-                {/* Features list */}
-                <div className="mt-6">
-                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
-                    Incluye:
-                  </div>
-                  <ul className="space-y-2.5">
-                    {p.features.map((f) => (
-                      <li
-                        key={f}
-                        className="flex items-start gap-2.5 text-sm text-foreground/90"
-                      >
-                        <Check
-                          className="h-4 w-4 text-[var(--teal)] mt-0.5 shrink-0"
-                          aria-hidden
-                        />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <p className="mt-6 pt-5 border-t border-border/40 text-center text-[11px] text-muted-foreground">
-                  {isEnterprise
-                    ? "Un especialista diseña la propuesta a tu medida."
-                    : "Sin permanencia. Cancela cuando quieras."}
-                </p>
-              </article>
+                planKey={k}
+                name={p.name}
+                tagline={p.tagline}
+                features={p.features}
+                highlight={p.highlight}
+                monthlyBase={monthlyBase}
+                displayedMonthly={displayedMonthly}
+                annualTotal={annualTotal}
+                savings={savings}
+                annual={annual}
+                isEnterprise={isEnterprise}
+                isPro={isPro}
+                onCta={() => onCta(k)}
+              />
             );
           })}
         </div>
@@ -2154,6 +2129,136 @@ function Pricing() {
         </div>
       </div>
     </section>
+  );
+}
+
+/* Plan card with animated count-up price */
+function PlanCard({
+  name,
+  tagline,
+  features,
+  highlight,
+  monthlyBase,
+  displayedMonthly,
+  annualTotal,
+  savings,
+  annual,
+  isEnterprise,
+  isPro,
+  onCta,
+}: {
+  planKey: PlanKey;
+  name: string;
+  tagline: string;
+  features: string[];
+  highlight?: boolean;
+  monthlyBase: number;
+  displayedMonthly: number;
+  annualTotal: number;
+  savings: number;
+  annual: boolean;
+  isEnterprise: boolean;
+  isPro: boolean;
+  onCta: () => void;
+}) {
+  const animatedPrice = usePriceCountUp(displayedMonthly, 300);
+  return (
+    <article
+      className={cn(
+        "relative flex flex-col rp-glass rounded-2xl p-6 sm:p-7 transition-all",
+        isPro
+          ? "border-[var(--gold)]/50 rp-glow-gold lg:-translate-y-2"
+          : "border-border/60 hover:border-[var(--gold)]/30 hover:-translate-y-0.5",
+      )}
+      aria-label={`Plan ${name}`}
+    >
+      {highlight && (
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-[var(--teal)] px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-black">
+          popular
+        </span>
+      )}
+
+      {/* Plan name + tagline */}
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-xl font-medium">{name}</h3>
+        <DemoBadge />
+      </div>
+      <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[2.5rem]">
+        {tagline}
+      </p>
+
+      {/* Price — animated count-up + strikethrough original when annual */}
+      <div className="mt-5 flex items-baseline gap-1.5 flex-wrap">
+        {annual && monthlyBase !== displayedMonthly && (
+          <span className="font-display text-2xl sm:text-3xl font-light text-muted-foreground/60 line-through tabular-nums">
+            {monthlyBase}
+          </span>
+        )}
+        <span className="font-display text-4xl sm:text-5xl font-light rp-gold-text tabular-nums">
+          {animatedPrice}
+        </span>
+        <span className="text-base text-muted-foreground">€</span>
+        <span className="text-xs text-muted-foreground">/mes</span>
+      </div>
+      <div className="mt-1 text-sm tabular-nums text-muted-foreground rp-fade-in" key={annual ? "annual" : "monthly"}>
+        {annual ? (
+          <span>
+            <span className="text-[var(--gold-soft)]">{annualTotal.toLocaleString("es-ES")} €/año</span>
+            <span className="text-muted-foreground/70"> · facturado anualmente</span>
+          </span>
+        ) : (
+          <span>facturado mensualmente</span>
+        )}
+      </div>
+      {annual && savings > 0 && (
+        <div className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2.5 py-0.5 text-[10px] text-[var(--teal)] rp-fade-in">
+          <Check className="h-3 w-3" aria-hidden />
+          Ahorras {savings.toLocaleString("es-ES")} €/año
+        </div>
+      )}
+
+      {/* CTA */}
+      <Button
+        size="lg"
+        onClick={onCta}
+        className={cn(
+          "mt-6 w-full justify-center",
+          isEnterprise
+            ? "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+            : "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black",
+        )}
+      >
+        {isEnterprise ? "Hablar con ventas" : `Crear cuenta ${name}`}
+        <ArrowRight className="h-4 w-4" aria-hidden />
+      </Button>
+
+      {/* Features list */}
+      <div className="mt-6">
+        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
+          Incluye:
+        </div>
+        <ul className="space-y-2.5">
+          {features.map((f) => (
+            <li
+              key={f}
+              className="flex items-start gap-2.5 text-sm text-foreground/90"
+            >
+              <Check
+                className="h-4 w-4 text-[var(--teal)] mt-0.5 shrink-0"
+                aria-hidden
+              />
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <p className="mt-6 pt-5 border-t border-border/40 text-center text-[11px] text-muted-foreground">
+        {isEnterprise
+          ? "Un especialista diseña la propuesta a tu medida."
+          : "Sin permanencia. Cancela cuando quieras."}
+      </p>
+    </article>
   );
 }
 
@@ -2268,6 +2373,7 @@ function FAQ() {
 
 function FinalCTA() {
   const setView = useNav((s) => s.setView);
+  const openAuth = useNav((s) => s.openAuth);
   return (
     <section className="border-t border-border/60 py-20 sm:py-28">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -2297,7 +2403,7 @@ function FinalCTA() {
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <Button
               size="lg"
-              onClick={() => setView("app")}
+              onClick={() => openAuth("signup")}
               className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black"
             >
               Crear cuenta

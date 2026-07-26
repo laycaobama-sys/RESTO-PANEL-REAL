@@ -1,0 +1,572 @@
+Cada fase: OBJETIVO · ENTREGABLES · DATOS · GATE DE SALIDA.
+No se avanza sin superar el gate.
+
+=================================================================
+FASE 0 — PLATAFORMA (fundación)
+Sin esto, todo lo demás se construye sobre arena.
+=================================================================
+OBJETIVO
+Que exista una plataforma multi-tenant, segura, con planes reales,
+observable y desplegable, aunque todavía no haga nada de hostelería.
+
+ENTREGABLES
+0.1 Monorepo: apps (web, app, guest, admin) + packages (ui, core,
+domain, sdk, config). TypeScript estricto. Convenciones y lint rules
+que hacen cumplir ROS (B.2, B.8, B.10).
+0.2 Control plane `rp_control` + orquestador de migraciones multi-tenant
+(C.4) + provisioning automático de tenant (crea D1, aplica esquema,
+siembra datos base, registra en catálogo) en < 60 s.
+0.3 Autenticación: email+password, Magic Link, OAuth (Google, Apple,
+Microsoft), 2FA TOTP, passkeys/WebAuthn, recuperación segura,
+gestión de sesiones y dispositivos, PIN de dispositivo compartido.
+0.4 RBAC completo: catálogo de 60+ permisos, roles base, asignación por
+venue, middleware de autorización obligatorio.
+0.5 License Engine + Feature Flags + catálogo D.2 sembrado + cache KV +
+resolución < 5 ms + panel de administración de flags.
+0.6 Shell dinámico (D.6): navegación desde manifiesto, code splitting por
+feature, <Gate>, Ctrl+K, búsqueda global, notificaciones, temas.
+0.7 Design System v1 (G.2 primitivos y composición) + Storybook.
+0.8 Event bus + auditoría inmutable + correlation id end-to-end.
+0.9 Observabilidad: OpenTelemetry, Sentry, Logpush, redacción de PII,
+dashboards base, alertas y on-call.
+0.10 CI/CD: tests, lint, presupuesto de bundle, axe, suite anti-fuga
+cross-tenant, despliegue canary, rollback en 1 comando.
+0.11 Super Admin v0: dominio aislado, Zero Trust, lista de tenants,
+ficha básica, gestión de flags, estado de migraciones, logs.
+0.12 Backups automáticos por tenant a R2 + restore test programado.
+
+DATOS
+Control plane completo (D.3) + esquema base de tenant (orgs, brands,
+venues, zones, tables, members, roles, permissions, audit_events,
+outbox_events, settings).
+
+GATE DE SALIDA
+- Un tenant nuevo se aprovisiona solo y entra al panel en < 2 min.
+- Cambiar el plan de un tenant altera su navegación y sus bundles
+inmediatamente, verificado por E2E para los tres planes.
+- La suite anti-fuga cross-tenant pasa al 100%.
+- Un despliegue con rollback se completa en < 5 min sin downtime.
+- Restaurar un tenant desde backup funciona y está documentado.
+
+=================================================================
+FASE 1 — OPERACIÓN NÚCLEO
+El restaurante funciona. Esto es lo que te hace "todo en uno".
+=================================================================
+OBJETIVO
+Que un restaurante real pueda dar un servicio completo de viernes noche
+con RestoPanel y nada más.
+
+ENTREGABLES
+1.1 Motor offline-first (B.5): almacén local, cola de sincronización,
+ULID/UUIDv7, resolución de conflictos por evento, indicador de estado,
+modo degradado documentado.
+1.2 Catálogo de productos: categorías, productos, variantes, modificadores
+(obligatorios/opcionales), combos, medias raciones, alérgenos (14 UE),
+precios por canal y zona, impuestos, disponibilidad, 86-ing global < 3 s.
+1.3 TPV completo: modos (mesas, barra, take away, delivery, quiosco),
+apertura/cierre de turno, arqueo ciego, descuadres, cuentas abiertas,
+transferencia/unión/separación de mesas, división de cuenta (comensal,
+producto, importe, %), descuentos y anulaciones con motivo y permiso,
+propinas y reparto, devoluciones y rectificativas.
+1.4 Pagos en TPV: efectivo, tarjeta integrada/semi-integrada, QR,
+Bizum, Apple/Google Pay, vales, monedero, pago mixto, cobro a cuenta.
+Reconciliación pagos ↔ tickets ↔ cierre de caja.
+1.5 Cumplimiento fiscal (bloqueante): registro de facturación encadenado
+con hash, huella, firma y QR (Veri*Factu / RD 1007/2023),
+TicketBAI (3 territorios) y adaptación Navarra, series y numeración
+correlativa por local, imposibilidad de borrado, factura simplificada
+y completa con NIF, rectificativas. Suite de tests con cobertura 100%.
+1.6 Hardware: impresoras térmicas por destino (mDNS/IP), cajón, balanza,
+lector, etiquetas, monitor cliente. Descubrimiento y diagnóstico.
+1.7 PDA (PWA instalable + nativa): licencias ILIMITADAS en todos los
+planes, comanda en ≤3 toques, carta cacheada, offline con cola,
+rango de mesas y traspaso, comanda por PASES, marcadores por línea
+(hacer ya, esperar, urgente, alergia, sin ingrediente), estado en vivo,
+push "listo", modo formación.
+1.8 KDS + motor de priorización: Durable Object `KdsStation`, enrutado por
+partida, vistas (tickets, agregada, pase, por partida), cronómetro con
+semáforo y SLA por plato, bump/recall, batching por ingrediente o
+técnica, coordinación de salida por mesa, 86-ing desde cocina,
+comunicación cocina→sala, alto contraste, modo impresora.
+Criterios de ordenación combinables con pesos configurables:
+hora de compromiso, antigüedad, tiempo de preparación, pase,
+agrupación, carga por partida, canal, VIP, complejidad.
+Salida del motor: CUÁNDO EMPEZAR cada plato, no solo qué falta.
+1.9 Plano de mesas: `TableMap` con drag & drop, unir/separar, capacidades,
+estados, zonas, zoom, tiempo real vía `VenueHub`.
+1.10 Carta digital v1: QR por mesa, imágenes optimizadas, alérgenos,
+etiquetas, buscador, filtros, multiidioma, disponibilidad en vivo,
+branding, WCAG 2.2 AA, carga < 1,5 s en 4G.
+
+GATE DE SALIDA
+- 4 horas sin internet, 200 tickets: 0 pérdidas, 0 duplicados, todo
+sincronizado y cuadrado al volver.
+- Pedido en PDA visible en KDS en < 3 s p95.
+- Agotar un producto desaparece de carta, PDA y TPV en < 3 s.
+- Cierre de caja completo en < 2 min con descuadre explicado.
+- Auditoría fiscal simulada superada (cadena de hashes verificable).
+- Un servicio real de 100+ comensales sin intervención de ingeniería.
+
+=================================================================
+FASE 2 — CLIENTE, DATO Y ONBOARDING IA
+Aquí nace el dato propio y la rotación.
+=================================================================
+OBJETIVO
+Conectar comensal, reserva, mesa, comanda, pago y fidelización en una
+sola ficha, y que un restaurante pueda arrancar solo en 5 minutos.
+
+ENTREGABLES
+2.1 Order & Pay: pedido del comensal → KDS y TPV sin intervención,
+ronda de grupo, pedido por rondas, pago en mesa con división y
+propina, factura por email/WhatsApp, canje de sellos y cupones.
+2.2 Llamar al camarero: llamada contextual, push al camarero del rango,
+escalado automático a encargado y pantalla de sala, cooldown
+anti-abuso, métrica de tiempo de respuesta.
+2.3 Carta digital premium: VÍDEO en ficha de producto (autoplay, muted,
+bucle, 3-8 s, transcodificación automática, poster, < 2 MB),
+vista inmersiva tipo stories, valoraciones verificadas de quien pidió
+el plato, tiempo estimado de preparación, cartas por franja/zona/canal
+con programación.
+2.4 Recomendador de productos: motor único servido a carta, checkout y
+PDA. Señales: historial del comensal, carrito, hora, día, clima,
+ocupación, estado de cocina, margen real, stock y rotación,
+popularidad por franja. Reglas: nunca recomendar agotado o fuera de
+horario, tope de sesgo por margen, exclusiones manuales del gerente,
+medición de tasa de aceptación y aprendizaje por local.
+2.5 Reservas completas: widget propio, Reservar con Google, redes,
+WhatsApp, TheFork; motor de turnos con duración APRENDIDA de los
+datos del propio local, doble turno con buffer, pacing por franjas de
+15 min, asignación inteligente con combinación de mesas, bloqueos
+para walk-in, sobreventa controlada, recolocación automática.
+2.6 Anti no-show: confirmación inmediata, recordatorios T-24h y T-3h,
+cancelación fácil, prepago y tarjeta en garantía, scoring de riesgo
+por historial, reconfirmación reforzada solo para alto riesgo.
+2.7 Waitlist y walk-ins: alta desde la puerta, espera estimada dinámica,
+aviso por WhatsApp al liberarse mesa, aceptación en 1 clic,
+cola de huecos por cancelación, métrica de mesas y euros recuperados.
+2.8 Reservas ↔ PDA: al sentar, el camarero ve nombre, comensales, VIP,
+alergias, preferencias, última visita, plato favorito, cumpleaños y
+notas internas. Sin buscar nada.
+2.9 CRM unificado: ficha alimentada por reserva, QR, PDA, delivery, wifi,
+pago y reseña; deduplicación por teléfono/email con fusión asistida;
+timeline completo; ticket medio, frecuencia, LTV, estado del ciclo de
+vida; consentimientos RGPD por canal con origen y baja en 1 clic.
+2.10 Fidelización por sellos: motor de reglas (importe mínimo, producto,
+visita, canal, franja), sello automático al pagar en cualquier canal,
+canje en TPV/PDA/carta/tienda, Apple y Google Wallet sin app,
+aviso "te falta 1 sello", caducidades, y ROI del programa en euros.
+2.11 Analítica v1 + BASELINE AUTOMÁTICO: durante los primeros 30 días el
+sistema calcula el punto de partida del cliente (ciclo de mesa,
+rotaciones, ticket medio por canal, no-shows, retorno) para poder
+demostrar el antes/después con SUS datos. Alimenta `impact_benchmarks`.
+2.12 ONBOARDING IA (5 minutos, sin intervención humana):
+Entrevista conversacional: nombre, tipo de local, ciudad, nº de mesas
+y zonas, horarios, carta (subida de PDF/Excel o FOTO de la carta con
+OCR+IA), logo, colores, web, Instagram, Google Business, WhatsApp.
+Genera automáticamente: plano de mesas inicial, catálogo con
+categorías/precios/alérgenos sugeridos, carta digital con branding,
+QR por mesa listos para imprimir, configuración de reservas y turnos,
+web del restaurante, plantillas de mensajes, 5 automatizaciones base,
+programa de sellos inicial, roles y usuarios, impresoras detectadas,
+y un checklist de lo que queda por revisar.
+Todo revisable y reversible. Nada se publica sin confirmación.
+2.13 Modo formación y datos demo precargados para probar sin configurar.
+2.14 Importador y migración: carta, comensales, reservas históricas, stock,
+saldos de fidelización. Conectores desde competidores. Validación,
+previsualización y rollback.
+
+GATE DE SALIDA
+- Un comensal que reserva, pide por QR, paga, gana un sello y deja una
+reseña genera UNA sola ficha, sin duplicados.
+- Un restaurante nuevo pasa de registro a "listo para cobrar" en < 30 min
+sin ayuda humana, y en < 10 min con el onboarding IA.
+- El baseline de KPIs se calcula solo y es visible al cliente.
+- Ninguna ficha de comensal vive fuera del CRM (auditoría de esquema).
+
+=================================================================
+FASE 3 — COMERCIALIZACIÓN (listo para vender)
+A partir de aquí RestoPanel se puede facturar.
+=================================================================
+OBJETIVO
+Que un desconocido pueda descubrir, probar, comprar, usar exactamente
+lo que compró y ampliar, sin que nadie del equipo intervenga.
+
+ENTREGABLES
+3.1 Billing Engine completo (PARTE E) con adaptador Stripe, ledger propio,
+idempotencia, reconciliación diaria, impuestos, facturación propia,
+dunning y portal de cliente.
+3.2 Trial autoservicio 14 días con Professional, sin tarjeta, con
+degradación suave a Starter al terminar.
+3.3 Upgrade Engine (D.7) completo, con medición de conversión por señal.
+4.4 Medición de consumo y facturación de excesos (emails, WhatsApp, SMS,
+tokens de IA, llamadas API, almacenamiento).
+3.5 LANDING DINÁMICA POR PLAN: al seleccionar Starter / Professional /
+Enterprise cambia todo (color de acento, hero, vídeo, dashboard
+mostrado, funciones, precio, testimonios, CTA y copy). Sensación de
+tres productos dentro de una marca. Estado en la URL para compartir.
+3.6 Web pública completa: hero cinematográfico con demo real en autoplay,
+contadores animados desde `impact_benchmarks`, problema→solución,
+dashboard interactivo navegable, DEMO SANDBOX sin registro
+(mover mesa, crear reserva, editar comensal, abrir CRM, lanzar
+automatización; datos que se reinician), plano de mesas, CRM, IA,
+reseñas, automatizaciones, waitlist, BI, App Store, comparador
+competitivo con slider, CALCULADORA DE ROI (reservas/mes, ticket medio,
+% no-show, personal, nº locales, % de recuperación estimado → ingresos
+recuperables, no-shows evitados, tiempo ahorrado, ahorro en comisiones
+de delivery, ROI y PLAN RECOMENDADO), precios interactivos, comparador
+de 70+ funciones con buscador y filtros, tour interactivo de 4 pasos,
+testimonios en vídeo, casos de éxito con gráficas, FAQ con Schema,
+blog, centro de recursos, páginas SEO "RestoPanel vs X", integraciones,
+seguridad, API, status y footer premium.
+3.7 SEO/AEO/LLMO: Schema (Organization, SoftwareApplication, Product,
+FAQPage, BreadcrumbList, Review), OpenGraph, sitemaps, hreflang,
+Core Web Vitals verdes, contenido estructurado y citable por modelos
+de IA, llms.txt, feeds de documentación indexables.
+3.8 Página de status pública alimentada desde Super Admin.
+3.9 Centro de ayuda y documentación de producto.
+
+GATE DE SALIDA
+- Compra end-to-end con tarjeta real: pago → entitlements activos en < 10 s
+→ el panel muestra exactamente ese plan y nada más.
+- Downgrade y upgrade con prorrateo correcto, verificado contra el ledger.
+- Impago: el restaurante SIGUE pudiendo cobrar y comandar (B.5).
+- E2E por plan: cero rutas, endpoints, eventos o strings de features
+superiores alcanzables.
+- Lighthouse ≥ 95 en la web pública. LCP < 2 s en el panel.
+
+=================================================================
+FASE 4 — CRECIMIENTO
+Lo que hace que el cliente facture más y no se vaya.
+=================================================================
+4.1 Delivery propio 0% comisión: tienda con dominio del restaurante,
+zonas por polígono/radio/CP, mínimos, envíos, horarios y tiempos
+dinámicos según carga de cocina, programación, recogida en local.
+4.2 Gestión de reparto: estados, asignación, agrupación por proximidad,
+app del repartidor, mapa en vivo, seguimiento público, liquidación.
+4.3 Optimización de rutas (Enterprise).
+4.4 Agregadores (Glovo, Uber Eats, Just Eat): todos los pedidos al MISMO
+KDS, sincronización bidireccional de carta y disponibilidad,
+rentabilidad real por canal después de comisiones.
+4.5 Reputación: Google Business Profile, TripAdvisor, TheFork; solicitud
+automática en el momento óptimo; encuesta previa que desvía lo negativo
+a atención privada; panel de sentimiento y temas; respuesta sugerida
+por IA con aprobación humana; alerta inmediata al gerente;
+cruce reseña ↔ turno ↔ camarero ↔ pedido para hallar la causa raíz.
+4.6 Marketing: campañas email, WhatsApp Business API y SMS, editor visual,
+plantillas, segmentos dinámicos, A/B, atribución de ingresos real.
+4.7 Automatizaciones + Flow Builder visual: disparador → condición →
+acción → espera → ramificación; 25+ plantillas de un clic; historial,
+errores, reintentos e impacto medido en euros; webhooks.
+4.8 Campañas de horas valle con detección automática del hueco.
+4.9 Motor de configuración centralizada (exigencia cumplida):
+TODO desde RestoPanel, sin salir nunca a Cloudflare, Stripe, GitHub,
+Resend ni ningún proveedor. Incluye: dominio personalizado con
+verificación DNS guiada y SSL automático, remitentes de email con
+SPF/DKIM/DMARC verificados en el propio panel, WhatsApp Business
+(registro, plantillas y estado de aprobación), plantillas de mensajes,
+horarios, reservas, TPV, impresoras, QR, carta, integraciones, IA,
+automatizaciones, empleados, roles, pagos, facturación y branding.
+Tú configuras la infraestructura una vez; el cliente nunca ve un
+panel de terceros.
+
+GATE DE SALIDA
+- Un pedido de agregador y uno de la tienda propia entran al mismo KDS y
+a la misma analítica, indistinguibles operativamente.
+- Una campaña reporta ingresos atribuidos verificables.
+- Un cliente conecta dominio propio, email y WhatsApp sin salir del panel.
+
+=================================================================
+FASE 5 — CONTROL Y COPILOT
+Rentabilidad, no solo actividad.
+=================================================================
+5.1 Inventario y escandallos: artículos, conversiones, proveedores,
+recetas y subrecetas, coste teórico, food cost %, descuento automático
+al vender, compras, recepción, albaranes, inventarios con desviación
+y mermas en euros, alertas de stock mínimo, caducidades y lotes.
+5.2 Menu engineering: matriz estrella / vaca / puzzle / perro, conectada
+al recomendador de la carta y a la sugerencia de la PDA.
+5.3 Personal: fichaje desde TPV/PDA/móvil/quiosco (PIN, QR, biometría),
+registro horario conservable 4 años y exportable a inspección,
+geolocalización opcional, cuadrante drag & drop, plantillas,
+ausencias y aprobaciones, horas extra y descansos, coste de personal
+en vivo, ratio coste/ventas por franja, rendimiento por camarero,
+reparto de propinas, resumen diario personal.
+5.4 Previsión de plantilla por IA (reservas + histórico + clima + eventos).
+5.5 Sugerencia de compras por IA según consumo previsto.
+5.6 BI avanzado: rentabilidad por plato/categoría/canal/zona/camarero,
+heatmap día×hora, embudo completo (carta → pedido → ticket → reseña →
+retorno), comparativas entre locales, informes programados.
+5.7 Forecast de ventas y demanda con intervalos de confianza.
+5.8 Detección de anomalías: descuentos excesivos, anulaciones sospechosas,
+descuadres, mermas fuera de rango, patrones de fraude interno.
+5.9 COPILOT EN TODAS LAS PANTALLAS (no un chat aparte):
+Arquitectura: un runtime de copiloto + herramientas registradas por
+módulo, con RAG sobre los datos del tenant vía Vectorize.
+El panel del copiloto conoce SIEMPRE la pantalla, los filtros y la
+selección actual.
+Por módulo:
+Inicio → resumen ejecutivo del día y de la semana.
+Reservas → "¿optimizo el sábado?" → propuesta de turnos y pacing.
+Sala → "¿cómo recoloco esta mesa que se retrasa?"
+Cocina → "¿por qué vamos lentos?" → cuello de botella y acción.
+Carta → "¿qué plato subo de precio?" → margen + elasticidad.
+CRM → "campaña para quienes no vienen desde hace 60 días".
+Reseñas → borrador de respuesta con el tono de la marca.
+Inventario → "qué comprar mañana" → pedido sugerido por proveedor.
+Personal → "necesitas 2 camareros más el viernes" → cuadrante.
+Analítica → explicación de la desviación y su causa probable.
+Reglas duras: B.13. Toda acción de escritura requiere confirmación
+explícita y queda auditada. Presupuesto de tokens por plan.
+Resumen diario automático al cierre.
+
+GATE DE SALIDA
+- El food cost calculado coincide con el inventario real (±2%) en un
+local piloto durante un mes.
+- El forecast de ventas a 7 días tiene error medio < 15% en pilotos.
+- El copiloto no produce ni una sola cifra no trazable a una fuente
+(auditoría manual de 200 respuestas).
+
+=================================================================
+FASE 6 — ESCALA ENTERPRISE
+Grupos, cadenas y franquicias.
+=================================================================
+6.1 Multi-local avanzado: jerarquía Org → Marca → Local, cambio de local
+en 1 clic, dashboard global con mapa y comparativa entre locales,
+informes consolidados, cierres de grupo.
+6.2 Carta central con overrides de precio, disponibilidad e IVA por local,
+y publicación programada a N locales.
+6.3 Modo franquicia: herencia de configuración con BLOQUEOS por nivel
+(qué puede y qué no puede tocar cada local), plantillas de local,
+alta de franquiciado en minutos, royalties y reporting.
+6.4 Gobierno e identidad: SSO SAML/OIDC, SCIM (aprovisionamiento y baja
+automática), roles personalizados, permisos granulares completos,
+passkeys obligatorias, IP allowlist, políticas de sesión.
+6.5 Auditoría Enterprise: retención ilimitada, búsqueda avanzada,
+exportación firmada, alertas de eventos sensibles.
+6.6 API pública v1: REST versionada, OpenAPI, paginación por cursor,
+rate limits por plan, claves con ámbitos, webhooks con firma y
+reintentos, changelog, política de deprecación, entorno sandbox.
+6.7 SDK oficiales (TypeScript, PHP, Python) generados desde OpenAPI.
+6.8 Data warehouse export: streaming o batch a S3/BigQuery/Snowflake,
+conectores BI, esquema documentado y estable.
+6.9 Residencia de datos por región y DPA con subencargados.
+6.10 SLA contractual con penalizaciones, medición automática del SLA y
+crédito automático cuando se incumple.
+
+GATE DE SALIDA
+- Un grupo de 20 locales opera con carta central y bloqueos, con informes
+consolidados correctos al céntimo.
+- SSO + SCIM probados contra dos proveedores de identidad.
+- API pública con documentación viva, sandbox y un integrador externo
+construyendo sobre ella sin ayuda.
+
+=================================================================
+FASE 7 — ECOSISTEMA (App Store y móvil)
+Deja de ser un producto y pasa a ser una plataforma.
+=================================================================
+7.1 APP STORE (modelo Shopify, no un simple marketplace):
+Categorías: Pagos · Marketing · Delivery · IA · Contabilidad · RRHH ·
+Cocina · Fidelización · Analítica · Integraciones · Reservas · Hardware.
+Cada app: nombre, icono, capturas, VÍDEO, descripción larga,
+valoraciones y reseñas verificadas, número de instalaciones,
+PERMISOS SOLICITADOS explícitos, compatibilidad de plan, versión,
+changelog, política de privacidad, soporte, precio (gratis, pago único,
+suscripción, revenue share).
+Instalación en 1 clic con pantalla de consentimiento de permisos,
+configuración guiada, desinstalación limpia, gestión de versiones y
+rollback, apps privadas para Enterprise.
+7.2 Plataforma de desarrolladores: portal, registro de apps, credenciales,
+ámbitos OAuth, sandbox, revisión y aprobación desde Super Admin,
+guías, ejemplos, panel de ingresos del partner.
+7.3 Extensibilidad real: puntos de extensión declarados (widgets del
+dashboard, acciones en ficha de comensal, pasos del Flow Builder,
+paneles en TPV, columnas en tablas, informes personalizados).
+7.4 Apps móviles nativas iOS y Android:
+- Manager: KPIs, alertas, aprobaciones, reseñas, copiloto.
+- Camarero: PDA completa offline.
+- Cocina: KDS en tablet.
+- Repartidor: rutas y entregas.
+Push, biometría (FaceID/Touch/huella), widgets de pantalla de inicio,
+Live Activities y Dynamic Island (estado del servicio en curso),
+Apple Watch y WearOS (avisos de mesa lista, llamada de comensal),
+Wallet (tarjeta de fidelización), NFC y QR, modo offline completo.
+7.5 Actualizaciones over-the-air y control de versiones mínimas por tenant.
+
+GATE DE SALIDA
+- Un desarrollador externo publica una app en la App Store sin acceso a
+vuestro código, y un cliente la instala en 1 clic.
+- Las apps móviles pasan revisión de App Store y Play Store.
+- Una app instalada solo puede acceder a lo que sus permisos declaran,
+verificado por tests de aislamiento.
+
+=================================================================
+FASE 8 — SUPER ADMIN COMPLETO Y CUSTOMER SUCCESS
+Tu control total. Cierra el círculo del negocio.
+=================================================================
+8.1 Torre de control completa (F.3.1).
+8.2 Ficha de tenant 360º (F.3.2) con salud técnica, entitlements,
+dominio/SSL/email/WhatsApp, uso, coste y timeline unificado.
+8.3 Impersonación segura con grabación, consentimiento y notificación
+(F.3.3). Un solo camino auditado para tocar datos de cliente.
+8.4 Observabilidad por tenant (F.3.4): latencia, errores, colas, DO,
+WebSockets, D1/R2/KV/Queues/Vectorize, IA, API, emails, WhatsApp.
+8.5 HEALTH SCORE por IA (F.3.5) con diagnóstico, causa, acción
+recomendada, borrador de mensaje y alerta proactiva al CSM.
+8.6 Playbooks automáticos de Customer Success y cartera por CSM.
+8.7 Métricas SaaS y finanzas (F.3.6): MRR, ARR, ARPA, LTV, CAC, payback,
+churn, NRR, cohortes, previsión, motivos de cancelación.
+8.8 FinOps: coste real por tenant y por feature, margen bruto por cliente,
+alerta de clientes con margen negativo, optimización de consumo de IA.
+8.9 Operaciones de plataforma (F.3.7): flags con rollout progresivo y kill
+switch, migraciones, despliegues, incidencias con SLA y post-mortem,
+comunicados in-app segmentados, revisión de App Store, backups con
+restore test semanal, break-glass con expiración y alerta al equipo.
+8.10 Mapa mundial de actividad, heatmaps de uso y detección de abuso/fraude.
+8.11 Soporte integrado: bandeja de tickets vinculada al tenant, al evento
+y a la traza del error. Un clic desde el error del cliente al log real.
+
+GATE DE SALIDA
+- Reproducir y diagnosticar un error reportado por un cliente en < 5 min
+desde el Super Admin, sin abrir la consola de Cloudflare.
+- Health Score correlaciona con churn real en datos históricos.
+- Coste y margen por cliente cuadran con la factura de infraestructura.
+- Ninguna acción sobre datos de cliente es posible fuera del camino auditado.
+
+=================================================================
+FASE 9 — ENDURECIMIENTO Y EXPANSIÓN
+Lo que separa "funciona" de "vendible a una cadena".
+=================================================================
+9.1 Seguridad: OWASP ASVS, CSP estricta, protección CSRF/XSS/SSRF,
+rotación de secretos, gestión de claves, escaneo de dependencias (SCA),
+SAST/DAST en CI, bug bounty, PENTEST EXTERNO anual con informe.
+9.2 SOC 2 Type II ready e ISO 27001 ready: políticas, controles,
+evidencias automatizadas, gestión de riesgos y de proveedores.
+No declarar certificación hasta tenerla (B.12).
+9.3 Continuidad: RPO ≤ 5 min, RTO ≤ 1 h, simulacro de desastre trimestral
+documentado, restauración probada por tenant y global.
+9.4 QA industrial: Vitest, Playwright (multi-navegador y multi-plan),
+k6 (carga y estrés: 500 comandas/min por venue, 10.000 tenants
+concurrentes), pruebas de caos (caída de D1, de un DO, de red),
+pruebas de accesibilidad, regresión visual, cobertura por umbral.
+9.5 Runbooks operativos: on-call, escalado, incidencias por severidad,
+comunicación al cliente, post-mortem sin culpables.
+9.6 Internacionalización real: i18n completo, multi-moneda, multi-huso,
+formatos locales, fiscalidad por país (Francia, Italia, Portugal,
+LATAM), traducción de contenido, precios por mercado, soporte por idioma.
+9.7 Accesibilidad certificada por auditoría externa.
+9.8 Programa de partners e integradores con certificación y comisiones.
+
+GATE DE SALIDA
+- Pentest externo sin hallazgos críticos ni altos abiertos.
+- Simulacro de desastre superado dentro de RPO/RTO declarados.
+- Prueba de carga superada con los objetivos de B.4 intactos.
+- Un segundo país operativo con su fiscalidad y su idioma.
+
+#################################################################
+PARTE I — MATRIZ DE PLANES (resumen comercial)
+#################################################################
+
+Principios inamovibles:
+1. PDA con licencias ILIMITADAS en los TRES planes. Nunca por dispositivo.
+2. Cero comisión sobre reservas y sobre pedidos del canal propio.
+3. Los planes se diferencian por CAPACIDAD, AUTOMATIZACIÓN, INTELIGENCIA
+y GOBIERNO. Nunca poniendo peajes en lo básico.
+4. Todo lo operativo crítico está en Starter. Si el restaurante no puede
+operar, no hay negocio ni upsell.
+5. Precio visible en Starter y Professional. Enterprise: hablar con ventas.
+
+STARTER — "Empieza a operar mejor hoy"
+1 local · 10 usuarios · PDA ilimitada · 1 KDS · TPV completo · offline ·
+fiscalidad · carta digital con QR (3 platos con vídeo, 2 idiomas) ·
+Order & Pay · llamar al camarero · reservas online con turnos básicos ·
+take away · CRM 1.000 fichas · sellos · 500 emails/mes · fichaje ·
+analítica 3 meses · 3 automatizaciones · 10 consultas de copiloto/mes ·
+3 integraciones · auditoría 30 días · soporte 48 h · onboarding IA.
+Gancho: sustituye 3 herramientas por menos de lo que pagas por una.
+
+PROFESSIONAL — "Haz crecer la facturación" (RECOMENDADO)
+Hasta 5 locales · usuarios ilimitados · 3 KDS con priorización avanzada ·
+pantalla de cliente · vídeo ilimitado · vista inmersiva · recomendador IA ·
+upsell en checkout · reservas avanzadas (pacing, prepago, scoring,
+waitlist, eventos) · delivery propio 0% + agregadores · CRM ilimitado ·
+puntos/niveles/Wallet · WhatsApp y SMS · atribución · reseñas con IA ·
+inventario y escandallos · cuadrantes y coste de personal · analítica
+24 meses e informes avanzados · 25 automatizaciones con Flow Builder ·
+webhooks · copiloto ilimitado · resumen diario · web personalizable ·
+integraciones ilimitadas · API de lectura · passkeys · auditoría 1 año ·
+soporte 8 h · onboarding guiado · migración incluida.
+Gancho: el ahorro en comisiones de delivery suele pagar el plan entero.
+
+ENTERPRISE — "Escala sin perder el control"
+Locales ilimitados · KDS y partidas ilimitadas · priorización con pesos
+a medida · A/B testing de carta · white-label · optimización de rutas ·
+inventario con IA y trazabilidad · previsión de plantilla · BI completo ·
+forecast · detección de anomalías · export a data warehouse ·
+automatizaciones ilimitadas · copiloto a medida con instrucciones propias ·
+App Store con apps privadas · API completa + SDK + sandbox ·
+franquicias y carta central · informes consolidados · SSO/SAML/SCIM ·
+IP allowlist · residencia de datos · auditoría ilimitada exportable ·
+SLA con penalización · gestor de cuenta · implantación gestionada ·
+formación presencial · revisión trimestral de negocio.
+Gancho: un solo panel para todo el grupo, con control de qué toca cada local.
+
+ADD-ONS (cualquier plan): local adicional · pantalla KDS · créditos de
+WhatsApp/SMS · quiosco de autoservicio · dominio y web premium ·
+paquete de tokens de IA · white-label (solo Enterprise).
+
+#################################################################
+PARTE J — LO QUE SE HA AÑADIDO Y NO ESTABA
+#################################################################
+1. Base de datos por tenant en D1 + control plane separado: el aislamiento
+deja de depender de la disciplina del desarrollador.
+2. Durable Objects como fuente de verdad en vivo (VenueHub, KdsStation,
+CashSession): orden garantizado y cero descuadres por concurrencia.
+3. Orquestador de migraciones multi-tenant con canary por tenant.
+4. Propagación de entitlements en cinco capas, incluida la capa de BUNDLE:
+el código de Enterprise nunca se descarga en un Starter.
+5. Separación explícita de Feature Flag / Entitlement / Permission.
+6. Estados de suscripción con efecto definido, incluido "impago sin
+cortar la operación": nadie deja de cobrar en hora punta por una factura.
+7. Super Admin como aplicación aislada con Zero Trust, sin ningún vínculo
+con el panel de cliente, e impersonación auditada y grabada.
+8. FinOps por tenant: coste real y margen bruto por cliente. Detecta
+clientes que te cuestan dinero (típicamente por consumo de IA).
+9. Health Score con dimensión de RESULTADO DE NEGOCIO del cliente,
+no solo de uso del producto.
+10. Baseline automático de KPIs en los primeros 30 días: te permite vender
+con datos reales de cada cliente en lugar de promesas.
+11. Disciplina de claims con tabla de benchmarks auditable.
+12. Motor de configuración centralizada: el cliente nunca ve Cloudflare,
+Stripe ni Resend. Dominio, email, SSL y WhatsApp desde tu panel.
+13. Restore test automático semanal: un backup no probado no existe.
+14. Break-glass con expiración, alerta al equipo y post-mortem obligatorio.
+15. Presupuesto de bundle y de rendimiento como criterio de CI que rompe
+el build. La velocidad se defiende con automatismos, no con buena fe.
+16. Puntos de extensión declarados para la App Store: extensibilidad real,
+no solo integraciones.
+17. Copiloto como runtime con herramientas por módulo, no como chat.
+18. Suite anti-fuga cross-tenant obligatoria en CI.
+19. Modelo de franquicia con bloqueos de configuración por nivel.
+20. Medición de conversión del Upgrade Engine: los mensajes que no
+convierten se retiran solos.
+
+#################################################################
+PARTE K — DEFINITION OF DONE (para cada entregable)
+#################################################################
+Un entregable está terminado solo si cumple TODO esto:
+□ Feature flag creado, documentado y con plan mínimo asignado.
+□ Endpoints con requiredFeature y requiredPermission declarados.
+□ Migraciones compatibles hacia atrás + rollback probado.
+□ Eventos de dominio y de auditoría emitidos.
+□ Estados de carga, error, vacío y éxito implementados.
+□ Componentes del Design System, sin literales de estilo.
+□ Accesible (WCAG 2.2 AA) y navegable por teclado.
+□ Responsive verificado en móvil, tablet y escritorio.
+□ Funciona offline o degrada de forma explícita y documentada.
+□ Tests unitarios y E2E, incluido E2E por plan.
+□ Presupuesto de rendimiento y de bundle respetado.
+□ Textos en i18n, sin cadenas hardcodeadas.
+□ Sin PII en logs.
+□ Documentado en el centro de ayuda y en el changelog.
+□ Visible en Super Admin (uso, errores, coste) si es relevante.
+□ Ningún claim numérico sin registro en impact_benchmarks.

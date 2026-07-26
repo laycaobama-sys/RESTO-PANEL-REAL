@@ -2580,3 +2580,80 @@ Stage Summary:
 - TrustLogos: carrusel CSS-only 2 filas opuestas, 8 restaurantes ficticios.
 - BeforeAfter: 5 pares fricción→solución, scroll-driven desaturate/blur.
 - WhyBento: bento asimétrico 9 celdas con micro-animaciones.
+
+---
+Task ID: 8-LAYOUT-IMAGES
+Agent: general-purpose
+Task: Fix layout overflow, responsive breakpoints, and landing page images
+
+Work Log:
+- Leí worklog.md previo y revisé la estructura de carpetas (rp/{reservas,dashboard,executive,growth,crm,marketing,landing,app}) y el componente DialogContent base en src/components/ui/dialog.tsx (no tiene max-h nativo).
+- Audit `src/components/rp/reservas/reservas-view.tsx`:
+  • QuickFiltersBar (línea 1735+) ya usa `flex-wrap` en todos sus grupos de chips → OK, no necesita fade scroll.
+  • Tab bar superior (línea 952) usaba `overflow-x-auto rp-scroll-thin` sin indicadores de fade → envuelvo en `<div className="relative">` y añado dos divs `pointer-events-none absolute ... w-6 bg-gradient-to-r/l from-background to-transparent` a izquierda y derecha con `bottom-1` para alinear con el `pb-1` interno. Patrón exacto sugerido por la spec.
+  • NewReservationDialog ya tenía `max-h-[90vh] overflow-y-auto rp-scroll-thin` → OK.
+  • Mobile filters Sheet ya tenía `max-h-[85vh] overflow-y-auto rp-scroll-thin` → OK.
+  • TimelineContent envuelto en `overflow-x-auto rp-scroll-thin -mx-1` con `minWidth: 100%` → scroll intencional limpio.
+  • Lista de reservas desktop usa `min-w-[640px]` dentro de `max-h-[560px] overflow-auto rp-scroll-thin` → OK.
+  • Plano de mesas envuelto en `overflow-x-auto rp-scroll-thin` con `style={{ minWidth: 680, height: 460 }}` → scroll intencional limpio.
+- Audit `src/components/rp/dashboard/home.tsx`: KPI grid usa `grid-cols-1 sm:grid-cols-2 xl:grid-cols-3`, main+aside usa `grid-cols-1 lg:grid-cols-3` con `lg:col-span-2` para main, todo con `min-w-0` en hijos. SVG del chart de rendimiento usa `width="100%" preserveAspectRatio="xMidYMid meet"` → escala sin overflow. Sin cambios necesarios.
+- Audit `src/components/rp/executive/exec-cockpit.tsx`: header usa `flex flex-wrap items-center justify-between gap-3`, tabs envueltos en `overflow-x-auto rp-scroll-thin -mx-1 px-1` con `TabsList className="h-auto ... inline-flex w-max min-w-full"` → scroll intencional limpio. SVGs de forecast/comparativas usan `min-w-[640px]` dentro de `overflow-x-auto rp-scroll-thin` → OK. Toolbar interno (línea 1156) usa `flex flex-wrap items-start justify-between gap-2`. Sin cambios necesarios.
+- Audit `src/components/rp/growth/growth-analytics.tsx`: root tiene `space-y-6 overflow-x-hidden` → OK. Todas las tablas (`ChannelTable`, `SegmentTable`) usan `overflow-x-auto rp-scroll-thin` con `min-w-[680px]` / `min-w-[760px]` → scroll intencional limpio. SVGs envueltos en `overflow-x-auto rp-scroll-thin -mx-1` con `min-w-[640px]`. Grids `lg:grid-cols-2`. Sin cambios necesarios.
+- Audit `src/components/rp/crm/crm-view.tsx`: layout `lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]` con `min-w-0` en hijo derecho → OK. Filter tabs usan `flex flex-wrap` con `flex-1` en cada botón → OK. Profile header usa `flex flex-col gap-4 sm:flex-row sm:items-start` con `min-w-0 flex-1` → OK. **5 Dialogs sin `max-h-[90vh] overflow-y-auto`** → fix:
+  • AddTagDialog (línea 1140): `sm:max-w-md` → `sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin`
+  • EditCustomerDialog (línea 1241): `sm:max-w-lg` → `sm:max-w-lg max-h-[90vh] overflow-y-auto rp-scroll-thin`
+  • AddNoteDialog (línea 1386): `sm:max-w-md` → `sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin`
+  • ComunicarDialog (línea 1502): `sm:max-w-lg` → `sm:max-w-lg max-h-[90vh] overflow-y-auto rp-scroll-thin`
+  • NewReservationDialog crm (línea 1652): `sm:max-w-md` → `sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin`
+- Audit `src/components/rp/marketing/` (12 archivos): todos ya usan `flex flex-wrap`, `lg:grid-cols-[X_Y]` con `min-w-0` en hijos, `overflow-x-auto rp-scroll-thin` para floor plans (`demo-floor.tsx` línea 277) y timelines (`demo-floor.tsx` línea 381) con `min-w-[640px]` / `min-w-[560px]`. Hero dashboard tiene `overflow-hidden` en inner card y `relative w-full max-w-[560px]` en wrapper. DemoAi scroll de mensajes con `max-h-[460px] min-h-[300px] overflow-y-auto rp-scroll-thin`. Sin cambios necesarios.
+- Audit `src/components/rp/reservas/floor-editor.tsx`: layout `flex flex-col lg:flex-row gap-4 min-w-0` con `flex-1 min-w-0` en hijo. Mobile zone tabs usan `TabsList className="w-full justify-start overflow-x-auto rp-scroll-thin h-auto"` → OK. Desktop grid de zonas con responsive cols `2xl:grid-cols-4 xl:grid-cols-2` (≥4) / `xl:grid-cols-3` (3) / `xl:grid-cols-2` (2) / `grid-cols-1` (1). Bottom Sheet ya tiene `max-h-[80vh] overflow-y-auto rp-scroll-thin`. **AddTableDialog sin `max-h`** → fix: `sm:max-w-md` → `sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin`.
+- Audit `src/components/rp/landing/landing.tsx`:
+  • Root `<div className="bg-background">` no tenía `overflow-x-hidden` → añado `overflow-x-hidden` para prevenir scroll horizontal por elementos decorativos absolutos (glow `-inset-6` del HeroDashboard, gradientes radiales, etc.) en breakpoints 390/768.
+  • `ProductImage` wrapper ya tenía: `relative w-full overflow-hidden rp-glass rounded-2xl border border-border/40 shadow-2xl shadow-[var(--gold)]/5` + `aspect` configurable (default `aspect-[16/10]`) + `<Image fill sizes=... className="object-cover" loading={priority ? undefined : "lazy"} />` → CLS-preventivo, lazy correcto.
+  • **Faltaba `object-position`** → añado nuevo prop `objectPosition = "object-center sm:object-[center_30%]"` (centra en móvil, sube foco al 30% vertical en ≥sm para que personas/comida salgan bien en el recorte). Image className cambia a `cn("object-cover", objectPosition)`. Verificado en HTML renderizado: 6 imágenes con `class="object-cover object-center sm:object-[center_30%]"` y contenedores con `aspect-[4/3]` / `aspect-[16/10]` / `aspect-[16/9]` + `rounded-2xl` + `shadow-2xl shadow-[var(--gold)]/5`.
+  • 4 usos de ProductImage: SectionRulesAuto (3 cards md:grid-cols-3 con `aspect-[4/3]`, primer imagen priority), SectionRealTime (lg:grid-cols-2 con `aspect-[16/10]`, priority), SectionCrmVip (lg:grid-cols-2 con `aspect-[4/3]`), SectionPartner (full-width `aspect-[16/9]`).
+  • LandingHeader SheetContent `side="right"` ya tiene `h-full` por defecto en el componente Sheet, inner nav usa `flex-1 overflow-y-auto rp-scroll-thin` → OK sin cambios.
+- Verificación lint: `npx eslint src/components/rp/reservas/reservas-view.tsx src/components/rp/reservas/floor-editor.tsx src/components/rp/crm/crm-view.tsx src/components/rp/landing/landing.tsx --max-warnings=0` → EXIT 0 (limpio).
+- Verificación lint global: `bun run lint` → 6 errores pre-existentes en `src/components/rp/charts/chart-utils.tsx` (react-hooks/refs "Cannot access refs during render") que NO son de mis cambios (verificado con `git stash` + lint). El task explícitamente dice "Do NOT touch chart components" → no los toco.
+- Verificación dev server: arrancado en :3000, HTTP 200, 343236 bytes, sin errores de compilación. HTML renderizado confirma: `class="bg-background overflow-x-hidden"` en root, 6 instancias de `class="object-cover object-center sm:object-[center_30%]"`, 6 contenedores con `aspect-[4/3]` / `aspect-[16/10]` / `aspect-[16/9]` + `rounded-2xl` + `shadow-2xl shadow-[var(--gold)]/5`.
+
+Stage Summary:
+- 4 archivos modificados (1 layout + 1 landing + 2 view components con dialogs):
+  • `src/components/rp/landing/landing.tsx`: +`overflow-x-hidden` en root + prop `objectPosition` (default `object-center sm:object-[center_30%]`) en `ProductImage` aplicado a `<Image className="object-cover">`.
+  • `src/components/rp/reservas/reservas-view.tsx`: tab bar envuelto en `<div className="relative">` con 2 fade indicators `pointer-events-none absolute ... w-6 bg-gradient-to-r/l from-background to-transparent` (izq + der).
+  • `src/components/rp/crm/crm-view.tsx`: 5 DialogContent (AddTagDialog, EditCustomerDialog, AddNoteDialog, ComunicarDialog, NewReservationDialog) reciben `max-h-[90vh] overflow-y-auto rp-scroll-thin`.
+  • `src/components/rp/reservas/floor-editor.tsx`: AddTableDialog recibe `max-h-[90vh] overflow-y-auto rp-scroll-thin`.
+- Auditoría completa (sin cambios necesarios) en: `dashboard/home.tsx`, `executive/exec-cockpit.tsx`, `growth/growth-analytics.tsx`, todo `marketing/` (12 archivos), QuickFiltersBar de reservas-view, todas las tablas y timelines existentes (ya usan `overflow-x-auto rp-scroll-thin` con `min-w-[640-760px]` apropiado), SheetContent bottom (ya tenían `max-h-[80vh]` / `max-h-[85vh]`), SheetContent right de LandingHeader (ya tiene `h-full` por defecto).
+- Lint: 0 errores en archivos modificados. 6 errores pre-existentes en `charts/chart-utils.tsx` fuera de scope (otro agente los edita).
+- Dev server: HTTP 200, sin errores de compilación, HTML confirmado con las clases nuevas.
+- Breakpoints cubiertos: 390px (mobile chips wrap, tab bar scroll+fade, dialogs max-h-90vh), 768px (grids sm→lg, tabs scroll), 1280/1440/1920px (lg/xl/2xl grids, sticky panels, sin overflow horizontal gracias a `overflow-x-hidden` en landing y `min-w-0` en flex/grid children).
+
+---
+Task ID: SESSION-FIXES
+Agent: main (Z.ai Code)
+Task: Fix critical toast-in-render bug, sidebar auto-collapse, pricing toggle, auth, notifications, layout
+
+Work Log:
+- **Bug crítico corregido** en `waitlist-panel.tsx`: toast() se llamaba DENTRO del updater de setOffers((prev) => prev.map(...)) dentro de setInterval. El updater corre durante el render de React, causando "Cannot update a component (Toaster) while rendering a different component (WaitlistPanel)". Fix: refs para leer estado actual, computar fuera del updater, dedup con Set, toast() en el cuerpo del callback del timer.
+- **Mismo bug corregido en `exec-alerts.tsx`**: handleAlertAction y handleRecAction llamaban toast() dentro de setAlerts/setRecs updaters. Fix: computar nextAlert/nextStatus fuera del updater, llamar toast() en el cuerpo del event handler.
+- **Auditoría de toast() en render**: encontrado yield-panel.tsx (toast fuera del updater, OK), crm-view.tsx (toast en event handler, OK), alerts-panel.tsx (OK). Solo waitlist y exec-alerts tenían el bug.
+- **Sidebar auto-ocultable** en `app-shell.tsx` reescrito completo: rail de 72px colapsado por defecto, hover-expand a 260px con delay 250ms al cerrar, pin button con persistencia en localStorage, drawer mobile con backdrop y animación rp-slide-in, labels con fade+translateX escalonados 20ms, respeta prefers-reduced-motion, placeholder mantiene 72px en layout cuando floating.
+- **NotificationsBell funcional**: panel dropdown con lista de 6 notificaciones, badge contador de no leídas, mark-as-read individual y "marcar todas", close on outside-click + Escape, "Ver todas" navega a reviews.
+- **AuthDialog completo** (login/signup/forgot): validación en tiempo real, errores por campo, loading spinner + disabled, mostrar/ocultar contraseña, medidor de fuerza en signup, redirección al dashboard tras login exitoso, enlace "¿Olvidaste tu contraseña?" funcional, logout desde UserAvatar y UserCard. AuthDialog renderizado a nivel Page (disponible en landing y app).
+- **Pricing con 20% descuento anual**: toggle Mensual/Anual con badge "-20%", precio mensual×0.8 en anual, count-up animado 300ms (usePriceCountUp hook con requestAnimationFrame y ease-out cubic), precio original tachado con <s>, "X€/año facturado anualmente", "Ahorras Y€/año", persistencia del toggle en localStorage.
+- **Botones del landing conectados**: "Iniciar sesión" → openAuth("login"), "Crear cuenta" → openAuth("signup"), "Entrar al panel"/"Explorar" → setView("app"), CTAs de pricing Starter/Professional → openAuth("signup"), Enterprise → setView("app").
+- **CSS animations** en globals.css: .rp-fade-in (translateX -8→0, 220ms), .rp-slide-in (translateX -100%→0, 220ms), respeta prefers-reduced-motion.
+- **Layout/overflow** (subagent 8-LAYOUT-IMAGES completó): overflow-x-hidden en root de landing, fade indicators en tab bar de reservas, max-h-[90vh] en 6 dialogs, objectPosition en ProductImage.
+- Eliminado overlay backdrop problemático en sidebar (fixed inset-0 z-40 que bloqueaba clicks en tabs).
+
+Stage Summary:
+- 3 archivos con bug crítico toast-en-render corregidos (waitlist-panel.tsx, exec-alerts.tsx — handleAlertAction + handleRecAction)
+- app-shell.tsx reescrito completo: sidebar auto-ocultable + notifications + auth + user menus
+- nav-store.ts extendido con auth state (user, openAuth, login, logout)
+- landing.tsx: pricing con 20% descuento + count-up + persistencia, botones auth conectados
+- globals.css: animaciones rp-fade-in y rp-slide-in
+- page.tsx: AuthDialog renderizado a nivel global
+- Verificación Agent Browser: Reservas → Waitlist (entrar/salir 3x) → filtros Hoy/Mañana/Sala/Terraza/VIP/Barra → Dashboard → Clientes → Centro Ejecutivo → login flow → notifications → pricing toggle → sidebar hover expand/collapse. Consola limpia: cero errores, cero warnings de runtime.
+- Overflow horizontal: 0px en 390/768/1280/1440/1920px.
+- Lint: 0 errores.
+- Dev server: HTTP 200 sin errores de compilación.

@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     5→import { cn } from "@/lib/utils";
+     6→import {
+     7→  Tooltip,
+     8→  TooltipContent,
+     9→  TooltipProvider,
+    10→  TooltipTrigger,
+    11→} from "@/components/ui/tooltip";
+    12→import { Button } from "@/components/ui/button";
+    13→import { Switch } from "@/components/ui/switch";
+    14→import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+    15→import {
+    16→  ArrowDownRight,
+    17→  ArrowUpRight,
+    18→  ArrowRight,
+    19→  Award,
+    20→  Banknote,
+    21→  BarChart3,
+    22→  BellRing,
+    23→  Brain,
+    24→  Calendar,
+    25→  CalendarClock,
+    26→  CalendarDays,
+    27→  ChefHat,
+    28→  ChevronDown,
+    29→  ChevronRight,
+    30→  Cloud,
+    31→  ConciergeBell,
+    32→  Crown,
+    33→  Database,
+    34→  DollarSign,
+    35→  ExternalLink,
+    36→  Filter,
+    37→  Flame,
+    38→  Gauge as GaugeIcon,
+    39→  Globe,
+    40→  Info,
+    41→  Layers,
+    42→  Mail,
+    43→  MailOpen,
+    44→  MapPin,
+    45→  Megaphone,
+    46→  MessageSquare,
+    47→  Minus,
+    48→  MousePointerClick,
+    49→  Percent,
+    50→  Phone,
+    51→  PieChart,
+    52→  Plus,
+    53→  ReceiptText,
+    54→  RefreshCw,
+    55→  RotateCcw,
+    56→  Save,
+    57→  Settings2,
+    58→  ShieldAlert,
+    59→  Sliders,
+    60→  Sparkles,
+    61→  Star,
+    62→  Target,
+    63→  TrendingDown,
+    64→  TrendingUp,
+    65→  UserCheck,
+    66→  UserX,
+    67→  Users,
+    68→  Zap,
+    69→} from "lucide-react";
+    70→
+    71→/* =====================================================================
+    72→ * Types
+    73→ * ===================================================================== */
+    74→
+    75→type Freq = "realtime" | "near" | "aggregated";
+    76→type Accent = "gold" | "teal";
+    77→type TrendDir = "up" | "down" | "flat";
+    78→type KpiCategory = "Operación" | "Clientes" | "Marketing" | "Reputación" | "Finanzas";
+    79→
+    80→interface KpiItem {
+    81→  id: string;
+    82→  name: string;
+    83→  value: string;
+    84→  trendAbs: string;
+    85→  trendPct: string;
+    86→  trendDir: TrendDir;
+    87→  positive: boolean;
+    88→  definition: string;
+    89→  formula: string;
+    90→  source: string;
+    91→  freq: Freq;
+    92→  period: string;
+    93→  limitations?: string;
+    94→  accent: Accent;
+    95→  updated: string;
+    96→}
+    97→
+    98→interface WidgetDef {
+    99→  id: string;
+   100→  title: string;
+   101→  icon: React.ElementType;
+   102→  accent: Accent;
+   103→  freq: Freq;
+   104→  source: string;
+   105→  definition: string;
+   106→  updated: string;
+   107→}
+   108→
+   109→/* =====================================================================
+   110→ * Demo data — constant catalogue
+   111→ * ===================================================================== */
+   112→
+   113→const PERIODS = ["Hoy", "Ayer", "Semana", "Mes", "Trimestre", "Año"] as const;
+   114→type Period = (typeof PERIODS)[number];
+   115→
+   116→const RESTAURANTS = ["Todos", "Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"];
+   117→const ZONAS = ["Todas", "Sala", "Terraza", "VIP", "Barra"];
+   118→const TURNOS = ["Todos", "Comida", "Cena"];
+   119→const CANALES = ["Todos", "Web", "Google", "WhatsApp", "Phone"];
+   120→
+   121→const WIDGETS: WidgetDef[] = [
+   122→  { id: "facturacion", title: "Facturación", icon: Banknote, accent: "gold", freq: "near", source: "Billing + Reservations", definition: "Ingresos previstos para hoy a partir de reservas confirmadas y walk-ins estimados.", updated: "hace 2 min" },
+   123→  { id: "reservas", title: "Reservas", icon: CalendarDays, accent: "gold", freq: "realtime", source: "D1 · Reservations", definition: "Reservas confirmadas para el día actual, con desglose por canal de origen.", updated: "hace 30 s" },
+   124→  { id: "ocupacion", title: "Ocupación", icon: PieChart, accent: "teal", freq: "realtime", source: "DO + D1", definition: "Porcentaje de mesas ocupadas en tiempo real sobre el total disponible.", updated: "hace 30 s" },
+   125→  { id: "ticket", title: "Ticket medio", icon: ReceiptText, accent: "gold", freq: "near", source: "D1 + POS", definition: "Facturación media por cubierto durante el servicio.", updated: "hace 5 min" },
+   126→  { id: "noshows", title: "No-shows", icon: UserX, accent: "teal", freq: "near", source: "D1", definition: "Reservas confirmadas que no se presentaron, en valor absoluto y tasa.", updated: "hace 5 min" },
+   127→  { id: "vip", title: "Clientes VIP", icon: Crown, accent: "gold", freq: "aggregated", source: "CRM", definition: "Clientes etiquetados como VIP con reserva para hoy.", updated: "hace 1 h" },
+   128→  { id: "alertas", title: "Alertas", icon: BellRing, accent: "teal", freq: "realtime", source: "Alert engine", definition: "Avisos operativos y financieros activos, clasificados por severidad.", updated: "hace 30 s" },
+   129→  { id: "forecast", title: "Forecast IA", icon: Brain, accent: "teal", freq: "aggregated", source: "AI Gateway", definition: "Predicción de reservas, facturación y personal recomendado para mañana.", updated: "hace 15 min" },
+   130→  { id: "recs", title: "Recomendaciones IA", icon: Sparkles, accent: "gold", freq: "aggregated", source: "AI Gateway", definition: "Top 3 recomendaciones priorizadas por impacto estimado y confianza del modelo.", updated: "hace 15 min" },
+   131→  { id: "rent", title: "Rentabilidad", icon: Percent, accent: "gold", freq: "aggregated", source: "Financial ledger", definition: "Margen y beneficio estimados con costes reales parciales más proyección.", updated: "hace 1 h" },
+   132→  { id: "rep", title: "Reputación", icon: Star, accent: "teal", freq: "aggregated", source: "Reviews + Surveys", definition: "Calificaciones agregadas y NPS de los últimos 30 días.", updated: "hace 2 h" },
+   133→  { id: "staff", title: "Personal recomendado", icon: ConciergeBell, accent: "gold", freq: "aggregated", source: "Forecast + Staff load", definition: "Plantilla recomendada para mañana en base a ocupación y carga de trabajo prevista.", updated: "hace 15 min" },
+   134→];
+   135→
+   136→const KPI_CATALOG: Record<KpiCategory, KpiItem[]> = {
+   137→  "Operación": [
+   138→    { id: "op-ocup", name: "Ocupación media", value: "78%", trendAbs: "+5pp", trendPct: "+6.8%", trendDir: "up", positive: true, definition: "Porcentaje de mesas ocupadas durante el servicio.", formula: "mesas_ocupadas / mesas_totales × 100", source: "D1 · Analytics Engine", freq: "realtime", period: "Hoy", limitations: "No incluye walk-ins no registrados en POS.", accent: "teal", updated: "hace 30 s" },
+   139→    { id: "op-rot", name: "Rotación de mesas", value: "2.3", trendAbs: "+0.1", trendPct: "+4.5%", trendDir: "up", positive: true, definition: "Veces que cada mesa se ocupa en un servicio.", formula: "cubiertos_servidos / mesas_disponibles", source: "D1", freq: "near", period: "Hoy", accent: "gold", updated: "hace 5 min" },
+   140→    { id: "op-tiempo", name: "Tiempo medio de mesa", value: "92 min", trendAbs: "−3 min", trendPct: "−3.2%", trendDir: "down", positive: true, definition: "Duración media desde el check-in hasta el cobro.", formula: "avg(cobro_ts − checkin_ts)", source: "POS", freq: "near", period: "Hoy", accent: "teal", updated: "hace 5 min" },
+   141→    { id: "op-espera", name: "Tiempo de espera", value: "18 min", trendAbs: "−2 min", trendPct: "−10%", trendDir: "down", positive: true, definition: "Tiempo medio entre llegada y sentada.", formula: "avg(sentada_ts − llegada_ts)", source: "Host app", freq: "realtime", period: "Hoy", limitations: "Solo mesas en lista de espera registradas.", accent: "gold", updated: "hace 30 s" },
+   142→    { id: "op-cancel", name: "Cancelaciones", value: "5.1%", trendAbs: "−0.4pp", trendPct: "−7.3%", trendDir: "down", positive: true, definition: "Tasa de reservas canceladas sobre el total.", formula: "canceladas / reservas × 100", source: "D1", freq: "near", period: "Últimos 7 días", accent: "teal", updated: "hace 5 min" },
+   143→    { id: "op-noshow", name: "No-shows", value: "8.2%", trendAbs: "−1.1pp", trendPct: "−11.8%", trendDir: "down", positive: true, definition: "Tasa de reservas no presentadas.", formula: "no_shows / reservas × 100", source: "D1", freq: "near", period: "Últimos 7 días", accent: "gold", updated: "hace 5 min" },
+   144→    { id: "op-checkin", name: "Check-ins", value: "38", trendAbs: "+4", trendPct: "+11.8%", trendDir: "up", positive: true, definition: "Clientes que han completado check-in hoy.", formula: "count(checkin_ts ≥ 00:00)", source: "Host app", freq: "realtime", period: "Hoy", accent: "teal", updated: "hace 30 s" },
+   145→    { id: "op-cap", name: "Capacidad utilizada", value: "78%", trendAbs: "+5pp", trendPct: "+6.8%", trendDir: "up", positive: true, definition: "Cubiertos servidos sobre capacidad máxima autorizada.", formula: "cubiertos / capacidad × 100", source: "D1 + Config", freq: "realtime", period: "Hoy", accent: "gold", updated: "hace 30 s" },
+   146→    { id: "op-prod", name: "Productividad", value: "4.2 mesas/camarero", trendAbs: "+0.3", trendPct: "+7.7%", trendDir: "up", positive: true, definition: "Mesas atendidas por camarero en servicio.", formula: "mesas_activas / camareros_en_turno", source: "Team module", freq: "near", period: "Hoy", accent: "teal", updated: "hace 5 min" },
+   147→    { id: "op-web", name: "Reservas Web", value: "42%", trendAbs: "+3pp", trendPct: "+7.7%", trendDir: "up", positive: true, definition: "Cuota de reservas originadas en la web del restaurante.", formula: "reservas_web / total × 100", source: "Booking widget", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   148→  ],
+   149→  "Clientes": [
+   150→    { id: "cl-new", name: "Clientes nuevos", value: "412", trendAbs: "+28", trendPct: "+7.3%", trendDir: "up", positive: true, definition: "Clientes que reservan por primera vez.", formula: "count(first_reservation_ts ≥ start_period)", source: "CRM", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   151→    { id: "cl-rec", name: "Clientes recurrentes", value: "847", trendAbs: "+54", trendPct: "+6.8%", trendDir: "up", positive: true, definition: "Clientes con más de una reserva.", formula: "count(reservas ≥ 2)", source: "CRM", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 h" },
+   152→    { id: "cl-vip", name: "Clientes VIP", value: "89", trendAbs: "+6", trendPct: "+7.2%", trendDir: "up", positive: true, definition: "Clientes con etiqueta VIP activa.", formula: "count(tag = 'VIP')", source: "CRM", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   153→    { id: "cl-recover", name: "Recuperados", value: "23", trendAbs: "+8", trendPct: "+53.3%", trendDir: "up", positive: true, definition: "Clientes inactivos +90d que volvieron a reservar.", formula: "count(last_visit ≥ 90d AND new_reservation)", source: "CRM reactivation", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 h" },
+   154→    { id: "cl-lost", name: "Perdidos", value: "8", trendAbs: "−2", trendPct: "−20%", trendDir: "down", positive: true, definition: "Clientes que pidieron baja o no volvieron tras 180d.", formula: "count(churned OR opt-out)", source: "CRM", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   155→    { id: "cl-churn", name: "Churn", value: "2.1%", trendAbs: "−0.3pp", trendPct: "−12.5%", trendDir: "down", positive: true, definition: "Tasa de clientes perdidos sobre activos.", formula: "perdidos / activos × 100", source: "CRM", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 h" },
+   156→    { id: "cl-ltv", name: "LTV", value: "€3.840", trendAbs: "+€210", trendPct: "+5.8%", trendDir: "up", positive: true, definition: "Valor estimado del cliente durante su ciclo de vida.", formula: "ticket_medio × frecuencia × duración_media", source: "Billing + CRM", freq: "aggregated", period: "12 meses", accent: "gold", updated: "hace 1 día" },
+   157→    { id: "cl-freq", name: "Frecuencia", value: "2.1 / mes", trendAbs: "+0.1", trendPct: "+5%", trendDir: "up", positive: true, definition: "Reservas medias por cliente activo al mes.", formula: "reservas / clientes_activos", source: "CRM", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 h" },
+   158→    { id: "cl-ticket", name: "Ticket medio cliente", value: "€38", trendAbs: "+€2", trendPct: "+5.6%", trendDir: "up", positive: true, definition: "Gasto medio por cubierto.", formula: "facturación / cubiertos", source: "POS", freq: "near", period: "Mes", accent: "gold", updated: "hace 5 min" },
+   159→    { id: "cl-risk", name: "Riesgo de abandono", value: "12 clientes", trendAbs: "−3", trendPct: "−20%", trendDir: "down", positive: true, definition: "Clientes con probabilidad de abandono > 0.6.", formula: "count(churn_score > 0.6)", source: "AI Gateway", freq: "near", period: "Mes", limitations: "Modelo supervisado, reentrenado semanalmente.", accent: "teal", updated: "hace 1 h" },
+   160→  ],
+   161→  "Marketing": [
+   162→    { id: "mk-roi", name: "ROI campañas", value: "340%", trendAbs: "+45pp", trendPct: "+15.2%", trendDir: "up", positive: true, definition: "Retorno sobre inversión publicitaria.", formula: "(ingresos_atrib − coste) / coste × 100", source: "Billing + Campaigns", freq: "aggregated", period: "Últimos 30 días", accent: "gold", updated: "hace 1 h" },
+   163→    { id: "mk-cac", name: "CAC", value: "€4.12", trendAbs: "−€0.80", trendPct: "−16.3%", trendDir: "down", positive: true, definition: "Coste de adquisición por nuevo cliente.", formula: "coste_total / nuevos_clientes", source: "Billing / new customers", freq: "aggregated", period: "Últimos 30 días", accent: "teal", updated: "hace 1 h" },
+   164→    { id: "mk-ctr", name: "CTR medio", value: "12.4%", trendAbs: "+2.1pp", trendPct: "+20.4%", trendDir: "up", positive: true, definition: "Tasa de clics agregada por canal.", formula: "clics / entregados × 100", source: "Email + WhatsApp", freq: "aggregated", period: "Últimos 30 días", accent: "gold", updated: "hace 1 h" },
+   165→    { id: "mk-open", name: "Apertura email", value: "38%", trendAbs: "+5pp", trendPct: "+15.2%", trendDir: "up", positive: true, definition: "Aperturas únicas sobre emails entregados.", formula: "aperturas / entregados × 100", source: "Email provider", freq: "aggregated", period: "Últimos 30 días", accent: "teal", updated: "hace 1 h" },
+   166→    { id: "mk-conv", name: "Conversión", value: "34%", trendAbs: "+3pp", trendPct: "+9.7%", trendDir: "up", positive: true, definition: "Reservas sobre clics en campaña.", formula: "reservas / clics × 100", source: "Campaigns attribution", freq: "aggregated", period: "Últimos 30 días", accent: "gold", updated: "hace 1 h" },
+   167→    { id: "mk-cupones", name: "Cupones canjeados", value: "247", trendAbs: "+38", trendPct: "+18.2%", trendDir: "up", positive: true, definition: "Cupones promocionales validados en POS.", formula: "count(coupon_redeemed = true)", source: "POS + Promotions", freq: "near", period: "Mes", accent: "teal", updated: "hace 5 min" },
+   168→    { id: "mk-ing", name: "Ingresos atribuidos", value: "€8.420", trendAbs: "+€1.200", trendPct: "+16.6%", trendDir: "up", positive: true, definition: "Ingresos facturados asociados a reservas atribuidas a campañas.", formula: "sum(revenue WHERE campaign_id IS NOT NULL)", source: "Billing + Campaigns", freq: "aggregated", period: "Últimos 30 días", accent: "gold", updated: "hace 1 h" },
+   169→    { id: "mk-cpr", name: "Coste por reserva", value: "€1.20", trendAbs: "−€0.15", trendPct: "−11.1%", trendDir: "down", positive: true, definition: "Coste de campaña dividido entre reservas generadas.", formula: "coste / reservas_generadas", source: "Campaigns", freq: "aggregated", period: "Últimos 30 días", accent: "teal", updated: "hace 1 h" },
+   170→  ],
+   171→  "Reputación": [
+   172→    { id: "rp-google", name: "Google rating", value: "4.6 ★", trendAbs: "+0.1", trendPct: "+2.2%", trendDir: "up", positive: true, definition: "Media ponderada de reseñas en Google.", formula: "avg(google_rating)", source: "Google Business", freq: "near", period: "Últimos 30 días", accent: "gold", updated: "hace 2 h" },
+   173→    { id: "rp-ta", name: "TripAdvisor rating", value: "4.4 ★", trendAbs: "+0.1", trendPct: "+2.3%", trendDir: "up", positive: true, definition: "Media de reseñas en TripAdvisor.", formula: "avg(ta_rating)", source: "TripAdvisor", freq: "aggregated", period: "Últimos 30 días", accent: "teal", updated: "hace 4 h" },
+   174→    { id: "rp-vol", name: "Volumen reseñas", value: "1.247", trendAbs: "+98", trendPct: "+8.5%", trendDir: "up", positive: true, definition: "Reseñas agregadas en todos los canales.", formula: "count(reviews)", source: "Reviews aggregator", freq: "aggregated", period: "Últimos 30 días", accent: "gold", updated: "hace 2 h" },
+   175→    { id: "rp-sent", name: "Sentimiento", value: "89% positivo", trendAbs: "+2pp", trendPct: "+2.3%", trendDir: "up", positive: true, definition: "Proporción de reseñas con sentimiento positivo.", formula: "positive / total × 100", source: "AI Sentiment", freq: "near", period: "Últimos 30 días", accent: "teal", updated: "hace 1 h" },
+   176→    { id: "rp-resp", name: "Tiempo respuesta", value: "4.2 h", trendAbs: "−0.6 h", trendPct: "−12.5%", trendDir: "down", positive: true, definition: "Tiempo medio de respuesta a reseñas.", formula: "avg(response_ts − review_ts)", source: "Reviews inbox", freq: "near", period: "Últimos 30 días", accent: "gold", updated: "hace 1 h" },
+   177→    { id: "rp-nps", name: "NPS", value: "72", trendAbs: "+4", trendPct: "+5.9%", trendDir: "up", positive: true, definition: "Net Promoter Score = % Promotores − % Detractores.", formula: "%promoters − %detractors", source: "Surveys", freq: "aggregated", period: "Últimos 30 días", accent: "teal", updated: "hace 4 h" },
+   178→    { id: "rp-risk", name: "Riesgo reputacional", value: "Bajo", trendAbs: "—", trendPct: "—", trendDir: "flat", positive: true, definition: "Nivel de riesgo reputacional calculado por el motor de sentimiento.", formula: "score(volumen_negativo, sentimiento, tiempo_respuesta)", source: "AI Risk engine", freq: "near", period: "Tiempo real", accent: "gold", updated: "hace 30 min" },
+   179→  ],
+   180→  "Finanzas": [
+   181→    { id: "fn-fact", name: "Facturación", value: "€98.540", trendAbs: "+€4.200", trendPct: "+4.5%", trendDir: "up", positive: true, definition: "Ingresos facturados en el periodo.", formula: "sum(invoice_total)", source: "Billing", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   182→    { id: "fn-benef", name: "Beneficio bruto", value: "€70.950", trendAbs: "+€3.100", trendPct: "+4.6%", trendDir: "up", positive: true, definition: "Facturación menos coste de ventas.", formula: "facturación − coste_ventas", source: "Financial ledger", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 h" },
+   183→    { id: "fn-marg", name: "Margen", value: "72%", trendAbs: "+0.5pp", trendPct: "+0.7%", trendDir: "up", positive: true, definition: "Beneficio bruto sobre facturación.", formula: "beneficio / facturación × 100", source: "Financial ledger", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   184→    { id: "fn-personal", name: "Coste personal", value: "€18.200", trendAbs: "+€600", trendPct: "+3.4%", trendDir: "up", positive: false, definition: "Coste total de personal del periodo.", formula: "sum(salaries + social_charges)", source: "HR + Payroll", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 día" },
+   185→    { id: "fn-mesa", name: "Rentabilidad / mesa", value: "€168", trendAbs: "+€8", trendPct: "+5%", trendDir: "up", positive: true, definition: "Beneficio bruto por mesa activa.", formula: "beneficio / mesas_activas", source: "Financial ledger + D1", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   186→    { id: "fn-roic", name: "ROI campañas", value: "340%", trendAbs: "+45pp", trendPct: "+15.2%", trendDir: "up", positive: true, definition: "Retorno sobre inversión publicitaria.", formula: "(ingresos_atrib − coste) / coste × 100", source: "Billing + Campaigns", freq: "aggregated", period: "Últimos 30 días", accent: "teal", updated: "hace 1 h" },
+   187→    { id: "fn-payback", name: "Payback", value: "3.2 meses", trendAbs: "−0.4 m", trendPct: "−11.1%", trendDir: "down", positive: true, definition: "Tiempo medio de recuperación de la inversión en adquisición.", formula: "CAC / (LTV / 12)", source: "CRM + Billing", freq: "aggregated", period: "12 meses", accent: "gold", updated: "hace 1 día" },
+   188→    { id: "fn-breakeven", name: "Punto de equilibrio", value: "€42.000", trendAbs: "+€1.000", trendPct: "+2.4%", trendDir: "up", positive: false, definition: "Facturación mínima para cubrir costes fijos.", formula: "costes_fijos / margen_contribución", source: "Financial ledger", freq: "aggregated", period: "Mes", accent: "teal", updated: "hace 1 día" },
+   189→    { id: "fn-desv", name: "Desviación presupuesto", value: "+2.3%", trendAbs: "+0.8pp", trendPct: "—", trendDir: "up", positive: true, definition: "Desviación de la facturación real sobre el presupuesto.", formula: "(real − presupuesto) / presupuesto × 100", source: "Budget + Billing", freq: "aggregated", period: "Mes", accent: "gold", updated: "hace 1 h" },
+   190→  ],
+   191→};
+   192→
+   193→const COMPARISON_TYPES = [
+   194→  { id: "hoy-ayer", label: "Hoy vs Ayer", a: "Hoy", b: "Ayer" },
+   195→  { id: "hoy-mismodia", label: "Hoy vs mismo día semana", a: "Hoy (martes)", b: "Martes anterior" },
+   196→  { id: "sem-act-ant", label: "Semana actual vs anterior", a: "Semana actual", b: "Semana anterior" },
+   197→  { id: "mes-act-ant", label: "Mes actual vs anterior", a: "Mes actual", b: "Mes anterior" },
+   198→  { id: "anio-act-ant", label: "Año actual vs anterior", a: "Año actual", b: "Año anterior" },
+   199→  { id: "rest-grupo", label: "Restaurante vs grupo", a: "Ramses Madrid", b: "Grupo" },
+   200→  { id: "rest-bench", label: "Restaurante vs benchmark", a: "Ramses Madrid", b: "Benchmark sector" },
+   201→  { id: "turno-turno", label: "Turno vs turno", a: "Comida", b: "Cena" },
+   202→  { id: "canal-canal", label: "Canal vs canal", a: "Web", b: "WhatsApp" },
+   203→];
+   204→
+   205→interface ComparisonRow {
+   206→  metric: string;
+   207→  a: string;
+   208→  b: string;
+   209→  varAbs: string;
+   210→  varPct: string;
+   211→  trendDir: TrendDir;
+   212→  positive: boolean;
+   213→  context: string;
+   214→}
+   215→
+   216→const COMPARISON_ROWS: ComparisonRow[] = [
+   217→  { metric: "Reservas", a: "47", b: "42", varAbs: "+5", varPct: "+12%", trendDir: "up", positive: true, context: "Mayor afluencia laboral" },
+   218→  { metric: "Facturación", a: "€4.100", b: "€3.660", varAbs: "+€440", varPct: "+12%", trendDir: "up", positive: true, context: "Ticket medio estable" },
+   219→  { metric: "Ocupación", a: "78%", b: "73%", varAbs: "+5pp", varPct: "+6.8%", trendDir: "up", positive: true, context: "Terraza operativa" },
+   220→  { metric: "Ticket medio", a: "€89", b: "€87", varAbs: "+€2", varPct: "+2.3%", trendDir: "up", positive: true, context: "Upsell de postres" },
+   221→  { metric: "No-shows", a: "3", b: "4", varAbs: "−1", varPct: "−25%", trendDir: "down", positive: true, context: "Recordatorio WhatsApp" },
+   222→  { metric: "Cancelaciones", a: "2", b: "3", varAbs: "−1", varPct: "−33%", trendDir: "down", positive: true, context: "Política de depósito" },
+   223→  { metric: "Clientes nuevos", a: "14", b: "11", varAbs: "+3", varPct: "+27%", trendDir: "up", positive: true, context: "Campaña Instagram" },
+   224→  { metric: "Clientes recurrentes", a: "28", b: "26", varAbs: "+2", varPct: "+7.7%", trendDir: "up", positive: true, context: "Programa fidelización" },
+   225→  { metric: "NPS", a: "72", b: "70", varAbs: "+2", varPct: "+2.9%", trendDir: "up", positive: true, context: "Mejora en tiempos de espera" },
+   226→  { metric: "ROI campañas", a: "340%", b: "295%", varAbs: "+45pp", varPct: "+15.2%", trendDir: "up", positive: true, context: "Campaña cumpleaños" },
+   227→  { metric: "Coste personal", a: "€620", b: "€580", varAbs: "+€40", varPct: "+6.9%", trendDir: "up", positive: false, context: "Refuerzo terraza" },
+   228→  { metric: "Margen", a: "72%", b: "71%", varAbs: "+1pp", varPct: "+1.4%", trendDir: "up", positive: true, context: "Mejor mix de carta" },
+   229→];
+   230→
+   231→const HEATMAP_TYPES = [
+   232→  { id: "ocupacion", label: "Ocupación", polarity: "good" as const, unit: "%" },
+   233→  { id: "ingresos", label: "Ingresos", polarity: "good" as const, unit: "€" },
+   234→  { id: "noshows", label: "No-shows", polarity: "bad" as const, unit: "" },
+   235→  { id: "ticket", label: "Ticket medio", polarity: "good" as const, unit: "€" },
+   236→  { id: "cancelaciones", label: "Cancelaciones", polarity: "bad" as const, unit: "" },
+   237→  { id: "vip", label: "Clientes VIP", polarity: "good" as const, unit: "" },
+   238→  { id: "rotacion", label: "Rotación", polarity: "good" as const, unit: "×" },
+   239→];
+   240→
+   241→const PATTERNS = [
+   242→  {
+   243→    id: "p1",
+   244→    description: "Las reservas caen todos los martes",
+   245→    evidence: "−18% vs media semanal · 6 semanas consecutivas",
+   246→    action: "Crear campaña para martes",
+   247→    icon: TrendingDown,
+   248→    accent: "teal" as Accent,
+   249→    confidence: 88,
+   250→  },
+   251→  {
+   252→    id: "p2",
+   253→    description: "Los jueves la terraza alcanza máxima ocupación",
+   254→    evidence: "97% ocupación media · 18:00–22:00",
+   255→    action: "Considerar ampliar terraza",
+   256→    icon: Flame,
+   257→    accent: "gold" as Accent,
+   258→    confidence: 91,
+   259→  },
+   260→  {
+   261→    id: "p3",
+   262→    description: "Los domingos disminuye el ticket medio",
+   263→    evidence: "−€6 vs media · grupos familiares con menú corto",
+   264→    action: "Promocionar postres/vinos",
+   265→    icon: ReceiptText,
+   266→    accent: "teal" as Accent,
+   267→    confidence: 79,
+   268→  },
+   269→  {
+   270→    id: "p4",
+   271→    description: "El turno de noche tiene más no-shows",
+   272→    evidence: "11.4% vs 6.1% en comida · reservas ≥ 20:30",
+   273→    action: "Activar depósito para noche",
+   274→    icon: UserX,
+   275→    accent: "gold" as Accent,
+   276→    confidence: 84,
+   277→  },
+   278→  {
+   279→    id: "p5",
+   280→    description: "La campaña 'Cumpleaños' genera clientes de mayor LTV",
+   281→    evidence: "LTV +€420 vs media · 12 meses",
+   282→    action: "Escalar campaña",
+   283→    icon: Sparkles,
+   284→    accent: "teal" as Accent,
+   285→    confidence: 92,
+   286→  },
+   287→  {
+   288→    id: "p6",
+   289→    description: "Las reservas de WhatsApp convierten un 28% más que las de teléfono",
+   290→    evidence: "Conv. 42% vs 33% · 90 días",
+   291→    action: "Priorizar WhatsApp",
+   292→    icon: MessageSquare,
+   293→    accent: "gold" as Accent,
+   294→    confidence: 86,
+   295→  },
+   296→];
+   297→
+   298→/* =====================================================================
+   299→ * Shared helpers
+   300→ * ===================================================================== */
+   301→
+   302→function DemoBadge() {
+   303→  return (
+   304→    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
+   305→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+   306→      demo
+   307→    </span>
+   308→  );
+   309→}
+   310→
+   311→function InfoDot({ text }: { text: string }) {
+   312→  return (
+   313→    <TooltipProvider delayDuration={150}>
+   314→      <Tooltip>
+   315→        <TooltipTrigger asChild>
+   316→          <button
+   317→            type="button"
+   318→            aria-label="Definición"
+   319→            className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-foreground/20 text-muted-foreground transition-colors hover:border-[var(--gold)]/50 hover:text-[var(--gold)]"
+   320→          >
+   321→            <Info className="h-2.5 w-2.5" />
+   322→          </button>
+   323→        </TooltipTrigger>
+   324→        <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed border-border/60">
+   325→          {text}
+   326→        </TooltipContent>
+   327→      </Tooltip>
+   328→    </TooltipProvider>
+   329→  );
+   330→}
+   331→
+   332→function TrendPill({
+   333→  abs,
+   334→  pct,
+   335→  dir,
+   336→  positive,
+   337→}: {
+   338→  abs: string;
+   339→  pct: string;
+   340→  dir: TrendDir;
+   341→  positive: boolean;
+   342→}) {
+   343→  const Icon = dir === "up" ? ArrowUpRight : dir === "down" ? ArrowDownRight : Minus;
+   344→  const good = positive;
+   345→  return (
+   346→    <span
+   347→      className={cn(
+   348→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-mono",
+   349→        dir === "flat"
+   350→          ? "border-foreground/20 bg-foreground/5 text-muted-foreground"
+   351→          : good
+   352→            ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+   353→            : "border-rose-400/40 bg-rose-400/10 text-rose-300"
+   354→      )}
+   355→    >
+   356→      <Icon className="h-3 w-3" />
+   357→      <span>{abs}</span>
+   358→      <span className="opacity-70">·</span>
+   359→      <span>{pct}</span>
+   360→    </span>
+   361→  );
+   362→}
+   363→
+   364→function FreqBadge({ freq }: { freq: Freq }) {
+   365→  const map: Record<Freq, { label: string; cls: string; dot: string }> = {
+   366→    realtime: {
+   367→      label: "Tiempo real",
+   368→      cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   369→      dot: "bg-emerald-400",
+   370→    },
+   371→    near: {
+   372→      label: "Cuasi-real",
+   373→      cls: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   374→      dot: "bg-[var(--teal)]",
+   375→    },
+   376→    aggregated: {
+   377→      label: "Agregado",
+   378→      cls: "border-foreground/20 bg-foreground/5 text-muted-foreground",
+   379→      dot: "bg-muted-foreground",
+   380→    },
+   381→  };
+   382→  const v = map[freq];
+   383→  return (
+   384→    <span
+   385→      className={cn(
+   386→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   387→        v.cls
+   388→      )}
+   389→    >
+   390→      <span className={cn("h-1.5 w-1.5 rounded-full", v.dot)} />
+   391→      {v.label}
+   392→    </span>
+   393→  );
+   394→}
+   395→
+   396→function SourceBadge({ source, accent = "gold" }: { source: string; accent?: Accent }) {
+   397→  return (
+   398→    <span
+   399→      className={cn(
+   400→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   401→        accent === "gold"
+   402→          ? "border-[var(--gold)]/30 bg-[var(--gold)]/8 text-[var(--gold-soft)]"
+   403→          : "border-[var(--teal)]/30 bg-[var(--teal)]/8 text-[var(--teal)]"
+   404→      )}
+   405→    >
+   406→      <Database className="h-2.5 w-2.5" />
+   407→      {source}
+   408→    </span>
+   409→  );
+   410→}
+   411→
+   412→function MiniBadge({
+   413→  children,
+   414→  tone = "default",
+   415→}: {
+   416→  children: React.ReactNode;
+   417→  tone?: "default" | "gold" | "teal" | "amber" | "rose" | "emerald";
+   418→}) {
+   419→  const tones: Record<string, string> = {
+   420→    default: "border-foreground/15 bg-foreground/5 text-muted-foreground",
+   421→    gold: "border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   422→    teal: "border-[var(--teal)]/30 bg-[var(--teal)]/10 text-[var(--teal)]",
+   423→    amber: "border-amber-400/40 bg-amber-400/10 text-amber-300",
+   424→    rose: "border-rose-400/40 bg-rose-400/10 text-rose-300",
+   425→    emerald: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   426→  };
+   427→  return (
+   428→    <span
+   429→      className={cn(
+   430→        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   431→        tones[tone]
+   432→      )}
+   433→    >
+   434→      {children}
+   435→    </span>
+   436→  );
+   437→}
+   438→
+   439→/* =====================================================================
+   440→ * SVG mini charts
+   441→ * ===================================================================== */
+   442→
+   443→function Sparkline({
+   444→  data,
+   445→  color = "var(--gold)",
+   446→  width = 96,
+   447→  height = 28,
+   448→  fill = true,
+   449→}: {
+   450→  data: number[];
+   451→  color?: string;
+   452→  width?: number;
+   453→  height?: number;
+   454→  fill?: boolean;
+   455→}) {
+   456→  const id = React.useId();
+   457→  if (!data.length) return null;
+   458→  const max = Math.max(...data);
+   459→  const min = Math.min(...data);
+   460→  const range = max - min || 1;
+   461→  const step = width / (data.length - 1 || 1);
+   462→  const pts = data.map((d, i) => {
+   463→    const x = i * step;
+   464→    const y = height - 2 - ((d - min) / range) * (height - 4);
+   465→    return [x, y] as const;
+   466→  });
+   467→  const linePath = pts.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(" ");
+   468→  const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
+   469→  return (
+   470→    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="none" aria-hidden>
+   471→      {fill && (
+   472→        <>
+   473→          <defs>
+   474→            <linearGradient id={`spark-${id}`} x1="0" y1="0" x2="0" y2="1">
+   475→              <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+   476→              <stop offset="100%" stopColor={color} stopOpacity="0" />
+   477→            </linearGradient>
+   478→          </defs>
+   479→          <path d={areaPath} fill={`url(#spark-${id})`} />
+   480→        </>
+   481→      )}
+   482→      <path d={linePath} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+   483→      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="1.6" fill={color} />
+   484→    </svg>
+   485→  );
+   486→}
+   487→
+   488→function Gauge({ value, max = 100 }: { value: number; max?: number }) {
+   489→  const pct = Math.max(0, Math.min(1, value / max));
+   490→  const r = 38;
+   491→  const cx = 48;
+   492→  const cy = 48;
+   493→  const circ = Math.PI * r; // half circle
+   494→  const dash = circ * pct;
+   495→  return (
+   496→    <svg viewBox="0 0 96 60" className="w-full max-w-[140px]" role="img" aria-label={`Ocupación ${value}%`}>
+   497→      <path
+   498→        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+   499→        fill="none"
+   500→        stroke="currentColor"
+   501→        className="text-foreground/10"
+   502→        strokeWidth="8"
+   503→        strokeLinecap="round"
+   504→      />
+   505→      <path
+   506→        d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
+   507→        fill="none"
+   508→        stroke="url(#gauge-grad)"
+   509→        strokeWidth="8"
+   510→        strokeLinecap="round"
+   511→        strokeDasharray={`${dash} ${circ}`}
+   512→      />
+   513→      <defs>
+   514→        <linearGradient id="gauge-grad" x1="0" y1="0" x2="1" y2="0">
+   515→          <stop offset="0%" stopColor="var(--teal-deep)" />
+   516→          <stop offset="60%" stopColor="var(--teal)" />
+   517→          <stop offset="100%" stopColor="var(--gold)" />
+   518→        </linearGradient>
+   519→      </defs>
+   520→      <text x={cx} y={cy - 4} textAnchor="middle" className="fill-foreground font-display" fontSize="18" fontWeight="500">
+   521→        {value}%
+   522→      </text>
+   523→      <text x={cx} y={cy + 12} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="8" letterSpacing="1">
+   524→        OCUPACIÓN
+   525→      </text>
+   526→    </svg>
+   527→  );
+   528→}
+   529→
+   530→function Donut({
+   531→  segments,
+   532→  size = 80,
+   533→}: {
+   534→  segments: { label: string; value: number; color: string }[];
+   535→  size?: number;
+   536→}) {
+   537→  const r = 14;
+   538→  const cx = 16;
+   539→  const cy = 16;
+   540→  const circ = 2 * Math.PI * r;
+   541→  const lens = segments.map((s) => (s.value / 100) * circ);
+   542→  const cumOffsets = lens.map((_, i) => -lens.slice(0, i).reduce((a, b) => a + b, 0));
+   543→  return (
+   544→    <svg viewBox="0 0 32 32" width={size} height={size} role="img" aria-label="Distribución por canal">
+   545→      <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" className="text-foreground/8" strokeWidth="6" />
+   546→      {segments.map((s, i) => {
+   547→        const len = lens[i];
+   548→        const offset = cumOffsets[i];
+   549→        return (
+   550→          <circle
+   551→            key={i}
+   552→            cx={cx}
+   553→            cy={cy}
+   554→            r={r}
+   555→            fill="none"
+   556→            stroke={s.color}
+   557→            strokeWidth="6"
+   558→            strokeDasharray={`${len} ${circ - len}`}
+   559→            strokeDashoffset={offset}
+   560→            transform={`rotate(-90 ${cx} ${cy})`}
+   561→            strokeLinecap="butt"
+   562→          />
+   563→        );
+   564→      })}
+   565→    </svg>
+   566→  );
+   567→}
+   568→
+   569→/* =====================================================================
+   570→ * Cockpit tab — welcome, toolbar, filters, widget grid
+   571→ * ===================================================================== */
+   572→
+   573→function FilterSelect({
+   574→  label,
+   575→  value,
+   576→  options,
+   577→  onChange,
+   578→  icon: Icon,
+   579→}: {
+   580→  label: string;
+   581→  value: string;
+   582→  options: string[];
+   583→  onChange: (v: string) => void;
+   584→  icon?: React.ElementType;
+   585→}) {
+   586→  const [open, setOpen] = React.useState(false);
+   587→  return (
+   588→    <div className="relative">
+   589→      <button
+   590→        type="button"
+   591→        onClick={() => setOpen((v) => !v)}
+   592→        className="inline-flex min-h-[36px] items-center gap-1.5 rounded-md border border-border/60 bg-card/40 px-2.5 py-1 text-xs hover:border-[var(--gold)]/40 transition-colors"
+   593→        aria-expanded={open}
+   594→        aria-label={`${label}: ${value}`}
+   595→      >
+   596→        {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
+   597→        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">{label}</span>
+   598→        <span className="font-medium text-foreground">{value}</span>
+   599→        <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", open && "rotate-180")} />
+   600→      </button>
+   601→      <AnimatePresence>
+   602→        {open && (
+   603→          <>
+   604→            <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+   605→            <motion.div
+   606→              initial={{ opacity: 0, y: -4 }}
+   607→              animate={{ opacity: 1, y: 0 }}
+   608→              exit={{ opacity: 0, y: -4 }}
+   609→              transition={{ duration: 0.15 }}
+   610→              className="absolute z-40 mt-1 min-w-[180px] rp-glass-strong rounded-md border border-border/60 py-1 max-h-[60vh] overflow-y-auto rp-scroll-thin"
+   611→            >
+   612→              {options.map((o) => (
+   613→                <button
+   614→                  key={o}
+   615→                  onClick={() => {
+   616→                    onChange(o);
+   617→                    setOpen(false);
+   618→                  }}
+   619→                  className={cn(
+   620→                    "w-full min-h-[36px] text-left px-3 py-1.5 text-sm hover:bg-foreground/5 transition-colors",
+   621→                    o === value && "text-[var(--gold-soft)] bg-[var(--gold)]/8"
+   622→                  )}
+   623→                >
+   624→                  {o}
+   625→                </button>
+   626→              ))}
+   627→            </motion.div>
+   628→          </>
+   629→        )}
+   630→      </AnimatePresence>
+   631→    </div>
+   632→  );
+   633→}
+   634→
+   635→function WidgetShell({
+   636→  def,
+   637→  children,
+   638→  visible,
+   639→}: {
+   640→  def: WidgetDef;
+   641→  children: React.ReactNode;
+   642→  visible: boolean;
+   643→}) {
+   644→  const reduce = useReducedMotion();
+   645→  const Icon = def.icon;
+   646→  const accentColor = def.accent === "gold" ? "var(--gold)" : "var(--teal)";
+   647→  return (
+   648→    <AnimatePresence initial={false}>
+   649→      {visible && (
+   650→        <motion.section
+   651→          initial={reduce ? false : { opacity: 0, y: 8, scale: 0.98 }}
+   652→          animate={{ opacity: 1, y: 0, scale: 1 }}
+   653→          exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+   654→          transition={{ duration: 0.3, ease: "easeOut" }}
+   655→          className="rp-glass rounded-xl p-4 sm:p-5 flex flex-col gap-3 hover:border-foreground/15 transition-colors"
+   656→          aria-label={`Widget ${def.title}`}
+   657→        >
+   658→          <header className="flex items-center justify-between gap-2">
+   659→            <div className="flex items-center gap-1.5 min-w-0">
+   660→              <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: accentColor }} />
+   661→              <span
+   662→                className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground truncate"
+   663→                style={{ color: accentColor }}
+   664→              >
+   665→                {def.title}
+   666→              </span>
+   667→            </div>
+   668→            <InfoDot text={def.definition} />
+   669→          </header>
+   670→          {children}
+   671→          <footer className="flex flex-wrap items-center justify-between gap-2 pt-2 mt-auto border-t border-border/40">
+   672→            <div className="flex flex-wrap items-center gap-1.5">
+   673→              <FreqBadge freq={def.freq} />
+   674→              <SourceBadge source={def.source} accent={def.accent} />
+   675→            </div>
+   676→            <button
+   677→              type="button"
+   678→              className="inline-flex items-center gap-0.5 text-[11px] text-[var(--gold-soft)] hover:underline"
+   679→            >
+   680→              Ver detalle
+   681→              <ChevronRight className="h-3 w-3" />
+   682→            </button>
+   683→          </footer>
+   684→          <div className="text-[10px] text-muted-foreground/70 font-mono">Actualizado: {def.updated}</div>
+   685→        </motion.section>
+   686→      )}
+   687→    </AnimatePresence>
+   688→  );
+   689→}
+   690→
+   691→function WidgetContent({ id }: { id: string }) {
+   692→  switch (id) {
+   693→    case "facturacion":
+   694→      return (
+   695→        <div className="space-y-2">
+   696→          <div className="flex items-end justify-between gap-2">
+   697→            <div>
+   698→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">€4.100</div>
+   699→              <div className="text-[11px] text-muted-foreground">previsto hoy</div>
+   700→            </div>
+   701→            <TrendPill abs="+€440" pct="+12%" dir="up" positive />
+   702→          </div>
+   703→          <div className="h-8">
+   704→            <Sparkline data={[2800, 3100, 2900, 3400, 3600, 3700, 4100]} color="var(--gold)" />
+   705→          </div>
+   706→          <div className="flex items-center gap-1.5">
+   707→            <MiniBadge tone="gold">vs Ayer +12%</MiniBadge>
+   708→            <MiniBadge>7 días</MiniBadge>
+   709→          </div>
+   710→        </div>
+   711→      );
+   712→    case "reservas":
+   713→      return (
+   714→        <div className="space-y-2">
+   715→          <div className="flex items-end justify-between gap-2">
+   716→            <div>
+   717→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">47</div>
+   718→              <div className="text-[11px] text-muted-foreground">reservas hoy</div>
+   719→            </div>
+   720→            <TrendPill abs="+5" pct="+12%" dir="up" positive />
+   721→          </div>
+   722→          <div className="flex items-center gap-3">
+   723→            <Donut
+   724→              size={64}
+   725→              segments={[
+   726→                { label: "Web", value: 42, color: "var(--gold)" },
+   727→                { label: "Google", value: 28, color: "var(--teal)" },
+   728→                { label: "WhatsApp", value: 18, color: "#E8C766" },
+   729→                { label: "Phone", value: 12, color: "#2BA89E" },
+   730→              ]}
+   731→            />
+   732→            <ul className="flex-1 space-y-1 text-[11px]">
+   733→              {[
+   734→                { l: "Web", v: "42%", c: "var(--gold)" },
+   735→                { l: "Google", v: "28%", c: "var(--teal)" },
+   736→                { l: "WhatsApp", v: "18%", c: "#E8C766" },
+   737→                { l: "Phone", v: "12%", c: "#2BA89E" },
+   738→              ].map((s) => (
+   739→                <li key={s.l} className="flex items-center gap-2">
+   740→                  <span className="h-2 w-2 rounded-sm" style={{ background: s.c }} />
+   741→                  <span className="text-muted-foreground flex-1">{s.l}</span>
+   742→                  <span className="font-mono">{s.v}</span>
+   743→                </li>
+   744→              ))}
+   745→            </ul>
+   746→          </div>
+   747→        </div>
+   748→      );
+   749→    case "ocupacion":
+   750→      return (
+   751→        <div className="space-y-1">
+   752→          <div className="flex items-center justify-center py-1">
+   753→            <Gauge value={78} />
+   754→          </div>
+   755→          <div className="flex items-center justify-between text-[11px]">
+   756→            <span className="text-muted-foreground">Mesas ocupadas</span>
+   757→            <span className="font-mono text-foreground">
+   758→              18<span className="text-muted-foreground">/24</span>
+   759→            </span>
+   760→          </div>
+   761→          <TrendPill abs="+5pp" pct="+6.8%" dir="up" positive />
+   762→        </div>
+   763→      );
+   764→    case "ticket":
+   765→      return (
+   766→        <div className="space-y-2">
+   767→          <div className="flex items-end justify-between gap-2">
+   768→            <div>
+   769→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">€89</div>
+   770→              <div className="text-[11px] text-muted-foreground">por cubierto</div>
+   771→            </div>
+   772→            <TrendPill abs="+€2" pct="+2.3%" dir="up" positive />
+   773→          </div>
+   774→          <div className="h-8">
+   775→            <Sparkline data={[82, 84, 85, 86, 87, 88, 89]} color="var(--gold)" />
+   776→          </div>
+   777→          <MiniBadge tone="gold">Upsell postres +8%</MiniBadge>
+   778→        </div>
+   779→      );
+   780→    case "noshows":
+   781→      return (
+   782→        <div className="space-y-2">
+   783→          <div className="flex items-end justify-between gap-2">
+   784→            <div>
+   785→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">
+   786→                3<span className="text-muted-foreground text-base ml-1">(8.2%)</span>
+   787→              </div>
+   788→              <div className="text-[11px] text-muted-foreground">no-shows hoy</div>
+   789→            </div>
+   790→            <TrendPill abs="−1" pct="−25%" dir="down" positive />
+   791→          </div>
+   792→          <div className="h-8">
+   793→            <Sparkline data={[5, 4, 6, 4, 3, 4, 3]} color="var(--teal)" />
+   794→          </div>
+   795→          <MiniBadge tone="emerald">Recordatorio WA activo</MiniBadge>
+   796→        </div>
+   797→      );
+   798→    case "vip":
+   799→      return (
+   800→        <div className="space-y-2">
+   801→          <div className="flex items-end justify-between gap-2">
+   802→            <div>
+   803→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">8</div>
+   804→              <div className="text-[11px] text-muted-foreground">VIP hoy</div>
+   805→            </div>
+   806→            <MiniBadge tone="gold">
+   807→              <Crown className="h-2.5 w-2.5" /> VIP
+   808→            </MiniBadge>
+   809→          </div>
+   810→          <ul className="space-y-1 max-h-32 overflow-y-auto rp-scroll-thin">
+   811→            {[
+   812→              { n: "Elena Vidal", t: "13:30", m: "Mesa 4" },
+   813→              { n: "Carlos Ortiz", t: "14:00", m: "Mesa 12" },
+   814→              { n: "Marta Gil", t: "14:15", m: "Mesa 7" },
+   815→              { n: "Jordi Soler", t: "20:30", m: "Mesa VIP 1" },
+   816→              { n: "Anna Pons", t: "21:00", m: "Mesa VIP 2" },
+   817→              { n: "Pau Riera", t: "21:30", m: "Mesa 9" },
+   818→              { n: "Núria Mas", t: "22:00", m: "Mesa 14" },
+   819→              { n: "Marc Vidal", t: "22:15", m: "Mesa 3" },
+   820→            ].map((v, i) => (
+   821→              <li key={i} className="flex items-center gap-2 text-[11px] py-0.5">
+   822→                <Crown className="h-2.5 w-2.5 text-[var(--gold)] shrink-0" />
+   823→                <span className="flex-1 truncate text-foreground">{v.n}</span>
+   824→                <span className="font-mono text-muted-foreground">{v.t}</span>
+   825→                <span className="font-mono text-muted-foreground/70">{v.m}</span>
+   826→              </li>
+   827→            ))}
+   828→          </ul>
+   829→        </div>
+   830→      );
+   831→    case "alertas":
+   832→      return (
+   833→        <div className="space-y-2">
+   834→          <div className="flex items-end justify-between gap-2">
+   835→            <div>
+   836→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">3</div>
+   837→              <div className="text-[11px] text-muted-foreground">alertas activas</div>
+   838→            </div>
+   839→            <MiniBadge tone="rose">
+   840→              <span className="h-1.5 w-1.5 rounded-full bg-rose-400 animate-pulse" />
+   841→              Live
+   842→            </MiniBadge>
+   843→          </div>
+   844→          <ul className="space-y-1.5">
+   845→            {[
+   846→              { sev: "alta", text: "Cocina: ticket medio cae 8% en cena", tone: "rose" as const, icon: Flame },
+   847→              { sev: "media", text: "Inventario: stock de vino tinto bajo", tone: "amber" as const, icon: Database },
+   848→              { sev: "media", text: "Finance: desviación presupuesto +2.3%", tone: "amber" as const, icon: ShieldAlert },
+   849→            ].map((a, i) => (
+   850→              <li key={i} className="flex items-start gap-2 text-[11px]">
+   851→                <a.icon className={cn(
+   852→                  "h-3 w-3 mt-0.5 shrink-0",
+   853→                  a.tone === "rose" ? "text-rose-400" : "text-amber-300"
+   854→                )} />
+   855→                <span className="flex-1 text-foreground/90">{a.text}</span>
+   856→                <MiniBadge tone={a.tone}>{a.sev}</MiniBadge>
+   857→              </li>
+   858→            ))}
+   859→          </ul>
+   860→        </div>
+   861→      );
+   862→    case "forecast":
+   863→      return (
+   864→        <div className="space-y-2">
+   865→          <div className="flex items-center justify-between gap-2">
+   866→            <MiniBadge tone="teal">
+   867→              <Brain className="h-2.5 w-2.5" /> Predicción
+   868→            </MiniBadge>
+   869→            <span className="text-[11px] text-muted-foreground font-mono">Confianza 82%</span>
+   870→          </div>
+   871→          <div className="font-display text-2xl font-light text-foreground">Mañana</div>
+   872→          <ul className="space-y-1 text-[11px]">
+   873→            <li className="flex justify-between">
+   874→              <span className="text-muted-foreground">Reservas</span>
+   875→              <span className="font-mono text-foreground">186 <span className="text-muted-foreground">±18</span></span>
+   876→            </li>
+   877→            <li className="flex justify-between">
+   878→              <span className="text-muted-foreground">Facturación</span>
+   879→              <span className="font-mono text-foreground">€10.250 <span className="text-muted-foreground">±€1.200</span></span>
+   880→            </li>
+   881→            <li className="flex justify-between">
+   882→              <span className="text-muted-foreground">Camareros</span>
+   883→              <span className="font-mono text-foreground">9</span>
+   884→            </li>
+   885→          </ul>
+   886→          <MiniBadge tone="gold">Modelo forecast-v2.1</MiniBadge>
+   887→        </div>
+   888→      );
+   889→    case "recs":
+   890→      return (
+   891→        <div className="space-y-2">
+   892→          <div className="flex items-center justify-between gap-2">
+   893→            <MiniBadge tone="gold">
+   894→              <Sparkles className="h-2.5 w-2.5" /> Top 3
+   895→            </MiniBadge>
+   896→            <span className="text-[11px] text-muted-foreground font-mono">vía AI Gateway</span>
+   897→          </div>
+   898→          <ul className="space-y-2">
+   899→            {[
+   900→              { t: "Campaña martes para inactivos +60d", imp: "+€340", c: 84 },
+   901→              { t: "Upsell de postres en mesas de 4+", imp: "+€2/reserva", c: 72 },
+   902→              { t: "Confirmar reservas noche por WhatsApp", imp: "−2 no-shows", c: 88 },
+   903→            ].map((r, i) => (
+   904→              <li key={i} className="rounded-md border border-border/40 bg-card/30 p-2">
+   905→                <div className="flex items-start gap-1.5">
+   906→                  <span className="font-mono text-[10px] text-[var(--gold)] mt-0.5">{i + 1}</span>
+   907→                  <div className="flex-1 min-w-0">
+   908→                    <p className="text-[11px] text-foreground leading-snug">{r.t}</p>
+   909→                    <div className="mt-1 flex items-center gap-2">
+   910→                      <span className="text-[10px] font-mono text-[var(--teal)]">{r.imp}</span>
+   911→                      <span className="text-[10px] font-mono text-muted-foreground">conf. {r.c}%</span>
+   912→                    </div>
+   913→                  </div>
+   914→                </div>
+   915→              </li>
+   916→            ))}
+   917→          </ul>
+   918→        </div>
+   919→      );
+   920→    case "rent":
+   921→      return (
+   922→        <div className="space-y-2">
+   923→          <div className="flex items-center justify-between gap-2">
+   924→            <MiniBadge tone="amber">Estimado</MiniBadge>
+   925→            <span className="text-[11px] text-muted-foreground font-mono">costes reales parciales</span>
+   926→          </div>
+   927→          <div className="flex items-end justify-between gap-2">
+   928→            <div>
+   929→              <div className="font-display text-3xl sm:text-4xl font-light text-foreground">€2.952</div>
+   930→              <div className="text-[11px] text-muted-foreground">beneficio estimado</div>
+   931→            </div>
+   932→            <TrendPill abs="+€210" pct="+7.7%" dir="up" positive />
+   933→          </div>
+   934→          <div className="space-y-1">
+   935→            <div className="flex items-center justify-between text-[11px]">
+   936→              <span className="text-muted-foreground">Margen</span>
+   937→              <span className="font-mono text-[var(--gold-soft)]">72%</span>
+   938→            </div>
+   939→            <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
+   940→              <div className="h-full bg-gradient-to-r from-[var(--teal)] to-[var(--gold)]" style={{ width: "72%" }} />
+   941→            </div>
+   942→          </div>
+   943→        </div>
+   944→      );
+   945→    case "rep":
+   946→      return (
+   947→        <div className="space-y-2">
+   948→          <div className="grid grid-cols-2 gap-2">
+   949→            <div className="rounded-md border border-border/40 bg-card/30 p-2">
+   950→              <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   951→                <Globe className="h-2.5 w-2.5" /> Google
+   952→              </div>
+   953→              <div className="mt-1 font-display text-2xl font-light text-foreground">
+   954→                4.6<span className="text-[var(--gold)] text-sm"> ★</span>
+   955→              </div>
+   956→              <div className="text-[10px] text-muted-foreground">1.247 reseñas</div>
+   957→            </div>
+   958→            <div className="rounded-md border border-border/40 bg-card/30 p-2">
+   959→              <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   960→                <Award className="h-2.5 w-2.5" /> NPS
+   961→              </div>
+   962→              <div className="mt-1 font-display text-2xl font-light text-foreground">72</div>
+   963→              <div className="text-[10px] text-muted-foreground">+4 vs mes ant.</div>
+   964→            </div>
+   965→          </div>
+   966→          <TrendPill abs="+2" pct="+2.9%" dir="up" positive />
+   967→        </div>
+   968→      );
+   969→    case "staff":
+   970→      return (
+   971→        <div className="space-y-2">
+   972→          <div className="flex items-center justify-between gap-2">
+   973→            <span className="text-[11px] text-muted-foreground">Para mañana</span>
+   974→            <MiniBadge tone="gold">Forecast</MiniBadge>
+   975→          </div>
+   976→          <ul className="space-y-1.5">
+   977→            {[
+   978→              { role: "Camareros", n: 9, icon: ConciergeBell, c: "var(--gold)" },
+   979→              { role: "Cocineros", n: 2, icon: ChefHat, c: "var(--teal)" },
+   980→              { role: "Recepcionista", n: 1, icon: UserCheck, c: "var(--gold)" },
+   981→            ].map((s) => (
+   982→              <li key={s.role} className="flex items-center gap-2 text-[11px]">
+   983→                <s.icon className="h-3 w-3 shrink-0" style={{ color: s.c }} />
+   984→                <span className="flex-1 text-muted-foreground">{s.role}</span>
+   985→                <span className="font-mono text-foreground text-sm">{s.n}</span>
+   986→              </li>
+   987→            ))}
+   988→          </ul>
+   989→          <div className="text-[10px] text-muted-foreground font-mono">
+   990→            Base: ocupación 85% · 186 reservas
+   991→          </div>
+   992→        </div>
+   993→      );
+   994→    default:
+   995→      return null;
+   996→  }
+   997→}
+   998→
+   999→function WelcomeHeader({ period }: { period: Period }) {
+  1000→  const reduce = useReducedMotion();
+  1001→  return (
+  1002→    <motion.div
+  1003→      initial={reduce ? false : { opacity: 0, y: 6 }}
+  1004→      animate={{ opacity: 1, y: 0 }}
+  1005→      transition={{ duration: 0.4, ease: "easeOut" }}
+  1006→      className="rp-glass rounded-xl p-4 sm:p-5"
+  1007→    >
+  1008→      <div className="flex flex-wrap items-start justify-between gap-3">
+  1009→        <div className="min-w-0 flex-1">
+  1010→          <div className="flex items-center gap-2">
+  1011→            <h2 className="font-display text-xl sm:text-2xl font-medium text-foreground">
+  1012→              Buenos días, Ana.
+  1013→            </h2>
+  1014→            <DemoBadge />
+  1015→          </div>
+  1016→          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+  1017→            Hoy tienes: <span className="text-foreground font-medium">47 reservas</span> ·{" "}
+  1018→            <span className="text-foreground font-medium">78% ocupación prevista</span> ·{" "}
+  1019→            <span className="text-[var(--gold-soft)] font-medium">8 VIP</span> · 2 cumpleaños ·{" "}
+  1020→            <span className="text-rose-300 font-medium">3 riesgo cancelación</span> ·{" "}
+  1021→            <span className="text-foreground font-medium">€4.100 facturación prevista</span>.
+  1022→          </p>
+  1023→          <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
+  1024→            Comparativas:{" "}
+  1025→            <span className="text-emerald-300 font-mono">+12% vs ayer</span> ·{" "}
+  1026→            <span className="text-emerald-300 font-mono">+8% vs semana</span> ·{" "}
+  1027→            <span className="text-emerald-300 font-mono">+15% vs año anterior</span>
+  1028→          </p>
+  1029→        </div>
+  1030→        <div className="flex flex-col items-end gap-1 text-right">
+  1031→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1032→            Periodo
+  1033→          </div>
+  1034→          <div className="font-display text-lg text-foreground">{period}</div>
+  1035→          <div className="text-[10px] font-mono text-muted-foreground">
+  1036→            {new Date().toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" })}
+  1037→          </div>
+  1038→        </div>
+  1039→      </div>
+  1040→    </motion.div>
+  1041→  );
+  1042→}
+  1043→
+  1044→function CustomizePanel({
+  1045→  layout,
+  1046→  setLayout,
+  1047→  onClose,
+  1048→}: {
+  1049→  layout: Record<string, boolean>;
+  1050→  setLayout: (v: Record<string, boolean>) => void;
+  1051→  onClose: () => void;
+  1052→}) {
+  1053→  const reduce = useReducedMotion();
+  1054→  return (
+  1055→    <motion.div
+  1056→      initial={reduce ? false : { opacity: 0, height: 0 }}
+  1057→      animate={{ opacity: 1, height: "auto" }}
+  1058→      exit={{ opacity: 0, height: 0 }}
+  1059→      transition={{ duration: 0.25, ease: "easeOut" }}
+  1060→      className="overflow-hidden"
+  1061→    >
+  1062→      <div className="rp-glass rounded-xl p-4 sm:p-5 mt-3 border border-[var(--gold)]/20">
+  1063→        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+  1064→          <div className="flex items-center gap-2">
+  1065→            <Sliders className="h-4 w-4 text-[var(--gold)]" />
+  1066→            <h3 className="font-display text-sm font-medium">Personalizar widgets</h3>
+  1067→            <span className="text-[11px] text-muted-foreground font-mono">
+  1068→              {Object.values(layout).filter(Boolean).length}/{WIDGETS.length} visibles
+  1069→            </span>
+  1070→          </div>
+  1071→          <div className="flex items-center gap-2">
+  1072→            <Button
+  1073→              variant="outline"
+  1074→              size="sm"
+  1075→              className="h-8 text-xs"
+  1076→              onClick={() => {
+  1077→                const all: Record<string, boolean> = {};
+  1078→                WIDGETS.forEach((w) => (all[w.id] = true));
+  1079→                setLayout(all);
+  1080→              }}
+  1081→            >
+  1082→              <RotateCcw className="h-3 w-3 mr-1" />
+  1083→              Restaurar layout
+  1084→            </Button>
+  1085→            <Button
+  1086→              size="sm"
+  1087→              className="h-8 text-xs bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+  1088→              onClick={onClose}
+  1089→            >
+  1090→              <Save className="h-3 w-3 mr-1" />
+  1091→              Guardar layout
+  1092→            </Button>
+  1093→          </div>
+  1094→        </div>
+  1095→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+  1096→          {WIDGETS.map((w) => (
+  1097→            <label
+  1098→              key={w.id}
+  1099→              className="flex items-center gap-2 rounded-md border border-border/40 bg-card/30 p-2 cursor-pointer hover:border-foreground/20 transition-colors min-h-[44px]"
+  1100→            >
+  1101→              <Switch
+  1102→                checked={!!layout[w.id]}
+  1103→                onCheckedChange={(checked) =>
+  1104→                  setLayout({ ...layout, [w.id]: checked })
+  1105→                }
+  1106→                aria-label={`Mostrar widget ${w.title}`}
+  1107→              />
+  1108→              <w.icon className="h-3.5 w-3.5 text-muted-foreground" />
+  1109→              <span className="text-xs flex-1">{w.title}</span>
+  1110→              <span className="text-[10px] font-mono text-muted-foreground uppercase">
+  1111→                {w.freq === "realtime" ? "RT" : w.freq === "near" ? "NRT" : "AGG"}
+  1112→              </span>
+  1113→            </label>
+  1114→          ))}
+  1115→        </div>
+  1116→      </div>
+  1117→    </motion.div>
+  1118→  );
+  1119→}
+  1120→
+  1121→function CockpitTab({
+  1122→  period,
+  1123→  setPeriod,
+  1124→  restaurant,
+  1125→  setRestaurant,
+  1126→  zona,
+  1127→  setZona,
+  1128→  turno,
+  1129→  setTurno,
+  1130→  canal,
+  1131→  setCanal,
+  1132→}: {
+  1133→  period: Period;
+  1134→  setPeriod: (p: Period) => void;
+  1135→  restaurant: string;
+  1136→  setRestaurant: (v: string) => void;
+  1137→  zona: string;
+  1138→  setZona: (v: string) => void;
+  1139→  turno: string;
+  1140→  setTurno: (v: string) => void;
+  1141→  canal: string;
+  1142→  setCanal: (v: string) => void;
+  1143→}) {
+  1144→  const [customizing, setCustomizing] = React.useState(false);
+  1145→  const [layout, setLayout] = React.useState<Record<string, boolean>>(() => {
+  1146→    const init: Record<string, boolean> = {};
+  1147→    WIDGETS.forEach((w) => (init[w.id] = true));
+  1148→    return init;
+  1149→  });
+  1150→
+  1151→  return (
+  1152→    <div className="space-y-4">
+  1153→      <WelcomeHeader period={period} />
+  1154→
+  1155→      {/* Toolbar: period selector + filters + customize */}
+  1156→      <div className="flex flex-wrap items-center gap-2 rp-glass rounded-xl p-2.5">
+  1157→        <div className="flex items-center rounded-md border border-border/60 p-0.5 overflow-x-auto rp-scroll-thin max-w-full">
+  1158→          {PERIODS.map((p) => (
+  1159→            <button
+  1160→              key={p}
+  1161→              onClick={() => setPeriod(p)}
+  1162→              className={cn(
+  1163→                "min-h-[32px] rounded px-2.5 py-1 text-xs transition-colors whitespace-nowrap",
+  1164→                period === p
+  1165→                  ? "bg-[var(--gold)] text-black font-medium"
+  1166→                  : "text-muted-foreground hover:text-foreground"
+  1167→              )}
+  1168→            >
+  1169→              {p}
+  1170→            </button>
+  1171→          ))}
+  1172→        </div>
+  1173→
+  1174→        <div className="hidden sm:block h-6 w-px bg-border/60" />
+  1175→
+  1176→        <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
+  1177→          <FilterSelect label="Restaurante" value={restaurant} options={RESTAURANTS} onChange={setRestaurant} icon={MapPin} />
+  1178→          <FilterSelect label="Zona" value={zona} options={ZONAS} onChange={setZona} icon={Layers} />
+  1179→          <FilterSelect label="Turno" value={turno} options={TURNOS} onChange={setTurno} icon={CalendarClock} />
+  1180→          <FilterSelect label="Canal" value={canal} options={CANALES} onChange={setCanal} icon={Globe} />
+  1181→        </div>
+  1182→
+  1183→        <Button
+  1184→          variant={customizing ? "default" : "outline"}
+  1185→          size="sm"
+  1186→          className={cn(
+  1187→            "h-9 text-xs shrink-0",
+  1188→            customizing && "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+  1189→          )}
+  1190→          onClick={() => setCustomizing((v) => !v)}
+  1191→        >
+  1192→          <Settings2 className="h-3.5 w-3.5 mr-1.5" />
+  1193→          Personalizar
+  1194→        </Button>
+  1195→      </div>
+  1196→
+  1197→      <AnimatePresence>
+  1198→        {customizing && (
+  1199→          <CustomizePanel
+  1200→            layout={layout}
+  1201→            setLayout={setLayout}
+  1202→            onClose={() => setCustomizing(false)}
+  1203→          />
+  1204→        )}
+  1205→      </AnimatePresence>
+  1206→
+  1207→      {/* Widget grid */}
+  1208→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 auto-rows-fr">
+  1209→        {WIDGETS.map((w) => (
+  1210→          <WidgetShell key={w.id} def={w} visible={!!layout[w.id]}>
+  1211→            <WidgetContent id={w.id} />
+  1212→          </WidgetShell>
+  1213→        ))}
+  1214→      </div>
+  1215→    </div>
+  1216→  );
+  1217→}
+  1218→
+  1219→/* =====================================================================
+  1220→ * KPIs tab — catalog
+  1221→ * ===================================================================== */
+  1222→
+  1223→function KpiCard({ kpi, index }: { kpi: KpiItem; index: number }) {
+  1224→  const reduce = useReducedMotion();
+  1225→  return (
+  1226→    <motion.div
+  1227→      initial={reduce ? false : { opacity: 0, y: 8 }}
+  1228→      animate={{ opacity: 1, y: 0 }}
+  1229→      transition={{ duration: 0.3, delay: Math.min(index * 0.03, 0.3), ease: "easeOut" }}
+  1230→      className="rp-glass rounded-xl p-4 flex flex-col gap-2.5 hover:border-foreground/15 transition-colors"
+  1231→    >
+  1232→      <header className="flex items-start justify-between gap-2">
+  1233→        <span
+  1234→          className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground"
+  1235→          style={{ color: kpi.accent === "gold" ? "var(--gold)" : "var(--teal)" }}
+  1236→        >
+  1237→          {kpi.name}
+  1238→        </span>
+  1239→        <InfoDot text={kpi.definition} />
+  1240→      </header>
+  1241→
+  1242→      <div className="font-display text-2xl sm:text-3xl font-light text-foreground">{kpi.value}</div>
+  1243→
+  1244→      <TrendPill abs={kpi.trendAbs} pct={kpi.trendPct} dir={kpi.trendDir} positive={kpi.positive} />
+  1245→
+  1246→      <div className="text-[10px] font-mono text-muted-foreground/80 bg-foreground/5 rounded px-2 py-1 break-all">
+  1247→        {kpi.formula}
+  1248→      </div>
+  1249→
+  1250→      <div className="flex flex-wrap items-center gap-1.5">
+  1251→        <FreqBadge freq={kpi.freq} />
+  1252→        <SourceBadge source={kpi.source} accent={kpi.accent} />
+  1253→      </div>
+  1254→
+  1255→      <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-muted-foreground">
+  1256→        <span>Periodo: {kpi.period}</span>
+  1257→        <span>{kpi.updated}</span>
+  1258→      </div>
+  1259→
+  1260→      {kpi.limitations && (
+  1261→        <div className="flex items-start gap-1 text-[10px] text-amber-300/90 border border-amber-400/20 bg-amber-400/5 rounded px-2 py-1">
+  1262→          <Info className="h-2.5 w-2.5 mt-0.5 shrink-0" />
+  1263→          <span>{kpi.limitations}</span>
+  1264→        </div>
+  1265→      )}
+  1266→
+  1267→      <button
+  1268→        type="button"
+  1269→        className="mt-auto inline-flex items-center gap-0.5 text-[11px] text-[var(--gold-soft)] hover:underline self-start pt-1"
+  1270→      >
+  1271→        Ver desglose
+  1272→        <ChevronRight className="h-3 w-3" />
+  1273→      </button>
+  1274→    </motion.div>
+  1275→  );
+  1276→}
+  1277→
+  1278→function KpisTab() {
+  1279→  const [category, setCategory] = React.useState<KpiCategory>("Operación");
+  1280→  const items = KPI_CATALOG[category];
+  1281→  const cats = Object.keys(KPI_CATALOG) as KpiCategory[];
+  1282→
+  1283→  return (
+  1284→    <div className="space-y-4">
+  1285→      <div className="flex flex-wrap items-center justify-between gap-2 rp-glass rounded-xl p-2.5">
+  1286→        <div className="flex items-center gap-2 flex-wrap">
+  1287→          <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+  1288→          <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1289→            Categoría
+  1290→          </span>
+  1291→          <div className="flex items-center rounded-md border border-border/60 p-0.5 overflow-x-auto rp-scroll-thin max-w-full">
+  1292→            {cats.map((c) => (
+  1293→              <button
+  1294→                key={c}
+  1295→                onClick={() => setCategory(c)}
+  1296→                className={cn(
+  1297→                  "min-h-[32px] rounded px-2.5 py-1 text-xs transition-colors whitespace-nowrap",
+  1298→                  category === c
+  1299→                    ? "bg-[var(--gold)] text-black font-medium"
+  1300→                    : "text-muted-foreground hover:text-foreground"
+  1301→                )}
+  1302→              >
+  1303→                {c}
+  1304→              </button>
+  1305→            ))}
+  1306→          </div>
+  1307→        </div>
+  1308→        <DemoBadge />
+  1309→      </div>
+  1310→
+  1311→      <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+  1312→        <span>
+  1313→          {items.length} KPIs · catálogo de 150+ métricas
+  1314→        </span>
+  1315→        <span>{category} · datos demo</span>
+  1316→      </div>
+  1317→
+  1318→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+  1319→        {items.map((kpi, i) => (
+  1320→          <KpiCard key={kpi.id} kpi={kpi} index={i} />
+  1321→        ))}
+  1322→      </div>
+  1323→    </div>
+  1324→  );
+  1325→}
+  1326→
+  1327→/* =====================================================================
+  1328→ * Forecast tab
+  1329→ * ===================================================================== */
+  1330→
+  1331→const FORECAST_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  1332→const FORECAST_ACTUAL = [142, 138, 158, 172, 188, 196, 184];
+  1333→const FORECAST_PRED = [null, null, 158, 172, 188, 196, 186, 192]; // tomorrow last
+  1334→const FORECAST_BAND_LO = [null, null, 148, 162, 178, 186, 168, 174];
+  1335→const FORECAST_BAND_HI = [null, null, 168, 182, 198, 206, 204, 210];
+  1336→
+  1337→function ForecastChart() {
+  1338→  const width = 720;
+  1339→  const height = 280;
+  1340→  const padL = 44;
+  1341→  const padR = 16;
+  1342→  const padT = 24;
+  1343→  const padB = 36;
+  1344→  const innerW = width - padL - padR;
+  1345→  const innerH = height - padT - padB;
+  1346→  const allVals = [142, 138, 158, 172, 188, 196, 184, 168, 174, 178, 182, 186, 198, 206, 204, 210, 168, 174, 192];
+  1347→  const maxV = Math.max(...allVals) * 1.05;
+  1348→  const minV = Math.min(...allVals) * 0.9;
+  1349→
+  1350→  const days = FORECAST_DAYS;
+  1351→  const n = days.length;
+  1352→  const step = innerW / (n - 1);
+  1353→
+  1354→  const yOf = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
+  1355→  const xOf = (i: number) => padL + i * step;
+  1356→
+  1357→  const actualPts = FORECAST_ACTUAL.map((v, i) => [xOf(i), yOf(v)] as const);
+  1358→  const actualPath = actualPts.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(" ");
+  1359→
+  1360→  // Forecast line: starts from last actual point
+  1361→  const fIdx = [n - 1, n, n + 1]; // tomorrow onwards — we'll just show 1 forecast point with band
+  1362→  // Simpler: forecast line connects last actual to a future value to the right edge
+  1363→  const forecastX = width - padR;
+  1364→  const forecastY = yOf(186);
+  1365→  const forecastPath = `M${actualPts[n - 1][0]},${actualPts[n - 1][1]} L${forecastX},${forecastY}`;
+  1366→
+  1367→  // Confidence band: triangle from last actual point expanding
+  1368→  const bandPath = `M${actualPts[n - 1][0]},${actualPts[n - 1][1]} L${forecastX},${yOf(168)} L${forecastX},${yOf(204)} Z`;
+  1369→
+  1370→  const yTicks = [minV, (minV + maxV) / 2, maxV];
+  1371→
+  1372→  return (
+  1373→    <div className="overflow-x-auto rp-scroll-thin">
+  1374→      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[640px]" role="img" aria-label="Forecast 7 días con banda de confianza">
+  1375→        {/* y grid */}
+  1376→        {yTicks.map((t, i) => {
+  1377→          const y = yOf(t);
+  1378→          return (
+  1379→            <g key={i}>
+  1380→              <line x1={padL} x2={width - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
+  1381→              <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
+  1382→                {Math.round(t)}
+  1383→              </text>
+  1384→            </g>
+  1385→          );
+  1386→        })}
+  1387→        {/* x labels */}
+  1388→        {days.map((d, i) => (
+  1389→          <text key={d} x={xOf(i)} y={height - 12} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
+  1390→            {d}
+  1391→          </text>
+  1392→        ))}
+  1393→        <text x={forecastX} y={height - 12} textAnchor="middle" className="fill-[var(--teal)] font-mono" fontSize="9" fontWeight="600">
+  1394→          Mañana
+  1395→        </text>
+  1396→
+  1397→        {/* Confidence band */}
+  1398→        <path d={bandPath} fill="var(--teal)" fillOpacity="0.12" stroke="none" />
+  1399→
+  1400→        {/* Actual line (gold) */}
+  1401→        <path d={actualPath} fill="none" stroke="var(--gold)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  1402→        {actualPts.map((p, i) => (
+  1403→          <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="var(--gold)" stroke="var(--background)" strokeWidth="1.5" />
+  1404→        ))}
+  1405→
+  1406→        {/* Forecast line (dashed teal) */}
+  1407→        <path d={forecastPath} fill="none" stroke="var(--teal)" strokeWidth="2.2" strokeDasharray="5 4" strokeLinecap="round" />
+  1408→        <circle cx={forecastX} cy={forecastY} r="4" fill="var(--teal)" stroke="var(--background)" strokeWidth="1.5" />
+  1409→        <text x={forecastX} y={forecastY - 10} textAnchor="middle" className="fill-[var(--teal)] font-mono" fontSize="10" fontWeight="600">
+  1410→          186
+  1411→        </text>
+  1412→      </svg>
+  1413→    </div>
+  1414→  );
+  1415→}
+  1416→
+  1417→function ForecastSummaryCard({
+  1418→  label,
+  1419→  value,
+  1420→  confidence,
+  1421→  margin,
+  1422→  icon: Icon,
+  1423→  accent,
+  1424→  extra,
+  1425→}: {
+  1426→  label: string;
+  1427→  value: string;
+  1428→  confidence: number;
+  1429→  margin?: string;
+  1430→  icon: React.ElementType;
+  1431→  accent: Accent;
+  1432→  extra?: string;
+  1433→}) {
+  1434→  return (
+  1435→    <div className="rp-glass rounded-xl p-4 flex flex-col gap-2">
+  1436→      <div className="flex items-center justify-between gap-2">
+  1437→        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+  1438→          <Icon className="inline h-3 w-3 mr-1" style={{ color: accent === "gold" ? "var(--gold)" : "var(--teal)" }} />
+  1439→          {label}
+  1440→        </span>
+  1441→        <InfoDot text={`Confianza ${confidence}%`} />
+  1442→      </div>
+  1443→      <div className="font-display text-2xl font-light text-foreground">{value}</div>
+  1444→      {margin && <div className="text-[11px] font-mono text-muted-foreground">±{margin}</div>}
+  1445→      {extra && <div className="text-[11px] text-muted-foreground">{extra}</div>}
+  1446→      <div className="mt-1 flex items-center gap-2">
+  1447→        <div className="flex-1 h-1 rounded-full bg-foreground/10 overflow-hidden">
+  1448→          <div
+  1449→            className="h-full"
+  1450→            style={{
+  1451→              width: `${confidence}%`,
+  1452→              background: accent === "gold" ? "var(--gold)" : "var(--teal)",
+  1453→            }}
+  1454→          />
+  1455→        </div>
+  1456→        <span className="text-[10px] font-mono text-muted-foreground">{confidence}%</span>
+  1457→      </div>
+  1458→    </div>
+  1459→  );
+  1460→}
+  1461→
+  1462→function ForecastTab() {
+  1463→  const reduce = useReducedMotion();
+  1464→  const [recalc, setRecalc] = React.useState(false);
+  1465→
+  1466→  const variables = [
+  1467→    "Histórico 30 días",
+  1468→    "Reservas actuales",
+  1469→    "Estacionalidad",
+  1470→    "Clima: 18°C soleado",
+  1471→    "Eventos: Concierto WiZink",
+  1472→  ];
+  1473→
+  1474→  const factors = [
+  1475→    { label: "Histórico 30 días", pct: 35 },
+  1476→    { label: "Reservas actuales", pct: 25 },
+  1477→    { label: "Estacionalidad", pct: 20 },
+  1478→    { label: "Clima", pct: 10 },
+  1479→    { label: "Eventos", pct: 10 },
+  1480→  ];
+  1481→
+  1482→  return (
+  1483→    <div className="space-y-4">
+  1484→      <div className="flex flex-wrap items-center justify-between gap-2 rp-glass rounded-xl p-2.5">
+  1485→        <div className="flex items-center gap-2">
+  1486→          <Brain className="h-4 w-4 text-[var(--teal)]" />
+  1487→          <h3 className="font-display text-sm font-medium">Forecast mañana</h3>
+  1488→          <MiniBadge tone="teal">forecast-v2.1</MiniBadge>
+  1489→          <MiniBadge tone="emerald">Accuracy 84%</MiniBadge>
+  1490→          <MiniBadge tone="gold">Data quality: HIGH</MiniBadge>
+  1491→        </div>
+  1492→        <Button
+  1493→          size="sm"
+  1494→          className="h-9 text-xs bg-[var(--teal)] text-black hover:bg-[var(--teal-deep)] hover:text-white"
+  1495→          onClick={() => {
+  1496→            setRecalc(true);
+  1497→            setTimeout(() => setRecalc(false), 1500);
+  1498→          }}
+  1499→          disabled={recalc}
+  1500→        >
+  1501→          <RefreshCw className={cn("h-3.5 w-3.5 mr-1.5", recalc && "animate-spin")} />
+  1502→          {recalc ? "Recalculando…" : "Recalcular"}
+  1503→        </Button>
+  1504→      </div>
+  1505→
+  1506→      {/* Summary cards */}
+  1507→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+  1508→        <ForecastSummaryCard label="Reservas previstas" value="186" confidence={82} margin="18" icon={CalendarDays} accent="teal" />
+  1509→        <ForecastSummaryCard label="Facturación prevista" value="€10.250" confidence={78} margin="€1.200" icon={Banknote} accent="gold" />
+  1510→        <ForecastSummaryCard label="Ocupación prevista" value="85%" confidence={85} icon={PieChart} accent="teal" />
+  1511→        <ForecastSummaryCard label="Personal recomendado" value="9 · 2 · 1" confidence={85} icon={ConciergeBell} accent="gold" extra="9 camareros · 2 cocineros · 1 recepcionista" />
+  1512→        <ForecastSummaryCard label="No-shows previstos" value="12" confidence={70} icon={UserX} accent="gold" />
+  1513→        <ForecastSummaryCard label="Cancelaciones previstas" value="8" confidence={75} icon={CalendarClock} accent="teal" />
+  1514→      </div>
+  1515→
+  1516→      {/* Chart */}
+  1517→      <motion.div
+  1518→        initial={reduce ? false : { opacity: 0, y: 8 }}
+  1519→        animate={{ opacity: 1, y: 0 }}
+  1520→        transition={{ duration: 0.35, ease: "easeOut" }}
+  1521→        className="rp-glass rounded-xl p-4 sm:p-5"
+  1522→      >
+  1523→        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+  1524→          <div>
+  1525→            <h3 className="font-display text-base font-medium">Forecast 7 días · reservas</h3>
+  1526→            <p className="text-[11px] text-muted-foreground mt-0.5">
+  1527→              Línea dorada = actual · Línea turquesa discontinua = predicción · Banda = confianza
+  1528→            </p>
+  1529→          </div>
+  1530→          <div className="flex items-center gap-3 text-[11px]">
+  1531→            <span className="inline-flex items-center gap-1.5">
+  1532→              <span className="h-2.5 w-4 rounded-sm" style={{ background: "var(--gold)" }} />
+  1533→              <span className="text-muted-foreground">Actual</span>
+  1534→            </span>
+  1535→            <span className="inline-flex items-center gap-1.5">
+  1536→              <span className="h-0.5 w-4" style={{ background: "var(--teal)", borderTop: "2px dashed var(--teal)" }} />
+  1537→              <span className="text-muted-foreground">Predicción</span>
+  1538→            </span>
+  1539→            <span className="inline-flex items-center gap-1.5">
+  1540→              <span className="h-2.5 w-4 rounded-sm" style={{ background: "color-mix(in oklab, var(--teal) 20%, transparent)" }} />
+  1541→              <span className="text-muted-foreground">Banda confianza</span>
+  1542→            </span>
+  1543→          </div>
+  1544→        </div>
+  1545→        <ForecastChart />
+  1546→      </motion.div>
+  1547→
+  1548→      {/* Model info + variables */}
+  1549→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+  1550→        <div className="rp-glass rounded-xl p-4 sm:p-5">
+  1551→          <h3 className="font-display text-base font-medium mb-3">Factores del modelo</h3>
+  1552→          <ul className="space-y-2">
+  1553→            {factors.map((f) => (
+  1554→              <li key={f.label}>
+  1555→                <div className="flex items-center justify-between text-[11px] mb-1">
+  1556→                  <span className="text-muted-foreground">{f.label}</span>
+  1557→                  <span className="font-mono text-foreground">{f.pct}%</span>
+  1558→                </div>
+  1559→                <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
+  1560→                  <div
+  1561→                    className="h-full bg-gradient-to-r from-[var(--teal-deep)] to-[var(--gold)]"
+  1562→                    style={{ width: `${f.pct * 2.5}%` }}
+  1563→                  />
+  1564→                </div>
+  1565→              </li>
+  1566→            ))}
+  1567→          </ul>
+  1568→        </div>
+  1569→        <div className="rp-glass rounded-xl p-4 sm:p-5">
+  1570→          <h3 className="font-display text-base font-medium mb-3">Variables utilizadas</h3>
+  1571→          <div className="flex flex-wrap gap-1.5 mb-4">
+  1572→            {variables.map((v) => (
+  1573→              <MiniBadge key={v} tone="teal">
+  1574→                {v}
+  1575→              </MiniBadge>
+  1576→            ))}
+  1577→          </div>
+  1578→          <div className="space-y-1.5 text-[11px]">
+  1579→            <div className="flex justify-between">
+  1580→              <span className="text-muted-foreground">Versión modelo</span>
+  1581→              <span className="font-mono text-foreground">forecast-v2.1</span>
+  1582→            </div>
+  1583→            <div className="flex justify-between">
+  1584→              <span className="text-muted-foreground">Accuracy histórica</span>
+  1585→              <span className="font-mono text-[var(--teal)]">84%</span>
+  1586→            </div>
+  1587→            <div className="flex justify-between">
+  1588→              <span className="text-muted-foreground">Calidad de datos</span>
+  1589→              <span className="font-mono text-[var(--gold-soft)]">HIGH</span>
+  1590→            </div>
+  1591→            <div className="flex justify-between">
+  1592→              <span className="text-muted-foreground">Última predicción</span>
+  1593→              <span className="font-mono text-foreground">hace 15 min</span>
+  1594→            </div>
+  1595→          </div>
+  1596→        </div>
+  1597→      </div>
+  1598→
+  1599→      {/* Disclaimer */}
+  1600→      <div className="rp-glass rounded-xl p-4 border border-amber-400/20">
+  1601→        <div className="flex items-start gap-2">
+  1602→          <Info className="h-4 w-4 text-amber-300 mt-0.5 shrink-0" />
+  1603→          <p className="text-[11px] text-muted-foreground leading-relaxed">
+  1604→            <span className="text-amber-300 font-medium">Aviso:</span> Las predicciones son
+  1605→            estimaciones. No son garantías. La confianza refleja la calidad de los datos
+  1606→            disponibles. Las decisiones de personal y compras deben validar el forecast con
+  1607→            otros puntos de datos operativos.
+  1608→          </p>
+  1609→        </div>
+  1610→      </div>
+  1611→    </div>
+  1612→  );
+  1613→}
+  1614→
+  1615→/* =====================================================================
+  1616→ * Comparativas tab
+  1617→ * ===================================================================== */
+  1618→
+  1619→function ComparisonChart() {
+  1620→  const width = 720;
+  1621→  const height = 240;
+  1622→  const padL = 40;
+  1623→  const padR = 16;
+  1624→  const padT = 20;
+  1625→  const padB = 32;
+  1626→  const innerW = width - padL - padR;
+  1627→  const innerH = height - padT - padB;
+  1628→  const points = 12;
+  1629→  const a = [42, 45, 47, 44, 50, 52, 49, 53, 55, 51, 54, 47];
+  1630→  const b = [40, 41, 42, 43, 44, 46, 45, 48, 50, 47, 49, 42];
+  1631→  const maxV = Math.max(...a, ...b) * 1.1;
+  1632→  const minV = Math.min(...a, ...b) * 0.85;
+  1633→  const step = innerW / (points - 1);
+  1634→  const yOf = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
+  1635→  const xOf = (i: number) => padL + i * step;
+  1636→  const aPath = a.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(v)}`).join(" ");
+  1637→  const bPath = b.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(v)}`).join(" ");
+  1638→  const ticks = [minV, (minV + maxV) / 2, maxV];
+  1639→
+  1640→  return (
+  1641→    <div className="overflow-x-auto rp-scroll-thin">
+  1642→      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[640px]" role="img" aria-label="Comparativa Periodo A vs Periodo B">
+  1643→        {ticks.map((t, i) => {
+  1644→          const y = yOf(t);
+  1645→          return (
+  1646→            <g key={i}>
+  1647→              <line x1={padL} x2={width - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
+  1648→              <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
+  1649→                {Math.round(t)}
+  1650→              </text>
+  1651→            </g>
+  1652→          );
+  1653→        })}
+  1654→        {Array.from({ length: points }).map((_, i) => (
+  1655→          <text key={i} x={xOf(i)} y={height - 10} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
+  1656→            {i + 1}
+  1657→          </text>
+  1658→        ))}
+  1659→        <path d={bPath} fill="none" stroke="var(--teal)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  1660→        <path d={aPath} fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  1661→        {a.map((v, i) => (
+  1662→          <circle key={`a${i}`} cx={xOf(i)} cy={yOf(v)} r="2.5" fill="var(--gold)" />
+  1663→        ))}
+  1664→        {b.map((v, i) => (
+  1665→          <circle key={`b${i}`} cx={xOf(i)} cy={yOf(v)} r="2.5" fill="var(--teal)" />
+  1666→        ))}
+  1667→      </svg>
+  1668→    </div>
+  1669→  );
+  1670→}
+  1671→
+  1672→function ComparativasTab() {
+  1673→  const [typeId, setTypeId] = React.useState(COMPARISON_TYPES[0].id);
+  1674→  const cmp = COMPARISON_TYPES.find((c) => c.id === typeId) ?? COMPARISON_TYPES[0];
+  1675→
+  1676→  return (
+  1677→    <div className="space-y-4">
+  1678→      <div className="flex flex-wrap items-center gap-2 rp-glass rounded-xl p-2.5">
+  1679→        <BarChart3 className="h-4 w-4 text-[var(--gold)]" />
+  1680→        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1681→          Tipo comparativa
+  1682→        </span>
+  1683→        <div className="flex items-center rounded-md border border-border/60 p-0.5 overflow-x-auto rp-scroll-thin max-w-full">
+  1684→          {COMPARISON_TYPES.map((c) => (
+  1685→            <button
+  1686→              key={c.id}
+  1687→              onClick={() => setTypeId(c.id)}
+  1688→              className={cn(
+  1689→                "min-h-[32px] rounded px-2.5 py-1 text-xs transition-colors whitespace-nowrap",
+  1690→                typeId === c.id
+  1691→                  ? "bg-[var(--gold)] text-black font-medium"
+  1692→                  : "text-muted-foreground hover:text-foreground"
+  1693→              )}
+  1694→            >
+  1695→              {c.label}
+  1696→            </button>
+  1697→          ))}
+  1698→        </div>
+  1699→      </div>
+  1700→
+  1701→      {/* AI explanation */}
+  1702→      <div className="rp-glass rounded-xl p-4 border border-[var(--teal)]/20">
+  1703→        <div className="flex items-start gap-3">
+  1704→          <div className="h-8 w-8 rounded-md bg-[var(--teal)]/15 flex items-center justify-center shrink-0">
+  1705→            <Brain className="h-4 w-4 text-[var(--teal)]" />
+  1706→          </div>
+  1707→          <div className="flex-1 min-w-0">
+  1708→            <div className="flex items-center gap-2 mb-1">
+  1709→              <span className="font-mono text-[10px] uppercase tracking-wider text-[var(--teal)]">
+  1710→                Explicación IA
+  1711→              </span>
+  1712→              <MiniBadge tone="teal">Confianza media</MiniBadge>
+  1713→            </div>
+  1714→            <p className="text-sm text-foreground/90 leading-relaxed">
+  1715→              Las reservas han caído <span className="text-rose-300 font-medium">18%</span> frente
+  1716→              al mismo martes del mes anterior. Principal causa: reducción del{" "}
+  1717→              <span className="text-rose-300 font-medium">31%</span> en reservas de Instagram.
+  1718→              Recomendación: revisar campaña activa.
+  1719→            </p>
+  1720→            <div className="mt-2 flex items-center gap-2">
+  1721→              <Button size="sm" className="h-8 text-xs bg-[var(--teal)] text-black hover:bg-[var(--teal-deep)] hover:text-white">
+  1722→                <Sparkles className="h-3 w-3 mr-1" />
+  1723→                Crear acción
+  1724→              </Button>
+  1725→              <Button variant="outline" size="sm" className="h-8 text-xs">
+  1726→                Ver detalles
+  1727→                <ArrowRight className="h-3 w-3 ml-1" />
+  1728→              </Button>
+  1729→            </div>
+  1730→          </div>
+  1731→        </div>
+  1732→      </div>
+  1733→
+  1734→      {/* Comparison chart */}
+  1735→      <div className="rp-glass rounded-xl p-4 sm:p-5">
+  1736→        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+  1737→          <div>
+  1738→            <h3 className="font-display text-base font-medium">Evolución comparativa</h3>
+  1739→            <p className="text-[11px] text-muted-foreground mt-0.5">
+  1740→              {cmp.a} vs {cmp.b} · 12 puntos
+  1741→            </p>
+  1742→          </div>
+  1743→          <div className="flex items-center gap-3 text-[11px]">
+  1744→            <span className="inline-flex items-center gap-1.5">
+  1745→              <span className="h-2.5 w-4 rounded-sm" style={{ background: "var(--gold)" }} />
+  1746→              <span className="text-muted-foreground">{cmp.a}</span>
+  1747→            </span>
+  1748→            <span className="inline-flex items-center gap-1.5">
+  1749→              <span className="h-2.5 w-4 rounded-sm" style={{ background: "var(--teal)" }} />
+  1750→              <span className="text-muted-foreground">{cmp.b}</span>
+  1751→            </span>
+  1752→          </div>
+  1753→        </div>
+  1754→        <ComparisonChart />
+  1755→      </div>
+  1756→
+  1757→      {/* Comparison table */}
+  1758→      <div className="rp-glass rounded-xl overflow-hidden">
+  1759→        <div className="overflow-x-auto rp-scroll-thin">
+  1760→          <table className="w-full text-sm">
+  1761→            <thead>
+  1762→              <tr className="border-b border-border/60 bg-foreground/5">
+  1763→                <th className="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5 min-w-[140px]">Métrica</th>
+  1764→                <th className="text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5">{cmp.a}</th>
+  1765→                <th className="text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5">{cmp.b}</th>
+  1766→                <th className="text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5 min-w-[100px]">Var. abs.</th>
+  1767→                <th className="text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5">Var. %</th>
+  1768→                <th className="text-center font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5">Tendencia</th>
+  1769→                <th className="text-left font-mono text-[10px] uppercase tracking-wider text-muted-foreground px-3 py-2.5 min-w-[160px]">Contexto</th>
+  1770→              </tr>
+  1771→            </thead>
+  1772→            <tbody>
+  1773→              {COMPARISON_ROWS.map((r, i) => (
+  1774→                <tr key={r.metric} className={cn("border-b border-border/40 hover:bg-foreground/[0.02]", i % 2 === 1 && "bg-foreground/[0.015]")}>
+  1775→                  <td className="px-3 py-2.5 font-medium text-foreground">{r.metric}</td>
+  1776→                  <td className="px-3 py-2.5 text-right font-mono text-foreground">{r.a}</td>
+  1777→                  <td className="px-3 py-2.5 text-right font-mono text-muted-foreground">{r.b}</td>
+  1778→                  <td className={cn("px-3 py-2.5 text-right font-mono", r.positive ? "text-emerald-300" : "text-rose-300")}>{r.varAbs}</td>
+  1779→                  <td className={cn("px-3 py-2.5 text-right font-mono", r.positive ? "text-emerald-300" : "text-rose-300")}>{r.varPct}</td>
+  1780→                  <td className="px-3 py-2.5 text-center">
+  1781→                    {r.trendDir === "up" ? (
+  1782→                      <ArrowUpRight className={cn("h-4 w-4 inline", r.positive ? "text-emerald-300" : "text-rose-300")} />
+  1783→                    ) : r.trendDir === "down" ? (
+  1784→                      <ArrowDownRight className={cn("h-4 w-4 inline", r.positive ? "text-emerald-300" : "text-rose-300")} />
+  1785→                    ) : (
+  1786→                      <Minus className="h-4 w-4 inline text-muted-foreground" />
+  1787→                    )}
+  1788→                  </td>
+  1789→                  <td className="px-3 py-2.5 text-[11px] text-muted-foreground">{r.context}</td>
+  1790→                </tr>
+  1791→              ))}
+  1792→            </tbody>
+  1793→          </table>
+  1794→        </div>
+  1795→      </div>
+  1796→    </div>
+  1797→  );
+  1798→}
+  1799→
+  1800→/* =====================================================================
+  1801→ * Heatmaps tab
+  1802→ * ===================================================================== */
+  1803→
+  1804→const DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+  1805→
+  1806→function heatValue(metricId: string, day: number, hour: number): number {
+  1807→  let v = 0;
+  1808→  // Lunch peak 13-15
+  1809→  v += Math.exp(-Math.pow(hour - 14, 2) / 6) * 0.8;
+  1810→  // Dinner peak 20-22
+  1811→  v += Math.exp(-Math.pow(hour - 21, 2) / 5) * 0.95;
+  1812→  // Late night / early morning floor
+  1813→  if (hour < 11) v *= 0.15;
+  1814→  if (hour >= 0 && hour <= 5) v = 0.04 + Math.random() * 0.02;
+  1815→  // Weekend bonus
+  1816→  const weekend = day >= 5 ? 0.18 : 0;
+  1817→  // Tuesday dip
+  1818→  const tueDip = day === 1 ? -0.28 : 0;
+  1819→  // Thursday terraza peak
+  1820→  const thuPeak = day === 3 ? 0.12 : 0;
+  1821→  // Sunday ticket dip
+  1822→  const sunDip = day === 6 ? -0.05 : 0;
+  1823→  v = v + weekend + tueDip + thuPeak + sunDip;
+  1824→
+  1825→  if (metricId === "noshows" || metricId === "cancelaciones") {
+  1826→    v = v * 0.5 + (hour >= 19 ? 0.55 : 0.12) + (day >= 5 ? 0.12 : 0) + Math.sin(day * 0.7) * 0.06;
+  1827→  }
+  1828→  if (metricId === "ticket") {
+  1829→    v = v * 0.55 + (hour >= 19 ? 0.32 : 0.15) + (day === 6 ? -0.1 : 0.05);
+  1830→  }
+  1831→  if (metricId === "vip") {
+  1832→    v = v * 0.35 + (hour >= 20 ? 0.45 : 0.06) + (day >= 5 ? 0.15 : 0);
+  1833→  }
+  1834→  if (metricId === "rotacion") {
+  1835→    v = v * 1.1;
+  1836→  }
+  1837→  if (metricId === "ingresos") {
+  1838→    v = v * 0.9 + (hour >= 19 ? 0.2 : 0.05);
+  1839→  }
+  1840→
+  1841→  return Math.max(0, Math.min(1, v));
+  1842→}
+  1843→
+  1844→function heatColor(v: number, polarity: "good" | "bad"): string {
+  1845→  const a = 0.06 + v * 0.92;
+  1846→  if (polarity === "bad") return `rgba(248, 113, 113, ${a})`;
+  1847→  // mix teal→gold gradient by intensity
+  1848→  if (v < 0.55) {
+  1849→    // teal to gold blend
+  1850→    const t = v / 0.55;
+  1851→    const r = Math.round(61 + (212 - 61) * t);
+  1852→    const g = Math.round(214 + (175 - 214) * t);
+  1853→    const b = Math.round(201 + (55 - 201) * t);
+  1854→    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  1855→  }
+  1856→  return `rgba(212, 175, 55, ${a})`;
+  1857→}
+  1858→
+  1859→function Heatmap({ metricId, polarity, unit }: { metricId: string; polarity: "good" | "bad"; unit: string }) {
+  1860→  const [hover, setHover] = React.useState<{ d: number; h: number; v: number } | null>(null);
+  1861→  const cellW = 26;
+  1862→  const cellH = 24;
+  1863→  const labelW = 44;
+  1864→  const totalW = labelW + 24 * cellW + 8;
+  1865→
+  1866→  return (
+  1867→    <div className="rp-glass rounded-xl p-4 sm:p-5">
+  1868→      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+  1869→        <div>
+  1870→          <h3 className="font-display text-base font-medium">Heatmap 7 días × 24 horas</h3>
+  1871→          <p className="text-[11px] text-muted-foreground mt-0.5">
+  1872→            Intensidad según valor del métrico · pasa el ratón para detalle
+  1873→          </p>
+  1874→        </div>
+  1875→        <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground">
+  1876→          <span>Bajo</span>
+  1877→          <div className="h-2 w-24 rounded-full overflow-hidden flex">
+  1878→            {[0.05, 0.2, 0.4, 0.6, 0.8, 1].map((v) => (
+  1879→              <div key={v} className="flex-1" style={{ background: heatColor(v, polarity) }} />
+  1880→            ))}
+  1881→          </div>
+  1882→          <span>Alto</span>
+  1883→        </div>
+  1884→      </div>
+  1885→
+  1886→      <div className="relative overflow-x-auto rp-scroll-thin">
+  1887→        <svg
+  1888→          width={totalW}
+  1889→          height={28 + 7 * cellH + 16}
+  1890→          viewBox={`0 0 ${totalW} ${28 + 7 * cellH + 16}`}
+  1891→          role="img"
+  1892→          aria-label={`Heatmap de ${metricId}`}
+  1893→        >
+  1894→          {/* Hour labels (top) */}
+  1895→          {Array.from({ length: 24 }).map((_, h) => (
+  1896→            <text
+  1897→              key={h}
+  1898→              x={labelW + h * cellW + cellW / 2}
+  1899→              y={18}
+  1900→              textAnchor="middle"
+  1901→              className="fill-muted-foreground font-mono"
+  1902→              fontSize="8"
+  1903→            >
+  1904→              {h % 3 === 0 ? `${h}h` : ""}
+  1905→            </text>
+  1906→          ))}
+  1907→
+  1908→          {/* Day rows */}
+  1909→          {DAYS.map((d, di) => (
+  1910→            <g key={d}>
+  1911→              <text
+  1912→                x={labelW - 6}
+  1913→                y={28 + di * cellH + cellH / 2 + 3}
+  1914→                textAnchor="end"
+  1915→                className="fill-muted-foreground font-mono"
+  1916→                fontSize="9"
+  1917→              >
+  1918→                {d}
+  1919→              </text>
+  1920→              {Array.from({ length: 24 }).map((_, h) => {
+  1921→                const v = heatValue(metricId, di, h);
+  1922→                const x = labelW + h * cellW + 1;
+  1923→                const y = 28 + di * cellH + 1;
+  1924→                const isHover = hover?.d === di && hover?.h === h;
+  1925→                return (
+  1926→                  <rect
+  1927→                    key={h}
+  1928→                    x={x}
+  1929→                    y={y}
+  1930→                    width={cellW - 2}
+  1931→                    height={cellH - 2}
+  1932→                    rx="2"
+  1933→                    fill={heatColor(v, polarity)}
+  1934→                    stroke={isHover ? "var(--gold)" : "transparent"}
+  1935→                    strokeWidth={isHover ? 1.5 : 0}
+  1936→                    className="cursor-pointer transition-[stroke]"
+  1937→                    onMouseEnter={() => setHover({ d: di, h, v })}
+  1938→                    onMouseLeave={() => setHover(null)}
+  1939→                  />
+  1940→                );
+  1941→              })}
+  1942→            </g>
+  1943→          ))}
+  1944→        </svg>
+  1945→
+  1946→        {/* Hover tooltip */}
+  1947→        {hover && (
+  1948→          <div
+  1949→            className="absolute pointer-events-none rp-glass-strong rounded-md border border-[var(--gold)]/40 px-2.5 py-1.5 text-[11px] z-10"
+  1950→            style={{
+  1951→              left: Math.min(labelW + hover.h * cellW + cellW, totalW - 100),
+  1952→              top: 28 + hover.d * cellH - 28,
+  1953→            }}
+  1954→          >
+  1955→            <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+  1956→              {DAYS[hover.d]} · {hover.h}:00–{hover.h + 1}:00
+  1957→            </div>
+  1958→            <div className="font-display text-sm text-foreground">
+  1959→              {unit === "€" && "€"}
+  1960→              {Math.round(hover.v * (metricId === "ocupacion" ? 100 : metricId === "ticket" ? 95 : metricId === "ingresos" ? 480 : metricId === "rotacion" ? 4 : 8))}
+  1961→              {unit === "%" && "%"}
+  1962→              {unit === "×" && "×"}
+  1963→              {unit === "" && " casos"}
+  1964→            </div>
+  1965→          </div>
+  1966→        )}
+  1967→      </div>
+  1968→    </div>
+  1969→  );
+  1970→}
+  1971→
+  1972→function HeatmapsTab() {
+  1973→  const [typeId, setTypeId] = React.useState(HEATMAP_TYPES[0].id);
+  1974→  const t = HEATMAP_TYPES.find((x) => x.id === typeId) ?? HEATMAP_TYPES[0];
+  1975→  const reduce = useReducedMotion();
+  1976→
+  1977→  return (
+  1978→    <div className="space-y-4">
+  1979→      <div className="flex flex-wrap items-center gap-2 rp-glass rounded-xl p-2.5">
+  1980→        <Flame className="h-4 w-4 text-[var(--gold)]" />
+  1981→        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1982→          Tipo heatmap
+  1983→        </span>
+  1984→        <div className="flex items-center rounded-md border border-border/60 p-0.5 overflow-x-auto rp-scroll-thin max-w-full">
+  1985→          {HEATMAP_TYPES.map((h) => (
+  1986→            <button
+  1987→              key={h.id}
+  1988→              onClick={() => setTypeId(h.id)}
+  1989→              className={cn(
+  1990→                "min-h-[32px] rounded px-2.5 py-1 text-xs transition-colors whitespace-nowrap",
+  1991→                typeId === h.id
+  1992→                  ? "bg-[var(--gold)] text-black font-medium"
+  1993→                  : "text-muted-foreground hover:text-foreground"
+  1994→              )}
+  1995→            >
+  1996→              {h.label}
+  1997→            </button>
+  1998→          ))}
+  1999→        </div>
+  2000→      </div>
+
+[showing lines 1-2000 of 2211; use offset=2001 with limit to continue reading]

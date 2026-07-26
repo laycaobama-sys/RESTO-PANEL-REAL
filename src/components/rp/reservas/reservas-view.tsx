@@ -949,29 +949,34 @@ export function ReservasView() {
       </header>
 
       {/* Tab bar — switch between reservations, prediction, yield, alerts, waitlist */}
-      <div className="flex items-center gap-1 overflow-x-auto rp-scroll-thin pb-1 -mb-2" role="tablist" aria-label="Vistas de reservas">
-        {([
-          { id: "reservas", label: "Reservas", icon: CalendarDays },
-          { id: "prediccion", label: "Predicción IA", icon: BrainCircuit },
-          { id: "yield", label: "Yield", icon: TrendingUp },
-          { id: "alertas", label: "Alertas", icon: BellRing },
-          { id: "waitlist", label: "Lista de espera", icon: Users },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            role="tab"
-            aria-selected={resTab === t.id}
-            onClick={() => setResTab(t.id)}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
-              resTab === t.id
-                ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border border-[var(--gold)]/30"
-                : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
-            }`}
-          >
-            <t.icon className="h-4 w-4" aria-hidden />
-            {t.label}
-          </button>
-        ))}
+      <div className="relative">
+        <div className="flex items-center gap-1 overflow-x-auto rp-scroll-thin pb-1 -mb-2" role="tablist" aria-label="Vistas de reservas">
+          {([
+            { id: "reservas", label: "Reservas", icon: CalendarDays },
+            { id: "prediccion", label: "Predicción IA", icon: BrainCircuit },
+            { id: "yield", label: "Yield", icon: TrendingUp },
+            { id: "alertas", label: "Alertas", icon: BellRing },
+            { id: "waitlist", label: "Lista de espera", icon: Users },
+          ] as const).map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={resTab === t.id}
+              onClick={() => setResTab(t.id)}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] ${
+                resTab === t.id
+                  ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border border-[var(--gold)]/30"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
+              }`}
+            >
+              <t.icon className="h-4 w-4" aria-hidden />
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {/* Fade edge indicators — pointer-events-none so they don't block taps */}
+        <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-6 bg-gradient-to-r from-background to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-6 bg-gradient-to-l from-background to-transparent" aria-hidden />
       </div>
 
       {/* Conditional panel rendering */}

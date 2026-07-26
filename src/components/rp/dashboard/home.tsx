@@ -5,6 +5,20 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useNav } from "@/components/rp/app/nav-store";
 import {
+  useInView,
+  useEntranceProgress,
+  usePathLength,
+  drawDash,
+  CursorTooltip,
+  ClickableLegend,
+  TimeRangeSelector,
+  Crosshair,
+  seriesOpacity,
+  type TimeRange,
+  type LegendItem,
+} from "@/components/rp/charts";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import {
   CalendarCheck,
   Banknote,
   Percent,
@@ -222,6 +236,51 @@ const CHART: ChartPoint[] = [
   { day: "Dom", date: "26 ene", v: 51 },
   { day: "Lun", date: "27 ene", v: 47, today: true },
 ];
+
+/**
+ * Time-range datasets for the performance chart.
+ * Each range produces a different number of points/labels, but the chart
+ * layout adapts gracefully (the SVG uses an x-axis step based on the data
+ * length). All values are deterministic (no flicker on re-render).
+ */
+const CHART_RANGES: Record<TimeRange, ChartPoint[]> = {
+  "7d": CHART,
+  "30d": [
+    { day: "S1", date: "01 ene", v: 31 },
+    { day: "S2", date: "04 ene", v: 35 },
+    { day: "S3", date: "07 ene", v: 33 },
+    { day: "S4", date: "10 ene", v: 41 },
+    { day: "S5", date: "13 ene", v: 44 },
+    { day: "S6", date: "16 ene", v: 39 },
+    { day: "S7", date: "19 ene", v: 52 },
+    { day: "S8", date: "22 ene", v: 48 },
+    { day: "S9", date: "25 ene", v: 56 },
+    { day: "Lun", date: "27 ene", v: 47, today: true },
+  ],
+  "90d": [
+    { day: "Nov", date: "Q4 2024", v: 312 },
+    { day: "Dic", date: "Q4 2024", v: 348 },
+    { day: "Ene", date: "Q1 2025", v: 326 },
+    { day: "Sem1", date: "Ene", v: 184 },
+    { day: "Sem2", date: "Ene", v: 211 },
+    { day: "Sem3", date: "Ene", v: 198 },
+    { day: "Sem4", date: "Ene", v: 232, today: true },
+  ],
+  año: [
+    { day: "Ene", date: "2024", v: 412 },
+    { day: "Feb", date: "2024", v: 388 },
+    { day: "Mar", date: "2024", v: 456 },
+    { day: "Abr", date: "2024", v: 421 },
+    { day: "May", date: "2024", v: 498 },
+    { day: "Jun", date: "2024", v: 512 },
+    { day: "Jul", date: "2024", v: 538 },
+    { day: "Ago", date: "2024", v: 472 },
+    { day: "Sep", date: "2024", v: 456 },
+    { day: "Oct", date: "2024", v: 524 },
+    { day: "Nov", date: "2024", v: 561 },
+    { day: "Dic", date: "2024", v: 612, today: true },
+  ],
+};
 
 const AI_RECS: AiRec[] = [
   {
@@ -507,8 +566,15 @@ function Sparkline({ data, color }: { data: number[]; color: "gold" | "teal" }) 
   const stroke = color === "gold" ? "var(--gold)" : "var(--teal)";
   const lastPt = pts[pts.length - 1];
 
+  // Entrance animation: viewport-triggered, once-only, reduced-motion respected.
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.2 });
+  const progress = useEntranceProgress(inView, 700);
+  const { ref: lineRef, length } = usePathLength<SVGPolylineElement>();
+  const { dasharray, dashoffset } = drawDash(length, progress);
+
   return (
     <svg
+      ref={viewRef}
       width={w}
       height={h}
       viewBox={`0 0 ${w} ${h}`}
@@ -523,16 +589,25 @@ function Sparkline({ data, color }: { data: number[]; color: "gold" | "teal" }) 
           <stop offset="100%" stopColor={stroke} stopOpacity="0" />
         </linearGradient>
       </defs>
-      <path d={areaPath} fill={`url(#spark-${id})`} />
+      <path d={areaPath} fill={`url(#spark-${id})`} style={{ opacity: progress }} />
       <polyline
+        ref={lineRef}
         points={linePts}
         fill="none"
         stroke={stroke}
         strokeWidth="1.5"
         strokeLinejoin="round"
         strokeLinecap="round"
+        strokeDasharray={dasharray}
+        strokeDashoffset={dashoffset}
       />
-      <circle cx={lastPt[0]} cy={lastPt[1]} r="2" fill={stroke} />
+      <circle
+        cx={lastPt[0]}
+        cy={lastPt[1]}
+        r="2"
+        fill={stroke}
+        style={{ opacity: progress, transition: "opacity 200ms ease-out" }}
+      />
     </svg>
   );
 }
@@ -852,6 +927,14 @@ function TimelineWidget() {
 /* ---------- Performance chart widget ---------- */
 
 function PerformanceWidget() {
+  const reduce = useReducedMotion();
+  const [range, setRange] = React.useState<TimeRange>("7d");
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const [mousePx, setMousePx] = React.useState<{ x: number; y: number } | null>(null);
+  const svgWrapRef = React.useRef<HTMLDivElement>(null);
+
+  const data = CHART_RANGES[range];
   const w = 560;
   const h = 200;
   const padT = 14;
@@ -860,11 +943,41 @@ function PerformanceWidget() {
   const padR = 8;
   const chartW = w - padL - padR;
   const chartH = h - padT - padB;
-  const max = Math.max(...CHART.map((d) => d.v));
-  const niceMax = Math.ceil(max / 20) * 20;
-  const stepX = chartW / CHART.length;
+  const max = Math.max(...data.map((d) => d.v));
+  const niceMax = Math.ceil(max / 20) * 20 || 20;
+  const stepX = chartW / data.length;
   const barW = stepX * 0.5;
   const gridLevels = [0, 0.25, 0.5, 0.75, 1];
+
+  const legendItems: LegendItem[] = [
+    { id: "reservas", label: "Reservas", color: "var(--gold)" },
+    { id: "hoy", label: "Hoy", color: "var(--teal)" },
+  ];
+
+  function toggle(id: string) {
+    setHidden((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  const total = data.reduce((s, d) => s + d.v, 0);
+  const media = total / data.length;
+  const rangeLabel =
+    range === "7d"
+      ? "últimos 7 días"
+      : range === "30d"
+      ? "últimos 30 días"
+      : range === "90d"
+      ? "últimos 90 días"
+      : "último año";
+
+  const hoveredPoint = hoverIdx != null ? data[hoverIdx] : null;
+  const prevPoint = hoverIdx != null && hoverIdx > 0 ? data[hoverIdx - 1] : null;
+  const delta =
+    prevPoint && hoveredPoint ? hoveredPoint.v - prevPoint.v : null;
 
   return (
     <WidgetShell
@@ -872,140 +985,215 @@ function PerformanceWidget() {
       icon={TrendingUp}
       iconColor="gold"
       ariaLabel="Gráfico de rendimiento de reservas por día"
-      action={
-        <div className="hidden sm:flex items-center gap-3 text-[11px] font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-[var(--gold)]" aria-hidden />
-            <span className="text-muted-foreground">Reservas</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-[var(--teal)]" aria-hidden />
-            <span className="text-muted-foreground">Hoy</span>
-          </span>
-        </div>
-      }
+      action={<TimeRangeSelector value={range} onChange={setRange} />}
     >
       <div className="space-y-3">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <p className="text-sm text-muted-foreground">
-            Reservas por día · últimos 7 días
+            Reservas por día · {rangeLabel}
           </p>
           <p className="text-[11px] font-mono text-muted-foreground">
             Media{" "}
             <span className="text-[var(--gold-soft)] tabular-nums">
-              {(CHART.reduce((s, d) => s + d.v, 0) / CHART.length).toFixed(1)}
+              {media.toFixed(1)}
             </span>{" "}
             · Total{" "}
-            <span className="text-[var(--gold-soft)] tabular-nums">
-              {CHART.reduce((s, d) => s + d.v, 0)}
-            </span>
+            <span className="text-[var(--gold-soft)] tabular-nums">{total}</span>
           </p>
         </div>
-        <svg
-          viewBox={`0 0 ${w} ${h}`}
-          width="100%"
-          className="block rp-scroll-thin"
-          preserveAspectRatio="xMidYMid meet"
-          role="img"
-          aria-label="Barras de reservas por día de la última semana"
+        <div
+          ref={svgWrapRef}
+          className="relative"
+          style={{ aspectRatio: `${w} / ${h}` }}
         >
-          {/* Y axis labels + gridlines */}
-          {gridLevels.map((lvl) => {
-            const y = padT + chartH - lvl * chartH;
-            const val = Math.round(niceMax * lvl);
-            return (
-              <g key={`g-${lvl}`}>
-                <line
-                  x1={padL}
-                  x2={w - padR}
-                  y1={y}
-                  y2={y}
-                  stroke="currentColor"
-                  strokeOpacity={lvl === 0 ? 0.25 : 0.08}
-                  strokeWidth={1}
-                />
-                <text
-                  x={padL - 6}
-                  y={y + 3}
-                  textAnchor="end"
-                  fontSize="9"
-                  fontFamily="var(--font-jetbrains), monospace"
-                  fill="currentColor"
-                  fillOpacity={0.5}
-                >
-                  {val}
-                </text>
-              </g>
-            );
-          })}
-          {/* Bars */}
-          {CHART.map((d, i) => {
-            const barH = (d.v / niceMax) * chartH;
-            const x = padL + i * stepX + (stepX - barW) / 2;
-            const y = padT + chartH - barH;
-            const fill = d.today ? "var(--teal)" : "var(--gold)";
-            const fillOpacity = d.today ? 1 : 0.85;
-            return (
-              <g key={`b-${d.day}`}>
-                <rect
-                  x={x}
-                  y={y}
-                  width={barW}
-                  height={barH}
-                  rx={2}
-                  fill={fill}
-                  fillOpacity={fillOpacity}
-                >
-                  <title>{`${d.day} ${d.date}: ${d.v} reservas`}</title>
-                </rect>
-                <text
-                  x={x + barW / 2}
-                  y={y - 5}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fontFamily="var(--font-jetbrains), monospace"
-                  fill={d.today ? "var(--teal)" : "var(--gold-soft)"}
-                >
-                  {d.v}
-                </text>
-                <text
-                  x={x + barW / 2}
-                  y={padT + chartH + 14}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fontFamily="var(--font-inter), sans-serif"
-                  fill="currentColor"
-                  fillOpacity={d.today ? 0.95 : 0.55}
-                  fontWeight={d.today ? 600 : 400}
-                >
-                  {d.day}
-                </text>
-                <text
-                  x={x + barW / 2}
-                  y={padT + chartH + 26}
-                  textAnchor="middle"
-                  fontSize="8"
-                  fontFamily="var(--font-jetbrains), monospace"
-                  fill="currentColor"
-                  fillOpacity={0.35}
-                >
-                  {d.date}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-        {/* Mobile legend */}
-        <div className="sm:hidden flex items-center gap-3 text-[11px] font-mono">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-[var(--gold)]" aria-hidden />
-            <span className="text-muted-foreground">Reservas</span>
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-[var(--teal)]" aria-hidden />
-            <span className="text-muted-foreground">Hoy</span>
-          </span>
+          <svg
+            viewBox={`0 0 ${w} ${h}`}
+            width="100%"
+            height="100%"
+            className="block rp-scroll-thin"
+            preserveAspectRatio="none"
+            role="img"
+            aria-label="Barras de reservas por día"
+            onMouseMove={(e) => {
+              const rect = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+              const px = e.clientX - rect.left;
+              const py = e.clientY - rect.top;
+              const svgX = (px / rect.width) * w;
+              const i = Math.floor((svgX - padL) / stepX);
+              if (i >= 0 && i < data.length) {
+                setHoverIdx(i);
+                setMousePx({ x: px, y: py });
+              } else {
+                setHoverIdx(null);
+                setMousePx(null);
+              }
+            }}
+            onMouseLeave={() => {
+              setHoverIdx(null);
+              setMousePx(null);
+            }}
+          >
+            {/* Y axis labels + gridlines */}
+            {gridLevels.map((lvl) => {
+              const y = padT + chartH - lvl * chartH;
+              const val = Math.round(niceMax * lvl);
+              return (
+                <g key={`g-${lvl}`}>
+                  <line
+                    x1={padL}
+                    x2={w - padR}
+                    y1={y}
+                    y2={y}
+                    stroke="currentColor"
+                    strokeOpacity={lvl === 0 ? 0.25 : 0.08}
+                    strokeWidth={1}
+                  />
+                  <text
+                    x={padL - 6}
+                    y={y + 3}
+                    textAnchor="end"
+                    fontSize="9"
+                    fontFamily="var(--font-jetbrains), monospace"
+                    fill="currentColor"
+                    fillOpacity={0.5}
+                  >
+                    {val}
+                  </text>
+                </g>
+              );
+            })}
+            {/* Bars (crossfade between ranges via AnimatePresence) */}
+            <AnimatePresence initial={false}>
+              <motion.g
+                key={range}
+                initial={reduce ? false : { opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0 }}
+                transition={{ duration: 0.25, ease: "easeOut" }}
+              >
+                {data.map((d, i) => {
+                  const isHidden = d.today
+                    ? hidden.has("hoy")
+                    : hidden.has("reservas");
+                  if (isHidden) return null;
+                  const barH = (d.v / niceMax) * chartH;
+                  const x = padL + i * stepX + (stepX - barW) / 2;
+                  const y = padT + chartH - barH;
+                  const fill = d.today ? "var(--teal)" : "var(--gold)";
+                  const baseOpacity = d.today ? 1 : 0.85;
+                  const dimmed =
+                    hoverIdx != null && hoverIdx !== i ? 0.35 : baseOpacity;
+                  const delay = Math.min(i * 0.05, 0.4);
+                  return (
+                    <g key={`b-${range}-${d.day}-${i}`}>
+                      <motion.rect
+                        x={x}
+                        y={y}
+                        width={barW}
+                        height={barH}
+                        rx={2}
+                        fill={fill}
+                        fillOpacity={dimmed}
+                        initial={reduce ? false : { scaleY: 0 }}
+                        animate={{ scaleY: 1 }}
+                        transition={
+                          reduce
+                            ? { duration: 0 }
+                            : { duration: 0.7, delay, ease: "easeOut" }
+                        }
+                        style={{
+                          transformOrigin: `${x + barW / 2}px ${padT + chartH}px`,
+                          transformBox: "view-box",
+                        } as React.CSSProperties}
+                      />
+                      <motion.text
+                        x={x + barW / 2}
+                        y={y - 5}
+                        textAnchor="middle"
+                        fontSize="9"
+                        fontFamily="var(--font-jetbrains), monospace"
+                        fill={d.today ? "var(--teal)" : "var(--gold-soft)"}
+                        initial={reduce ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={
+                          reduce
+                            ? { duration: 0 }
+                            : { duration: 0.3, delay: delay + 0.45 }
+                        }
+                      >
+                        {d.v}
+                      </motion.text>
+                      <text
+                        x={x + barW / 2}
+                        y={padT + chartH + 14}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fontFamily="var(--font-inter), sans-serif"
+                        fill="currentColor"
+                        fillOpacity={d.today ? 0.95 : 0.55}
+                        fontWeight={d.today ? 600 : 400}
+                      >
+                        {d.day}
+                      </text>
+                      <text
+                        x={x + barW / 2}
+                        y={padT + chartH + 26}
+                        textAnchor="middle"
+                        fontSize="8"
+                        fontFamily="var(--font-jetbrains), monospace"
+                        fill="currentColor"
+                        fillOpacity={0.35}
+                      >
+                        {d.date}
+                      </text>
+                    </g>
+                  );
+                })}
+              </motion.g>
+            </AnimatePresence>
+            {/* Crosshair */}
+            {hoverIdx != null && (
+              <Crosshair
+                x={padL + hoverIdx * stepX + stepX / 2}
+                y1={padT}
+                y2={padT + chartH}
+              />
+            )}
+          </svg>
+          <CursorTooltip
+            position={{ x: mousePx?.x ?? null, y: mousePx?.y ?? null }}
+            containerRef={svgWrapRef}
+            estimatedSize={{ width: 180, height: 88 }}
+          >
+            {hoveredPoint ? (
+              <div className="space-y-0.5">
+                <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  {hoveredPoint.day} · {hoveredPoint.date}
+                </div>
+                <div className="font-display text-base text-foreground">
+                  {hoveredPoint.v}{" "}
+                  <span className="text-[10px] text-muted-foreground">reservas</span>
+                </div>
+                {delta != null ? (
+                  <div
+                    className={cn(
+                      "text-[10px] font-mono",
+                      delta >= 0 ? "text-emerald-300" : "text-rose-300"
+                    )}
+                  >
+                    {delta >= 0 ? "+" : ""}
+                    {delta} vs anterior
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </CursorTooltip>
         </div>
+        <ClickableLegend
+          items={legendItems}
+          hidden={hidden}
+          onToggle={toggle}
+        />
       </div>
     </WidgetShell>
   );

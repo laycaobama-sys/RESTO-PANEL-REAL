@@ -220,11 +220,41 @@
       transform: translateY(0);
     }
   }
+  /* Sidebar label fade-in (translateX, staggered) */
+  @keyframes rp-fade-in-x {
+    from {
+      opacity: 0;
+      transform: translateX(-8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  .rp-fade-in {
+    animation: rp-fade-in-x 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  /* Mobile drawer slide-in */
+  @keyframes rp-slide-in {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  .rp-slide-in {
+    animation: rp-slide-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
   @media (prefers-reduced-motion: reduce) {
     * {
       animation-duration: 0.001ms !important;
       transition-duration: 0.001ms !important;
       scroll-behavior: auto !important;
+    }
+    .rp-fade-in,
+    .rp-slide-in {
+      animation: none !important;
     }
   }
 }

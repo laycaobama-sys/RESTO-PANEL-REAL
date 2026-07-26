@@ -863,29 +863,69 @@ export function WaitlistPanel() {
   const [removeTarget, setRemoveTarget] = React.useState<WaitlistEntry | null>(null);
   const [calcOpen, setCalcOpen] = React.useState(false);
 
-  // Auto-expire offers
+  // Refs to read current state inside the interval without stale closures.
+  // This allows us to compute next state OUTSIDE the setState updater,
+  // so side effects (toast) run in the timer callback, NOT during render.
+  const offersRef = React.useRef(offers);
+  const entriesRef = React.useRef(entries);
+  React.useEffect(() => {
+    offersRef.current = offers;
+  }, [offers]);
+  React.useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
+  // Dedup set: track which offer IDs we already notified, so we don't
+  // re-fire the toast on every interval tick once an offer is expired.
+  const notifiedExpiredRef = React.useRef<Set<string>>(new Set());
+
+  // Auto-expire offers — all side effects happen in the timer callback body,
+  // never inside a setState updater (which runs during React's render phase).
   React.useEffect(() => {
     const id = window.setInterval(() => {
-      setOffers((prev) =>
-        prev.map((o) => {
-          if (o.status === "pending" && new Date(o.expiresAt).getTime() <= Date.now()) {
-            // Mark expired + reset entry to waiting
-            setEntries((ents) =>
-              ents.map((e) =>
-                e.id === o.entryId && e.status === "offered"
-                  ? { ...e, status: "waiting" }
-                  : e
-              )
-            );
-            toast({
-              title: "Oferta expirada",
-              description: `${o.tableName} vuelta a la cola.`,
-            });
-            return { ...o, status: "expired" };
-          }
-          return o;
-        })
+      const now = Date.now();
+      const currentOffers = offersRef.current;
+
+      // Find newly-expired offers we haven't notified yet (pure computation)
+      const newlyExpired = currentOffers.filter(
+        (o) =>
+          o.status === "pending" &&
+          new Date(o.expiresAt).getTime() <= now &&
+          !notifiedExpiredRef.current.has(o.id)
       );
+
+      if (newlyExpired.length === 0) return;
+
+      // Mark as notified BEFORE firing side effects, so re-renders don't duplicate
+      newlyExpired.forEach((o) => notifiedExpiredRef.current.add(o.id));
+
+      // Compute next state (pure — no side effects inside)
+      const expiredIds = new Set(newlyExpired.map((o) => o.id));
+      const expiredEntryIds = new Set(newlyExpired.map((o) => o.entryId));
+
+      const nextOffers = currentOffers.map((o) =>
+        expiredIds.has(o.id)
+          ? { ...o, status: "expired" as const }
+          : o
+      );
+      const nextEntries = entriesRef.current.map((e) =>
+        expiredEntryIds.has(e.id) && e.status === "offered"
+          ? { ...e, status: "waiting" as WaitlistStatus }
+          : e
+      );
+
+      // Apply state changes with computed values (updaters are pure identity here)
+      setOffers(nextOffers);
+      setEntries(nextEntries);
+
+      // Fire side effects (toasts) in the timer callback body — this is
+      // safe because it runs in a macrotask, NOT during React's render.
+      newlyExpired.forEach((o) => {
+        toast({
+          title: "Oferta expirada",
+          description: `${o.tableName} vuelta a la cola.`,
+        });
+      });
     }, 2000);
     return () => window.clearInterval(id);
   }, [toast]);

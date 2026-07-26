@@ -4,6 +4,19 @@ import * as React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import {
+  useInView,
+  useEntranceProgress,
+  usePathLength,
+  drawDash,
+  CursorTooltip,
+  ClickableLegend,
+  TimeRangeSelector,
+  Crosshair,
+  seriesOpacity,
+  type LegendItem,
+  type TimeRange,
+} from "@/components/rp/charts";
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -453,7 +466,12 @@ function Sparkline({
   height?: number;
   fill?: boolean;
 }) {
+  const reduce = useReducedMotion();
   const id = React.useId();
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.2 });
+  const progress = useEntranceProgress(inView, 700);
+  const { ref: lineRef, length } = usePathLength<SVGPathElement>();
+  const { dasharray, dashoffset } = drawDash(length, reduce ? 1 : progress);
   if (!data.length) return null;
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -467,7 +485,13 @@ function Sparkline({
   const linePath = pts.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(" ");
   const areaPath = `${linePath} L${width},${height} L0,${height} Z`;
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full" preserveAspectRatio="none" aria-hidden>
+    <svg
+      ref={viewRef}
+      viewBox={`0 0 ${width} ${height}`}
+      className="w-full"
+      preserveAspectRatio="none"
+      aria-hidden
+    >
       {fill && (
         <>
           <defs>
@@ -476,24 +500,50 @@ function Sparkline({
               <stop offset="100%" stopColor={color} stopOpacity="0" />
             </linearGradient>
           </defs>
-          <path d={areaPath} fill={`url(#spark-${id})`} />
+          <path d={areaPath} fill={`url(#spark-${id})`} style={{ opacity: reduce ? 1 : progress }} />
         </>
       )}
-      <path d={linePath} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={pts[pts.length - 1][0]} cy={pts[pts.length - 1][1]} r="1.6" fill={color} />
+      <path
+        ref={lineRef}
+        d={linePath}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray={dasharray}
+        strokeDashoffset={dashoffset}
+      />
+      <circle
+        cx={pts[pts.length - 1][0]}
+        cy={pts[pts.length - 1][1]}
+        r="1.6"
+        fill={color}
+        style={{ opacity: reduce ? 1 : progress }}
+      />
     </svg>
   );
 }
 
 function Gauge({ value, max = 100 }: { value: number; max?: number }) {
+  const reduce = useReducedMotion();
   const pct = Math.max(0, Math.min(1, value / max));
   const r = 38;
   const cx = 48;
   const cy = 48;
   const circ = Math.PI * r; // half circle
   const dash = circ * pct;
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.3 });
+  const progress = useEntranceProgress(inView, 700);
+  const visibleDash = reduce ? dash : dash * progress;
   return (
-    <svg viewBox="0 0 96 60" className="w-full max-w-[140px]" role="img" aria-label={`Ocupación ${value}%`}>
+    <svg
+      ref={viewRef}
+      viewBox="0 0 96 60"
+      className="w-full max-w-[140px]"
+      role="img"
+      aria-label={`Ocupación ${value}%`}
+    >
       <path
         d={`M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`}
         fill="none"
@@ -508,7 +558,7 @@ function Gauge({ value, max = 100 }: { value: number; max?: number }) {
         stroke="url(#gauge-grad)"
         strokeWidth="8"
         strokeLinecap="round"
-        strokeDasharray={`${dash} ${circ}`}
+        strokeDasharray={`${visibleDash} ${circ}`}
       />
       <defs>
         <linearGradient id="gauge-grad" x1="0" y1="0" x2="1" y2="0">
@@ -534,18 +584,40 @@ function Donut({
   segments: { label: string; value: number; color: string }[];
   size?: number;
 }) {
+  const reduce = useReducedMotion();
   const r = 14;
   const cx = 16;
   const cy = 16;
   const circ = 2 * Math.PI * r;
   const lens = segments.map((s) => (s.value / 100) * circ);
-  const cumOffsets = lens.map((_, i) => -lens.slice(0, i).reduce((a, b) => a + b, 0));
+  // Cumulative lengths (start position of each segment along the ring).
+  const cumLens: number[] = [];
+  let acc = 0;
+  for (const l of lens) {
+    cumLens.push(acc);
+    acc += l;
+  }
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.3 });
+  const progress = useEntranceProgress(inView, 700);
+  const p = reduce ? 1 : progress;
   return (
-    <svg viewBox="0 0 32 32" width={size} height={size} role="img" aria-label="Distribución por canal">
+    <svg
+      ref={viewRef}
+      viewBox="0 0 32 32"
+      width={size}
+      height={size}
+      role="img"
+      aria-label="Distribución por canal"
+    >
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="currentColor" className="text-foreground/8" strokeWidth="6" />
       {segments.map((s, i) => {
-        const len = lens[i];
-        const offset = cumOffsets[i];
+        const segStart = cumLens[i] / circ; // 0..1
+        const segEnd = (cumLens[i] + lens[i]) / circ; // 0..1
+        let visibleLen: number;
+        if (p >= segEnd) visibleLen = lens[i];
+        else if (p <= segStart) visibleLen = 0;
+        else visibleLen = (p - segStart) * circ;
+        const offset = -cumLens[i];
         return (
           <circle
             key={i}
@@ -555,7 +627,7 @@ function Donut({
             fill="none"
             stroke={s.color}
             strokeWidth="6"
-            strokeDasharray={`${len} ${circ - len}`}
+            strokeDasharray={`${visibleLen} ${circ - visibleLen}`}
             strokeDashoffset={offset}
             transform={`rotate(-90 ${cx} ${cy})`}
             strokeLinecap="butt"
@@ -1328,13 +1400,76 @@ function KpisTab() {
  * Forecast tab
  * ===================================================================== */
 
-const FORECAST_DAYS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
-const FORECAST_ACTUAL = [142, 138, 158, 172, 188, 196, 184];
-const FORECAST_PRED = [null, null, 158, 172, 188, 196, 186, 192]; // tomorrow last
-const FORECAST_BAND_LO = [null, null, 148, 162, 178, 186, 168, 174];
-const FORECAST_BAND_HI = [null, null, 168, 182, 198, 206, 204, 210];
+interface ForecastRangeData {
+  labels: string[];
+  actual: number[];
+  /** Previous-period actual values (same length as actual) for comparison tooltip. */
+  prevActual: number[];
+  forecastLabel: string;
+  forecastValue: number;
+  bandLo: number;
+  bandHi: number;
+  /** Previous-period forecast (for tooltip comparison). */
+  prevForecast: number;
+}
+
+const FORECAST_RANGES: Record<TimeRange, ForecastRangeData> = {
+  "7d": {
+    labels: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+    actual: [142, 138, 158, 172, 188, 196, 184],
+    prevActual: [131, 128, 145, 158, 173, 180, 169],
+    forecastLabel: "Mañana",
+    forecastValue: 186,
+    bandLo: 168,
+    bandHi: 204,
+    prevForecast: 172,
+  },
+  "30d": {
+    labels: ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10"],
+    actual: [980, 1015, 992, 1085, 1120, 1075, 1240, 1185, 1310, 1280],
+    prevActual: [902, 945, 920, 1010, 1055, 1010, 1170, 1110, 1225, 1200],
+    forecastLabel: "Próx. 3d",
+    forecastValue: 1342,
+    bandLo: 1180,
+    bandHi: 1505,
+    prevForecast: 1245,
+  },
+  "90d": {
+    labels: ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12", "W13"],
+    actual: [4180, 4320, 4105, 4510, 4720, 4610, 4980, 5240, 5180, 5420, 5510, 5680, 5470],
+    prevActual: [3920, 4060, 3870, 4245, 4450, 4340, 4695, 4945, 4880, 5105, 5190, 5355, 5155],
+    forecastLabel: "Próx. sem",
+    forecastValue: 5840,
+    bandLo: 5380,
+    bandHi: 6300,
+    prevForecast: 5520,
+  },
+  año: {
+    labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+    actual: [18200, 16800, 19500, 21400, 22800, 24100, 26200, 23500, 21800, 25400, 27800, 30100],
+    prevActual: [16900, 15600, 18100, 19800, 21100, 22300, 24300, 21800, 20200, 23500, 25700, 27900],
+    forecastLabel: "Ene+1",
+    forecastValue: 31420,
+    bandLo: 28600,
+    bandHi: 34200,
+    prevForecast: 29050,
+  },
+};
 
 function ForecastChart() {
+  const reduce = useReducedMotion();
+  const [range, setRange] = React.useState<TimeRange>("7d");
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const [mousePx, setMousePx] = React.useState<{ x: number; y: number } | null>(null);
+  const svgWrapRef = React.useRef<HTMLDivElement>(null);
+
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.2 });
+  const progress = useEntranceProgress(inView, 700);
+  const { ref: actualPathRef, length: actualLength } = usePathLength<SVGPathElement>();
+  const { ref: forecastPathRef, length: forecastLength } = usePathLength<SVGPathElement>();
+
+  const data = FORECAST_RANGES[range];
   const width = 720;
   const height = 280;
   const padL = 44;
@@ -1343,73 +1478,303 @@ function ForecastChart() {
   const padB = 36;
   const innerW = width - padL - padR;
   const innerH = height - padT - padB;
-  const allVals = [142, 138, 158, 172, 188, 196, 184, 168, 174, 178, 182, 186, 198, 206, 204, 210, 168, 174, 192];
+
+  const allVals = [...data.actual, data.forecastValue, data.bandLo, data.bandHi];
   const maxV = Math.max(...allVals) * 1.05;
   const minV = Math.min(...allVals) * 0.9;
 
-  const days = FORECAST_DAYS;
-  const n = days.length;
+  // Layout: history occupies first N slots, forecast occupies one extra slot to the right edge.
+  const n = data.actual.length;
   const step = innerW / (n - 1);
+  const forecastX = width - padR;
 
   const yOf = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
   const xOf = (i: number) => padL + i * step;
 
-  const actualPts = FORECAST_ACTUAL.map((v, i) => [xOf(i), yOf(v)] as const);
+  const actualPts = data.actual.map((v, i) => [xOf(i), yOf(v)] as const);
   const actualPath = actualPts.map((p, i) => (i === 0 ? `M${p[0]},${p[1]}` : `L${p[0]},${p[1]}`)).join(" ");
-
-  // Forecast line: starts from last actual point
-  const fIdx = [n - 1, n, n + 1]; // tomorrow onwards — we'll just show 1 forecast point with band
-  // Simpler: forecast line connects last actual to a future value to the right edge
-  const forecastX = width - padR;
-  const forecastY = yOf(186);
+  const forecastY = yOf(data.forecastValue);
   const forecastPath = `M${actualPts[n - 1][0]},${actualPts[n - 1][1]} L${forecastX},${forecastY}`;
-
   // Confidence band: triangle from last actual point expanding
-  const bandPath = `M${actualPts[n - 1][0]},${actualPts[n - 1][1]} L${forecastX},${yOf(168)} L${forecastX},${yOf(204)} Z`;
+  const bandPath = `M${actualPts[n - 1][0]},${actualPts[n - 1][1]} L${forecastX},${yOf(data.bandLo)} L${forecastX},${yOf(data.bandHi)} Z`;
 
   const yTicks = [minV, (minV + maxV) / 2, maxV];
 
+  const legendItems: LegendItem[] = [
+    { id: "actual", label: "Actual", color: "var(--gold)" },
+    { id: "forecast", label: "Predicción", color: "var(--teal)", dashed: true },
+    { id: "band", label: "Banda confianza", color: "color-mix(in oklab, var(--teal) 30%, transparent)" },
+  ];
+
+  function toggle(id: string) {
+    setHidden((s) => {
+      const n2 = new Set(s);
+      if (n2.has(id)) n2.delete(id);
+      else n2.add(id);
+      return n2;
+    });
+  }
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const svgX = (px / rect.width) * width;
+    // Map svgX to nearest index, considering the forecast point at forecastX
+    const distToLast = Math.abs(svgX - actualPts[n - 1][0]);
+    const distToForecast = Math.abs(svgX - forecastX);
+    if (distToForecast < distToLast && distToForecast < step / 2) {
+      setHoverIdx(n); // forecast point index = n
+    } else {
+      const i = Math.round((svgX - padL) / step);
+      if (i >= 0 && i < n) {
+        setHoverIdx(i);
+      } else {
+        setHoverIdx(null);
+      }
+    }
+    setMousePx({ x: px, y: py });
+  }
+
+  const { dasharray: actualDash, dashoffset: actualOff } = drawDash(actualLength, reduce ? 1 : progress);
+  const { dasharray: forecastDash, dashoffset: forecastOff } = drawDash(forecastLength, reduce ? 1 : progress);
+
+  // Hover dim: if hovering actual, dim forecast/band; if hovering forecast, dim actual/band.
+  const hoverKey: "actual" | "forecast" | null = hoverIdx == null ? null : hoverIdx >= n ? "forecast" : "actual";
+  const actualOpacity = seriesOpacity(hoverKey, "actual") * (hidden.has("actual") ? 0 : 1);
+  const forecastOpacity = seriesOpacity(hoverKey, "forecast") * (hidden.has("forecast") ? 0 : 1);
+  // Band is dimmed when hovering either actual or forecast point (it's a contextual fill).
+  const bandOpacity = (hoverKey == null ? 1 : 0.5) * (hidden.has("band") ? 0 : 1);
+
+  // Tooltip data
+  const hoveredActual = hoverIdx != null && hoverIdx < n ? data.actual[hoverIdx] : null;
+  const hoveredActualPrev = hoverIdx != null && hoverIdx < n ? data.prevActual[hoverIdx] : null;
+  const hoveredLabel = hoverIdx != null ? (hoverIdx >= n ? data.forecastLabel : data.labels[hoverIdx]) : null;
+  const actualDelta =
+    hoveredActual != null && hoveredActualPrev != null ? hoveredActual - hoveredActualPrev : null;
+  const forecastDelta =
+    hoverIdx === n ? data.forecastValue - data.prevForecast : null;
+
   return (
-    <div className="overflow-x-auto rp-scroll-thin">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[640px]" role="img" aria-label="Forecast 7 días con banda de confianza">
-        {/* y grid */}
-        {yTicks.map((t, i) => {
-          const y = yOf(t);
-          return (
-            <g key={i}>
-              <line x1={padL} x2={width - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
-              <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
-                {Math.round(t)}
+    <div className="rp-glass rounded-xl p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h3 className="font-display text-base font-medium">Forecast · reservas</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Línea dorada = actual · Línea turquesa discontinua = predicción · Banda = confianza
+          </p>
+        </div>
+        <TimeRangeSelector value={range} onChange={setRange} />
+      </div>
+      <div className="mb-3">
+        <ClickableLegend items={legendItems} hidden={hidden} onToggle={toggle} />
+      </div>
+      <div
+        ref={svgWrapRef}
+        className="relative overflow-x-auto rp-scroll-thin"
+        style={{ aspectRatio: `${width} / ${height}` }}
+      >
+        <svg
+          ref={viewRef}
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full min-w-[640px]"
+          role="img"
+          aria-label={`Forecast ${range === "año" ? "anual" : range} con banda de confianza`}
+          onMouseMove={onMove}
+          onMouseLeave={() => {
+            setHoverIdx(null);
+            setMousePx(null);
+          }}
+        >
+          {/* y grid */}
+          {yTicks.map((t, i) => {
+            const y = yOf(t);
+            return (
+              <g key={i}>
+                <line x1={padL} x2={width - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
+                <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
+                  {Math.round(t).toLocaleString("es-ES")}
+                </text>
+              </g>
+            );
+          })}
+          {/* x labels (history) */}
+          <AnimatePresence initial={false}>
+            <motion.g
+              key={`${range}-xaxis`}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              {data.labels.map((d, i) => (
+                <text
+                  key={`${range}-${d}-${i}`}
+                  x={xOf(i)}
+                  y={height - 12}
+                  textAnchor="middle"
+                  className="fill-muted-foreground font-mono"
+                  fontSize="9"
+                >
+                  {d}
+                </text>
+              ))}
+              <text x={forecastX} y={height - 12} textAnchor="middle" className="fill-[var(--teal)] font-mono" fontSize="9" fontWeight="600">
+                {data.forecastLabel}
               </text>
-            </g>
-          );
-        })}
-        {/* x labels */}
-        {days.map((d, i) => (
-          <text key={d} x={xOf(i)} y={height - 12} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
-            {d}
-          </text>
-        ))}
-        <text x={forecastX} y={height - 12} textAnchor="middle" className="fill-[var(--teal)] font-mono" fontSize="9" fontWeight="600">
-          Mañana
-        </text>
+            </motion.g>
+          </AnimatePresence>
 
-        {/* Confidence band */}
-        <path d={bandPath} fill="var(--teal)" fillOpacity="0.12" stroke="none" />
+          {/* Confidence band */}
+          {!hidden.has("band") && (
+            <motion.path
+              key={`${range}-band`}
+              d={bandPath}
+              fill="var(--teal)"
+              fillOpacity={0.12 * bandOpacity}
+              stroke="none"
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: bandOpacity * progress }}
+              transition={{ duration: 0.4, delay: 0.1 }}
+            />
+          )}
 
-        {/* Actual line (gold) */}
-        <path d={actualPath} fill="none" stroke="var(--gold)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        {actualPts.map((p, i) => (
-          <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="var(--gold)" stroke="var(--background)" strokeWidth="1.5" />
-        ))}
+          {/* Actual line (gold, draw-in via strokeDasharray) */}
+          {!hidden.has("actual") && (
+            <>
+              <motion.path
+                key={`${range}-actual`}
+                ref={actualPathRef}
+                d={actualPath}
+                fill="none"
+                stroke="var(--gold)"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray={actualDash}
+                strokeDashoffset={actualOff}
+                opacity={actualOpacity}
+                initial={false}
+                animate={{ opacity: actualOpacity }}
+                transition={{ duration: 0.2 }}
+              />
+              {actualPts.map((p, i) => (
+                <motion.circle
+                  key={`${range}-a${i}`}
+                  cx={p[0]}
+                  cy={p[1]}
+                  r="3"
+                  fill="var(--gold)"
+                  stroke="var(--background)"
+                  strokeWidth="1.5"
+                  initial={reduce ? false : { opacity: 0, scale: 0 }}
+                  animate={{ opacity: actualOpacity, scale: 1 }}
+                  transition={{ duration: 0.25, delay: Math.min(i * 0.05, 0.5) }}
+                  style={{ transformOrigin: `${p[0]}px ${p[1]}px`, transformBox: "view-box" } as React.CSSProperties}
+                />
+              ))}
+            </>
+          )}
 
-        {/* Forecast line (dashed teal) */}
-        <path d={forecastPath} fill="none" stroke="var(--teal)" strokeWidth="2.2" strokeDasharray="5 4" strokeLinecap="round" />
-        <circle cx={forecastX} cy={forecastY} r="4" fill="var(--teal)" stroke="var(--background)" strokeWidth="1.5" />
-        <text x={forecastX} y={forecastY - 10} textAnchor="middle" className="fill-[var(--teal)] font-mono" fontSize="10" fontWeight="600">
-          186
-        </text>
-      </svg>
+          {/* Forecast line (dashed teal) */}
+          {!hidden.has("forecast") && (
+            <>
+              <motion.path
+                key={`${range}-forecast`}
+                ref={forecastPathRef}
+                d={forecastPath}
+                fill="none"
+                stroke="var(--teal)"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeDasharray={forecastDash === "" ? "5 4" : forecastDash}
+                strokeDashoffset={forecastOff}
+                opacity={forecastOpacity}
+                initial={false}
+                animate={{ opacity: forecastOpacity }}
+                transition={{ duration: 0.2 }}
+              />
+              <motion.circle
+                cx={forecastX}
+                cy={forecastY}
+                r="4"
+                fill="var(--teal)"
+                stroke="var(--background)"
+                strokeWidth="1.5"
+                initial={reduce ? false : { opacity: 0, scale: 0 }}
+                animate={{ opacity: forecastOpacity, scale: 1 }}
+                transition={{ duration: 0.3, delay: 0.5 }}
+                style={{ transformOrigin: `${forecastX}px ${forecastY}px`, transformBox: "view-box" } as React.CSSProperties}
+              />
+              <motion.text
+                x={forecastX}
+                y={forecastY - 10}
+                textAnchor="middle"
+                className="fill-[var(--teal)] font-mono"
+                fontSize="10"
+                fontWeight="600"
+                initial={reduce ? false : { opacity: 0 }}
+                animate={{ opacity: forecastOpacity * progress }}
+                transition={{ duration: 0.3, delay: 0.6 }}
+              >
+                {data.forecastValue.toLocaleString("es-ES")}
+              </motion.text>
+            </>
+          )}
+
+          {/* Crosshair */}
+          {hoverIdx != null && (
+            <Crosshair
+              x={hoverIdx >= n ? forecastX : xOf(hoverIdx)}
+              y1={padT}
+              y2={height - padB}
+              color={hoverIdx >= n ? "var(--teal)" : "var(--gold)"}
+            />
+          )}
+        </svg>
+        <CursorTooltip
+          position={{ x: mousePx?.x ?? null, y: mousePx?.y ?? null }}
+          containerRef={svgWrapRef}
+          estimatedSize={{ width: 200, height: 100 }}
+        >
+          {hoveredLabel ? (
+            <div className="space-y-0.5">
+              <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {hoverIdx != null && hoverIdx >= n ? "Predicción · " : "Actual · "}
+                {hoveredLabel}
+              </div>
+              {hoveredActual != null ? (
+                <div className="font-display text-base text-foreground">
+                  <span className="text-[var(--gold-soft)]">{hoveredActual.toLocaleString("es-ES")}</span>
+                  <span className="text-[10px] text-muted-foreground"> reservas</span>
+                </div>
+              ) : hoverIdx === n ? (
+                <div className="font-display text-base text-foreground">
+                  <span className="text-[var(--teal)]">{data.forecastValue.toLocaleString("es-ES")}</span>
+                  <span className="text-[10px] text-muted-foreground"> reservas previstas</span>
+                </div>
+              ) : null}
+              {actualDelta != null ? (
+                <div className={cn("text-[10px] font-mono", actualDelta >= 0 ? "text-emerald-300" : "text-rose-300")}>
+                  {actualDelta >= 0 ? "+" : ""}
+                  {actualDelta.toLocaleString("es-ES")} vs período anterior
+                </div>
+              ) : null}
+              {forecastDelta != null ? (
+                <div className={cn("text-[10px] font-mono", forecastDelta >= 0 ? "text-emerald-300" : "text-rose-300")}>
+                  {forecastDelta >= 0 ? "+" : ""}
+                  {forecastDelta.toLocaleString("es-ES")} vs forecast anterior
+                </div>
+              ) : null}
+              {hoverIdx === n && (
+                <div className="text-[10px] font-mono text-muted-foreground">
+                  Banda: {data.bandLo.toLocaleString("es-ES")}–{data.bandHi.toLocaleString("es-ES")}
+                </div>
+              )}
+            </div>
+          ) : null}
+        </CursorTooltip>
+      </div>
     </div>
   );
 }
@@ -1518,30 +1883,7 @@ function ForecastTab() {
         initial={reduce ? false : { opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="rp-glass rounded-xl p-4 sm:p-5"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <h3 className="font-display text-base font-medium">Forecast 7 días · reservas</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Línea dorada = actual · Línea turquesa discontinua = predicción · Banda = confianza
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-[11px]">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm" style={{ background: "var(--gold)" }} />
-              <span className="text-muted-foreground">Actual</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-0.5 w-4" style={{ background: "var(--teal)", borderTop: "2px dashed var(--teal)" }} />
-              <span className="text-muted-foreground">Predicción</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm" style={{ background: "color-mix(in oklab, var(--teal) 20%, transparent)" }} />
-              <span className="text-muted-foreground">Banda confianza</span>
-            </span>
-          </div>
-        </div>
         <ForecastChart />
       </motion.div>
 
@@ -1617,6 +1959,18 @@ function ForecastTab() {
  * ===================================================================== */
 
 function ComparisonChart() {
+  const reduce = useReducedMotion();
+  const [range, setRange] = React.useState<TimeRange>("30d");
+  const [hidden, setHidden] = React.useState<Set<string>>(new Set());
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const [mousePx, setMousePx] = React.useState<{ x: number; y: number } | null>(null);
+  const svgWrapRef = React.useRef<HTMLDivElement>(null);
+
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.2 });
+  const progress = useEntranceProgress(inView, 700);
+  const { ref: aPathRef, length: aLength } = usePathLength<SVGPathElement>();
+  const { ref: bPathRef, length: bLength } = usePathLength<SVGPathElement>();
+
   const width = 720;
   const height = 240;
   const padL = 40;
@@ -1625,46 +1979,254 @@ function ComparisonChart() {
   const padB = 32;
   const innerW = width - padL - padR;
   const innerH = height - padT - padB;
-  const points = 12;
-  const a = [42, 45, 47, 44, 50, 52, 49, 53, 55, 51, 54, 47];
-  const b = [40, 41, 42, 43, 44, 46, 45, 48, 50, 47, 49, 42];
-  const maxV = Math.max(...a, ...b) * 1.1;
-  const minV = Math.min(...a, ...b) * 0.85;
+
+  // Per-range comparison data — period A vs period B with labels.
+  const cmpData: Record<TimeRange, { labels: string[]; a: number[]; b: number[] }> = {
+    "7d": {
+      labels: ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"],
+      a: [42, 45, 47, 44, 50, 52, 49],
+      b: [40, 41, 42, 43, 44, 46, 45],
+    },
+    "30d": {
+      labels: ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12"],
+      a: [42, 45, 47, 44, 50, 52, 49, 53, 55, 51, 54, 47],
+      b: [40, 41, 42, 43, 44, 46, 45, 48, 50, 47, 49, 42],
+    },
+    "90d": {
+      labels: ["W1", "W2", "W3", "W4", "W5", "W6", "W7", "W8", "W9", "W10", "W11", "W12", "W13"],
+      a: [310, 325, 340, 305, 360, 380, 355, 405, 420, 395, 415, 430, 380],
+      b: [290, 305, 315, 290, 340, 355, 335, 380, 395, 375, 390, 405, 360],
+    },
+    año: {
+      labels: ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"],
+      a: [1240, 1180, 1320, 1410, 1520, 1620, 1750, 1580, 1460, 1680, 1820, 1960],
+      b: [1180, 1120, 1240, 1340, 1440, 1540, 1660, 1500, 1380, 1590, 1720, 1850],
+    },
+  };
+
+  const data = cmpData[range];
+  const points = data.a.length;
+  const maxV = Math.max(...data.a, ...data.b) * 1.1;
+  const minV = Math.min(...data.a, ...data.b) * 0.85;
   const step = innerW / (points - 1);
   const yOf = (v: number) => padT + innerH - ((v - minV) / (maxV - minV)) * innerH;
   const xOf = (i: number) => padL + i * step;
-  const aPath = a.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(v)}`).join(" ");
-  const bPath = b.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(v)}`).join(" ");
+  const aPath = data.a.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(v)}`).join(" ");
+  const bPath = data.b.map((v, i) => `${i === 0 ? "M" : "L"}${xOf(i)},${yOf(v)}`).join(" ");
   const ticks = [minV, (minV + maxV) / 2, maxV];
 
+  const legendItems: LegendItem[] = [
+    { id: "a", label: "Periodo actual", color: "var(--gold)" },
+    { id: "b", label: "Periodo anterior", color: "var(--teal)" },
+  ];
+
+  function toggle(id: string) {
+    setHidden((s) => {
+      const n2 = new Set(s);
+      if (n2.has(id)) n2.delete(id);
+      else n2.add(id);
+      return n2;
+    });
+  }
+
+  function onMove(e: React.MouseEvent<SVGSVGElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const svgX = (px / rect.width) * width;
+    const i = Math.round((svgX - padL) / step);
+    if (i >= 0 && i < points) {
+      setHoverIdx(i);
+      setMousePx({ x: px, y: py });
+    } else {
+      setHoverIdx(null);
+      setMousePx(null);
+    }
+  }
+
+  const { dasharray: aDash, dashoffset: aOff } = drawDash(aLength, reduce ? 1 : progress);
+  const { dasharray: bDash, dashoffset: bOff } = drawDash(bLength, reduce ? 1 : progress);
+
+  // Legend-controlled visibility (1 = visible, 0 = hidden via toggle).
+  const aOpacity = hidden.has("a") ? 0 : 1;
+  const bOpacity = hidden.has("b") ? 0 : 1;
+
+  const hoveredA = hoverIdx != null ? data.a[hoverIdx] : null;
+  const hoveredB = hoverIdx != null ? data.b[hoverIdx] : null;
+  const hoveredLabel = hoverIdx != null ? data.labels[hoverIdx] : null;
+  const delta = hoveredA != null && hoveredB != null ? hoveredA - hoveredB : null;
+  const deltaPct =
+    hoveredA != null && hoveredB != null && hoveredB !== 0
+      ? ((hoveredA - hoveredB) / hoveredB) * 100
+      : null;
+
   return (
-    <div className="overflow-x-auto rp-scroll-thin">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[640px]" role="img" aria-label="Comparativa Periodo A vs Periodo B">
-        {ticks.map((t, i) => {
-          const y = yOf(t);
-          return (
-            <g key={i}>
-              <line x1={padL} x2={width - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
-              <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
-                {Math.round(t)}
-              </text>
-            </g>
-          );
-        })}
-        {Array.from({ length: points }).map((_, i) => (
-          <text key={i} x={xOf(i)} y={height - 10} textAnchor="middle" className="fill-muted-foreground font-mono" fontSize="9">
-            {i + 1}
-          </text>
-        ))}
-        <path d={bPath} fill="none" stroke="var(--teal)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={aPath} fill="none" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        {a.map((v, i) => (
-          <circle key={`a${i}`} cx={xOf(i)} cy={yOf(v)} r="2.5" fill="var(--gold)" />
-        ))}
-        {b.map((v, i) => (
-          <circle key={`b${i}`} cx={xOf(i)} cy={yOf(v)} r="2.5" fill="var(--teal)" />
-        ))}
-      </svg>
+    <div className="rp-glass rounded-xl p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+        <div>
+          <h3 className="font-display text-base font-medium">Evolución comparativa</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Periodo actual vs anterior · {points} puntos
+          </p>
+        </div>
+        <TimeRangeSelector value={range} onChange={setRange} />
+      </div>
+      <div className="mb-3">
+        <ClickableLegend items={legendItems} hidden={hidden} onToggle={toggle} />
+      </div>
+      <div
+        ref={svgWrapRef}
+        className="relative overflow-x-auto rp-scroll-thin"
+        style={{ aspectRatio: `${width} / ${height}` }}
+      >
+        <svg
+          ref={viewRef}
+          viewBox={`0 0 ${width} ${height}`}
+          className="w-full min-w-[640px]"
+          role="img"
+          aria-label="Comparativa Periodo A vs Periodo B"
+          onMouseMove={onMove}
+          onMouseLeave={() => {
+            setHoverIdx(null);
+            setMousePx(null);
+          }}
+        >
+          {ticks.map((t, i) => {
+            const y = yOf(t);
+            return (
+              <g key={i}>
+                <line x1={padL} x2={width - padR} y1={y} y2={y} stroke="currentColor" className="text-foreground/8" strokeDasharray="2 4" />
+                <text x={padL - 8} y={y + 3} textAnchor="end" className="fill-muted-foreground font-mono" fontSize="9">
+                  {Math.round(t).toLocaleString("es-ES")}
+                </text>
+              </g>
+            );
+          })}
+          <AnimatePresence initial={false}>
+            <motion.g
+              key={`${range}-xaxis`}
+              initial={reduce ? false : { opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0 }}
+              transition={{ duration: 0.25 }}
+            >
+              {data.labels.map((lab, i) => (
+                <text
+                  key={`${range}-${lab}-${i}`}
+                  x={xOf(i)}
+                  y={height - 10}
+                  textAnchor="middle"
+                  className="fill-muted-foreground font-mono"
+                  fontSize="9"
+                >
+                  {lab}
+                </text>
+              ))}
+            </motion.g>
+          </AnimatePresence>
+
+          {!hidden.has("b") && (
+            <>
+              <motion.path
+                key={`${range}-b`}
+                ref={bPathRef}
+                d={bPath}
+                fill="none"
+                stroke="var(--teal)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray={bDash}
+                strokeDashoffset={bOff}
+                opacity={bOpacity}
+                initial={false}
+                animate={{ opacity: bOpacity }}
+                transition={{ duration: 0.2 }}
+              />
+              {data.b.map((v, i) => (
+                <motion.circle
+                  key={`${range}-b-${i}`}
+                  cx={xOf(i)}
+                  cy={yOf(v)}
+                  r="2.5"
+                  fill="var(--teal)"
+                  opacity={bOpacity}
+                  initial={reduce ? false : { opacity: 0, scale: 0 }}
+                  animate={{ opacity: bOpacity, scale: 1 }}
+                  transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.4) }}
+                  style={{ transformOrigin: `${xOf(i)}px ${yOf(v)}px`, transformBox: "view-box" } as React.CSSProperties}
+                />
+              ))}
+            </>
+          )}
+
+          {!hidden.has("a") && (
+            <>
+              <motion.path
+                key={`${range}-a`}
+                ref={aPathRef}
+                d={aPath}
+                fill="none"
+                stroke="var(--gold)"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeDasharray={aDash}
+                strokeDashoffset={aOff}
+                opacity={aOpacity}
+                initial={false}
+                animate={{ opacity: aOpacity }}
+                transition={{ duration: 0.2 }}
+              />
+              {data.a.map((v, i) => (
+                <motion.circle
+                  key={`${range}-a-${i}`}
+                  cx={xOf(i)}
+                  cy={yOf(v)}
+                  r="2.5"
+                  fill="var(--gold)"
+                  opacity={aOpacity}
+                  initial={reduce ? false : { opacity: 0, scale: 0 }}
+                  animate={{ opacity: aOpacity, scale: 1 }}
+                  transition={{ duration: 0.2, delay: Math.min(i * 0.03, 0.4) }}
+                  style={{ transformOrigin: `${xOf(i)}px ${yOf(v)}px`, transformBox: "view-box" } as React.CSSProperties}
+                />
+              ))}
+            </>
+          )}
+
+          {hoverIdx != null && (
+            <Crosshair x={xOf(hoverIdx)} y1={padT} y2={height - padB} color="var(--gold)" />
+          )}
+        </svg>
+        <CursorTooltip
+          position={{ x: mousePx?.x ?? null, y: mousePx?.y ?? null }}
+          containerRef={svgWrapRef}
+          estimatedSize={{ width: 200, height: 100 }}
+        >
+          {hoveredLabel && hoveredA != null && hoveredB != null ? (
+            <div className="space-y-0.5">
+              <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                {hoveredLabel}
+              </div>
+              <div className="font-display text-sm text-foreground">
+                <span className="text-[var(--gold-soft)]">{hoveredA.toLocaleString("es-ES")}</span>
+                <span className="text-[10px] text-muted-foreground"> actual</span>
+              </div>
+              <div className="font-display text-sm text-foreground">
+                <span className="text-[var(--teal)]">{hoveredB.toLocaleString("es-ES")}</span>
+                <span className="text-[10px] text-muted-foreground"> anterior</span>
+              </div>
+              {delta != null && (
+                <div className={cn("text-[10px] font-mono", delta >= 0 ? "text-emerald-300" : "text-rose-300")}>
+                  {delta >= 0 ? "+" : ""}
+                  {delta.toLocaleString("es-ES")} ({deltaPct != null ? deltaPct.toFixed(1) : "—"}%)
+                </div>
+              )}
+            </div>
+          ) : null}
+        </CursorTooltip>
+      </div>
     </div>
   );
 }
@@ -1732,27 +2294,7 @@ function ComparativasTab() {
       </div>
 
       {/* Comparison chart */}
-      <div className="rp-glass rounded-xl p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div>
-            <h3 className="font-display text-base font-medium">Evolución comparativa</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {cmp.a} vs {cmp.b} · 12 puntos
-            </p>
-          </div>
-          <div className="flex items-center gap-3 text-[11px]">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm" style={{ background: "var(--gold)" }} />
-              <span className="text-muted-foreground">{cmp.a}</span>
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-4 rounded-sm" style={{ background: "var(--teal)" }} />
-              <span className="text-muted-foreground">{cmp.b}</span>
-            </span>
-          </div>
-        </div>
-        <ComparisonChart />
-      </div>
+      <ComparisonChart />
 
       {/* Comparison table */}
       <div className="rp-glass rounded-xl overflow-hidden">
@@ -1857,7 +2399,10 @@ function heatColor(v: number, polarity: "good" | "bad"): string {
 }
 
 function Heatmap({ metricId, polarity, unit }: { metricId: string; polarity: "good" | "bad"; unit: string }) {
+  const reduce = useReducedMotion();
   const [hover, setHover] = React.useState<{ d: number; h: number; v: number } | null>(null);
+  const { ref: viewRef, inView } = useInView<SVGSVGElement>({ threshold: 0.15 });
+  const progress = useEntranceProgress(inView, 600);
   const cellW = 26;
   const cellH = 24;
   const labelW = 44;
@@ -1885,6 +2430,7 @@ function Heatmap({ metricId, polarity, unit }: { metricId: string; polarity: "go
 
       <div className="relative overflow-x-auto rp-scroll-thin">
         <svg
+          ref={viewRef}
           width={totalW}
           height={28 + 7 * cellH + 16}
           viewBox={`0 0 ${totalW} ${28 + 7 * cellH + 16}`}
@@ -1900,47 +2446,55 @@ function Heatmap({ metricId, polarity, unit }: { metricId: string; polarity: "go
               textAnchor="middle"
               className="fill-muted-foreground font-mono"
               fontSize="8"
+              opacity={reduce ? 1 : progress}
             >
               {h % 3 === 0 ? `${h}h` : ""}
             </text>
           ))}
 
           {/* Day rows */}
-          {DAYS.map((d, di) => (
-            <g key={d}>
-              <text
-                x={labelW - 6}
-                y={28 + di * cellH + cellH / 2 + 3}
-                textAnchor="end"
-                className="fill-muted-foreground font-mono"
-                fontSize="9"
-              >
-                {d}
-              </text>
-              {Array.from({ length: 24 }).map((_, h) => {
-                const v = heatValue(metricId, di, h);
-                const x = labelW + h * cellW + 1;
-                const y = 28 + di * cellH + 1;
-                const isHover = hover?.d === di && hover?.h === h;
-                return (
-                  <rect
-                    key={h}
-                    x={x}
-                    y={y}
-                    width={cellW - 2}
-                    height={cellH - 2}
-                    rx="2"
-                    fill={heatColor(v, polarity)}
-                    stroke={isHover ? "var(--gold)" : "transparent"}
-                    strokeWidth={isHover ? 1.5 : 0}
-                    className="cursor-pointer transition-[stroke]"
-                    onMouseEnter={() => setHover({ d: di, h, v })}
-                    onMouseLeave={() => setHover(null)}
-                  />
-                );
-              })}
-            </g>
-          ))}
+          {DAYS.map((d, di) => {
+            // Row-by-row staggered entrance via opacity (transform/opacity only).
+            const rowDelay = di * 0.06;
+            const rowProgress = reduce ? 1 : Math.max(0, Math.min(1, (progress - rowDelay) / Math.max(0.0001, 1 - rowDelay)));
+            return (
+              <g key={d} style={{ opacity: rowProgress, transition: reduce ? undefined : "opacity 400ms ease-out" }}>
+                <text
+                  x={labelW - 6}
+                  y={28 + di * cellH + cellH / 2 + 3}
+                  textAnchor="end"
+                  className="fill-muted-foreground font-mono"
+                  fontSize="9"
+                >
+                  {d}
+                </text>
+                {Array.from({ length: 24 }).map((_, h) => {
+                  const v = heatValue(metricId, di, h);
+                  const x = labelW + h * cellW + 1;
+                  const y = 28 + di * cellH + 1;
+                  const isHover = hover?.d === di && hover?.h === h;
+                  const dimmed = hover != null && (hover.d !== di || hover.h !== h) ? 0.55 : 1;
+                  return (
+                    <rect
+                      key={h}
+                      x={x}
+                      y={y}
+                      width={cellW - 2}
+                      height={cellH - 2}
+                      rx="2"
+                      fill={heatColor(v, polarity)}
+                      stroke={isHover ? "var(--gold)" : "transparent"}
+                      strokeWidth={isHover ? 1.5 : 0}
+                      className="cursor-pointer transition-[stroke,opacity]"
+                      style={{ opacity: dimmed, transitionDuration: "150ms" }}
+                      onMouseEnter={() => setHover({ d: di, h, v })}
+                      onMouseLeave={() => setHover(null)}
+                    />
+                  );
+                })}
+              </g>
+            );
+          })}
         </svg>
 
         {/* Hover tooltip */}
