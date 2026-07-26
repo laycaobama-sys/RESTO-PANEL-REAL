@@ -17,7 +17,6 @@ import {
   SheetTrigger,
   SheetClose,
 } from "@/components/ui/sheet";
-import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import {
   Accordion,
@@ -1503,33 +1502,52 @@ const IA_ANSWERS: {
 
 /* ----------------------------- Pricing ------------------------------- */
 
-type PlanKey = "starter" | "pro" | "enterprise";
+type PlanKey = "starter" | "professional" | "enterprise";
 
-const PLANS: Record<
-  PlanKey,
-  {
-    name: string;
-    monthly: number;
-    annual: number;
-    baseLocals: number;
-    maxLocals: number;
-    baseUsers: number;
-    unlimited?: boolean;
-    highlight?: boolean;
-  }
-> = {
+interface PlanData {
+  name: string;
+  monthly: number;
+  annual: number;
+  tagline: string;
+  features: string[];
+  baseLocals: number;
+  maxLocals: number;
+  baseUsers: number;
+  unlimited?: boolean;
+  highlight?: boolean;
+}
+
+const PLANS: Record<PlanKey, PlanData> = {
   starter: {
     name: "Starter",
-    monthly: 69,
-    annual: 690,
+    monthly: 49,
+    annual: 470,
+    tagline: "Para restaurantes independientes que empiezan a digitalizar su operación.",
+    features: [
+      "SLA 99.5%",
+      "Backups diarios",
+      "Infraestructura compartida",
+      "Monitorización básica",
+      "Soporte estándar",
+    ],
     baseLocals: 1,
     maxLocals: 1,
     baseUsers: 3,
   },
-  pro: {
-    name: "Pro",
-    monthly: 149,
-    annual: 1490,
+  professional: {
+    name: "Professional",
+    monthly: 99,
+    annual: 950,
+    tagline: "Para grupos en crecimiento que necesitan analítica y prioridad.",
+    features: [
+      "SLA 99.9%",
+      "Backups cada hora",
+      "Mayor prioridad de procesamiento",
+      "Analítica avanzada",
+      "Monitorización avanzada",
+      "Prioridad en Workers",
+      "Soporte prioritario",
+    ],
     baseLocals: 5,
     maxLocals: 5,
     baseUsers: 10,
@@ -1537,8 +1555,21 @@ const PLANS: Record<
   },
   enterprise: {
     name: "Enterprise",
-    monthly: 399,
-    annual: 3990,
+    monthly: 249,
+    annual: 2390,
+    tagline: "Para cadenas y operaciones multi-país con requisitos críticos.",
+    features: [
+      "SLA 99.99%",
+      "Infraestructura dedicada",
+      "Multi región activa",
+      "Failover automático",
+      "IA dedicada",
+      "Soporte 24/7",
+      "Arquitecto técnico asignado",
+      "Account Manager",
+      "Auditorías de rendimiento",
+      "Escalado personalizado",
+    ],
     baseLocals: 1,
     maxLocals: 50,
     baseUsers: 0,
@@ -1549,25 +1580,27 @@ const PLANS: Record<
 const COMPARISON: {
   feature: string;
   starter: string | boolean;
-  pro: string | boolean;
+  professional: string | boolean;
   enterprise: string | boolean;
 }[] = [
-  { feature: "Locales incluidos", starter: "1", pro: "5", enterprise: "Ilimitado" },
-  { feature: "Usuarios incluidos", starter: "3", pro: "10", enterprise: "Ilimitado" },
-  { feature: "Reservas inteligentes", starter: true, pro: true, enterprise: true },
-  { feature: "Plano de mesas", starter: true, pro: true, enterprise: true },
-  { feature: "CRM", starter: true, pro: true, enterprise: true },
-  { feature: "Marketing (SMS/email)", starter: "Pago por uso", pro: "5k incluidos", enterprise: "Ilimitado" },
-  { feature: "Automatizaciones", starter: "5 activas", pro: "50 activas", enterprise: "Ilimitado" },
-  { feature: "Google Reviews", starter: true, pro: true, enterprise: true },
-  { feature: "Analytics avanzado", starter: false, pro: true, enterprise: true },
-  { feature: "IA Copilot", starter: false, pro: true, enterprise: true },
-  { feature: "Lista de espera", starter: false, pro: false, enterprise: true },
-  { feature: "Marketplace", starter: false, pro: false, enterprise: true },
-  { feature: "Integraciones (Stripe, POS…)", starter: "3", pro: "Ilimitado", enterprise: "Ilimitado + API" },
-  { feature: "Soporte", starter: "Email", pro: "Chat prioritario", enterprise: "CSM dedicado + SLA" },
-  { feature: "Onboarding", starter: "Autoservicio", pro: "Guiado 24-48h", enterprise: "Personalizado" },
-  { feature: "SLA", starter: false, pro: "99,5%", enterprise: "99,9% + RTO 1h" },
+  { feature: "Locales incluidos", starter: "1", professional: "5", enterprise: "Ilimitado" },
+  { feature: "Usuarios incluidos", starter: "3", professional: "10", enterprise: "Ilimitado" },
+  { feature: "Reservas inteligentes", starter: true, professional: true, enterprise: true },
+  { feature: "Plano de mesas", starter: true, professional: true, enterprise: true },
+  { feature: "CRM", starter: true, professional: true, enterprise: true },
+  { feature: "Marketing (SMS/email)", starter: "Pago por uso", professional: "5k incluidos", enterprise: "Ilimitado" },
+  { feature: "Automatizaciones", starter: "5 activas", professional: "50 activas", enterprise: "Ilimitado" },
+  { feature: "Google Reviews", starter: true, professional: true, enterprise: true },
+  { feature: "Analytics avanzado", starter: false, professional: true, enterprise: true },
+  { feature: "IA Copilot", starter: false, professional: true, enterprise: true },
+  { feature: "Lista de espera", starter: false, professional: false, enterprise: true },
+  { feature: "Marketplace", starter: false, professional: false, enterprise: true },
+  { feature: "Integraciones (Stripe, POS…)", starter: "3", professional: "Ilimitado", enterprise: "Ilimitado + API" },
+  { feature: "Soporte", starter: "Estándar", professional: "Prioritario", enterprise: "24/7 + CSM" },
+  { feature: "Onboarding", starter: "Autoservicio", professional: "Guiado 24-48h", enterprise: "Personalizado" },
+  { feature: "SLA", starter: "99.5%", professional: "99.9%", enterprise: "99.99%" },
+  { feature: "Backups", starter: "Diarios", professional: "Cada hora", enterprise: "Continuos + DR" },
+  { feature: "Infraestructura", starter: "Compartida", professional: "Compartida", enterprise: "Dedicada" },
 ];
 
 /* ===================================================================== *
@@ -1912,42 +1945,10 @@ function SectionPartner() {
 function Pricing() {
   const setView = useNav((s) => s.setView);
   const go = useNav((s) => s.go);
-  const [plan, setPlan] = React.useState<PlanKey>("pro");
   const [annual, setAnnual] = React.useState(true);
-  const [locals, setLocals] = React.useState(5);
 
-  const p = PLANS[plan];
-  const isEnterprise = plan === "enterprise";
-
-  // Compute effective price
-  const { price, period, savings } = React.useMemo(() => {
-    if (isEnterprise) {
-      // Enterprise scales by locals beyond base
-      const extra = Math.max(0, locals - 1);
-      const perLocal = annual ? 90 : 110; // approx enterprise per-local delta
-      const base = annual ? p.annual : p.monthly * 12;
-      const total = base + extra * perLocal * (annual ? 1 : 12);
-      if (annual) {
-        const monthlyEquiv = p.monthly * 12 + extra * perLocal * 12;
-        return {
-          price: total,
-          period: "año",
-          savings: monthlyEquiv - total,
-        };
-      }
-      return { price: total, period: "año", savings: 0 };
-    }
-    if (annual) {
-      const monthlyEquiv = p.monthly * 12;
-      return { price: p.annual, period: "año", savings: monthlyEquiv - p.annual };
-    }
-    return { price: p.monthly, period: "mes", savings: 0 };
-  }, [plan, annual, locals, isEnterprise, p]);
-
-  const cta = `Crear cuenta ${p.name}`;
-
-  const onCta = () => {
-    if (isEnterprise) {
+  const onCta = (planKey: PlanKey) => {
+    if (planKey === "enterprise") {
       setView("app");
     } else {
       go("billing");
@@ -1964,193 +1965,159 @@ function Pricing() {
           <div className="flex items-center gap-3 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
             <span className="rp-gold-text">06</span>
             <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
-            <span>Precios</span>
+            <span>Suscripciones</span>
           </div>
           <h2 className="mt-4 font-display text-3xl sm:text-4xl md:text-5xl font-light tracking-tight text-balance">
-            Precios honestos que escalan contigo
+            Suscripciones
           </h2>
           <p className="mt-5 text-base sm:text-lg leading-relaxed text-muted-foreground">
-            Elige plan, facturación y número de locales. El precio se actualiza
-            en tiempo real. Sin sorpresas, sin coste oculto por usuario.
+            Actualiza el valor de cada plan. Sin permanencia, sin coste oculto
+            por usuario. Cambia o cancela cuando quieras.
           </p>
         </header>
 
-        {/* Calculator */}
-        <div className="rp-glass-strong rounded-2xl p-5 sm:p-8">
-          <div className="grid lg:grid-cols-[1fr_1fr] gap-8">
-            {/* Controls */}
-            <div className="space-y-6">
-              <div>
-                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground mb-3">
-                  Plan
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(Object.keys(PLANS) as PlanKey[]).map((k) => (
-                    <button
-                      key={k}
-                      onClick={() => {
-                        setPlan(k);
-                        if (k === "enterprise") setLocals(1);
-                        else if (locals > PLANS[k].maxLocals) setLocals(PLANS[k].maxLocals);
-                      }}
-                      className={cn(
-                        "min-w-0 rounded-lg border px-2 sm:px-3 py-3 text-sm transition-all relative",
-                        plan === k
-                          ? "border-[var(--gold)]/60 bg-[var(--gold)]/10 text-[var(--gold-soft)] rp-glow-gold"
-                          : "border-border/60 bg-foreground/5 text-muted-foreground hover:text-foreground hover:border-foreground/30",
-                      )}
-                      aria-pressed={plan === k}
-                    >
-                      <div className="font-medium">{PLANS[k].name}</div>
-                      <div className="text-[11px] mt-0.5 opacity-80">
-                        {PLANS[k].unlimited
-                          ? "Ilimitado"
-                          : `hasta ${PLANS[k].maxLocals} local${PLANS[k].maxLocals > 1 ? "es" : ""}`}
-                      </div>
-                      {PLANS[k].highlight && (
-                        <span className="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-[var(--teal)] px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-black">
-                          popular
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        {/* Billing toggle */}
+        <div className="mb-10 flex items-center justify-center gap-3">
+          <span
+            className={cn(
+              "text-sm",
+              !annual ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            Mensual
+          </span>
+          <Switch
+            checked={annual}
+            onCheckedChange={setAnnual}
+            aria-label="Cambiar facturación entre mensual y anual"
+          />
+          <span
+            className={cn(
+              "text-sm",
+              annual ? "text-[var(--gold-soft)]" : "text-muted-foreground",
+            )}
+          >
+            Anual
+          </span>
+          {annual && (
+            <span className="ml-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
+              ahorra
+            </span>
+          )}
+        </div>
 
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                    Facturación
-                  </div>
-                  <div className="mt-1 text-sm text-foreground/85">
-                    {annual ? "Anual (ahorras)" : "Mensual"}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2.5">
-                  <span
-                    className={cn(
-                      "text-xs",
-                      !annual ? "text-foreground" : "text-muted-foreground",
-                    )}
-                  >
-                    Mensual
+        {/* Plan cards */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          {(Object.keys(PLANS) as PlanKey[]).map((k) => {
+            const p = PLANS[k];
+            const isEnterprise = k === "enterprise";
+            const isPro = k === "professional";
+
+            // Effective displayed price
+            const monthlyPrice = p.monthly;
+            const annualPrice = p.annual;
+            const monthlyEquiv = p.monthly * 12;
+            const savings = annual ? Math.max(0, monthlyEquiv - p.annual) : 0;
+
+            return (
+              <article
+                key={k}
+                className={cn(
+                  "relative flex flex-col rp-glass rounded-2xl p-6 sm:p-7 transition-all",
+                  isPro
+                    ? "border-[var(--gold)]/50 rp-glow-gold lg:-translate-y-2"
+                    : "border-border/60 hover:border-[var(--gold)]/30 hover:-translate-y-0.5",
+                )}
+                aria-label={`Plan ${p.name}`}
+              >
+                {p.highlight && (
+                  <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-[var(--teal)] px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-black">
+                    popular
                   </span>
-                  <Switch
-                    checked={annual}
-                    onCheckedChange={setAnnual}
-                    aria-label="Cambiar facturación entre mensual y anual"
-                  />
+                )}
+
+                {/* Plan name + tagline */}
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display text-xl font-medium">{p.name}</h3>
+                  <DemoBadge />
+                </div>
+                <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[2.5rem]">
+                  {p.tagline}
+                </p>
+
+                {/* Price */}
+                <div className="mt-5 flex items-baseline gap-1.5">
+                  <span className="font-display text-4xl sm:text-5xl font-light rp-gold-text">
+                    {monthlyPrice.toLocaleString("es-ES")}
+                  </span>
+                  <span className="text-base text-muted-foreground">€</span>
+                  <span className="text-xs text-muted-foreground">/mes</span>
+                </div>
+                <div className="mt-1 flex items-baseline gap-1.5">
                   <span
                     className={cn(
-                      "text-xs",
+                      "text-sm tabular-nums",
                       annual ? "text-[var(--gold-soft)]" : "text-muted-foreground",
                     )}
                   >
-                    Anual
+                    {annualPrice.toLocaleString("es-ES")} €/año
                   </span>
                 </div>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                    Locales
-                  </div>
-                  <div className="text-sm font-medium">
-                    {locals}
-                    {p.unlimited && locals >= 50 ? "+" : ""}
-                  </div>
-                </div>
-                <Slider
-                  value={[locals]}
-                  min={1}
-                  max={p.unlimited ? 50 : p.maxLocals}
-                  step={1}
-                  onValueChange={(v) => setLocals(v[0])}
-                  aria-label="Número de locales"
-                />
-                <div className="mt-2 flex justify-between text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
-                  <span>1</span>
-                  <span>
-                    {p.unlimited ? "50+" : p.maxLocals}
-                  </span>
-                </div>
-                {!p.unlimited && locals > p.maxLocals && (
-                  <div className="mt-2 text-[11px] text-amber-300">
-                    {p.name} admite hasta {p.maxLocals} local
-                    {p.maxLocals > 1 ? "es" : ""}. Sube a Pro/Enterprise para
-                    más.
+                {annual && savings > 0 && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 self-start rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2.5 py-0.5 text-[10px] text-[var(--teal)]">
+                    <Check className="h-3 w-3" aria-hidden />
+                    Ahorras {savings.toLocaleString("es-ES")} €/año
                   </div>
                 )}
-              </div>
-            </div>
 
-            {/* Price display */}
-            <div className="rp-glass rounded-2xl p-6 flex flex-col">
-              <div className="flex items-center justify-between">
-                <div className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
-                  {p.name} · {annual ? "anual" : "mensual"}
+                {/* CTA */}
+                <Button
+                  size="lg"
+                  onClick={() => onCta(k)}
+                  className={cn(
+                    "mt-6 w-full justify-center",
+                    isEnterprise
+                      ? "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+                      : "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black",
+                  )}
+                >
+                  {isEnterprise ? "Hablar con ventas" : `Crear cuenta ${p.name}`}
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+
+                {/* Features list */}
+                <div className="mt-6">
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-3">
+                    Incluye:
+                  </div>
+                  <ul className="space-y-2.5">
+                    {p.features.map((f) => (
+                      <li
+                        key={f}
+                        className="flex items-start gap-2.5 text-sm text-foreground/90"
+                      >
+                        <Check
+                          className="h-4 w-4 text-[var(--teal)] mt-0.5 shrink-0"
+                          aria-hidden
+                        />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
-                <DemoBadge />
-              </div>
-              <div className="mt-4 flex items-baseline gap-2">
-                <span className="font-display text-5xl sm:text-6xl font-light rp-gold-text">
-                  {price.toLocaleString("es-ES")}
-                </span>
-                <span className="text-lg text-muted-foreground">€</span>
-                <span className="text-sm text-muted-foreground">/ {period}</span>
-              </div>
 
-              {annual && savings > 0 && (
-                <div className="mt-3 inline-flex items-center gap-2 self-start rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-3 py-1 text-xs text-[var(--teal)]">
-                  <Check className="h-3.5 w-3.5" aria-hidden />
-                  Ahorras {savings.toLocaleString("es-ES")} €/año
-                </div>
-              )}
-
-              <ul className="mt-5 space-y-2 text-sm text-foreground/85 flex-1">
-                <PriceLine
-                  label={`Locales`}
-                  value={p.unlimited ? `${locals}${locals >= 50 ? "+" : ""} (escala)` : `${locals} de ${p.maxLocals}`}
-                />
-                <PriceLine
-                  label="Usuarios incluidos"
-                  value={p.unlimited ? "Ilimitados" : `${p.baseUsers}`}
-                />
-                <PriceLine
-                  label="Módulos"
-                  value={isEnterprise ? "Todos (11)" : plan === "pro" ? "10 de 11" : "8 de 11"}
-                />
-                <PriceLine
-                  label="Soporte"
-                  value={isEnterprise ? "CSM dedicado + SLA" : plan === "pro" ? "Chat prioritario" : "Email"}
-                />
-              </ul>
-
-              <Button
-                size="lg"
-                onClick={onCta}
-                className={cn(
-                  "mt-6 w-full justify-center",
-                  isEnterprise
-                    ? "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
-                    : "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] hover:text-black",
-                )}
-              >
-                {cta}
-                <ArrowRight className="h-4 w-4" aria-hidden />
-              </Button>
-              <p className="mt-2 text-center text-[11px] text-muted-foreground">
-                {isEnterprise
-                  ? "Un especialista diseña la propuesta a tu medida."
-                  : "Sin permanencia. Cancela cuando quieras."}
-              </p>
-            </div>
-          </div>
+                <p className="mt-6 pt-5 border-t border-border/40 text-center text-[11px] text-muted-foreground">
+                  {isEnterprise
+                    ? "Un especialista diseña la propuesta a tu medida."
+                    : "Sin permanencia. Cancela cuando quieras."}
+                </p>
+              </article>
+            );
+          })}
         </div>
 
         {/* Comparison table */}
-        <div className="mt-10 rp-glass rounded-2xl overflow-hidden">
+        <div className="mt-12 rp-glass rounded-2xl overflow-hidden">
           <div className="overflow-x-auto rp-scroll-thin">
             <table className="w-full text-sm min-w-[640px]">
               <thead>
@@ -2162,7 +2129,7 @@ function Pricing() {
                     Starter
                   </th>
                   <th className="px-5 py-4 text-left text-[11px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
-                    Pro · popular
+                    Professional · popular
                   </th>
                   <th className="px-5 py-4 text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
                     Enterprise
@@ -2177,7 +2144,7 @@ function Pricing() {
                   >
                     <td className="px-5 py-3 font-medium">{row.feature}</td>
                     <Cell value={row.starter} />
-                    <Cell value={row.pro} highlight />
+                    <Cell value={row.professional} highlight />
                     <Cell value={row.enterprise} />
                   </tr>
                 ))}
@@ -2187,15 +2154,6 @@ function Pricing() {
         </div>
       </div>
     </section>
-  );
-}
-
-function PriceLine({ label, value }: { label: string; value: string }) {
-  return (
-    <li className="flex items-center justify-between gap-3">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </li>
   );
 }
 

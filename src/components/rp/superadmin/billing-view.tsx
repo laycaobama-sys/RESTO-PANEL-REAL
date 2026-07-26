@@ -81,12 +81,12 @@ const INVOICES: {
   id: string; date: string; number: string; amount: number;
   status: InvoiceStatus;
 }[] = [
-  { id: "i1", date: "2025-07-01", number: "RP-2025-0007", amount: 149, status: "paid" },
-  { id: "i2", date: "2025-06-01", number: "RP-2025-0006", amount: 149, status: "paid" },
-  { id: "i3", date: "2025-05-01", number: "RP-2025-0005", amount: 149, status: "paid" },
-  { id: "i4", date: "2025-04-01", number: "RP-2025-0004", amount: 149, status: "failed" },
-  { id: "i5", date: "2025-03-01", number: "RP-2025-0003", amount: 149, status: "paid" },
-  { id: "i6", date: "2025-08-01", number: "RP-2025-0008", amount: 149, status: "pending" },
+  { id: "i1", date: "2025-07-01", number: "RP-2025-0007", amount: 99, status: "paid" },
+  { id: "i2", date: "2025-06-01", number: "RP-2025-0006", amount: 99, status: "paid" },
+  { id: "i3", date: "2025-05-01", number: "RP-2025-0005", amount: 99, status: "paid" },
+  { id: "i4", date: "2025-04-01", number: "RP-2025-0004", amount: 99, status: "failed" },
+  { id: "i5", date: "2025-03-01", number: "RP-2025-0003", amount: 99, status: "paid" },
+  { id: "i6", date: "2025-08-01", number: "RP-2025-0008", amount: 99, status: "pending" },
 ];
 
 function InvoiceStatusPill({ status }: { status: InvoiceStatus }) {
@@ -104,9 +104,55 @@ function InvoiceStatusPill({ status }: { status: InvoiceStatus }) {
 
 /* ---------------- pricing dialog ---------------- */
 const PLANS = [
-  { id: "starter", name: "Starter", price: 49, features: ["1 local", "1.000 reservas/mes", "CRM básico", "Email transaccional"], current: false },
-  { id: "professional", name: "Professional", price: 149, features: ["5 locales", "10 usuarios", "5.000 reservas/mes", "IA incluida (2k cr)", "WhatsApp + Reviews"], current: true },
-  { id: "enterprise", name: "Enterprise", price: 499, features: ["Locales ilimitados", "Usuarios ilimitados", "Reservas ilimitadas", "IA avanzada + SSO", "Soporte 24/7 + SLA"], current: false },
+  {
+    id: "starter",
+    name: "Starter",
+    price: 49,
+    annual: 470,
+    features: [
+      "SLA 99.5%",
+      "Backups diarios",
+      "Infraestructura compartida",
+      "Monitorización básica",
+      "Soporte estándar",
+    ],
+    current: false,
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    price: 99,
+    annual: 950,
+    features: [
+      "SLA 99.9%",
+      "Backups cada hora",
+      "Mayor prioridad de procesamiento",
+      "Analítica avanzada",
+      "Monitorización avanzada",
+      "Prioridad en Workers",
+      "Soporte prioritario",
+    ],
+    current: true,
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    price: 249,
+    annual: 2390,
+    features: [
+      "SLA 99.99%",
+      "Infraestructura dedicada",
+      "Multi región activa",
+      "Failover automático",
+      "IA dedicada",
+      "Soporte 24/7",
+      "Arquitecto técnico asignado",
+      "Account Manager",
+      "Auditorías de rendimiento",
+      "Escalado personalizado",
+    ],
+    current: false,
+  },
 ];
 
 /* ---------------- main view ---------------- */
@@ -174,8 +220,8 @@ export function BillingView() {
               <p className="text-xs text-muted-foreground mt-1">5 locales · 10 usuarios · IA incluida</p>
             </div>
             <div className="text-right">
-              <div className="font-display text-3xl font-light rp-gold-text">149€<span className="text-sm text-muted-foreground font-sans">/mes</span></div>
-              <div className="text-[11px] text-muted-foreground">+ IVA</div>
+              <div className="font-display text-3xl font-light rp-gold-text">99€<span className="text-sm text-muted-foreground font-sans">/mes</span></div>
+              <div className="text-[11px] text-muted-foreground">950 €/año · + IVA</div>
             </div>
           </div>
           <Separator className="my-3 bg-border/40" />
@@ -318,6 +364,7 @@ export function BillingView() {
                   )}
                   <div className="font-display text-lg font-medium">{p.name}</div>
                   <div className="mt-1 font-display text-2xl font-light rp-gold-text">{p.price}€<span className="text-xs text-muted-foreground font-sans">/mes</span></div>
+                  <div className="text-[10px] text-muted-foreground mt-0.5">{p.annual.toLocaleString("es-ES")} €/año</div>
                   <ul className="mt-3 space-y-1.5">
                     {p.features.map((f) => (
                       <li key={f} className="flex gap-1.5 text-xs text-muted-foreground">
