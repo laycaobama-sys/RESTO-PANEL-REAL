@@ -3018,3 +3018,221 @@ Stage Summary:
 - Exports: `AutopilotView`, `ChannelsView`, `PreinstalledAutomationsView`.
 - Todos siguen el patrón `reservas-view.tsx` con paleta `var(--rp-*)` emerald/yellow/blue/red/violet.
 - Lint limpio + TypeScript sin errores en los 3 archivos.
+
+---
+
+## Task: PROD-INFRASTRUCTURE — Real backend infrastructure services
+
+**Agent**: sub-agent (general-purpose) · **Task ID**: PROD-INFRASTRUCTURE
+
+Contexto: Leí `worklog.md` (últimas 60 líneas) — fase anterior entregó componentes UI `AutopilotView`, `ChannelsView`, `PreinstalledAutomationsView` con lint limpio. Esta fase construye la capa de servicios real (Stripe / AI / Email / Cloudflare) usando las API keys de `.env` (gitignored).
+
+### Dependencias instaladas
+- `stripe@22.4.0` y `resend@6.18.1` vía `bun add stripe resend` (ya estaba `z-ai-web-dev-sdk@0.0.18` para GLM).
+
+### Archivo 1: `src/lib/services/stripe.ts` (export `getStripe`, `PLANS`, `PlanKey`, `createCheckoutSession`, `handleWebhook`, `createBillingPortalSession`, `findCustomerByEmail`)
+- Lazy init: `let stripeInstance: Stripe | null = null` + `getStripe()` que lanza `Error("STRIPE_SECRET_KEY not configured")` si no hay key.
+- `PLANS` con los 6 planes (Starter/Professional/Enterprise × monthly/annual) en céntimos EUR, `as const`.
+- `createCheckoutSession(params)`: usa `findOrCreatePrice(planKey, email)` con cache `Map<string, Stripe.Price>` para idempotencia — no recrea el mismo price para el mismo par plan+email dentro del proceso. Crea sesión `mode: "subscription"`, `payment_method_types: ["card"]`, `customer_email`, `line_items: [{ price, quantity: 1 }]`, `metadata: { plan }`.
+- `handleWebhook(rawBody, signature)`: usa `STRIPE_WEBHOOK_SECRET` y `stripe.webhooks.constructEvent`. Switch sobre `event.type`: `checkout.session.completed` (provision si `metadata.plan` + `session.customer` presentes), `customer.subscription.updated` (update_entitlements), `customer.subscription.deleted` (downgrade_to_starter), `invoice.payment_failed` (mark_past_due). Retorna `{ received: true, type, eventId, action? }`.
+- `createBillingPortalSession(customerId, returnUrl)` y helper `findCustomerByEmail(email)` para idempotencia de customers.
+
+### Archivo 2: `src/lib/services/ai-provider.ts` (export `callAI`, tipos `AIRequest`, `AIResponse`)
+- Fallback chain: GLM → Qwen → Google AI. `resolveProviders()` filtra sólo los que tienen su env key (`GLM_API_KEY`, `QWEN_API_KEY`, `GOOGLE_AI_API_KEY`). Si no hay ninguno lanza `Error("No AI providers configured")`.
+- `callAI(req)`: itera providers, captura errores en `errors[]` (con message del Error o `String(err)`), prueba siguiente, lanza `Error("All AI providers failed — glm: ... | qwen: ...")` si todos fallan.
+- `callGLM`: usa `await import("z-ai-web-dev-sdk")` (lazy para no romper startup), `ZAI.create()`, sistema+mensajes con `context` opcional, `max_tokens`, `temperature`, `thinking: { type: "disabled" }`. Lee response con `choices[0].message.content` y `usage.total_tokens`.
+- `callQwen`: POST a `dashscope.aliyuncs.com/.../text-generation/generation`, model `qwen-turbo`, headers `Authorization: Bearer ${apiKey}`. Tipado `QwenResponse` con `output.text` y `usage.total_tokens`. Lanza errores HTTP y de API (`code`/`message`).
+- `callGoogleAI`: POST a `generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`, body con `contents[{parts:[{text}]}]` y `generationConfig`. Tipado `GoogleAIResponse` con `candidates[0].content.parts[0].text` y `usageMetadata.totalTokenCount`.
+- Tipado estricto: interfaces `ZAIChatCompletionResponse`, `ZAISDK`, `ZAIModule`, `QwenResponse`, `GoogleAIResponse`. `ConfiguredProvider = ProviderDef & { key: string }` con type guard en `.filter()`.
+- `cost: 0` placeholder en todas las responses (cálculo de coste pendiente de integración con tabla de pricing).
+
+### Archivo 3: `src/lib/services/email.ts` (export `getResend`, `sendWelcomeEmail`, `sendPasswordReset`, `sendInvoiceEmail`, `sendReservationConfirmation`, tipo `ReservationDetails`)
+- Lazy init: `getResend()` lanza `Error("RESEND_API_KEY not configured")` si falta.
+- `FROM_DOMAIN` configurable vía `RESEND_FROM_DOMAIN` (default `restopanel.com`), `APP_URL` desde `NEXT_PUBLIC_APP_URL`.
+- Helper interno `send({to, subject, html})` que envuelve `resend.emails.send`, lanza `Error("Resend error: ${error.message}")` si hay error, retorna `{ id: result.data.id }`.
+- `sendWelcomeEmail(to, restaurantName)`: HTML con h1 emerald `#10B981`, botón "Ir al panel", escape HTML.
+- `sendPasswordReset(to, resetLink)`: botón "Restablecer contraseña" + disclaimer expiración 60min.
+- `sendInvoiceEmail(to, invoiceUrl)`: botón "Ver factura".
+- `sendReservationConfirmation(to, details: ReservationDetails)`: tipo estructurado `ReservationDetails` (`restaurantName`, `guestName`, `date`, `time`, `partySize`, `zone?`) — sin `any`. Lista `<ul>` con datos, opcional zona.
+- `escapeHtml(input)` interno previene XSS en valores interpolados (restaurantName, guestName, etc.).
+
+### Archivo 4: `src/lib/services/cloudflare.ts` (export `createD1Database`, `createKVNamespace`, `createR2Bucket`, `deployWorker`)
+- Sin SDK externo — usa REST API `https://api.cloudflare.com/client/v4` con `fetch`.
+- `authHeaders()` lanza `Error("CLOUDFLARE_API_TOKEN not configured")` si falta. `requireAccountId()` lanza `Error("CLOUDFLARE_ACCOUNT_ID not configured")`.
+- `cfRequest<T>(path, init)`: wrapper genérico con `Authorization: Bearer ${token}`, valida `response.ok` y `data.success`, lanza `Error("Cloudflare API error at ${path} — ${code}: ${message}")`.
+- `createD1Database(name)`: POST `/accounts/${id}/d1/database`, retorna `{ uuid, name, created_at }`.
+- `createKVNamespace(title)`: POST `/accounts/${id}/storage/kv/namespaces`, retorna `{ id, title }`.
+- `createR2Bucket(name)`: POST `/accounts/${id}/r2/buckets` con `locationHint: "eu-central-1"`, retorna `{ name, creation_date }`.
+- `deployWorker(name, script)`: PUT `/accounts/${id}/workers/scripts/${name}` con `FormData` (metadata `main_module: "worker.mjs"` + `compatibility_date` de hoy, body Blob `application/javascript+module`). Sin multipart bindings todavía (deprecado a `bindings` vía metadata — pendiente).
+
+### Archivo 5: `src/app/api/stripe/webhook/route.ts`
+- POST handler. Lee `await req.text()` (raw body) y `req.headers.get("stripe-signature")`. Llama `handleWebhook(body, sig)`. En catch retorna 400 `{ error: "Webhook failed" }` y loggea `[stripe/webhook] error: ${msg}`.
+
+### Archivo 6: `src/app/api/stripe/checkout/route.ts`
+- POST handler. Valida JSON body con `isPlanKey(planKey)` (hasOwnProperty check sobre `PLANS`) y email regex. `successUrl` y `cancelUrl` construidos desde `NEXT_PUBLIC_APP_URL`. Retorna `{ url: session.url, id: session.id }`. Validación robusta con errores 400 (invalid JSON, invalid planKey, invalid email) y 502 si no hay URL.
+
+### Archivo 7: `src/app/api/ai/chat/route.ts`
+- POST handler. Validación de `prompt` (string no vacío), `context` (string opcional), `maxTokens` (número positivo), `temperature` (0-2). Llama `callAI({prompt, context, maxTokens, temperature})`. Errores 400 validación, 502 si `callAI` falla.
+
+### Archivo 8: `src/app/api/email/send/route.ts`
+- POST handler. Tipos `EmailType = "welcome" | "password_reset" | "invoice" | "reservation_confirmation"`. `isEmail()` validator. Switch sobre `type` validando campos requeridos de `data` en cada rama:
+  - welcome → `restaurantName: string`
+  - password_reset → `resetLink: string`
+  - invoice → `invoiceUrl: string`
+  - reservation_confirmation → `{restaurantName, guestName, date, time, partySize: number, zone?: string}` con tipo `ReservationDetails` importado del service.
+- Errores 400 validación, 502 si `Resend` falla, éxito `{ success: true, id }`.
+
+### Constraints cumplidos
+- TypeScript estricto: 0 errores en los 9 archivos nuevos (`bunx tsc --noEmit --skipLibCheck` muestra 77 errores pre-existentes en reservas/executive/marketing/superadmin, ninguno en services/ ni api/stripe|ai|email).
+- Cero `any` en servicios (el `CreateChatCompletionBody` del SDK lleva `[key: string]: any` pero está fuera de mi scope).
+- Todas las keys desde `process.env` — nunca hardcoded. .env está en `.gitignore`.
+- Server-side only — ningún `"use client"`. Lazy init para no romper el startup si una key falta.
+- Error handling consistente: try/catch con `err instanceof Error ? err.message : String(err)` y `console.error` con prefijo `[module/sub]`.
+- Idempotencia: `priceCache` en stripe.ts (no recrea price por plan+email), `findCustomerByEmail` para customers, type guards en `.filter()`.
+- Validación de entrada en los 4 route handlers (JSON parsing, type guards, regex email, rango numérico temperature).
+
+### Lint + TypeScript
+- `bun run lint` → 0 errores, 0 warnings (sólo warning pre-existente `MODULE_TYPELESS_PACKAGE_JSON` en eslint.config.js, no relacionado).
+- `bunx tsc --noEmit --skipLibCheck` → 0 errores en los 9 archivos nuevos.
+
+### Stage Summary
+- 9 archivos creados: `src/lib/services/{stripe,ai-provider,email,cloudflare}.ts` + `src/app/api/{stripe/webhook,stripe/checkout,ai/chat,email/send}/route.ts`.
+- 2 dependencias instaladas: `stripe@22.4.0`, `resend@6.18.1`.
+- Cobertura: Stripe (checkout, webhook, billing portal), AI multi-provider (GLM/Qwen/Google con fallback), Email (4 plantillas), Cloudflare (D1/KV/R2/Workers REST).
+- Pendiente de integración: los route handlers existen pero aún no son llamados desde componentes UI (pricing page → checkout button, AI chat → copilot, etc.). La capa de base de datos (Prisma) para provisionar tenants en `checkout.session.completed` no está cableada — `action` strings son placeholder para que el integrador haga dispatch.
+
+---
+
+---
+Task ID: MOBILE-PDA-FICHAJE
+Agent: general-purpose
+Task: Crear interfaz mobile-first PDA + Fichaje para camareros (PWA-style) en `src/components/rp/mobile-pda/mobile-pda-view.tsx` exportando `MobilePdaView`.
+
+Work Log:
+- Leí worklog.md previo: proyecto Next.js 16 + shadcn/ui + Tailwind v4, dark theme, verde esmeralda accent #10B981 (`--rp-emerald`), tokens `--rp-emerald/yellow/blue/red/violet` + sufijos `-soft`. Patrón `pda-view.tsx` existente con PhoneFrame, motion + useReducedMotion, useToast solo en handlers. `useIsMobile` hook disponible.
+- Revisé `src/app/globals.css` (tokens, `rp-glass`, `rp-grid-bg`, `rp-scroll-thin`, `prefers-reduced-motion`), `src/hooks/use-toast.ts` (signature), `src/components/rp/app/nav-store.ts` (Section types), `src/components/rp/pda/pda-view.tsx` (patrones de mesas/productos/modifier dialog).
+- Creé carpeta `src/components/rp/mobile-pda/` y archivo `mobile-pda-view.tsx` (3090 líneas, export `MobilePdaView`).
+- **Diseño visual**: fondo navy `#0A0F0E`, targetas rounded-2xl (border 12px), touch targets min 44px (botones PIN 60px, bottom nav 44px+), tabular-nums en precios/timers/qty, color coding con `var(--rp-emerald/yellow/red/blue/violet)` y sufijos `-soft`.
+
+### Arquitectura del archivo
+- **Types**: `Screen` (login|mesas|carta|comanda|perfil), `FichajeMode` (entrada|salida), `MesaStatus` (libre|ocupada|reservada), `Category` (entrantes|principales|postres|bebidas), `ItemStatus` (enviado|preparacion|listo|servido), `Ronda` (entrante|principal|postre), `ProductTag` (popular|nuevo|vegano), `Employee`, `Mesa`, `Product`, `Modifier`, `OrderItem`, `KitchenNotification`, `ShiftDay`. Sin `any`.
+- **Constants**: `EMPLOYEES` (3 con PIN 1234/5678/9999 + ventas/propinas/ticket medio/turno/zona/avatarColor), `EMPLOYEE_BY_PIN` (Map), `INITIAL_MESAS` (6 mesas con estado mixto), `CATEGORIES` (4 con ronda mapping), `POINT_MODIFIERS` + `EXTRAS_MODIFIERS`, `PRODUCTS` (20 productos con tags y modifiers), `SHIFTS_WEEK` (7 días con `isToday`), `ITEM_STATUS_META`, `RONDA_META`, `MESA_STATUS_META`, `TAG_META` (todas con clases CSS tone-colored).
+- **Helpers**: `eur()` (es-ES), `uid()`, `fmtClock()`, `fmtShiftDuration()`, `fmtRelative()`, `maskPin()`.
+
+### Componentes principales
+- **PhoneShell**: container `max-w-md mx-auto` con status bar mock (Signal/Wifi/Battery + reloj) solo visible en desktop (md+), fondo `#0A0F0E`, en mobile fill viewport.
+- **HeroOverlay**: gradientes radiales emerald/amber + grid sutil + vignette, decorativo para login.
+- **HapticButton**: wrapper `motion.button` con `whileTap scale:0.94` + `useReducedMotion` opt-out.
+- **PinDots**: 4 dots con `motion.scale [1,1.25,1]` al llenarse.
+- **PinPad**: 12 botones (1-9, backspace, 0, vacío) h-60px, hover/active con `var(--rp-emerald)` feedback.
+- **BrandMark**: logo RestoPanel inline (cuadrado gradient emerald con icono Utensils + texto display).
+- **LoginScreen**:
+  - HeroOverlay de fondo.
+  - BrandMark + heading "Bienvenido".
+  - Tarjeta de reconocimiento de empleado (cuando PIN=4 dígitos válido) con avatar colored + check emerald.
+  - PinDots + PinPad.
+  - Toggle `Fichar entrada` (emerald) / `Fichar salida` (red) segmented control h-12.
+  - Botón confirmar h-14 con icono + label dinámico según modo + spinner mientras ficherando.
+  - Botones alternativos: Escanear QR + Face ID (h-12 cada uno).
+  - Card info: "Turno: 16:00 - 00:00 · Sala" + geolocalización "Estás en el restaurante ✓".
+  - Link "¿Olvidaste tu PIN?" al encargado.
+  - Hint de PINs de prueba cuando no hay entrada.
+- **TopBar**: avatar colored + nombre + reloj (`tabular-nums`) + shift timer (`fmtShiftDuration` en emerald-soft) + botones sonido + bell con contador notif (badge red si >0, BellRing si hay avisos).
+- **QuickStats**: 3 cards (Mis mesas / Pendientes yellow / Propinas emerald) con números `tabular-nums`.
+- **MesaCard**: card con número, capacity (pax + seats), status dot colored, timer min si ocupada, guest name si reservada. Long-press (500ms) revela 3 quick actions (Comanda/Cuenta/Cocina) con `AnimatePresence` + intento de `navigator.vibrate(30)`.
+- **DashboardScreen** (Mesas): TopBar + QuickStats + grid 2col de MesaCards + "Actualizar" con `RefreshCw` spinning + tip card emerald "Consejo del día".
+- **CartaScreen** (3-touch flow):
+  - Header con back button + mesa actual + search input.
+  - Category chips horizontal scroll (4 categorías, active emerald).
+  - Product grid 2col con `ProductCard`: aspect-[4/3] placeholder gradient + icono, tags (popular/nuevo/vegano badges con dot colored), precio emerald + botón "+" en círculo.
+  - Sticky CTA "Ver ticket" en bottom (entre contenido y bottom nav) mostrando líneas pendientes + total.
+- **ProductCard**: `motion.button whileTap scale:0.95`, image placeholder con icono + tags overlay.
+- **ModifierDialog**: dialog shadcn con grid 3col (radio si POINT_MODIFIERS, multi si EXTRAS) + Textarea nota de cocina + deshabilitado si obligatorio no seleccionado.
+- **OrderTicketSheet** (bottom sheet): AnimatePresence con backdrop + sheet `motion.div y:100%→0` spring. Handle visual + header (líneas/uds) + course selector "Próxima ronda" (entrante/principal/postre h-9 chips) + items grouped by ronda con `Separator` + footer total + "Enviar a cocina · N líneas".
+- **TicketRow**: nombre + modifiers + nota italic yellow + status badge + precio + qty stepper (−/+) solo si `enviado` + "Anular" + "Servir" si `listo` + ronda quick-change.
+- **ComandaScreen**: header con back + Avisos de cocina (push notifications cards con AnimatePresence) + Comandas activas grouped by mesa (cards con listado de items, status badges, "Servir" button si listo).
+- **NotificationCard**: `motion.div layout` con slide-in/out, icon CheckCircle2/AlertCircle/BellRing según type, tone border/bg, "Recoger" button, vibración indicator.
+- **ProfileScreen**: header con back + employee card (avatar + name + role + ID + PIN con show/hide Eye/EyeOff + pseudo-QR 7×3 grid) + Today's hours (entrada 16:02 + horas `fmtShiftDuration`) + Shift week mini-calendar (7 días con `isToday` highlighted emerald) + Performance card emerald (ventas/ticket medio/propinas) + Settings list (idioma, notificaciones, sonido, tema oscuro con Switch shadcn) + "Fichar salida" h-14 red.
+- **BottomNav**: sticky bottom con 4 tabs (Mesas/Carta/Comanda/Perfil), badge red en Comanda si hay notificaciones, `motion.div layoutId="bottom-nav-active"` para indicador animado.
+- **QrScanDialog**: viewport aspect-square con scan line animada (`motion top:10%↔90% repeat`) + corner brackets emerald + botón "Simular lectura" que dispara `handleQrScan` (setea PIN del primer empleado).
+- **FaceIdDialog**: 1.4s scan → success state con CheckCircle2 + Fingerprint pulsante mientras scanning.
+- **FichajeConfirmDialog**: dialog de confirmación con employee preview + botón color según modo (entrada emerald / salida red).
+
+### Lógica de estado (MobilePdaView)
+- **PIN logic**: `useEffect` sobre `pin` length 4 → lookup `EMPLOYEE_BY_PIN` → set recognizedEmployee o lastError + auto-clear after 800ms si inválido.
+- **Fichaje**: confirm dialog → 700ms spinner (`setFicherando`) → set employee + `shiftStartedAt = Date.now()` (entrada) o compute duration + toast + reset session (salida).
+- **Mesa open**: si libre → marca ocupada + pax=seats + toast. Auto-navigate a carta.
+- **Mesa action**: comanda → set mesa + go carta + open ticket; cuenta → toast con total items de la mesa; cocina → toast "Camarero llama a cocina".
+- **Refresh mesas**: 800ms spinner + bump occupiedMin +1 + toast.
+- **Product pick**: si no mesa seleccionada → toast destructive. Si product con modifiers → abre ModifierDialog. Sino → addItem directo.
+- **addItem**: dedupe por productId+mesaId+status=enviado+modifiers+note. Toast "Añadido al ticket" 1.2s.
+- **changeQty**: solo si status=enviado, filter qty>0.
+- **sendOrder**: filtra enviados → marca preparacion → toast "Comanda enviada" → setTimeout 6s marca primer item listo + push notification + `navigator.vibrate([80,40,80])` si soundOn.
+- **serveItem**: marca servido + toast.
+- **Notifications**: auto-dismiss 10s via `useEffect` con setTimeouts. Seed demo notification 5s después de login (mesa 3 entrante listo).
+- **Bell**: si sin avisos → toast "Sin avisos"; si hay → navigate a comanda.
+- **Settings toggles**: sound/notifications/darkTheme + sincroniza `soundOn` con `settings.sound`.
+- **Navigate**: si "carta" y no mesa seleccionada → auto-selecciona primera ocupada.
+
+### Tech stack usado
+- TypeScript estricto sin `any` (todos los types inline).
+- `"use client"` en top. `useToast` solo en event handlers.
+- shadcn/ui: Button, Badge, Input, Switch, Label, Textarea, Separator, Dialog (DialogContent/Header/Title/Description/Footer).
+- Framer Motion: `motion.div/button`, `AnimatePresence mode="wait"` para transiciones de screen (fade + slide x/y 12px, duration 0.22 easeOut), `useReducedMotion` opt-out (initial:false en motion), `layout` y `layoutId` para bottom nav indicator.
+- Tailwind v4 + `rp-grid-bg` + `rp-scroll-thin` + custom `#0A0F0E` dark navy bg.
+- `navigator.vibrate` guarded con try/catch + type assertion `Navigator & { vibrate }`.
+- CSS vars: `var(--rp-emerald/yellow/blue/red/violet)` + `-soft` + `-deep` para textos/borders/bg con opacidad (`/8`, `/10`, `/15`).
+- Helpers `eur()`, `uid()`, `fmtClock()`, `fmtShiftDuration()`, `fmtRelative()`, `maskPin()`.
+- Responsive: `max-w-md mx-auto`, breakpoint `md:` para chrome desktop (rounded border + status bar mock), mobile fill viewport. Todos los targets táctiles ≥44px (botones 60px en PIN pad, 56px en CTAs principales).
+
+### Lint + TypeScript
+- `bunx eslint src/components/rp/mobile-pda/mobile-pda-view.tsx` → 0 errores, 0 warnings.
+- `bunx tsc --noEmit --skipLibCheck` → 0 errores en el archivo (errores pre-existentes en otros archivos no relacionados).
+- `bun run lint` (global) → 0 errores (solo warning pre-existente `MODULE_TYPELESS_PACKAGE_JSON`).
+- Limpieza de imports: removidos 8 iconos lucide-react sin uso (ChevronLeft, Settings, Smartphone, Globe, Leaf, Star, Hand, Printer) tras verificación con `rg`.
+
+Stage Summary:
+- 1 archivo creado en nueva carpeta `src/components/rp/mobile-pda/mobile-pda-view.tsx` (3090 líneas).
+- Export: `MobilePdaView` (sin parámetros, autónomo).
+- 5 pantallas: Login/Fichaje → Mesas (dashboard) → Carta (3-touch flow) → Comanda (kitchen notifications + active orders) → Perfil.
+- Flujo completo: PIN pad 4 dígitos → reconocimiento empleado → fichaje entrada/salida con confirmación → dashboard con mesas + long-press quick actions → carta con categories + products + ticket bottom sheet → enviar comanda → simulación cocina "listo" a los 6s con push notification + vibración → comanda screen con avisos auto-dismiss 10s → perfil con performance + fichar salida.
+- Alt auth mocks: QR scanner con scan line animada + Face ID con 1.4s scan + success state.
+- Patrones de diseño mobile-first respetados: dark navy `#0A0F0E`, cards rounded-2xl, touch targets 60px (PIN) / 56px (CTA) / 44px+ (nav), `tabular-nums` en todos los precios/timers/qty, color-coded status (emerald/yellow/red/blue/violet), bottom sheet con `motion.y:100%→0` spring, sticky bottom nav con `layoutId` para indicador animado, `useReducedMotion` respetado en todas las animaciones.
+- Lint limpio + TypeScript sin errores en el archivo.
+- Pendiente de integración: `MobilePdaView` no está cableado en `app-shell.tsx`/`nav-store.ts` (no se añadió entrada al NAV ni a la union `Section`). Para activarlo en el shell, añadir `"mobile-pda"` a `Section` en `src/components/rp/app/nav-store.ts` + entrada en `NAV` array de `app-shell.tsx` + case en el switch de render. El componente es autónomo y se puede renderizar directamente en cualquier ruta.
+
+---
+Task ID: PROD-SCHEMA-AUDIT
+Agent: sub-agent (general-purpose)
+Task: Replace placeholder Prisma schema with a complete production schema for RestoPanel and audit the existing codebase.
+
+Work Log:
+- Read last 60 lines of worklog.md for context (project is a single-route SPA demo with 41 lazy sections, ~169 tsx files in rp/, no real backend, simulated client-side auth).
+- Replaced `prisma/schema.prisma` (was 32 lines: only `User` + `Post` tutorial models) with a 1268-line production schema containing **51 models** across Control Plane (Organization, Brand, Venue, Member, Role, Permission, RolePermission, MemberRole, Subscription, Plan, Feature, PlanFeature, EntitlementOverride, UsageCounter, Addon, SubscriptionAddon, Invoice, AuditEvent, OutboxEvent) and Data Plane (Zone, Table, Guest, Reservation, WaitlistEntry, Order, OrderItem, Ticket, Payment, CashSession, MenuItem, Category, ModifierGroup, Modifier, StockItem, Recipe, RecipeIngredient, Supplier, PurchaseOrder, Employee, Shift, TimeClock, LoyaltyProgram, LoyaltyStamp, Campaign, Review, Automation, AutomationRun, KdsStation, KdsTicket, Integration, Device).
+- Convention: IDs use `@id @default(cuid())`, timestamps use `@default(now())` / `@updatedAt`, money is `Int` cents (never Float), JSON columns fall back to `String` on SQLite, all FKs have explicit `onDelete` policy (Cascade / Restrict / SetNull), `@@unique` for composite uniqueness, `@@index` for frequently queried fields.
+- Initial validation failed (69 errors) because I used field-level `@index` (not a real Prisma attribute). Wrote a Python conversion script that rewrites every `field @index` into `@@index([field])` at model level, then deduplicated the resulting blocks. Final validation: `The schema at prisma/schema.prisma is valid 🚀`.
+- `bunx prisma generate` succeeded — Prisma Client v6.19.2 regenerated with all 51 models available to `@prisma/client`.
+- Verified no production code uses the old `User`/`Post` models: `src/lib/db.ts` only instantiates `PrismaClient` (model-agnostic); the single `prisma.reservation.findMany` occurrence is inside a string template in `access-gate-view.tsx` (documentation snippet, not executable).
+- TypeScript error count **unchanged** after the schema swap: 41 total (37 in `src/`, 2 in `examples/websocket/`, 2 in `skills/`) — confirms zero regressions.
+- `bun run lint` → 0 errors, 0 warnings (only the pre-existing `MODULE_TYPELESS_PACKAGE_JSON` warning about `eslint.config.js`).
+
+Audit Report (`/home/z/my-project/AUDIT-REPORT.md`):
+- 7 sections delivered as specified: Architecture, Code Quality, Security, Performance, Functional, Infrastructure, Recommendations.
+- Every figure verified by running real commands (no estimates). Numbers: 169 rp .tsx files, 49 ui .tsx files, 41 lazy sections, 57 Section-type declarations, 5 API routes, 4 service files, 51 Prisma models, 41 TS errors, 0 lint errors, 27 ESLint rules disabled.
+- Key findings:
+  - 🔴 Auth is **client-side only** — `LoginForm` accepts any email/password ≥6 chars, sets a Zustand state, no JWT/session. `next-auth` is installed but unconfigured.
+  - 🔴 `next.config.ts` has `typescript: { ignoreBuildErrors: true }` and `reactStrictMode: false` — broken typecheck ships to prod.
+  - 🔴 Zero CRUD API endpoints for the 51 data-plane models — the dashboard is a navigable demo.
+  - 🔴 9 user-facing sections have files but are not wired into the lazy map (`menu-engineering`, `baseline`, `onboarding-guided`, `hardware`, `staff-advanced`, `entitlements-engine`, `billing-portal`, `access-gate`, `nav-manifest`) — this is what makes `tsc` complain at `app-shell.tsx:1507`.
+  - 🟡 Real secrets exist in `.env` (gitignored), NOT in source. But `rg` over `worklog.md` shows the same keys were echoed in plaintext by earlier agents → **rotate Stripe / Resend / Qwen / Cloudflare keys**.
+  - 🟡 5 `dangerouslySetInnerHTML` usages — 3 safe (JSON.stringify for SEO JSON-LD), 1 low-risk (chart CSS), 1 medium-risk (`api-explorer.tsx:1179` rendering syntax-highlighted HTML — needs highlighter audit).
+  - 🟡 ESLint config disables 27 rules including `no-unused-vars`, `no-explicit-any`, `react-hooks/exhaustive-deps`, `no-console` — "lint clean" is misleading.
+  - 🟢 Real services exist: `stripe.ts` (153 lines), `email.ts` (155), `ai-provider.ts` (218, multi-provider with fallback), `cloudflare.ts` (193, D1/KV/R2/Workers management).
+  - 🟢 4 functional API routes: `stripe/checkout`, `stripe/webhook`, `ai/chat`, `email/send`.
+- Recommendations organized P0/P1/P2/P3 (27 items total) — top 6 P0s: implement real auth, flip `ignoreBuildErrors`, add tenant resolution middleware, wire orphaned sections, run `db:push` + first migration + seed, rotate exposed secrets.
+
+Stage Summary:
+- 1 file replaced: `prisma/schema.prisma` (32 lines → 1268 lines, 2 models → 51 models, validated + client generated).
+- 1 file created: `AUDIT-REPORT.md` (~340 lines, 7 sections + 3 appendices).
+- 0 lint errors introduced. 0 TypeScript regressions. `bunx prisma validate` ✅. `bunx prisma generate` ✅. `bun run lint` ✅.
+- Deliberately out of scope (flagged in audit §C): fixing the 37 pre-existing TS errors, re-enabling ESLint rules, wiring the 9 orphaned sections, implementing real auth, rotating secrets, running `db:push` — these are operator next-actions per the P0 list.

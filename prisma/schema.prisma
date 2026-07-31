@@ -1,8 +1,11 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// ============================================================================
+// RestoPanel — Production Prisma Schema
+// ----------------------------------------------------------------------------
+// Multi-tenant restaurant SaaS. Tenant model: Organization → Brand → Venue.
+// Storage: SQLite (dev) / PostgreSQL (prod). Schema written to be portable
+// across both providers. Money is always stored in minor units (Int cents)
+// — never Float. JSON columns fall back to String on SQLite.
+// ============================================================================
 
 generator client {
   provider = "prisma-client-js"
@@ -13,20 +16,1253 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ============================================================================
+// CONTROL PLANE — global multi-tenant, billing, IAM, audit, event-sourcing
+// ============================================================================
+
+// --- Tenancy ---------------------------------------------------------------
+
+/// Top-level tenant account. Owns brands, venues, members and subscriptions.
+model Organization {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  legalName     String?
+  taxId         String? // CIF / VAT / RFC
+  country       String? // ISO-3166-1 alpha-2
+  defaultLocale String    @default("es-ES")
+  timezone      String    @default("Europe/Madrid")
+  currency      String    @default("EUR")
+  status        String    @default("trialing") // trialing|active|past_due|canceled|suspended
+  trialEndsAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  brands        Brand[]
+  members       Member[]
+  subscription  Subscription?
+  usageCounters UsageCounter[]
+  auditEvents   AuditEvent[]
+  outboxEvents  OutboxEvent[]
+  invoices      Invoice[]
+  addons        SubscriptionAddon[]
+  entitlements  EntitlementOverride[]
+  roles         Role[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
-model Post {
+/// Brand / marca inside an org (e.g. "Ramses", "Tagliatella"). Owns venues.
+model Brand {
+  id             String   @id @default(cuid())
+  organizationId String
+  slug           String   @unique
+  name           String
+  logoUrl        String?
+  primaryColor   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  venues       Venue[]
+
+  @@index([organizationId])
+}
+
+/// Physical venue / local. All data-plane records are scoped to a venue.
+model Venue {
+  id               String   @id @default(cuid())
+  brandId          String
+  slug             String   @unique
+  name             String
+  legalName        String?
+  addressLine1     String?
+  addressLine2     String?
+  city             String?
+  postalCode       String?
+  country          String?
+  latitude         Float?
+  longitude        Float?
+  phone            String?
+  email            String?
+  timezone         String   @default("Europe/Madrid")
+  currency         String   @default("EUR")
+  defaultLocale    String   @default("es-ES")
+  taxRate          Float    @default(0) // VAT rate applied by default (e.g. 0.10)
+  serviceChargePct Float    @default(0)
+  status           String   @default("active") // active|paused|closed
+  settings         String? // JSON blob: openingHours, floor config, etc.
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  brand           Brand            @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  zones           Zone[]
+  tables          Table[]
+  guests          Guest[]
+  reservations    Reservation[]
+  waitlist        WaitlistEntry[]
+  orders          Order[]
+  tickets         Ticket[]
+  payments        Payment[]
+  cashSessions    CashSession[]
+  menuItems       MenuItem[]
+  categories      Category[]
+  modifierGroups  ModifierGroup[]
+  stockItems      StockItem[]
+  suppliers       Supplier[]
+  purchaseOrders  PurchaseOrder[]
+  employees       Employee[]
+  shifts          Shift[]
+  timeClocks      TimeClock[]
+  loyaltyPrograms LoyaltyProgram[]
+  campaigns       Campaign[]
+  reviews         Review[]
+  automations     Automation[]
+  kdsStations     KdsStation[]
+  kdsTickets      KdsTicket[]
+  integrations    Integration[]
+  devices         Device[]
+  memberRoles     MemberRole[]
+  loyaltyStamps   LoyaltyStamp[]
+
+  @@index([brandId])
+  @@index([status])
+}
+
+// --- IAM: members, roles, permissions --------------------------------------
+
+/// Person with access to one or more organizations (org-level user).
+model Member {
+  id              String    @id @default(cuid())
+  organizationId  String
+  email           String
+  name            String?
+  hashedPassword  String? // argon2id hash (null = SSO / magic link only)
+  avatarUrl       String?
+  locale          String    @default("es-ES")
+  status          String    @default("active") // active|invited|disabled
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+  mfaSecret       String? // TOTP secret, encrypted at rest
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberRoles  MemberRole[]
+  auditEvents  AuditEvent[]
+
+  @@unique([organizationId, email])
+  @@index([organizationId])
+  @@index([email])
+  @@index([status])
+}
+
+/// Role definition (e.g. "Owner", "Manager", "Floor", "Chef", "Cashier").
+model Role {
+  id             String   @id @default(cuid())
+  organizationId String
+  key            String // owner|manager|floor|chef|cashier|custom
+  name           String
+  description    String?
+  isSystem       Boolean  @default(false) // true for built-in roles
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  memberRoles     MemberRole[]
+
+  @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+/// Catalog of 60+ permissions (e.g. "reservations.write", "billing.read").
+model Permission {
+  id          String   @id @default(cuid())
+  key         String   @unique // reservations.read, tickets.refund, billing.write…
+  group       String // reservations | pos | crm | inventory | billing | iam | saas | ai | automation | kds
+  description String?
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+}
+
+/// Many-to-many between Role and Permission.
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Restrict)
+
+  @@unique([roleId, permissionId])
+  @@index([permissionId])
+  @@index([roleId])
+}
+
+/// Assignment of a Member to a (Venue, Role) tuple. A member can have
+/// different roles across venues of the same org.
+model MemberRole {
+  id                String   @id @default(cuid())
+  memberId          String
+  venueId           String? // null = org-wide role
+  roleId            String
+  createdAt         DateTime @default(now())
+  createdByMemberId String?
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  venue  Venue? @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, venueId, roleId])
+  @@index([roleId])
+  @@index([memberId])
+  @@index([venueId])
+}
+
+// --- Billing: plans, features, entitlements, usage -------------------------
+
+/// Subscription plan definition (Starter / Professional / Enterprise).
+model Plan {
+  id           String   @id @default(cuid())
+  key          String   @unique // starter | professional | enterprise
+  name         String
+  description  String?
+  priceMonthly Int // cents, EUR
+  priceAnnual  Int // cents, EUR
+  trialDays    Int      @default(14)
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions Subscription[]
+  planFeatures  PlanFeature[]
+}
+
+/// Feature flag catalog used by the entitlements engine.
+model Feature {
+  id          String   @id @default(cuid())
+  key         String   @unique // max_venues, ai_copilot, kds_stations, etc.
+  group       String // billing | ai | ops | integrations | kds | crm
+  name        String
+  description String?
+  valueType   String   @default("boolean") // boolean | numeric | tier
+  createdAt   DateTime @default(now())
+
+  planFeatures PlanFeature[]
+  entitlements EntitlementOverride[]
+}
+
+/// Plan × Feature matrix (e.g. Starter → max_venues=1, Enterprise → unlimited).
+model PlanFeature {
   id        String   @id @default(cuid())
-  title     String
-  content   String?
-  published Boolean  @default(false)
-  authorId  String
+  planId    String
+  featureId String
+  valueBool Boolean?
+  valueNum  Int?
+  valueStr  String?
+  createdAt DateTime @default(now())
+
+  plan    Plan    @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, featureId])
+  @@index([featureId])
+  @@index([planId])
+}
+
+/// Enterprise override for an org's entitlement (custom trato).
+model EntitlementOverride {
+  id             String    @id @default(cuid())
+  organizationId String
+  featureId      String
+  valueBool      Boolean?
+  valueNum       Int?
+  valueStr       String?
+  notes          String?
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  feature      Feature      @relation(fields: [featureId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, featureId])
+  @@index([featureId])
+  @@index([organizationId])
+}
+
+/// Org subscription (1:1 with Organization). Tied to Stripe customer/subscription.
+model Subscription {
+  id                   String    @id @default(cuid())
+  organizationId       String    @unique
+  planId               String
+  status               String    @default("trialing") // trialing|active|past_due|canceled|ended
+  interval             String    @default("month") // month | year
+  quantity             Int       @default(1) // number of venues seats
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+  canceledAt           DateTime?
+  trialEndsAt          DateTime?
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  stripePriceId        String?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan               Plan                @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscriptionAddons SubscriptionAddon[]
+
+  @@index([planId])
+  @@index([status])
+}
+
+/// Counter for usage-based entitlements (e.g. monthly AI tokens, SMS sent).
+model UsageCounter {
+  id             String   @id @default(cuid())
+  organizationId String
+  featureKey     String // e.g. "ai_tokens", "sms_sent", "reservations_created"
+  period         String // YYYY-MM (month bucket)
+  count          Int      @default(0)
+  limit          Int? // null = unlimited
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, featureKey, period])
+  @@index([featureKey])
+  @@index([period])
+  @@index([organizationId])
+}
+
+/// Add-on definition (e.g. "Extra venue", "Premium AI pack").
+model Addon {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  description  String?
+  priceMonthly Int // cents
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  subscriptions SubscriptionAddon[]
+}
+
+/// Add-on attached to an active subscription.
+model SubscriptionAddon {
+  id             String   @id @default(cuid())
+  subscriptionId String
+  addonId        String
+  quantity       Int      @default(1)
+  createdAt      DateTime @default(now())
+
+  subscription   Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  addon          Addon         @relation(fields: [addonId], references: [id], onDelete: Restrict)
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+
+  @@unique([subscriptionId, addonId])
+  @@index([subscriptionId])
+  @@index([addonId])
+}
+
+/// Invoice issued to an org (mirrors Stripe Invoice).
+model Invoice {
+  id               String    @id @default(cuid())
+  organizationId   String
+  stripeInvoiceId  String?   @unique
+  number           String? // human-readable invoice number
+  currency         String    @default("EUR")
+  amountDue        Int // cents
+  amountPaid       Int       @default(0)
+  amountRemaining  Int       @default(0)
+  subtotal         Int       @default(0)
+  tax              Int       @default(0)
+  total            Int       @default(0)
+  status           String    @default("open") // draft|open|paid|uncollectible|void
+  periodStart      DateTime?
+  periodEnd        DateTime?
+  dueDate          DateTime?
+  paidAt           DateTime?
+  hostedInvoiceUrl String?
+  invoicePdfUrl    String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([status])
+  @@index([createdAt])
+  @@index([organizationId])
+}
+
+// --- Audit + Outbox --------------------------------------------------------
+
+/// Immutable audit log. Append-only — never update or delete.
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  actorMemberId  String? // null = system
+  actorType      String   @default("member") // member|system|integration|stripe
+  action         String // e.g. "reservation.create", "ticket.refund"
+  targetType     String? // reservation | ticket | member | venue…
+  targetId       String?
+  before         String? // JSON snapshot
+  after          String? // JSON snapshot
+  ip             String?
+  userAgent      String?
+  requestId      String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  member       Member?      @relation(fields: [actorMemberId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([organizationId])
+  @@index([actorMemberId])
+}
+
+/// Outbox event for transactional outbox / event-sourcing. Drained by a worker.
+model OutboxEvent {
+  id             String    @id @default(cuid())
+  organizationId String
+  aggregateType  String // reservation | ticket | payment…
+  aggregateId    String
+  type           String // reservation.created, ticket.refunded…
+  payload        String // JSON
+  headers        String? // JSON
+  status         String    @default("pending") // pending|published|failed|dead
+  attempts       Int       @default(0)
+  lastError      String?
+  scheduledFor   DateTime  @default(now())
+  publishedAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([aggregateType, aggregateId])
+  @@index([organizationId, createdAt])
+  @@index([organizationId])
+}
+
+// ============================================================================
+// DATA PLANE — per-tenant operational data (scoped by venue)
+// ============================================================================
+
+// --- Floor plan: zones, tables ---------------------------------------------
+
+/// Sala, terraza, barra. Groups tables for floor plan and routing.
+model Zone {
+  id        String   @id @default(cuid())
+  venueId   String
+  name      String // "Terraza", "Sala principal", "Barra"
+  sortOrder Int      @default(0)
+  color     String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  venue  Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  tables Table[]
+
+  @@unique([venueId, name])
+  @@index([venueId])
+}
+
+/// Mesa with position, shape and capacity.
+model Table {
+  id          String   @id @default(cuid())
+  venueId     String
+  zoneId      String?
+  number      String // "1", "12A", "B-7"
+  label       String?
+  shape       String   @default("rect") // rect | round | square | oval
+  x           Float    @default(0)
+  y           Float    @default(0)
+  width       Float    @default(80)
+  height      Float    @default(80)
+  rotation    Float    @default(0)
+  capacity    Int      @default(4)
+  minCapacity Int      @default(1)
+  status      String   @default("free") // free|occupied|reserved|blocked|cleaning
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  zone         Zone?         @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  reservations Reservation[]
+
+  @@unique([venueId, number])
+  @@index([zoneId])
+  @@index([status])
+  @@index([venueId])
+}
+
+// --- CRM: guests, reservations, waitlist -----------------------------------
+
+/// CRM customer. Unique per (venue, normalizedPhone) or (venue, email).
+model Guest {
+  id              String    @id @default(cuid())
+  venueId         String
+  name            String
+  email           String?
+  phone           String?
+  normalizedPhone String? // E.164
+  birthdate       DateTime?
+  allergies       String? // JSON array of strings
+  preferences     String? // JSON object
+  notes           String?
+  isVip           Boolean   @default(false)
+  isBlacklisted   Boolean   @default(false)
+  tags            String? // JSON array
+  lifetimeValue   Int       @default(0) // cents — sum of paid tickets
+  visitCount      Int       @default(0)
+  noShowCount     Int       @default(0)
+  cancelCount     Int       @default(0)
+  firstVisitAt    DateTime?
+  lastVisitAt     DateTime?
+  marketingOptIn  Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  venue           Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  reservations    Reservation[]
+  loyaltyStamps   LoyaltyStamp[]
+  reviews         Review[]
+  waitlistEntries WaitlistEntry[]
+
+  @@unique([venueId, email])
+  @@unique([venueId, normalizedPhone])
+  @@index([venueId, isVip])
+  @@index([venueId, lastVisitAt])
+  @@index([venueId])
+}
+
+/// Reservation / booking.
+model Reservation {
+  id             String    @id @default(cuid())
+  venueId        String
+  guestId        String?
+  tableId        String?
+  code           String    @unique
+  status         String    @default("pending") // pending|confirmed|seated|completed|canceled|no_show
+  partySize      Int
+  date           DateTime
+  startTime      DateTime
+  endTime        DateTime?
+  durationMin    Int       @default(90)
+  zonePreference String?
+  source         String    @default("manual") // manual|online|widget|phone|integration
+  channelId      String? // integration id when source is online
+  notes          String?
+  internalNotes  String?
+  depositCents   Int       @default(0)
+  depositPaidAt  DateTime?
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  venue Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest Guest? @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  table Table? @relation(fields: [tableId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, date])
+  @@index([venueId, status, date])
+  @@index([guestId, date])
+  @@index([venueId])
+  @@index([guestId])
+  @@index([tableId])
+  @@index([date])
+}
+
+/// Waitlist entry (cola de espera).
+model WaitlistEntry {
+  id             String    @id @default(cuid())
+  venueId        String
+  guestId        String?
+  guestName      String
+  phone          String?
+  partySize      Int
+  zonePreference String?
+  status         String    @default("waiting") // waiting|seated|canceled|quoted
+  priority       Int       @default(0) // higher = sooner
+  quotedWaitMin  Int?
+  arrivedAt      DateTime  @default(now())
+  seatedAt       DateTime?
+  notifiedAt     DateTime?
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  venue Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest Guest? @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@index([venueId, status, arrivedAt])
+  @@index([guestId])
+  @@index([venueId])
+}
+
+// --- POS: orders, tickets, payments ----------------------------------------
+
+/// Order (comanda). Belongs to a table or is takeaway/delivery.
+model Order {
+  id             String    @id @default(cuid())
+  venueId        String
+  number         Int // sequential per venue per day
+  code           String    @unique
+  status         String    @default("open") // open|sent|preparing|ready|served|closed|canceled
+  type           String    @default("dine_in") // dine_in|takeaway|delivery
+  tableId        String?
+  tableLabel     String?
+  guestId        String?
+  reservationId  String?
+  serverMemberId String? // employee who created the order
+  channel        String    @default("pos") // pos|pda|qr|delivery|integration
+  covers         Int       @default(1)
+  subtotalCents  Int       @default(0)
+  taxCents       Int       @default(0)
+  discountCents  Int       @default(0)
+  tipCents       Int       @default(0)
+  totalCents     Int       @default(0)
+  notes          String?
+  openedAt       DateTime  @default(now())
+  sentAt         DateTime?
+  closedAt       DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  venue   Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  items   OrderItem[]
+  tickets Ticket[]
+
+  @@unique([venueId, number])
+  @@index([venueId, status, openedAt])
+  @@index([venueId, openedAt])
+  @@index([venueId])
+}
+
+/// Line item of an order. Snapshot of menu item price/vars at order time.
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  menuItemId    String?
+  menuItemName  String // snapshot
+  menuItemPrice Int // cents, snapshot
+  quantity      Int      @default(1)
+  modifiers     String? // JSON array of {groupId, modifierId, name, priceCents}
+  notes         String?
+  status        String   @default("pending") // pending|preparing|ready|served|canceled
+  kdsStationId  String?
+  kdsTicketId   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+  @@index([menuItemId])
+  @@index([orderId])
+}
+
+/// Fiscal ticket / documento de cobro. May aggregate multiple orders.
+model Ticket {
+  id            String    @id @default(cuid())
+  venueId       String
+  number        String    @unique
+  type          String    @default("invoice") // invoice|receipt|refund|proforma
+  status        String    @default("open") // open|paid|partially_paid|void|refunded
+  subtotalCents Int       @default(0)
+  taxCents      Int       @default(0)
+  discountCents Int       @default(0)
+  tipCents      Int       @default(0)
+  totalCents    Int       @default(0)
+  paidCents     Int       @default(0)
+  refundedCents Int       @default(0)
+  currency      String    @default("EUR")
+  taxBreakdown  String? // JSON
+  paymentMethod String?
+  issuedAt      DateTime  @default(now())
+  paidAt        DateTime?
+  closedAt      DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  venue    Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  orders   Order[]
+  payments Payment[]
+
+  @@index([venueId, status, issuedAt])
+  @@index([venueId, issuedAt])
+  @@index([venueId])
+}
+
+/// Payment applied to a ticket. Money in cents.
+model Payment {
+  id            String   @id @default(cuid())
+  venueId       String
+  ticketId      String
+  method        String // cash|card|wallet|transfer|stripe|gift_card
+  amountCents   Int
+  currency      String   @default("EUR")
+  status        String   @default("succeeded") // pending|succeeded|failed|refunded
+  reference     String?
+  processorRef  String? // Stripe payment_intent id
+  cashSessionId String?
+  refundedCents Int      @default(0)
+  tipCents      Int      @default(0)
+  metadata      String? // JSON
+  processedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  ticket      Ticket       @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  cashSession CashSession? @relation(fields: [cashSessionId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, status])
+  @@index([venueId, processedAt])
+  @@index([method, processedAt])
+  @@index([venueId])
+  @@index([ticketId])
+}
+
+/// Cash session (sesión de caja). Opened/closed by a cashier.
+model CashSession {
+  id                String    @id @default(cuid())
+  venueId           String
+  openedByMemberId  String?
+  closedByMemberId  String?
+  openingFloatCents Int       @default(0)
+  expectedCashCents Int       @default(0)
+  countedCashCents  Int?
+  differenceCents   Int?
+  status            String    @default("open") // open|closed|reconciled
+  notes             String?
+  openedAt          DateTime  @default(now())
+  closedAt          DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  venue    Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@index([venueId, status, openedAt])
+  @@index([venueId])
+}
+
+// --- Menu: items, categories, modifiers ------------------------------------
+
+/// Categoría de carta.
+model Category {
+  id          String   @id @default(cuid())
+  venueId     String
+  name        String
+  slug        String
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  parentId    String? // self-reference for sub-categories
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  menuItems MenuItem[]
+
+  @@unique([venueId, slug])
+  @@index([venueId, parentId])
+  @@index([venueId])
+}
+
+/// Producto de carta.
+model MenuItem {
+  id           String   @id @default(cuid())
+  venueId      String
+  categoryId   String
+  name         String
+  slug         String
+  description  String?
+  priceCents   Int // current price
+  taxRate      Float    @default(0.1)
+  costCents    Int      @default(0) // recipe-derived cost
+  imageUrl     String?
+  isAvailable  Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  allergens    String? // JSON array
+  nutrition    String? // JSON
+  sortOrder    Int      @default(0)
+  kdsStationId String?
+  recipeId     String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  venue          Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  category       Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  modifierGroups ModifierGroup[]
+
+  @@unique([venueId, slug])
+  @@index([venueId, categoryId, isAvailable])
+  @@index([venueId])
+  @@index([categoryId])
+}
+
+/// Grupo de modificadores (e.g. "Punto de la carne", "Tamaño").
+model ModifierGroup {
+  id         String   @id @default(cuid())
+  venueId    String
+  name       String
+  isRequired Boolean  @default(false)
+  minSelect  Int      @default(0)
+  maxSelect  Int?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  venue     Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  modifiers Modifier[]
+  menuItems MenuItem[]
+
+  @@index([venueId])
+}
+
+/// Modificador individual dentro de un grupo.
+model Modifier {
+  id              String   @id @default(cuid())
+  groupId         String
+  name            String
+  priceDeltaCents Int      @default(0)
+  isDefault       Boolean  @default(false)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  group ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, sortOrder])
+  @@index([groupId])
+}
+
+// --- Inventory: stock, recipes, suppliers, POs -----------------------------
+
+/// Artículo de stock (ingrediente / consumible).
+model StockItem {
+  id               String   @id @default(cuid())
+  venueId          String
+  name             String
+  sku              String?
+  unit             String   @default("unit") // kg|g|l|ml|unit
+  quantityOnHand   Float    @default(0)
+  quantityReserved Float    @default(0)
+  reorderLevel     Float    @default(0)
+  reorderQty       Float    @default(0)
+  costPerUnitCents Int      @default(0)
+  supplierId       String?
+  location         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  venue       Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  recipeLines RecipeIngredient[]
+  supplier    Supplier?          @relation(fields: [supplierId], references: [id])
+
+  @@unique([venueId, name])
+  @@index([venueId, supplierId])
+  @@index([venueId])
+}
+
+/// Receta / escandallo de un menu item.
+model Recipe {
+  id        String   @id @default(cuid())
+  name      String
+  yieldQty  Float    @default(1)
+  yieldUnit String   @default("portion")
+  costCents Int      @default(0)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ingredients RecipeIngredient[]
+}
+
+/// Ingredient line of a recipe.
+model RecipeIngredient {
+  id          String   @id @default(cuid())
+  recipeId    String
+  stockItemId String
+  quantity    Float
+  unit        String
+  createdAt   DateTime @default(now())
+
+  recipe    Recipe    @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  stockItem StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, stockItemId])
+  @@index([recipeId])
+  @@index([stockItemId])
+}
+
+/// Proveedor.
+model Supplier {
+  id           String   @id @default(cuid())
+  venueId      String
+  name         String
+  contactName  String?
+  email        String?
+  phone        String?
+  taxId        String?
+  leadTimeDays Int      @default(0)
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  venue          Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+  stockItems     StockItem[]
+
+  @@unique([venueId, name])
+  @@index([venueId])
+}
+
+/// Pedido de compra.
+model PurchaseOrder {
+  id         String    @id @default(cuid())
+  venueId    String
+  supplierId String
+  number     String    @unique
+  status     String    @default("draft") // draft|sent|partial|received|canceled
+  totalCents Int       @default(0)
+  expectedAt DateTime?
+  receivedAt DateTime?
+  notes      String?
+  lines      String? // JSON array of {stockItemId, name, quantity, unit, unitCostCents}
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  @@index([venueId, status, createdAt])
+  @@index([supplierId])
+  @@index([venueId])
+}
+
+// --- HR: employees, shifts, timeclock --------------------------------------
+
+/// Empleado del venue (linked to a Member when they have app access).
+model Employee {
+  id              String    @id @default(cuid())
+  venueId         String
+  memberId        String? // null if no app access
+  firstName       String
+  lastName        String
+  email           String?
+  phone           String?
+  role            String    @default("staff") // manager|chef|waiter|bartender|host|cashier|cleaner
+  pin             String? // hashed POS pin
+  hireDate        DateTime?
+  terminationDate DateTime?
+  hourlyCostCents Int       @default(0)
+  maxHoursWeek    Int       @default(40)
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  venue      Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  shifts     Shift[]
+  timeClocks TimeClock[]
+
+  @@unique([venueId, email])
+  @@index([venueId, isActive])
+  @@index([venueId])
+  @@index([memberId])
+}
+
+/// Turno planificado.
+model Shift {
+  id         String   @id @default(cuid())
+  venueId    String
+  employeeId String
+  date       DateTime
+  startTime  DateTime
+  endTime    DateTime
+  role       String?
+  zoneId     String?
+  status     String   @default("scheduled") // scheduled|confirmed|completed|canceled|no_show
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, date])
+  @@index([employeeId, date])
+  @@index([venueId])
+  @@index([employeeId])
+  @@index([date])
+}
+
+/// Fichaje (time clock entry).
+model TimeClock {
+  id         String    @id @default(cuid())
+  venueId    String
+  employeeId String
+  clockIn    DateTime  @default(now())
+  clockOut   DateTime?
+  breakMin   Int       @default(0)
+  totalMin   Int?
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, clockIn])
+  @@index([employeeId, clockIn])
+  @@index([venueId])
+  @@index([employeeId])
+}
+
+// --- Loyalty, campaigns, reviews -------------------------------------------
+
+/// Programa de fidelización (carta de sellos / puntos).
+model LoyaltyProgram {
+  id             String    @id @default(cuid())
+  venueId        String
+  name           String
+  type           String    @default("stamps") // stamps|points|tiered
+  stampsRequired Int       @default(10) // for stamps type
+  reward         String? // JSON describing the reward
+  isActive       Boolean   @default(true)
+  startsAt       DateTime?
+  endsAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  venue  Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  stamps LoyaltyStamp[]
+
+  @@index([venueId])
+}
+
+/// Sello individual entregado a un guest.
+model LoyaltyStamp {
+  id         String    @id @default(cuid())
+  programId  String
+  guestId    String
+  venueId    String
+  source     String    @default("ticket") // ticket|manual|campaign
+  ticketId   String?
+  redeemedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  program LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  guest   Guest          @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  venue   Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([programId, guestId, redeemedAt])
+  @@index([guestId, createdAt])
+  @@index([programId])
+  @@index([guestId])
+  @@index([venueId])
+}
+
+/// Campaña de marketing.
+model Campaign {
+  id              String    @id @default(cuid())
+  venueId         String
+  name            String
+  channel         String // email|sms|whatsapp|push
+  segmentId       String?
+  status          String    @default("draft") // draft|scheduled|running|paused|completed|canceled
+  audienceSize    Int       @default(0)
+  sentCount       Int       @default(0)
+  openCount       Int       @default(0)
+  clickCount      Int       @default(0)
+  conversionCount Int       @default(0)
+  revenueCents    Int       @default(0)
+  startsAt        DateTime?
+  endsAt          DateTime?
+  template        String? // JSON
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@index([venueId, status, startsAt])
+  @@index([venueId])
+}
+
+/// Reseña de cliente.
+model Review {
+  id          String    @id @default(cuid())
+  venueId     String
+  guestId     String?
+  source      String    @default("internal") // google|tripadvisor|yelp|internal
+  externalId  String?
+  rating      Int // 1-5
+  title       String?
+  body        String?
+  reply       String?
+  repliedAt   DateTime?
+  status      String    @default("new") // new|replied|flagged|archived
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  venue Venue  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guest Guest? @relation(fields: [guestId], references: [id], onDelete: SetNull)
+
+  @@unique([source, externalId])
+  @@index([venueId, status, publishedAt])
+  @@index([rating])
+  @@index([venueId])
+  @@index([guestId])
+}
+
+// --- Automations -----------------------------------------------------------
+
+/// Definición de automatización (trigger → action).
+model Automation {
+  id            String    @id @default(cuid())
+  venueId       String
+  name          String
+  trigger       String // reservation.created | ticket.paid | stock.low | …
+  triggerConfig String? // JSON
+  action        String // send.email | create.task | adjust.inventory | …
+  actionConfig  String? // JSON
+  conditions    String? // JSON
+  isActive      Boolean   @default(true)
+  runCount      Int       @default(0)
+  errorCount    Int       @default(0)
+  lastRunAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  venue Venue           @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  runs  AutomationRun[]
+
+  @@index([venueId, isActive])
+  @@index([trigger])
+  @@index([venueId])
+}
+
+/// Ejecución de una automatización.
+model AutomationRun {
+  id             String    @id @default(cuid())
+  automationId   String
+  status         String    @default("pending") // pending|success|failed|timeout
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  durationMs     Int?
+  triggerPayload String? // JSON
+  actionResult   String? // JSON
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+
+  automation Automation @relation(fields: [automationId], references: [id], onDelete: Cascade)
+
+  @@index([automationId, startedAt])
+  @@index([status, startedAt])
+  @@index([automationId])
+}
+
+// --- KDS (kitchen display system) ------------------------------------------
+
+/// Estación de cocina.
+model KdsStation {
+  id        String   @id @default(cuid())
+  venueId   String
+  name      String // "Cocina", "Barra", "Postres"
+  slug      String
+  sortOrder Int      @default(0)
+  printerId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  venue   Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  tickets KdsTicket[]
+
+  @@unique([venueId, slug])
+  @@index([venueId])
+}
+
+/// Ticket de cocina (proyección del order item al station).
+model KdsTicket {
+  id        String    @id @default(cuid())
+  venueId   String
+  stationId String
+  orderId   String?
+  status    String    @default("new") // new|preparing|ready|served|bumped|recalled
+  priority  Int       @default(0)
+  routedAt  DateTime  @default(now())
+  startedAt DateTime?
+  readyAt   DateTime?
+  bumpedAt  DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  venue   Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  station KdsStation @relation(fields: [stationId], references: [id], onDelete: Cascade)
+
+  @@index([stationId, status, routedAt])
+  @@index([venueId, status])
+  @@index([venueId])
+  @@index([stationId])
+}
+
+// --- Integrations & devices ------------------------------------------------
+
+/// Integración instalada (Stripe, Google, Deliveroo, Uber Eats, Glovo…).
+model Integration {
+  id         String    @id @default(cuid())
+  venueId    String
+  provider   String // stripe|google|deliveroo|ubereats|glovo|resend|twilio|…
+  name       String
+  status     String    @default("active") // active|paused|error|disconnected
+  config     String? // JSON (non-secret)
+  secretsRef String? // reference to external secret store; never inline secrets
+  lastSyncAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, provider])
+  @@index([provider, status])
+  @@index([venueId])
+}
+
+/// Dispositivo físico (TPV, PDA, impresora, kiosk).
+model Device {
+  id         String    @id @default(cuid())
+  venueId    String
+  name       String
+  type       String // pos|pda|printer|kiosk|display|kitchen_monitor
+  hardwareId String?
+  location   String?
+  status     String    @default("registered") // registered|online|offline|maintenance
+  lastSeenAt DateTime?
+  config     String? // JSON
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, hardwareId])
+  @@index([venueId, status])
+  @@index([venueId])
 }

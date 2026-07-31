@@ -37,6 +37,7 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group: string 
   { id: "autopilot", label: "Autopilot", icon: Rocket, group: "Operación" },
   { id: "channels", label: "Canales", icon: Globe, group: "Operación" },
   { id: "preinstalled-automations", label: "Automatizaciones Preinstaladas", icon: Zap, group: "Operación" },
+  { id: "mobile-pda", label: "PDA Móvil", icon: Smartphone, group: "Operación" },
   { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
   { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
   { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
@@ -1546,6 +1547,7 @@ function SectionRenderer({ section }: { section: Section }) {
       autopilot: React.lazy(() => import("@/components/rp/autopilot/autopilot-view").then((m) => ({ default: m.AutopilotView }))),
       channels: React.lazy(() => import("@/components/rp/channels/channels-view").then((m) => ({ default: m.ChannelsView }))),
       "preinstalled-automations": React.lazy(() => import("@/components/rp/preinstalled-automations/preinstalled-automations-view").then((m) => ({ default: m.PreinstalledAutomationsView }))),
+      "mobile-pda": React.lazy(() => import("@/components/rp/mobile-pda/mobile-pda-view").then((m) => ({ default: m.MobilePdaView }))),
     };
     return map[section] ?? null;
   }, [section]);

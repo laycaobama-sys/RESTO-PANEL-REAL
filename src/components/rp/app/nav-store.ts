@@ -23,6 +23,7 @@ export type Section =
   | "autopilot"
   | "channels"
   | "preinstalled-automations"
+  | "mobile-pda"
   | "crm"
   | "marketing"
   | "automatizaciones"
