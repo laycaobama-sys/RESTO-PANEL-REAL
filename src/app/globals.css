@@ -113,17 +113,51 @@
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 12%);
   --ring: oklch(0.8 0.12 86);
-  /* Brand */
-  --gold: #D4AF37;
-  --gold-soft: #E8C766;
-  --gold-deep: #A8862A;
-  --teal: #3DD6C9;
-  --teal-deep: #2BA89E;
-  --chart-1: #D4AF37;
-  --chart-2: #3DD6C9;
-  --chart-3: #E8C766;
-  --chart-4: #2BA89E;
-  --chart-5: #C9A961;
+  /* Brand v5.0 — Verde esmeralda primary */
+  --gold: #10B981;
+  --gold-soft: #34D399;
+  --gold-deep: #059669;
+  --teal: #10B981;
+  --teal-deep: #059669;
+  --chart-1: #10B981;
+  --chart-2: #3B82F6;
+  --chart-3: #F59E0B;
+  --chart-4: #8B5CF6;
+  --chart-5: #EF4444;
+  /* v5.0 Action colors */
+  --rp-emerald: #10B981;
+  --rp-emerald-soft: #34D399;
+  --rp-emerald-deep: #059669;
+  --rp-yellow: #F59E0B;
+  --rp-yellow-soft: #FBBF24;
+  --rp-blue: #3B82F6;
+  --rp-blue-soft: #60A5FA;
+  --rp-red: #EF4444;
+  --rp-red-soft: #F87171;
+  --rp-violet: #8B5CF6;
+  --rp-violet-soft: #A78BFA;
+  /* Table states v5.0 */
+  --table-free: #10B981;
+  --table-reserved: #F59E0B;
+  --table-occupied: #EF4444;
+  --table-billed: #8B5CF6;
+  --table-cleaning: #3B82F6;
+  --table-blocked: #6B7280;
+  /* Order states */
+  --order-sent: #3B82F6;
+  --order-preparing: #F59E0B;
+  --order-ready: #10B981;
+  --order-served: #059669;
+  --order-voided: #EF4444;
+  /* Plan states */
+  --plan-starter: #6B7280;
+  --plan-professional: #10B981;
+  --plan-enterprise: #8B5CF6;
+  /* Semantic */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
   --sidebar: oklch(0.155 0.004 90);
   --sidebar-foreground: oklch(0.965 0.003 95);
   --sidebar-primary: oklch(0.8 0.12 86);

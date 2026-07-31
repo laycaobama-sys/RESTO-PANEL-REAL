@@ -2657,3 +2657,105 @@ Stage Summary:
 - Overflow horizontal: 0px en 390/768/1280/1440/1920px.
 - Lint: 0 errores.
 - Dev server: HTTP 200 sin errores de compilación.
+
+---
+Task ID: V5-REPORTS
+Agent: general-purpose
+Task: Generate 10 comprehensive reports about the RestoPanel project based on actual codebase state.
+
+Work Log:
+- Leí `/home/z/my-project/worklog.md` (últimas ~200 líneas, sesión SESSION-FIXES y anteriores) para contexto.
+- Exploré la estructura: `src/components/rp/` (13 carpetas, 45 archivos .tsx), `src/components/ui/` (48 primitivas shadcn), `src/app/` (page.tsx, layout.tsx, globals.css, api/route.ts, sitemap.ts, robots.ts), `src/lib/` (db.ts, design-tokens.ts, utils.ts, mock-data/), `prisma/schema.prisma`, `next.config.ts`, `package.json`.
+- Inspección detallada de archivos clave:
+  • `nav-store.ts`: 20 secciones tipadas (no 49 como afirma la spec).
+  • `app-shell.tsx` (1.521 líneas): NAV con 20 entradas en 5 grupos, SectionRenderer con React.lazy() para las 20 secciones, sidebar auto-ocultable, NotificationsBell funcional, CommandPalette ⌘K, AuthDialog con 3 modos y password strength.
+  • `landing.tsx` (2.438 líneas): 17 secciones en `<Landing />` (Hero, SocialProofV2, Problems, Platform, DemoFloor, DemoCrm, DemoAi, DemoReviews, SectionRulesAuto, SectionRealTime, SectionCrmVip, SectionPartner, RoiCalculator, WhyBento, Pricing, FaqSection, FinalCTA) + LandingHeader. PLANS con 3 planes (Starter 49€, Professional 99€, Enterprise 249€) y COMPARISON con 18 features.
+  • `super-admin-view.tsx` (775 líneas): 9 secciones (no 8 tabs como afirma la spec).
+  • `ai-center.tsx` (1.662 líneas): 5 tabs (Resumen, Uso, Errores, Límites, Modelos).
+  • `executive-view.tsx`: 3 tabs (cockpit/ai/alerts).
+  • `ai-copilot.tsx` (840 líneas): 17 contextos de sección (no 10 como afirma la spec).
+  • `automation-builder.tsx` (1.612 líneas): flow builder por nodos (trigger/condition/action/wait/branch) añadidos por paleta — NO hay drag&drop de reordenación real (especificado en spec como "drag & drop nodes").
+  • `next.config.ts`: mínimo (12 líneas), output: "standalone", ignoreBuildErrors: true, reactStrictMode: false — NO hay webpack memory optimizations como afirma la spec.
+  • `prisma/schema.prisma`: 31 líneas boilerplate (User + Post), sin modelos de dominio restaurante.
+  • `src/app/api/route.ts`: 5 líneas, solo `GET Hello, world!`. No hay webhook de Stripe.
+- Búsquedas globales (Glob/Grep):
+  • `feature-flags*`, `feature-gate*`, `entitlements*`, `access-gate*`, `billing-portal*`, `signup-funnel*` → 0 resultados (afirmados en spec, ausentes en código).
+  • `@dnd-kit` en src/ → 0 usos (dependencia muerta).
+  • `TPV|KDS|PDA|Carta QR|Inventario|Fichaje|Cuadrante|Delivery` → solo menciones de copy en integrations-view, no módulos dedicados.
+  • `aria-*` → 966 ocurrencias en 65 archivos.
+  • `prefers-reduced-motion|useReducedMotion` → 138 ocurrencias en 34 archivos.
+  • `aria-live` → solo 3 ocurrencias (exec-ai, ai-copilot, landing).
+  • `skip-to-content|skip-link` → 0 resultados.
+  • `localStorage` → 2 claves (`rp-sidebar-pinned`, `rp-pricing-annual`).
+- Conteos verificados:
+  • 93 archivos .tsx en src/components/ (45 en rp/ + 48 en ui/).
+  • 20 secciones en sidebar (vs. 49 afirmados en spec).
+  • 17 secciones en landing.
+  • 13 carpetas de módulo en rp/.
+  • ~47.000 líneas totales en rp/.
+- Creé `/home/z/my-project/REPORTS.md` (768 líneas) con los 10 informes solicitados en español, formato Markdown con tablas y listas:
+  1. Informe de Arquitectura (stack, estructura, state, routing, design system, build, real vs demo)
+  2. Informe de Componentes (conteo 93, 48 primitivas shadcn listadas, primitives.tsx, design tokens, estados, a11y)
+  3. Informe de Pantallas (20 secciones reales agrupadas en 5 categorías con descripción, 17 landing sections, auth flow, app shell)
+  4. Informe de Datos y Persistencia (mocks en archivos, Prisma boilerplate, API routes ausentes, localStorage usage, necesidades producción)
+  5. Informe de Permisos y Planes (feature-flags/feature-gate/entitlements NO existen, 3 planes con matriz, real vs demo)
+  6. Informe de Accesibilidad (ARIA stats, HTML semántico, keyboard nav, focus visible, contraste, prefers-reduced-motion, áreas mejora)
+  7. Informe de Rendimiento (code splitting por sección, sin route splitting, imágenes next/image, CSS Tailwind v4, animaciones GPU, limitaciones)
+  8. Informe de Pruebas (sin Vitest/Playwright/k6, verificación Agent Browser manual, lint 0 errores, 10 caminos críticos a testear, plan sugerido)
+  9. Lista de Funcionalidades Reales (49 funcionalidades verificadas: landing, app shell, 20 secciones, marketing components, copilot)
+  10. Lista de Funcionalidades Pendientes (backend, integraciones, 6 módulos ausentes, IA, tiempo real, compliance, feature gating, pruebas, performance, despliegue)
+- Honestidad: señalé explícitamente las discrepancias entre la spec original y el código real (49 vs 20 secciones, feature-flags/feature-gate ausentes, super-admin 8 tabs vs 9 secciones, copilot 10 vs 17 contextos, automation builder sin drag&drop, next.config sin webpack memory opts).
+- Resumen ejecutivo al final: front-end premium pulido listo como demo navegable, a 3-6 meses de MVP producción.
+
+Files created:
+- /home/z/my-project/REPORTS.md (768 líneas, 10 informes en español)
+
+Stage Summary:
+- 10 informes completos entregados en `/home/z/my-project/REPORTS.md`, basados en inspección real del código (no en la spec).
+- Discrepancias con la spec original documentadas explícitamente: 49→20 secciones, feature-flags.ts/feature-gate.tsx/entitlements/access-gate/billing-portal/signup-funnel NO existen, super-admin tiene 9 secciones no 8 tabs, copilot tiene 17 contextos no 10, automation builder no tiene drag&drop real, next.config no tiene webpack memory opts.
+- Conteos verificados: 93 componentes (45 rp/ + 48 ui/), 13 carpetas de módulo, ~47k líneas en rp/, 17 landing sections, 966 atributos ARIA en 65 archivos, 138 referencias a prefers-reduced-motion en 34 archivos.
+- Próximos pasos sugeridos en Report 10: backend (D1, API routes, auth, webhook Stripe, multi-tenant, RBAC), 6 módulos de dominio ausentes (TPV, PDA, KDS, Carta QR, Delivery, Inventario, Personal), IA real, WebSocket, pruebas, route splitting, despliegue.
+
+---
+Task ID: V5-DOMAIN-COMPONENTS
+Agent: sub-agent (general-purpose, vibe coding workspace)
+Task: Create domain-specific components for RestoPanel v5.0
+
+Work Log:
+- Leído `/home/z/my-project/worklog.md` (últimas entradas: auditoría de layout/overflow en landing+reservas+crm+floor-editor, fix de bug toast-in-render en waitlist/exec-alerts, sidebar auto-ocultable, pricing con descuento anual, auth dialog). Confirmadas convenciones: `rp-glass`, `rp-scroll-thin`, `var(--gold)` ahora mapeado a `#10B981` (verde esmeralda v5.0), CSS vars `--rp-emerald/yellow/blue/red/violet` definidas en `.dark` de globals.css, dark theme por defecto.
+- Leído `src/components/rp/primitives.tsx` (Tag, GlassCard, Stat, Pill, Risk, Callout, Code, DataTable, KV) y `src/lib/design-tokens.ts` (tokens v5.0: emerald #10B981, estados table/order/payment/employee/plan/integration) para alinear paleta y naming.
+- Leído `src/components/ui/{button,badge,card,progress,separator,tabs,switch,avatar,tooltip}.tsx` para usar las primitivas shadcn instaladas (variantes cva, data-slot, focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] ya presentes por defecto).
+- Creado **`src/components/rp/domain-components.tsx`** (3147 líneas, un único archivo, `"use client"`, TypeScript estricto sin `any`):
+  • **Tipos inline exportados** (20 interfaces): `Table`, `Zone`, `Reservation`, `Guest`, `OrderItem`, `Order`, `KdsTicketItem`, `KdsTicket`, `Station`, `Payment`, `CashMovement`, `CashSession`, `MenuItem`, `StockItem`, `Employee`, `Shift`, `LoyaltyInfo`, `Review`, `Integration`.
+  • **Helpers**: `euro()` (Intl.NumberFormat es-ES EUR), `formatDuration()` (h/m/s), `minutesSince()`, `initials()`, `TABLE_STATUS_META` (6 estados con color+soft+label), `TONE_BADGE`/`TONE_BORDER` (emerald/yellow/red/violet/blue/gray), `ToneBadge` wrapper, `useTick(intervalMs)` (setInterval+setState para refresco de timers en KDS/CashSession sin refs-en-render).
+  • **1. TableMap** — SVG interactivo con viewBox dinámico calculado de zones+tables. Mesas drag&drop (mouseDown→startDrag con `svg.createSVGPoint().matrixTransform(ctm.inverse())` para coordenadas correctas con zoom, mouseMove→setState inmutable, mouseUp→onTableDrag callback). 3 shapes (circle/square/rectangle). 6 estados con color (free→emerald, reserved→yellow, occupied→red, billed→violet, cleaning→blue, blocked→gray), filter glow SVG cuando selected/dragging. Zoom controls (3 botones + scroll con ctrl/cmd). Keyboard nav (arrows mueven mesa, Enter abre panel). `aria-label` por mesa con número/estado/capacidad/reserva. `role="application"` en container. Legend al pie. Empty state.
+  • **2. ReservationCard** — border-left 3px por tono de status. Compact/expanded variants. Quick actions (Confirmar/Sentar/Mover/No-show/Cancelar) en expanded. VIP icon (Crown). KPIs: time, party, table, zone.
+  • **3. GuestProfileCard** — Avatar, tags color-coded (VIP→yellow, cumpleaños→violet, riesgo→red, resto→blue), 6 KPIs (visitas, gasto, ticket medio, frecuencia, LTV, mesa favorita), preferencias (emerald), alergias (red), loyalty stamps grid, footer actions (Reserva/Edit/Export/Eliminar-RGPD).
+  • **4. OrderTicket** — items agrupados por course (entrante/principal/postre) con iconos Snowflake/Flame/Coffee y tone. Modifiers (+), notes (italic yellow). Subtotal/IVA/Descuento/Propina/Total con emerald accent. Actions: Cocina/Dividir/Transferir/Print/Cobrar (emerald bg).
+  • **5. KdsBoard** — grid responsive `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5`. Estaciones con icono (cold→Snowflake, hot/grill→Flame, dessert→Coffee, bar→Wine). Tickets con timer color-coded (green<10m, amber 10-15m, red>15m) usando `useTick(30s)`. Priority VIP (Crown) + reservation time (violet chip). Bump (emerald) / Recall (blue) buttons. Empty state por columna.
+  • **6. PaymentSummary** — 5 métodos (efectivo→Banknote/emerald, tarjeta→CreditCard/blue, qr→QrCode/violet, bizum→Smartphone/yellow, wallet→Wallet/gray). Status badge (paid/pending/failed/refunded). Reference, date, customer, table. Actions: Ver detalle/Imprimir/Reembolsar (solo si paid).
+  • **7. CashSessionCard** — `useTick(1s)` para timer de duración. Opening/current balance. Lista de movimientos (in→emerald, out→red, scrollable max-h-40). Blind count panel toggled al hacer click en "Cerrar caja" con input numeric, diff calculado (0→emerald, >0→yellow, <0→red).
+  • **8. MenuItemCard** — aspect-[4/3] con img lazy o placeholder ChefHat. Badge Popular (yellow) + Switch 86-ing top-right. Tags (new→emerald, popular→yellow, high-margin→violet, spicy→red) + allergens (red con AlertTriangle). Button Añadir (disabled si !available).
+  • **9. StockAlertCard** — severity (critical→red+border, low→yellow, ok→emerald). Progress bar con color por severity. Actual/Mín con units. Actions: Reponer/Ajustar/Pedido.
+  • **10. EmployeeCard** — Avatar, role, status badge (5 estados con dot color). PIN masked (• • • •). NFC Switch (emerald cuando on). Mini QR grid 5×5 (patrón pseudo-aleatorio determinista). RP-ID en mono. Shift info si existe. Actions: Perfil/Asignar turno.
+  • **11. ShiftCard** — border-left 3px por tipo (morning→yellow, afternoon→blue, split→violet, full→emerald). Drag handle (Move, cursor-grab active:grabbing). Icon + label por tipo. Break indicator con tooltip (Pause + hora inicio). tabIndex=0 + focus-visible:border-ring focus-visible:ring-[3px] ring-ring/40.
+  • **12. TimeClockPanel** — Avatar + status dot (ping animation si active). 2 KPIs (horas hoy, pausas). Tabs shadcn (PIN/QR/FaceID/Fingerprint) con icons Lock/QrCode/ScanFace/Fingerprint. PIN pad 3×4 (1-9, X clear, 0, RotateCcw backspace) con 4 dots progress. Auto-submit en useEffect cuando pin.length===4 (setTimeout 100ms para clear, cleanup clearTimeout). Switch geolocation. Botón Fichar entrada (emerald) / salida (outline red) según isActive.
+  • **13. LoyaltyStampCard** — Grid de sellos (max 6 cols responsive) con star filled/empty, border emerald cuando filled, dashed border cuando empty. Progress bar. Reward preview (emerald bg cuando complete, "¡Listo!" badge). Wallet QR placeholder 4×4 + botón.
+  • **14. ReviewCard** — Source badge (Google→blue, TripAdvisor→emerald, TheFork→violet). 5 stars (filled yellow). Sentiment badge (positive/neutral/negative). AI suggested response (emerald-tinted box, editable textarea inline con toggle Editar/Guardar/Cancelar). Actions: Aprobar/Editar/Responder.
+  • **15. HealthScore** — SVG circular gauge 270° (arc=0.75×circumference). Dos círculos: track (rgba blanco 8%) + filled (color por band). Stroke-dasharray para mostrar score%. 4 bands: 0-39 red, 40-59 yellow, 60-79 blue, 80-100 emerald. Center display con número grande. Diagnosis text + recomendación adaptativa por band.
+  • **16. IntegrationCard** — border-top 2px por status. Logo placeholder (2 letras mayúsculas mono) o img. Status badge con icon (connected→CheckCircle2/emerald, error→AlertCircle/red, pending→Clock/yellow, disabled→Pause/gray). Last sync. Actions: Configurar (disabled si disabled) / Desconectar (solo si connected).
+  • **17. PlanBadge** — 3 planes (starter→gray+Sparkles, professional→emerald+Star, enterprise→violet+Crown). Reusa TONE_BADGE.
+  • **18. UsageMeter** — Progress bar con color dinámico (emerald<80%, yellow≥80%, red≥100%). Border del card cambia por threshold. Mensajes: "Límite alcanzado" (red, con CTA Actualizar) / "Acercándote al límite (X%)" (yellow).
+  • **19. UpgradePrompt** — Card con gradient emerald. PlanBadge del target plan + delta precio/mes. Sparkles icon. Beneficio estimado (box emerald-tinted). Botón "Actualizar a X" (emerald bg, text emerald-deep). Dismissible (X button top-right, state internal, onDismiss callback).
+  • **20. StatusDot** — Dot 2×2px con color por status (online→emerald+ping animation, offline→gray, warning→yellow, error→red). Label opcional. role="status" + aria-label.
+
+- **WCAG 2.2 AA**: focus-visible:outline-2 outline-[var(--rp-emerald-soft)] en SVG shapes de TableMap; focus-visible:border-ring focus-visible:ring-[3px] en ShiftCard; shadcn primitives ya traen focus-visible por defecto en Button/Switch/Tabs/Tooltip; aria-labels en todos los icon-only buttons (zoom controls, drag handle, dismiss, NFC, wallet, etc.); role="application"/"status"/"button"/"region"/"progressbar"/"listitem" donde aplica; keyboard nav completo en TableMap (arrows + Enter/Space).
+- **Refactor de 2 warnings**: removidos 2 `// eslint-disable-next-line @next/next/no-img-element` en MenuItemCard e IntegrationCard porque la regla ya está off en `eslint.config.js` — los `<img>` quedan sin directiva redundante.
+
+Stage Summary:
+- **1 archivo creado**: `src/components/rp/domain-components.tsx` (3147 líneas, 20 componentes exportados + 20 interfaces de tipos exportadas + helpers internos `euro`, `formatDuration`, `minutesSince`, `initials`, `useTick`, `ToneBadge`, `Kpi`, `Detail`, `OrderLine`, `TotalRow`, `KdsTicketCard`).
+- **Lint**: `bun run lint` → 0 errores, 0 warnings en el archivo (sólo warning pre-existente `MODULE_TYPELESS_PACKAGE_JSON` del eslint.config.js, no relacionado).
+- **TypeScript**: `bunx tsc --noEmit --skipLibCheck` → 0 errores en `domain-components.tsx`. Errores pre-existentes en `waitlist-panel.tsx` (status string vs WaitlistStatus) e `integrations-view.tsx` (prop `demo` no existe) NO son de este task.
+- **Dev server**: HTTP 200, 344KB, sin errores de compilación.
+- **Breakpoints cubiertos**: 390px (grids 1 col, tabs scroll, PIN pad 3 col), 768px (grids sm:2), 1280px (lg:3), 1440px (xl:5), 1920px (xl:5 con más espacio).
+- **Stack usado**: shadcn/ui (Button, Card, Badge, Progress, Separator, Tabs, Switch, Avatar, Tooltip), lucide-react (~60 icons), Tailwind v4 utilities, CSS vars `var(--rp-emerald/yellow/blue/red/violet)`, dark theme `rp-glass`, framer-motion NO necesario (animaciones vía CSS transitions + animate-ping).

@@ -1,0 +1,1522 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useNav, type Section, type AuthMode } from "./nav-store";
+     6→import { Logo, BrandMark } from "./brand";
+     7→import {
+     8→  LayoutDashboard, CalendarDays, Users, Megaphone, Workflow, Star, BarChart3,
+     9→  Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
+    10→  Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
+    11→  CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
+    12→  Crown, BrainCircuit, BookOpen, UtensilsCrossed, Pin, PinOff, Check, CheckCheck,
+    13→  Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, ArrowRight, KeyRound,
+    14→  MessageSquare, CalendarX, TrendingDown, UserPlus,
+    15→} from "lucide-react";
+    16→import {
+    17→  Dialog,
+    18→  DialogContent,
+    19→  DialogTitle,
+    20→  DialogDescription,
+    21→} from "@/components/ui/dialog";
+    22→
+    23→const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
+    24→  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
+    25→  { id: "executive", label: "Centro Ejecutivo", icon: Crown, group: "Operación" },
+    26→  { id: "reservas", label: "Reservas", icon: CalendarDays, group: "Operación" },
+    27→  { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
+    28→  { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
+    29→  { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
+    30→  { id: "growth-analytics", label: "Growth Analytics", icon: TrendingUp, group: "Growth" },
+    31→  { id: "growth-reputation", label: "Centro Reputación", icon: Award, group: "Growth" },
+    32→  { id: "campaigns", label: "Campañas", icon: Megaphone, group: "Growth" },
+    33→  { id: "promotions", label: "Promociones", icon: Ticket, group: "Growth" },
+    34→  { id: "reviews", label: "Google Reviews", icon: Star, group: "Reputación" },
+    35→  { id: "analytics", label: "Analytics", icon: BarChart3, group: "Reputación" },
+    36→  { id: "integraciones", label: "Integraciones", icon: Plug, group: "Plataforma" },
+    37→  { id: "billing", label: "Facturación", icon: CreditCard, group: "Plataforma" },
+    38→  { id: "equipo", label: "Equipo", icon: UserCog, group: "Plataforma" },
+    39→  { id: "configuracion", label: "Configuración", icon: Settings, group: "Plataforma" },
+    40→  { id: "ai-center", label: "Centro de IA", icon: BrainCircuit, group: "Plataforma" },
+    41→  { id: "ai-knowledge", label: "Conocimiento IA", icon: BookOpen, group: "Plataforma" },
+    42→  { id: "ai-menu", label: "IA Menú", icon: UtensilsCrossed, group: "Plataforma" },
+    43→  { id: "superadmin", label: "Super Admin", icon: ShieldCheck, group: "Plataforma" },
+    44→];
+    45→
+    46→const GROUPS = ["Operación", "Relación", "Growth", "Reputación", "Plataforma"];
+    47→
+    48→/* ============================================================
+    49→   Hook: prefers-reduced-motion
+    50→============================================================ */
+    51→function usePrefersReducedMotion() {
+    52→  const [reduce, setReduce] = React.useState(false);
+    53→  React.useEffect(() => {
+    54→    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    55→    setReduce(mq.matches);
+    56→    const onChange = () => setReduce(mq.matches);
+    57→    mq.addEventListener("change", onChange);
+    58→    return () => mq.removeEventListener("change", onChange);
+    59→  }, []);
+    60→  return reduce;
+    61→}
+    62→
+    63→/* ============================================================
+    64→   Hook: useLocalStorage
+    65→============================================================ */
+    66→function useLocalStorage<T>(key: string, initial: T): [T, (v: T | ((p: T) => T)) => void] {
+    67→  const [value, setValue] = React.useState<T>(() => {
+    68→    if (typeof window === "undefined") return initial;
+    69→    try {
+    70→      const stored = window.localStorage.getItem(key);
+    71→      return stored ? (JSON.parse(stored) as T) : initial;
+    72→    } catch {
+    73→      return initial;
+    74→    }
+    75→  });
+    76→  React.useEffect(() => {
+    77→    try {
+    78→      window.localStorage.setItem(key, JSON.stringify(value));
+    79→    } catch {
+    80→      /* noop */
+    81→    }
+    82→  }, [key, value]);
+    83→  return [value, setValue];
+    84→}
+    85→
+    86→/* ============================================================
+    87→   AppShell — main layout with collapsible sidebar
+    88→============================================================ */
+    89→export function AppShell() {
+    90→  const section = useNav((s) => s.section);
+    91→  const go = useNav((s) => s.go);
+    92→  const setView = useNav((s) => s.setView);
+    93→  const [mobileOpen, setMobileOpen] = React.useState(false);
+    94→  const [cmdOpen, setCmdOpen] = React.useState(false);
+    95→
+    96→  // Sidebar pinned state (persisted)
+    97→  const [pinned, setPinned] = useLocalStorage<boolean>("rp-sidebar-pinned", false);
+    98→  const [hovered, setHovered] = React.useState(false);
+    99→  const reduce = usePrefersReducedMotion();
+   100→
+   101→  const current = NAV.find((n) => n.id === section);
+   102→
+   103→  // Hover close delay (250ms) to avoid accidental closes
+   104→  const closeTimer = React.useRef<number | null>(null);
+   105→  const onEnter = React.useCallback(() => {
+   106→    if (closeTimer.current) {
+   107→      window.clearTimeout(closeTimer.current);
+   108→      closeTimer.current = null;
+   109→    }
+   110→    if (!reduce) setHovered(true);
+   111→  }, [reduce]);
+   112→  const onLeave = React.useCallback(() => {
+   113→    closeTimer.current = window.setTimeout(() => setHovered(false), 250);
+   114→  }, []);
+   115→
+   116→  // Cleanup timer on unmount
+   117→  React.useEffect(() => () => {
+   118→    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+   119→  }, []);
+   120→
+   121→  // Lock body scroll when mobile drawer is open
+   122→  React.useEffect(() => {
+   123→    document.body.style.overflow = mobileOpen ? "hidden" : "";
+   124→    return () => { document.body.style.overflow = ""; };
+   125→  }, [mobileOpen]);
+   126→
+   127→  // Global ⌘K / Ctrl+K shortcut to open the command palette
+   128→  React.useEffect(() => {
+   129→    function onKey(e: KeyboardEvent) {
+   130→      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+   131→        e.preventDefault();
+   132→        setCmdOpen((v) => !v);
+   133→      }
+   134→    }
+   135→    window.addEventListener("keydown", onKey);
+   136→    return () => window.removeEventListener("keydown", onKey);
+   137→  }, []);
+   138→
+   139→  // Effective sidebar width
+   140→  const expanded = pinned || hovered;
+   141→  const sidebarWidth = expanded ? 260 : 72;
+   142→
+   143→  return (
+   144→    <div className="flex min-h-screen">
+   145→      {/* ===== Desktop Sidebar (rail + overlay) ===== */}
+   146→      {/* When pinned: sticky, occupies layout space */}
+   147→      {/* When not pinned: fixed, placeholder keeps 72px in layout */}
+   148→      {pinned ? (
+   149→        <DesktopSidebar
+   150→          expanded
+   151→          pinned
+   152→          reduce={reduce}
+   153→          onPin={() => setPinned(false)}
+   154→          onEnter={onEnter}
+   155→          onLeave={onLeave}
+   156→          section={section}
+   157→          go={go}
+   158→          setView={setView}
+   159→          width={sidebarWidth}
+   160→          className="sticky top-0"
+   161→        />
+   162→      ) : (
+   163→        <>
+   164→          {/* Placeholder keeps 72px in layout when sidebar is floating */}
+   165→          <div className="hidden lg:block w-[72px] shrink-0" aria-hidden />
+   166→          {/* Floating sidebar (no backdrop overlay — onMouseLeave handles close) */}
+   167→          <DesktopSidebar
+   168→            expanded={expanded}
+   169→            pinned={false}
+   170→            reduce={reduce}
+   171→            onPin={() => setPinned(true)}
+   172→            onEnter={onEnter}
+   173→            onLeave={onLeave}
+   174→            section={section}
+   175→            go={go}
+   176→            setView={setView}
+   177→            width={sidebarWidth}
+   178→            className={cn(
+   179→              "fixed left-0 top-0 z-30",
+   180→              hovered && !reduce && "shadow-2xl rp-glow-gold",
+   181→            )}
+   182→          />
+   183→        </>
+   184→      )}
+   185→
+   186→      {/* ===== Mobile Sidebar (drawer) ===== */}
+   187→      {mobileOpen && (
+   188→        <div className="lg:hidden fixed inset-0 z-50">
+   189→          <div
+   190→            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+   191→            onClick={() => setMobileOpen(false)}
+   192→            aria-hidden
+   193→          />
+   194→          <aside className="absolute left-0 top-0 h-full w-72 rp-glass-strong border-r border-border/60 flex flex-col rp-slide-in">
+   195→            <div className="h-16 flex items-center justify-between pl-5 pr-2 border-b border-border/60">
+   196→              <Logo />
+   197→              <button
+   198→                onClick={() => setMobileOpen(false)}
+   199→                aria-label="Cerrar menú"
+   200→                className="h-11 w-11 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors"
+   201→              >
+   202→                <X className="h-5 w-5" />
+   203→              </button>
+   204→            </div>
+   205→            <OrgSelector />
+   206→            <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación móvil">
+   207→              {GROUPS.map((g) => (
+   208→                <div key={g} className="mb-4">
+   209→                  <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+   210→                  <ul className="space-y-0.5">
+   211→                    {NAV.filter((n) => n.group === g).map((n) => (
+   212→                      <li key={n.id}>
+   213→                        <button
+   214→                          onClick={() => { go(n.id); setMobileOpen(false); }}
+   215→                          className={cn(
+   216→                            "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+   217→                            section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   218→                          )}
+   219→                          aria-current={section === n.id ? "page" : undefined}
+   220→                        >
+   221→                          <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   222→                          <span className="truncate">{n.label}</span>
+   223→                        </button>
+   224→                      </li>
+   225→                    ))}
+   226→                  </ul>
+   227→                </div>
+   228→              ))}
+   229→            </nav>
+   230→          </aside>
+   231→        </div>
+   232→      )}
+   233→
+   234→      {/* ===== Main column ===== */}
+   235→      <div className="flex-1 min-w-0 flex flex-col">
+   236→        <Topbar
+   237→          onMenu={() => setMobileOpen(true)}
+   238→          title={current?.label ?? "Dashboard"}
+   239→          onOpenCmd={() => setCmdOpen(true)}
+   240→        />
+   241→        <main className="flex-1 p-4 sm:p-6 lg:p-8" id="app-main">
+   242→          <SectionRenderer section={section} />
+   243→        </main>
+   244→      </div>
+   245→
+   246→      {/* Command palette (⌘K) */}
+   247→      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+   248→    </div>
+   249→  );
+   250→}
+   251→
+   252→/* ============================================================
+   253→   Desktop Sidebar component
+   254→============================================================ */
+   255→function DesktopSidebar({
+   256→  expanded,
+   257→  pinned,
+   258→  reduce,
+   259→  onPin,
+   260→  onEnter,
+   261→  onLeave,
+   262→  section,
+   263→  go,
+   264→  setView,
+   265→  width,
+   266→  className,
+   267→}: {
+   268→  expanded: boolean;
+   269→  pinned: boolean;
+   270→  reduce: boolean;
+   271→  onPin: () => void;
+   272→  onEnter: () => void;
+   273→  onLeave: () => void;
+   274→  section: Section;
+   275→  go: (s: Section) => void;
+   276→  setView: (v: "landing") => void;
+   277→  width: number;
+   278→  className?: string;
+   279→}) {
+   280→  return (
+   281→    <aside
+   282→      className={cn(
+   283→        "hidden lg:flex flex-col border-r border-border/60 rp-glass-strong h-screen z-30 overflow-hidden",
+   284→        className,
+   285→      )}
+   286→      style={{
+   287→        width: `${width}px`,
+   288→        transition: reduce ? "none" : "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
+   289→      }}
+   290→      onMouseEnter={onEnter}
+   291→      onMouseLeave={onLeave}
+   292→      aria-label="Navegación principal"
+   293→    >
+   294→      {/* Brand header */}
+   295→      <div className={cn("h-16 flex items-center border-b border-border/60", expanded ? "px-5" : "px-4 justify-center")}>
+   296→        <button
+   297→          onClick={() => setView("landing")}
+   298→          className="flex items-center gap-2.5 min-w-0"
+   299→          aria-label="Volver a landing"
+   300→        >
+   301→          <BrandMark className="h-8 w-8 shrink-0" />
+   302→          {expanded && (
+   303→            <span className="font-display text-lg tracking-tight truncate rp-fade-in">
+   304→              RestoPanel
+   305→            </span>
+   306→          )}
+   307→        </button>
+   308→        {expanded && (
+   309→          <button
+   310→            onClick={onPin}
+   311→            className="ml-auto h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-[var(--gold)] hover:bg-foreground/5 transition-colors"
+   312→            aria-label={pinned ? "Desfijar sidebar" : "Fijar sidebar abierta"}
+   313→            aria-pressed={pinned}
+   314→            title={pinned ? "Desfijar sidebar" : "Fijar sidebar abierta"}
+   315→          >
+   316→            {pinned ? <Pin className="h-3.5 w-3.5 fill-current text-[var(--gold)]" /> : <PinOff className="h-3.5 w-3.5" />}
+   317→          </button>
+   318→        )}
+   319→      </div>
+   320→
+   321→      {/* Collapsed pin button (always visible) */}
+   322→      {!expanded && (
+   323→        <div className="px-4 py-2 flex justify-center">
+   324→          <button
+   325→            onClick={onPin}
+   326→            className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-[var(--gold)] hover:bg-foreground/5 transition-colors"
+   327→            aria-label="Fijar sidebar abierta"
+   328→            title="Fijar sidebar"
+   329→          >
+   330→            <PinOff className="h-3.5 w-3.5" />
+   331→          </button>
+   332→        </div>
+   333→      )}
+   334→
+   335→      <OrgSelector expanded={expanded} />
+   336→
+   337→      {/* Nav */}
+   338→      <nav className="flex-1 overflow-y-auto overflow-x-hidden rp-scroll-thin px-2 py-2" aria-label="Navegación principal">
+   339→        {GROUPS.map((g, gi) => (
+   340→          <div key={g} className="mb-3">
+   341→            {expanded && (
+   342→              <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground rp-fade-in" style={{ transitionDelay: `${gi * 20}ms` }}>
+   343→                {g}
+   344→              </div>
+   345→            )}
+   346→            <ul className="space-y-0.5">
+   347→              {NAV.filter((n) => n.group === g).map((n, ni) => (
+   348→                <li key={n.id}>
+   349→                  <button
+   350→                    onClick={() => go(n.id)}
+   351→                    className={cn(
+   352→                      "w-full flex items-center rounded-md text-sm transition-colors min-h-[40px]",
+   353→                      expanded ? "gap-3 px-2.5 py-2" : "justify-center px-2 py-2.5",
+   354→                      section === n.id
+   355→                        ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   356→                        : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   357→                    )}
+   358→                    aria-current={section === n.id ? "page" : undefined}
+   359→                    aria-label={n.label}
+   360→                    title={!expanded ? n.label : undefined}
+   361→                  >
+   362→                    <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   363→                    {expanded && (
+   364→                      <span
+   365→                        className="truncate rp-fade-in"
+   366→                        style={reduce ? undefined : { transitionDelay: `${(gi * 5 + ni) * 20}ms` }}
+   367→                      >
+   368→                        {n.label}
+   369→                      </span>
+   370→                    )}
+   371→                  </button>
+   372→                </li>
+   373→              ))}
+   374→            </ul>
+   375→          </div>
+   376→        ))}
+   377→      </nav>
+   378→
+   379→      {/* User card */}
+   380→      <UserCard expanded={expanded} />
+   381→    </aside>
+   382→  );
+   383→}
+   384→
+   385→/* ============================================================
+   386→   Fade-in helper class (added via globals.css)
+   387→   The class .rp-fade-in is defined in globals.css:
+   388→   .rp-fade-in {
+   389→     animation: rp-fade-in 220ms cubic-bezier(0.4, 0, 0.2, 1) both;
+   390→   }
+   391→   @keyframes rp-fade-in {
+   392→     from { opacity: 0; transform: translateX(-8px); }
+   393→     to   { opacity: 1; transform: translateX(0); }
+   394→   }
+   395→============================================================ */
+   396→
+   397→/* ============================================================
+   398→   OrgSelector
+   399→============================================================ */
+   400→function OrgSelector({ expanded }: { expanded: boolean }) {
+   401→  const org = useNav((s) => s.org);
+   402→  const location = useNav((s) => s.location);
+   403→  const [open, setOpen] = React.useState(false);
+   404→  return (
+   405→    <div className={cn("relative border-b border-border/40", expanded ? "px-3 py-3" : "py-3 flex justify-center")}>
+   406→      <button
+   407→        onClick={() => setOpen((v) => !v)}
+   408→        className={cn(
+   409→          "rounded-md border border-border/60 text-left hover:border-[var(--gold)]/40 transition-colors min-h-[44px] flex items-center",
+   410→          expanded ? "w-full gap-2.5 px-3 py-2" : "h-10 w-10 justify-center",
+   411→        )}
+   412→        aria-expanded={open}
+   413→        aria-label="Seleccionar organización y local"
+   414→        title={!expanded ? `${org} · ${location}` : undefined}
+   415→      >
+   416→        <div className="h-7 w-7 rounded-md bg-[var(--gold)]/15 flex items-center justify-center text-[var(--gold)] text-xs font-medium shrink-0">R</div>
+   417→        {expanded && (
+   418→          <div className="flex-1 min-w-0 rp-fade-in">
+   419→            <div className="text-sm font-medium truncate">{org}</div>
+   420→            <div className="text-[11px] text-muted-foreground truncate">{location}</div>
+   421→          </div>
+   422→        )}
+   423→        {expanded && <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />}
+   424→      </button>
+   425→      {open && (
+   426→        <div className={cn("absolute rp-glass-strong rounded-md border border-border/60 py-1 z-30 max-h-[60vh] overflow-y-auto rp-scroll-thin", expanded ? "left-3 right-3 top-full mt-1" : "left-full top-0 ml-2 w-56")}>
+   427→          {["Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"].map((l) => (
+   428→            <button
+   429→              key={l}
+   430→              onClick={() => { useNav.getState().setLocation(l); setOpen(false); }}
+   431→              className="w-full min-h-[44px] text-left px-3 py-2 text-sm hover:bg-foreground/5"
+   432→            >
+   433→              {l}
+   434→            </button>
+   435→          ))}
+   436→          <div className="border-t border-border/40 my-1" />
+   437→          <button className="w-full min-h-[44px] text-left px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5">
+   438→            + Añadir local
+   439→          </button>
+   440→        </div>
+   441→      )}
+   442→    </div>
+   443→  );
+   444→}
+   445→
+   446→/* ============================================================
+   447→   UserCard — shows user info + logout
+   448→============================================================ */
+   449→function UserCard({ expanded }: { expanded: boolean }) {
+   450→  const user = useNav((s) => s.user);
+   451→  const logout = useNav((s) => s.logout);
+   452→  const openAuth = useNav((s) => s.openAuth);
+   453→  const setView = useNav((s) => s.setView);
+   454→  const [menuOpen, setMenuOpen] = React.useState(false);
+   455→  const menuRef = React.useRef<HTMLDivElement>(null);
+   456→
+   457→  // Close on outside click
+   458→  React.useEffect(() => {
+   459→    if (!menuOpen) return;
+   460→    function onDown(e: MouseEvent) {
+   461→      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+   462→        setMenuOpen(false);
+   463→      }
+   464→    }
+   465→    function onKey(e: KeyboardEvent) {
+   466→      if (e.key === "Escape") setMenuOpen(false);
+   467→    }
+   468→    document.addEventListener("mousedown", onDown);
+   469→    document.addEventListener("keydown", onKey);
+   470→    return () => {
+   471→      document.removeEventListener("mousedown", onDown);
+   472→      document.removeEventListener("keydown", onKey);
+   473→    };
+   474→  }, [menuOpen]);
+   475→
+   476→  const initials = user?.initials ?? "AM";
+   477→  const name = user?.name ?? "Ana Martínez";
+   478→  const role = user?.role ?? "Owner · Ramses Group";
+   479→
+   480→  return (
+   481→    <div className="relative border-t border-border/60 p-2" ref={menuRef}>
+   482→      <button
+   483→        onClick={() => setMenuOpen((v) => !v)}
+   484→        className={cn(
+   485→          "w-full flex items-center rounded-md hover:bg-foreground/5 transition-colors min-h-[44px]",
+   486→          expanded ? "gap-2.5 px-2 py-1.5" : "justify-center px-0 py-2",
+   487→        )}
+   488→        aria-haspopup="menu"
+   489→        aria-expanded={menuOpen}
+   490→        aria-label="Cuenta de usuario"
+   491→        title={!expanded ? name : undefined}
+   492→      >
+   493→        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium shrink-0">
+   494→          {initials}
+   495→        </div>
+   496→        {expanded && (
+   497→          <div className="flex-1 min-w-0 text-left rp-fade-in">
+   498→            <div className="text-sm font-medium truncate">{name}</div>
+   499→            <div className="text-[11px] text-muted-foreground truncate">{role}</div>
+   500→          </div>
+   501→        )}
+   502→        {expanded && <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />}
+   503→      </button>
+   504→
+   505→      {menuOpen && (
+   506→        <div
+   507→          role="menu"
+   508→          className="absolute bottom-full left-2 right-2 mb-2 rp-glass-strong rounded-md border border-border/60 py-1 z-30 shadow-xl"
+   509→        >
+   510→          <button
+   511→            onClick={() => { setView("landing"); setMenuOpen(false); }}
+   512→            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-foreground/5 transition-colors"
+   513→            role="menuitem"
+   514→          >
+   515→            <LayoutDashboard className="h-4 w-4 text-muted-foreground" aria-hidden />
+   516→            Ver landing
+   517→          </button>
+   518→          <button
+   519→            onClick={() => { openAuth("signup"); setMenuOpen(false); }}
+   520→            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-foreground/5 transition-colors"
+   521→            role="menuitem"
+   522→          >
+   523→            <UserPlus className="h-4 w-4 text-muted-foreground" aria-hidden />
+   524→            Cambiar de cuenta
+   525→          </button>
+   526→          <div className="border-t border-border/40 my-1" />
+   527→          <button
+   528→            onClick={() => { logout(); setMenuOpen(false); }}
+   529→            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-rose-300 hover:bg-rose-500/10 transition-colors"
+   530→            role="menuitem"
+   531→          >
+   532→            <LogOut className="h-4 w-4" aria-hidden />
+   533→            Cerrar sesión
+   534→          </button>
+   535→        </div>
+   536→      )}
+   537→    </div>
+   538→  );
+   539→}
+   540→
+   541→/* ============================================================
+   542→   Topbar — with working notifications + search + avatar
+   543→============================================================ */
+   544→function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: string; onOpenCmd: () => void }) {
+   545→  const [period, setPeriod] = React.useState<"hoy" | "semana" | "mes">("hoy");
+   546→  return (
+   547→    <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
+   548→      <button onClick={onMenu} className="lg:hidden h-11 w-11 -ml-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors" aria-label="Abrir menú">
+   549→        <Menu className="h-5 w-5" />
+   550→      </button>
+   551→      {/* Breadcrumb / title */}
+   552→      <div className="flex items-center gap-2 text-sm min-w-0 flex-1 md:flex-none">
+   553→        <span className="text-muted-foreground hidden sm:inline shrink-0">RestoPanel /</span>
+   554→        <span className="font-medium truncate">{title}</span>
+   555→      </div>
+   556→      {/* Global search (center, hidden on mobile) */}
+   557→      <button
+   558→        onClick={onOpenCmd}
+   559→        className="flex-1 max-w-[180px] md:max-w-xs xl:max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
+   560→        aria-label="Abrir paleta de comandos"
+   561→      >
+   562→        <Search className="h-4 w-4 shrink-0" aria-hidden />
+   563→        <span className="flex-1 truncate">Buscar reservas, clientes, mesas…</span>
+   564→        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0 flex items-center gap-0.5">
+   565→          <CommandIcon className="h-2.5 w-2.5" />K
+   566→        </kbd>
+   567→      </button>
+   568→      {/* Right cluster */}
+   569→      <div className="ml-auto flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
+   570→        <div className="hidden 2xl:flex items-center rounded-md border border-border/60 p-0.5">
+   571→          {(["hoy", "semana", "mes"] as const).map((p) => (
+   572→            <button
+   573→              key={p}
+   574→              onClick={() => setPeriod(p)}
+   575→              className={cn(
+   576→                "min-h-[36px] rounded px-2.5 py-1 text-xs capitalize transition-colors",
+   577→                period === p ? "bg-[var(--gold)] text-black" : "text-muted-foreground hover:text-foreground"
+   578→              )}
+   579→            >
+   580→              {p}
+   581→            </button>
+   582→          ))}
+   583→        </div>
+   584→        <button
+   585→          onClick={onOpenCmd}
+   586→          className="md:hidden h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+   587→          aria-label="Buscar (paleta de comandos)"
+   588→        >
+   589→          <Search className="h-4 w-4" />
+   590→        </button>
+   591→        <NotificationsBell />
+   592→        <button
+   593→          onClick={() => {
+   594→            useNav.getState().go("configuracion");
+   595→          }}
+   596→          className="hidden sm:flex h-9 w-9 rounded-md border border-border/60 items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+   597→          aria-label="Ayuda y configuración"
+   598→          title="Ayuda"
+   599→        >
+   600→          <HelpCircle className="h-4 w-4" />
+   601→        </button>
+   602→        <UserAvatar />
+   603→      </div>
+   604→    </header>
+   605→  );
+   606→}
+   607→
+   608→/* ============================================================
+   609→   NotificationsBell — functional dropdown panel
+   610→============================================================ */
+   611→interface Notification {
+   612→  id: string;
+   613→  title: string;
+   614→  description: string;
+   615→  time: string;
+   616→  icon: React.ElementType;
+   617→  iconCls: string;
+   618→  read: boolean;
+   619→  category: "reserva" | "review" | "alert" | "sistema";
+   620→}
+   621→
+   622→const INITIAL_NOTIFICATIONS: Notification[] = [
+   623→  { id: "n1", title: "Nueva reserva", description: "Marta López · 4 pax · 21:30 · Mesa 7", time: "hace 2 min", icon: CalendarPlus, iconCls: "text-[var(--teal)]", read: false, category: "reserva" },
+   624→  { id: "n2", title: "Reseña 5★", description: "Google · «Servicio excepcional, volveremos»", time: "hace 8 min", icon: Star, iconCls: "text-amber-400", read: false, category: "review" },
+   625→  { id: "n3", title: "No-show detectado", description: "Carlos Ruiz · 20:00 · sin confirmar", time: "hace 15 min", icon: CalendarX, iconCls: "text-rose-400", read: false, category: "alert" },
+   626→  { id: "n4", title: "Mesa M12 rinde -18%", description: "Análisis IA · facturación por debajo de media", time: "hace 32 min", icon: TrendingDown, iconCls: "text-amber-400", read: false, category: "alert" },
+   627→  { id: "n5", title: "Campaña enviada", description: "VIP Marzo · 48 destinatarios · 12 aperturas", time: "hace 1 h", icon: Megaphone, iconCls: "text-[var(--gold-soft)]", read: true, category: "sistema" },
+   628→  { id: "n6", title: "Backup completado", description: "R2 · instantánea diaria · 2.4 GB", time: "hace 3 h", icon: ShieldCheck, iconCls: "text-[var(--teal)]", read: true, category: "sistema" },
+   629→];
+   630→
+   631→function NotificationsBell() {
+   632→  const [open, setOpen] = React.useState(false);
+   633→  const [notifications, setNotifications] = React.useState<Notification[]>(INITIAL_NOTIFICATIONS);
+   634→  const panelRef = React.useRef<HTMLDivElement>(null);
+   635→  const btnRef = React.useRef<HTMLButtonElement>(null);
+   636→
+   637→  const unread = notifications.filter((n) => !n.read).length;
+   638→
+   639→  // Close on outside click + Escape
+   640→  React.useEffect(() => {
+   641→    if (!open) return;
+   642→    function onDown(e: MouseEvent) {
+   643→      if (
+   644→        panelRef.current && !panelRef.current.contains(e.target as Node) &&
+   645→        btnRef.current && !btnRef.current.contains(e.target as Node)
+   646→      ) {
+   647→        setOpen(false);
+   648→      }
+   649→    }
+   650→    function onKey(e: KeyboardEvent) {
+   651→      if (e.key === "Escape") setOpen(false);
+   652→    }
+   653→    document.addEventListener("mousedown", onDown);
+   654→    document.addEventListener("keydown", onKey);
+   655→    return () => {
+   656→      document.removeEventListener("mousedown", onDown);
+   657→      document.removeEventListener("keydown", onKey);
+   658→    };
+   659→  }, [open]);
+   660→
+   661→  const markAllRead = () => {
+   662→    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+   663→  };
+   664→  const markRead = (id: string) => {
+   665→    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+   666→  };
+   667→
+   668→  return (
+   669→    <div className="relative">
+   670→      <button
+   671→        ref={btnRef}
+   672→        onClick={() => setOpen((v) => !v)}
+   673→        className="relative h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+   674→        aria-label={`Notificaciones${unread ? `, ${unread} sin leer` : ""}`}
+   675→        aria-expanded={open}
+   676→        aria-haspopup="dialog"
+   677→      >
+   678→        <Bell className="h-4 w-4" />
+   679→        {unread > 0 && (
+   680→          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-[var(--teal)] text-black text-[10px] font-mono font-bold flex items-center justify-center ring-2 ring-background">
+   681→            {unread}
+   682→          </span>
+   683→        )}
+   684→      </button>
+   685→
+   686→      {open && (
+   687→        <div
+   688→          ref={panelRef}
+   689→          role="dialog"
+   690→          aria-label="Panel de notificaciones"
+   691→          className="absolute right-0 top-full mt-2 w-[min(360px,calc(100vw-1.5rem))] rp-glass-strong rounded-xl border border-border/60 shadow-2xl z-50 overflow-hidden"
+   692→        >
+   693→          {/* Header */}
+   694→          <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
+   695→            <div className="flex items-center gap-2">
+   696→              <h3 className="text-sm font-medium">Notificaciones</h3>
+   697→              {unread > 0 && (
+   698→                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--teal)]/15 text-[var(--teal)]">
+   699→                  {unread} nuevas
+   700→                </span>
+   701→              )}
+   702→            </div>
+   703→            {unread > 0 && (
+   704→              <button
+   705→                onClick={markAllRead}
+   706→                className="text-[11px] text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+   707→              >
+   708→                <CheckCheck className="h-3 w-3" />
+   709→                Marcar todas
+   710→              </button>
+   711→            )}
+   712→          </div>
+   713→          {/* List */}
+   714→          <ul className="max-h-[60vh] overflow-y-auto rp-scroll-thin">
+   715→            {notifications.length === 0 && (
+   716→              <li className="px-4 py-10 text-center text-sm text-muted-foreground">
+   717→                <Bell className="mx-auto mb-2 h-5 w-5 opacity-50" />
+   718→                Sin notificaciones
+   719→              </li>
+   720→            )}
+   721→            {notifications.map((n) => {
+   722→              const Icon = n.icon;
+   723→              return (
+   724→                <li key={n.id}>
+   725→                  <button
+   726→                    onClick={() => markRead(n.id)}
+   727→                    className={cn(
+   728→                      "w-full text-left px-4 py-3 flex gap-3 transition-colors border-b border-border/40 last:border-0",
+   729→                      n.read ? "hover:bg-foreground/[0.02]" : "bg-[var(--gold)]/[0.04] hover:bg-[var(--gold)]/[0.08]"
+   730→                    )}
+   731→                  >
+   732→                    <div className={cn("h-8 w-8 rounded-md bg-foreground/5 flex items-center justify-center shrink-0", n.iconCls)}>
+   733→                      <Icon className="h-4 w-4" aria-hidden />
+   734→                    </div>
+   735→                    <div className="flex-1 min-w-0">
+   736→                      <div className="flex items-start justify-between gap-2">
+   737→                        <span className={cn("text-sm truncate", n.read ? "font-normal text-foreground/80" : "font-medium")}>
+   738→                          {n.title}
+   739→                        </span>
+   740→                        {!n.read && (
+   741→                          <span className="h-2 w-2 rounded-full bg-[var(--teal)] shrink-0 mt-1.5" aria-label="sin leer" />
+   742→                        )}
+   743→                      </div>
+   744→                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.description}</p>
+   745→                      <span className="text-[10px] font-mono text-muted-foreground/70 mt-1 block">{n.time}</span>
+   746→                    </div>
+   747→                  </button>
+   748→                </li>
+   749→              );
+   750→            })}
+   751→          </ul>
+   752→          {/* Footer */}
+   753→          <button
+   754→            onClick={() => {
+   755→              useNav.getState().go("reviews");
+   756→              setOpen(false);
+   757→            }}
+   758→            className="w-full px-4 py-2.5 text-xs text-center text-muted-foreground hover:text-foreground border-t border-border/60 transition-colors hover:bg-foreground/[0.03]"
+   759→          >
+   760→            Ver todas las notificaciones
+   761→          </button>
+   762→        </div>
+   763→      )}
+   764→    </div>
+   765→  );
+   766→}
+   767→
+   768→/* ============================================================
+   769→   UserAvatar — top right, opens same menu as sidebar user card
+   770→============================================================ */
+   771→function UserAvatar() {
+   772→  const user = useNav((s) => s.user);
+   773→  const logout = useNav((s) => s.logout);
+   774→  const openAuth = useNav((s) => s.openAuth);
+   775→  const [menuOpen, setMenuOpen] = React.useState(false);
+   776→  const ref = React.useRef<HTMLDivElement>(null);
+   777→
+   778→  React.useEffect(() => {
+   779→    if (!menuOpen) return;
+   780→    function onDown(e: MouseEvent) {
+   781→      if (ref.current && !ref.current.contains(e.target as Node)) setMenuOpen(false);
+   782→    }
+   783→    function onKey(e: KeyboardEvent) {
+   784→      if (e.key === "Escape") setMenuOpen(false);
+   785→    }
+   786→    document.addEventListener("mousedown", onDown);
+   787→    document.addEventListener("keydown", onKey);
+   788→    return () => {
+   789→      document.removeEventListener("mousedown", onDown);
+   790→      document.removeEventListener("keydown", onKey);
+   791→    };
+   792→  }, [menuOpen]);
+   793→
+   794→  const initials = user?.initials ?? "AM";
+   795→  const name = user?.name ?? "Ana Martínez";
+   796→
+   797→  return (
+   798→    <div className="relative" ref={ref}>
+   799→      <button
+   800→        onClick={() => setMenuOpen((v) => !v)}
+   801→        className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium ring-2 ring-transparent hover:ring-[var(--gold)]/40 transition-shadow"
+   802→        aria-label={`Cuenta de ${name}`}
+   803→        aria-haspopup="menu"
+   804→        aria-expanded={menuOpen}
+   805→      >
+   806→        {initials}
+   807→      </button>
+   808→      {menuOpen && (
+   809→        <div
+   810→          role="menu"
+   811→          className="absolute right-0 top-full mt-2 w-56 rp-glass-strong rounded-md border border-border/60 py-1 z-50 shadow-xl"
+   812→        >
+   813→          <div className="px-3 py-2 border-b border-border/40">
+   814→            <div className="text-sm font-medium truncate">{name}</div>
+   815→            <div className="text-[11px] text-muted-foreground truncate">{user?.email ?? "ana@ramsesgroup.com"}</div>
+   816→          </div>
+   817→          <button
+   818→            onClick={() => { useNav.getState().go("configuracion"); setMenuOpen(false); }}
+   819→            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-foreground/5 transition-colors"
+   820→            role="menuitem"
+   821→          >
+   822→            <Settings className="h-4 w-4 text-muted-foreground" aria-hidden />
+   823→            Configuración
+   824→          </button>
+   825→          <button
+   826→            onClick={() => { openAuth("signup"); setMenuOpen(false); }}
+   827→            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left hover:bg-foreground/5 transition-colors"
+   828→            role="menuitem"
+   829→          >
+   830→            <UserPlus className="h-4 w-4 text-muted-foreground" aria-hidden />
+   831→            Cambiar de cuenta
+   832→          </button>
+   833→          <div className="border-t border-border/40 my-1" />
+   834→          <button
+   835→            onClick={() => { logout(); setMenuOpen(false); }}
+   836→            className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left text-rose-300 hover:bg-rose-500/10 transition-colors"
+   837→            role="menuitem"
+   838→          >
+   839→            <LogOut className="h-4 w-4" aria-hidden />
+   840→            Cerrar sesión
+   841→          </button>
+   842→        </div>
+   843→      )}
+   844→    </div>
+   845→  );
+   846→}
+   847→
+   848→/* ============================================================
+   849→   Command palette (⌘K) — unchanged, fully functional
+   850→============================================================ */
+   851→interface CmdAction {
+   852→  id: string;
+   853→  label: string;
+   854→  hint: string;
+   855→  icon: React.ElementType;
+   856→  group: "Navegación" | "Acciones";
+   857→  run: () => void;
+   858→}
+   859→
+   860→function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   861→  const [query, setQuery] = React.useState("");
+   862→  const [active, setActive] = React.useState(0);
+   863→  const inputRef = React.useRef<HTMLInputElement>(null);
+   864→  const listRef = React.useRef<HTMLDivElement>(null);
+   865→
+   866→  const actions = React.useMemo<CmdAction[]>(() => {
+   867→    const nav: CmdAction[] = NAV.map((n) => ({
+   868→      id: `nav-${n.id}`,
+   869→      label: n.label,
+   870→      hint: "Ir a sección",
+   871→      icon: n.icon,
+   872→      group: "Navegación",
+   873→      run: () => useNav.getState().go(n.id),
+   874→    }));
+   875→    const quick: CmdAction[] = [
+   876→      { id: "qa-executive", label: "Abrir Centro Ejecutivo", hint: "IA + Alertas", icon: Crown, group: "Acciones", run: () => useNav.getState().go("executive") },
+   877→      { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   878→      { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
+   879→      { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   880→      { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
+   881→      { id: "qa-growth-analytics", label: "Ver Growth Analytics", hint: "ROI e insights IA", icon: TrendingUp, group: "Acciones", run: () => useNav.getState().go("growth-analytics") },
+   882→      { id: "qa-growth-reputation", label: "Gestionar reputación", hint: "Reseñas + NPS", icon: Award, group: "Acciones", run: () => useNav.getState().go("growth-reputation") },
+   883→      { id: "qa-reviews", label: "Responder reviews", hint: "Google Reviews", icon: Star, group: "Acciones", run: () => useNav.getState().go("reviews") },
+   884→      { id: "qa-analytics", label: "Ver analítica", hint: "Analytics", icon: BarChart3, group: "Acciones", run: () => useNav.getState().go("analytics") },
+   885→      { id: "qa-settings", label: "Configuración", hint: "Ajustes del local", icon: Settings, group: "Acciones", run: () => useNav.getState().go("configuracion") },
+   886→    ];
+   887→    return [...quick, ...nav];
+   888→  }, []);
+   889→
+   890→  const filtered = React.useMemo(() => {
+   891→    const q = query.trim().toLowerCase();
+   892→    if (!q) return actions;
+   893→    return actions.filter((a) =>
+   894→      a.label.toLowerCase().includes(q) || a.hint.toLowerCase().includes(q)
+   895→    );
+   896→  }, [actions, query]);
+   897→
+   898→  React.useEffect(() => {
+   899→    if (open) {
+   900→      setQuery("");
+   901→      setActive(0);
+   902→      requestAnimationFrame(() => inputRef.current?.focus());
+   903→    }
+   904→  }, [open]);
+   905→
+   906→  React.useEffect(() => {
+   907→    if (active >= filtered.length) setActive(0);
+   908→  }, [filtered, active]);
+   909→
+   910→  React.useEffect(() => {
+   911→    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
+   912→    el?.scrollIntoView({ block: "nearest" });
+   913→  }, [active]);
+   914→
+   915→  function execute(a: CmdAction) {
+   916→    a.run();
+   917→    onOpenChange(false);
+   918→  }
+   919→
+   920→  function onKeyDown(e: React.KeyboardEvent) {
+   921→    if (e.key === "ArrowDown") {
+   922→      e.preventDefault();
+   923→      setActive((i) => (i + 1) % Math.max(filtered.length, 1));
+   924→    } else if (e.key === "ArrowUp") {
+   925→      e.preventDefault();
+   926→      setActive((i) => (i - 1 + filtered.length) % Math.max(filtered.length, 1));
+   927→    } else if (e.key === "Enter") {
+   928→      e.preventDefault();
+   929→      const a = filtered[active];
+   930→      if (a) execute(a);
+   931→    } else if (e.key === "Escape") {
+   932→      onOpenChange(false);
+   933→    }
+   934→  }
+   935→
+   936→  const groups = React.useMemo(() => {
+   937→    const map = new Map<string, CmdAction[]>();
+   938→    for (const a of filtered) {
+   939→      const arr = map.get(a.group) ?? [];
+   940→      arr.push(a);
+   941→      map.set(a.group, arr);
+   942→    }
+   943→    return Array.from(map.entries());
+   944→  }, [filtered]);
+   945→
+   946→  let flatIdx = -1;
+   947→
+   948→  return (
+   949→    <Dialog open={open} onOpenChange={onOpenChange}>
+   950→      <DialogContent
+   951→        showCloseButton={false}
+   952→        className="p-0 gap-0 sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+   953→        onKeyDown={onKeyDown}
+   954→      >
+   955→        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
+   956→        <DialogDescription className="sr-only">
+   957→          Busca acciones rápidas o secciones y navega con el teclado.
+   958→        </DialogDescription>
+   959→        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/60">
+   960→          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+   961→          <input
+   962→            ref={inputRef}
+   963→            type="search"
+   964→            value={query}
+   965→            onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+   966→            placeholder="Busca una acción o sección…"
+   967→            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+   968→            aria-label="Buscar acción"
+   969→            autoComplete="off"
+   970→            spellCheck={false}
+   971→          />
+   972→          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">ESC</kbd>
+   973→        </div>
+   974→        <div ref={listRef} className="flex-1 overflow-y-auto rp-scroll-thin p-2 max-h-[60vh]">
+   975→          {filtered.length === 0 ? (
+   976→            <div className="px-3 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+   977→              <Sparkles className="h-5 w-5 opacity-50" />
+   978→              Sin resultados para “{query}”.
+   979→            </div>
+   980→          ) : (
+   981→            groups.map(([group, items]) => (
+   982→              <div key={group} className="mb-1">
+   983→                <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   984→                  {group}
+   985→                </div>
+   986→                <ul role="listbox" aria-label={group}>
+   987→                  {items.map((a) => {
+   988→                    flatIdx += 1;
+   989→                    const idx = flatIdx;
+   990→                    const isActive = idx === active;
+   991→                    return (
+   992→                      <li key={a.id} role="option" aria-selected={isActive}>
+   993→                        <button
+   994→                          data-idx={idx}
+   995→                          onMouseMove={() => setActive(idx)}
+   996→                          onClick={() => execute(a)}
+   997→                          className={cn(
+   998→                            "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+   999→                            isActive ? "bg-[var(--gold)]/12 text-[var(--gold-soft)]" : "hover:bg-foreground/5"
+  1000→                          )}
+  1001→                        >
+  1002→                          <a.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--gold)]" : "text-muted-foreground")} aria-hidden />
+  1003→                          <span className="flex-1 min-w-0 truncate font-medium">{a.label}</span>
+  1004→                          <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{a.hint}</span>
+  1005→                          {isActive && (
+  1006→                            <CornerDownLeft className="h-3.5 w-3.5 text-[var(--gold)] shrink-0" aria-hidden />
+  1007→                          )}
+  1008→                        </button>
+  1009→                      </li>
+  1010→                    );
+  1011→                  })}
+  1012→                </ul>
+  1013→              </div>
+  1014→            ))
+  1015→          )}
+  1016→        </div>
+  1017→        <div className="flex items-center justify-between gap-2 px-4 h-10 border-t border-border/60 text-[11px] text-muted-foreground">
+  1018→          <div className="flex items-center gap-3">
+  1019→            <span className="flex items-center gap-1">
+  1020→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↑↓</kbd> navegar
+  1021→            </span>
+  1022→            <span className="flex items-center gap-1">
+  1023→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↵</kbd> seleccionar
+  1024→            </span>
+  1025→          </div>
+  1026→          <span className="font-mono">RestoPanel · ⌘K</span>
+  1027→        </div>
+  1028→      </DialogContent>
+  1029→    </Dialog>
+  1030→  );
+  1031→}
+  1032→
+  1033→/* ============================================================
+  1034→   AuthDialog — login / signup / forgot password
+  1035→   Functional: validation, loading, errors, password strength,
+  1036→   show/hide password, redirect to dashboard on success
+  1037→   Rendered at Page level so it's available in both landing and app views.
+  1038→============================================================ */
+  1039→export function AuthDialog() {
+  1040→  const authOpen = useNav((s) => s.authOpen);
+  1041→  const authMode = useNav((s) => s.authMode);
+  1042→  const closeAuth = useNav((s) => s.closeAuth);
+  1043→  const setAuthMode = useNav((s) => s.setAuthMode);
+  1044→  const login = useNav((s) => s.login);
+  1045→
+  1046→  return (
+  1047→    <Dialog open={authOpen} onOpenChange={(o) => !o && closeAuth()}>
+  1048→      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
+  1049→        <DialogTitle className="sr-only">
+  1050→          {authMode === "login" ? "Iniciar sesión" : authMode === "signup" ? "Crear cuenta" : "Recuperar contraseña"}
+  1051→        </DialogTitle>
+  1052→        <DialogDescription className="sr-only">
+  1053→          {authMode === "login"
+  1054→            ? "Accede a tu panel de RestoPanel"
+  1055→            : authMode === "signup"
+  1056→              ? "Crea tu cuenta de RestoPanel"
+  1057→              : "Te enviaremos un enlace para restablecer tu contraseña"}
+  1058→        </DialogDescription>
+  1059→        <div className="px-6 pt-6 pb-2">
+  1060→          <div className="flex items-center gap-2.5 mb-1">
+  1061→            <BrandMark className="h-7 w-7" />
+  1062→            <span className="font-display text-lg tracking-tight">RestoPanel</span>
+  1063→          </div>
+  1064→          <h2 className="mt-4 font-display text-2xl font-light tracking-tight">
+  1065→            {authMode === "login" && "Bienvenido de nuevo"}
+  1066→            {authMode === "signup" && "Empieza hoy"}
+  1067→            {authMode === "forgot" && "Recuperar acceso"}
+  1068→          </h2>
+  1069→          <p className="mt-1 text-sm text-muted-foreground">
+  1070→            {authMode === "login" && "Accede a tu panel de control."}
+  1071→            {authMode === "signup" && "Crea tu cuenta y prueba 14 días gratis."}
+  1072→            {authMode === "forgot" && "Introduce tu email y te enviaremos un enlace."}
+  1073→          </p>
+  1074→        </div>
+  1075→
+  1076→        {authMode === "login" && <LoginForm onSwitch={setAuthMode} onLogin={login} />}
+  1077→        {authMode === "signup" && <SignupForm onSwitch={setAuthMode} onLogin={login} />}
+  1078→        {authMode === "forgot" && <ForgotForm onSwitch={setAuthMode} />}
+  1079→      </DialogContent>
+  1080→    </Dialog>
+  1081→  );
+  1082→}
+  1083→
+  1084→function FieldError({ msg }: { msg?: string | null }) {
+  1085→  if (!msg) return null;
+  1086→  return (
+  1087→    <div className="mt-1.5 flex items-center gap-1.5 text-xs text-rose-400">
+  1088→      <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+  1089→      <span>{msg}</span>
+  1090→    </div>
+  1091→  );
+  1092→}
+  1093→
+  1094→function PasswordInput({
+  1095→  label,
+  1096→  value,
+  1097→  onChange,
+  1098→  error,
+  1099→  autoComplete,
+  1100→  showStrength,
+  1101→}: {
+  1102→  label: string;
+  1103→  value: string;
+  1104→  onChange: (v: string) => void;
+  1105→  error?: string | null;
+  1106→  autoComplete?: string;
+  1107→  showStrength?: boolean;
+  1108→}) {
+  1109→  const [show, setShow] = React.useState(false);
+  1110→  const strength = React.useMemo(() => {
+  1111→    if (!showStrength) return null;
+  1112→    let score = 0;
+  1113→    if (value.length >= 8) score++;
+  1114→    if (/[A-Z]/.test(value)) score++;
+  1115→    if (/[a-z]/.test(value)) score++;
+  1116→    if (/[0-9]/.test(value)) score++;
+  1117→    if (/[^A-Za-z0-9]/.test(value)) score++;
+  1118→    return score;
+  1119→  }, [value, showStrength]);
+  1120→
+  1121→  const strengthLabel = strength === null ? null : strength <= 1 ? "Débil" : strength <= 3 ? "Media" : "Fuerte";
+  1122→  const strengthCls = strength === null ? "" : strength <= 1 ? "bg-rose-500" : strength <= 3 ? "bg-amber-400" : "bg-[var(--teal)]";
+  1123→
+  1124→  return (
+  1125→    <div>
+  1126→      <Label className="mb-1.5 block text-xs">{label}</Label>
+  1127→      <div className="relative">
+  1128→        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+  1129→        <input
+  1130→          type={show ? "text" : "password"}
+  1131→          value={value}
+  1132→          onChange={(e) => onChange(e.target.value)}
+  1133→          autoComplete={autoComplete}
+  1134→          className={cn(
+  1135→            "w-full h-11 rounded-md border bg-background/40 pl-10 pr-10 text-sm outline-none transition-colors",
+  1136→            error ? "border-rose-400/60 focus:border-rose-400" : "border-border/60 focus:border-[var(--gold)]/50",
+  1137→          )}
+  1138→          aria-invalid={!!error}
+  1139→        />
+  1140→        <button
+  1141→          type="button"
+  1142→          onClick={() => setShow((v) => !v)}
+  1143→          className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded text-muted-foreground hover:text-foreground transition-colors"
+  1144→          aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
+  1145→          tabIndex={-1}
+  1146→        >
+  1147→          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+  1148→        </button>
+  1149→      </div>
+  1150→      {showStrength && strength !== null && value.length > 0 && (
+  1151→        <div className="mt-1.5 flex items-center gap-2">
+  1152→          <div className="flex-1 h-1 rounded-full bg-foreground/10 overflow-hidden">
+  1153→            <div
+  1154→              className={cn("h-full rounded-full transition-all", strengthCls)}
+  1155→              style={{ width: `${(strength / 5) * 100}%` }}
+  1156→            />
+  1157→          </div>
+  1158→          <span className="text-[10px] font-mono text-muted-foreground">{strengthLabel}</span>
+  1159→        </div>
+  1160→      )}
+  1161→      <FieldError msg={error} />
+  1162→    </div>
+  1163→  );
+  1164→}
+  1165→
+  1166→function Label({ className, children }: { className?: string; children: React.ReactNode }) {
+  1167→  return <label className={cn("block text-foreground", className)}>{children}</label>;
+  1168→}
+  1169→
+  1170→function LoginForm({ onSwitch, onLogin }: { onSwitch: (m: AuthMode) => void; onLogin: (u: { name: string; email: string; initials: string; role: string; org: string }) => void }) {
+  1171→  const [email, setEmail] = React.useState("");
+  1172→  const [password, setPassword] = React.useState("");
+  1173→  const [errors, setErrors] = React.useState<{ email?: string | null; password?: string | null; form?: string | null }>({});
+  1174→  const [loading, setLoading] = React.useState(false);
+  1175→
+  1176→  const validate = () => {
+  1177→    const e: typeof errors = {};
+  1178→    if (!email.trim()) e.email = "El email es obligatorio.";
+  1179→    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Email no válido.";
+  1180→    if (!password) e.password = "La contraseña es obligatoria.";
+  1181→    else if (password.length < 6) e.password = "Mínimo 6 caracteres.";
+  1182→    setErrors(e);
+  1183→    return Object.keys(e).length === 0;
+  1184→  };
+  1185→
+  1186→  const onSubmit = async (ev: React.FormEvent) => {
+  1187→    ev.preventDefault();
+  1188→    if (!validate()) return;
+  1189→    setLoading(true);
+  1190→    setErrors({});
+  1191→    try {
+  1192→      // Simulated async login
+  1193→      await new Promise((r) => setTimeout(r, 900));
+  1194→      // Demo: accept any valid email/password
+  1195→      const name = email.split("@")[0].split(/[._-]/).map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(" ");
+  1196→      const initials = name.split(" ").map((s) => s.charAt(0)).slice(0, 2).join("").toUpperCase();
+  1197→      onLogin({
+  1198→        name,
+  1199→        email,
+  1200→        initials,
+  1201→        role: "Owner · Ramses Group",
+  1202→        org: "Ramses Group",
+  1203→      });
+  1204→    } catch {
+  1205→      setErrors({ form: "No se pudo iniciar sesión. Inténtalo de nuevo." });
+  1206→    } finally {
+  1207→      setLoading(false);
+  1208→    }
+  1209→  };
+  1210→
+  1211→  return (
+  1212→    <form onSubmit={onSubmit} className="px-6 pb-6 pt-4 space-y-4">
+  1213→      <div>
+  1214→        <Label className="mb-1.5 block text-xs">Email</Label>
+  1215→        <div className="relative">
+  1216→          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+  1217→          <input
+  1218→            type="email"
+  1219→            value={email}
+  1220→            onChange={(e) => setEmail(e.target.value)}
+  1221→            autoComplete="email"
+  1222→            className={cn(
+  1223→              "w-full h-11 rounded-md border bg-background/40 pl-10 pr-3 text-sm outline-none transition-colors",
+  1224→              errors.email ? "border-rose-400/60 focus:border-rose-400" : "border-border/60 focus:border-[var(--gold)]/50",
+  1225→            )}
+  1226→            placeholder="ana@ramsesgroup.com"
+  1227→            aria-invalid={!!errors.email}
+  1228→          />
+  1229→        </div>
+  1230→        <FieldError msg={errors.email} />
+  1231→      </div>
+  1232→      <PasswordInput label="Contraseña" value={password} onChange={setPassword} error={errors.password} autoComplete="current-password" />
+  1233→      <div className="flex items-center justify-between">
+  1234→        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+  1235→          <input type="checkbox" className="h-3.5 w-3.5 rounded border-border/60 accent-[var(--gold)]" />
+  1236→          Recordarme
+  1237→        </label>
+  1238→        <button
+  1239→          type="button"
+  1240→          onClick={() => onSwitch("forgot")}
+  1241→          className="text-xs text-muted-foreground hover:text-[var(--gold-soft)] transition-colors"
+  1242→        >
+  1243→          ¿Olvidaste tu contraseña?
+  1244→        </button>
+  1245→      </div>
+  1246→      {errors.form && <FieldError msg={errors.form} />}
+  1247→      <button
+  1248→        type="submit"
+  1249→        disabled={loading}
+  1250→        className="w-full h-11 rounded-md bg-[var(--gold)] text-black font-medium text-sm hover:bg-[var(--gold-soft)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+  1251→      >
+  1252→        {loading ? (
+  1253→          <>
+  1254→            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+  1255→            Entrando…
+  1256→          </>
+  1257→        ) : (
+  1258→          <>
+  1259→            Iniciar sesión
+  1260→            <ArrowRight className="h-4 w-4" aria-hidden />
+  1261→          </>
+  1262→        )}
+  1263→      </button>
+  1264→      <p className="text-center text-xs text-muted-foreground">
+  1265→        ¿No tienes cuenta?{" "}
+  1266→        <button type="button" onClick={() => onSwitch("signup")} className="text-[var(--gold-soft)] hover:underline">
+  1267→          Crea una gratis
+  1268→        </button>
+  1269→      </p>
+  1270→    </form>
+  1271→  );
+  1272→}
+  1273→
+  1274→function SignupForm({ onSwitch, onLogin }: { onSwitch: (m: AuthMode) => void; onLogin: (u: { name: string; email: string; initials: string; role: string; org: string }) => void }) {
+  1275→  const [name, setName] = React.useState("");
+  1276→  const [email, setEmail] = React.useState("");
+  1277→  const [password, setPassword] = React.useState("");
+  1278→  const [errors, setErrors] = React.useState<{ name?: string | null; email?: string | null; password?: string | null; form?: string | null }>({});
+  1279→  const [loading, setLoading] = React.useState(false);
+  1280→
+  1281→  const validate = () => {
+  1282→    const e: typeof errors = {};
+  1283→    if (!name.trim()) e.name = "El nombre es obligatorio.";
+  1284→    if (!email.trim()) e.email = "El email es obligatorio.";
+  1285→    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Email no válido.";
+  1286→    if (!password) e.password = "La contraseña es obligatoria.";
+  1287→    else if (password.length < 8) e.password = "Mínimo 8 caracteres.";
+  1288→    setErrors(e);
+  1289→    return Object.keys(e).length === 0;
+  1290→  };
+  1291→
+  1292→  const onSubmit = async (ev: React.FormEvent) => {
+  1293→    ev.preventDefault();
+  1294→    if (!validate()) return;
+  1295→    setLoading(true);
+  1296→    setErrors({});
+  1297→    try {
+  1298→      await new Promise((r) => setTimeout(r, 1100));
+  1299→      const initials = name.trim().split(/\s+/).map((s) => s.charAt(0)).slice(0, 2).join("").toUpperCase();
+  1300→      onLogin({
+  1301→        name: name.trim(),
+  1302→        email,
+  1303→        initials,
+  1304→        role: "Owner",
+  1305→        org: "Mi Restaurante",
+  1306→      });
+  1307→    } catch {
+  1308→      setErrors({ form: "No se pudo crear la cuenta. Inténtalo de nuevo." });
+  1309→    } finally {
+  1310→      setLoading(false);
+  1311→    }
+  1312→  };
+  1313→
+  1314→  return (
+  1315→    <form onSubmit={onSubmit} className="px-6 pb-6 pt-4 space-y-4">
+  1316→      <div>
+  1317→        <Label className="mb-1.5 block text-xs">Nombre completo</Label>
+  1318→        <div className="relative">
+  1319→          <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+  1320→          <input
+  1321→            type="text"
+  1322→            value={name}
+  1323→            onChange={(e) => setName(e.target.value)}
+  1324→            autoComplete="name"
+  1325→            className={cn(
+  1326→              "w-full h-11 rounded-md border bg-background/40 pl-10 pr-3 text-sm outline-none transition-colors",
+  1327→              errors.name ? "border-rose-400/60 focus:border-rose-400" : "border-border/60 focus:border-[var(--gold)]/50",
+  1328→            )}
+  1329→            placeholder="Ana Martínez"
+  1330→            aria-invalid={!!errors.name}
+  1331→          />
+  1332→        </div>
+  1333→        <FieldError msg={errors.name} />
+  1334→      </div>
+  1335→      <div>
+  1336→        <Label className="mb-1.5 block text-xs">Email</Label>
+  1337→        <div className="relative">
+  1338→          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+  1339→          <input
+  1340→            type="email"
+  1341→            value={email}
+  1342→            onChange={(e) => setEmail(e.target.value)}
+  1343→            autoComplete="email"
+  1344→            className={cn(
+  1345→              "w-full h-11 rounded-md border bg-background/40 pl-10 pr-3 text-sm outline-none transition-colors",
+  1346→              errors.email ? "border-rose-400/60 focus:border-rose-400" : "border-border/60 focus:border-[var(--gold)]/50",
+  1347→            )}
+  1348→            placeholder="ana@ramsesgroup.com"
+  1349→            aria-invalid={!!errors.email}
+  1350→          />
+  1351→        </div>
+  1352→        <FieldError msg={errors.email} />
+  1353→      </div>
+  1354→      <PasswordInput label="Contraseña" value={password} onChange={setPassword} error={errors.password} autoComplete="new-password" showStrength />
+  1355→      {errors.form && <FieldError msg={errors.form} />}
+  1356→      <button
+  1357→        type="submit"
+  1358→        disabled={loading}
+  1359→        className="w-full h-11 rounded-md bg-[var(--gold)] text-black font-medium text-sm hover:bg-[var(--gold-soft)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+  1360→      >
+  1361→        {loading ? (
+  1362→          <>
+  1363→            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+  1364→            Creando cuenta…
+  1365→          </>
+  1366→        ) : (
+  1367→          <>
+  1368→            Crear cuenta
+  1369→            <ArrowRight className="h-4 w-4" aria-hidden />
+  1370→          </>
+  1371→        )}
+  1372→      </button>
+  1373→      <p className="text-center text-xs text-muted-foreground">
+  1374→        ¿Ya tienes cuenta?{" "}
+  1375→        <button type="button" onClick={() => onSwitch("login")} className="text-[var(--gold-soft)] hover:underline">
+  1376→          Inicia sesión
+  1377→        </button>
+  1378→      </p>
+  1379→    </form>
+  1380→  );
+  1381→}
+  1382→
+  1383→function ForgotForm({ onSwitch }: { onSwitch: (m: AuthMode) => void }) {
+  1384→  const [email, setEmail] = React.useState("");
+  1385→  const [error, setError] = React.useState<string | null>(null);
+  1386→  const [loading, setLoading] = React.useState(false);
+  1387→  const [sent, setSent] = React.useState(false);
+  1388→
+  1389→  const onSubmit = async (ev: React.FormEvent) => {
+  1390→    ev.preventDefault();
+  1391→    if (!email.trim()) { setError("El email es obligatorio."); return; }
+  1392→    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Email no válido."); return; }
+  1393→    setError(null);
+  1394→    setLoading(true);
+  1395→    try {
+  1396→      await new Promise((r) => setTimeout(r, 900));
+  1397→      setSent(true);
+  1398→    } finally {
+  1399→      setLoading(false);
+  1400→    }
+  1401→  };
+  1402→
+  1403→  if (sent) {
+  1404→    return (
+  1405→      <div className="px-6 pb-6 pt-4 space-y-4 text-center">
+  1406→        <div className="mx-auto h-12 w-12 rounded-full bg-[var(--teal)]/15 flex items-center justify-center">
+  1407→          <Mail className="h-6 w-6 text-[var(--teal)]" aria-hidden />
+  1408→        </div>
+  1409→        <h3 className="font-display text-lg font-medium">Revisa tu email</h3>
+  1410→        <p className="text-sm text-muted-foreground">
+  1411→          Hemos enviado un enlace de recuperación a <span className="text-foreground font-medium">{email}</span>. El enlace expira en 30 minutos.
+  1412→        </p>
+  1413→        <button
+  1414→          onClick={() => onSwitch("login")}
+  1415→          className="w-full h-11 rounded-md border border-border/60 hover:bg-foreground/5 transition-colors text-sm font-medium"
+  1416→        >
+  1417→          Volver a iniciar sesión
+  1418→        </button>
+  1419→      </div>
+  1420→    );
+  1421→  }
+  1422→
+  1423→  return (
+  1424→    <form onSubmit={onSubmit} className="px-6 pb-6 pt-4 space-y-4">
+  1425→      <div>
+  1426→        <Label className="mb-1.5 block text-xs">Email</Label>
+  1427→        <div className="relative">
+  1428→          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+  1429→          <input
+  1430→            type="email"
+  1431→            value={email}
+  1432→            onChange={(e) => setEmail(e.target.value)}
+  1433→            autoComplete="email"
+  1434→            className={cn(
+  1435→              "w-full h-11 rounded-md border bg-background/40 pl-10 pr-3 text-sm outline-none transition-colors",
+  1436→              error ? "border-rose-400/60 focus:border-rose-400" : "border-border/60 focus:border-[var(--gold)]/50",
+  1437→            )}
+  1438→            placeholder="ana@ramsesgroup.com"
+  1439→            aria-invalid={!!error}
+  1440→          />
+  1441→        </div>
+  1442→        <FieldError msg={error} />
+  1443→      </div>
+  1444→      <button
+  1445→        type="submit"
+  1446→        disabled={loading}
+  1447→        className="w-full h-11 rounded-md bg-[var(--gold)] text-black font-medium text-sm hover:bg-[var(--gold-soft)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+  1448→      >
+  1449→        {loading ? (
+  1450→          <>
+  1451→            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+  1452→            Enviando…
+  1453→          </>
+  1454→        ) : (
+  1455→          <>
+  1456→            <KeyRound className="h-4 w-4" aria-hidden />
+  1457→            Enviar enlace
+  1458→          </>
+  1459→        )}
+  1460→      </button>
+  1461→      <button
+  1462→        type="button"
+  1463→        onClick={() => onSwitch("login")}
+  1464→        className="w-full text-center text-xs text-muted-foreground hover:text-[var(--gold-soft)] transition-colors"
+  1465→      >
+  1466→        ← Volver a iniciar sesión
+  1467→      </button>
+  1468→    </form>
+  1469→  );
+  1470→}
+  1471→
+  1472→/* ============================================================
+  1473→   SectionRenderer — lazy-loaded sections
+  1474→============================================================ */
+  1475→function SectionRenderer({ section }: { section: Section }) {
+  1476→  const Lazy = React.useMemo(() => {
+  1477→    const map: Record<Section, React.LazyExoticComponent<React.ComponentType>> = {
+  1478→      dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then((m) => ({ default: m.Home }))),
+  1479→      executive: React.lazy(() => import("@/components/rp/executive/executive-view").then((m) => ({ default: m.ExecutiveView }))),
+  1480→      reservas: React.lazy(() => import("@/components/rp/reservas/reservas-view").then((m) => ({ default: m.ReservasView }))),
+  1481→      crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
+  1482→      marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),
+  1483→      automatizaciones: React.lazy(() => import("@/components/rp/automations/automation-builder").then((m) => ({ default: m.AutomationBuilder }))),
+  1484→      "growth-analytics": React.lazy(() => import("@/components/rp/growth/growth-analytics").then((m) => ({ default: m.GrowthAnalytics }))),
+  1485→      "growth-reputation": React.lazy(() => import("@/components/rp/growth/growth-reputation").then((m) => ({ default: m.GrowthReputation }))),
+  1486→      campaigns: React.lazy(() => import("@/components/rp/growth/growth-campaigns").then((m) => ({ default: m.GrowthCampaigns }))),
+  1487→      promotions: React.lazy(() => import("@/components/rp/growth/growth-promotions").then((m) => ({ default: m.GrowthPromotions }))),
+  1488→      reviews: React.lazy(() => import("@/components/rp/reviews/reviews-view").then((m) => ({ default: m.ReviewsView }))),
+  1489→      analytics: React.lazy(() => import("@/components/rp/reviews/analytics-view").then((m) => ({ default: m.AnalyticsView }))),
+  1490→      integraciones: React.lazy(() => import("@/components/rp/superadmin/integrations-view").then((m) => ({ default: m.IntegrationsView }))),
+  1491→      billing: React.lazy(() => import("@/components/rp/superadmin/billing-view").then((m) => ({ default: m.BillingView }))),
+  1492→      equipo: React.lazy(() => import("@/components/rp/superadmin/team-view").then((m) => ({ default: m.TeamView }))),
+  1493→      configuracion: React.lazy(() => import("@/components/rp/superadmin/settings-view").then((m) => ({ default: m.SettingsView }))),
+  1494→      superadmin: React.lazy(() => import("@/components/rp/superadmin/super-admin-view").then((m) => ({ default: m.SuperAdminView }))),
+  1495→      "ai-center": React.lazy(() => import("@/components/rp/ai-center/ai-center").then((m) => ({ default: m.AiCenter }))),
+  1496→      "ai-knowledge": React.lazy(() => import("@/components/rp/ai-center/ai-knowledge").then((m) => ({ default: m.AiKnowledge }))),
+  1497→      "ai-menu": React.lazy(() => import("@/components/rp/ai-center/ai-menu").then((m) => ({ default: m.AiMenu }))),
+  1498→    };
+  1499→    return map[section];
+  1500→  }, [section]);
+  1501→
+  1502→  return (
+  1503→    <React.Suspense fallback={<SectionSkeleton />}>
+  1504→      <Lazy />
+  1505→    </React.Suspense>
+  1506→  );
+  1507→}
+  1508→
+  1509→function SectionSkeleton() {
+  1510→  return (
+  1511→    <div className="space-y-4" aria-busy="true" aria-label="Cargando sección">
+  1512→      <div className="h-8 w-48 rounded-md bg-foreground/10 animate-pulse" />
+  1513→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  1514→        {Array.from({ length: 4 }).map((_, i) => (
+  1515→          <div key={i} className="h-28 rounded-xl bg-foreground/5 animate-pulse" />
+  1516→        ))}
+  1517→      </div>
+  1518→      <div className="h-64 rounded-xl bg-foreground/5 animate-pulse" />
+  1519→    </div>
+  1520→  );
+  1521→}
+  1522→
