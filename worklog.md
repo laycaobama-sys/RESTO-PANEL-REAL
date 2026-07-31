@@ -2928,3 +2928,93 @@ Stage Summary:
 - Componentes exportados: `InventarioView`, `PersonalView`, `OnboardingView`, `FlowBuilderView`, `CopilotContextualView`.
 - Lint limpio + TypeScript sin errores en los 5 archivos.
 - Listos para integración: aún no están referenciados desde `app-shell.tsx` o `page.tsx`. Pendiente de que el integrador los añada al sidebar/nav y routing.
+
+---
+
+## Task: AUTOPILOT-MODULES — 3 new modules (Autopilot + Channels + Preinstalled Automations)
+
+**Agent**: sub-agent (general-purpose) · **Task ID**: AUTOPILOT-MODULES
+
+Contexto: Leí `worklog.md` (últimas 60 líneas) para entender el patrón consolidado de los 5 archivos anteriores. Leí `reservas-view.tsx` (header rp-glass, DemoBadge, useToast, font-display, font-mono tabular-nums) y `inventario-view.tsx` (patrón con CSS vars `var(--rp-emerald/yellow/blue/red/violet)` y sufijos `-soft`).
+
+### Archivo 1: `src/components/rp/autopilot/autopilot-view.tsx` (2142 líneas, export `AutopilotView`)
+4 secciones con tabs horizontales scrollables:
+- **Section A · Provisioning Pipeline (21 pasos)**: Animación staggered 300ms por paso con `motion` + `CheckCircle2` spring scale. Pasos agrupados en 4 cards (Estructura/Datos base/Operativa/Onboarding) con dots de color (`--rp-emerald/blue/violet/yellow`). Banner "Tu restaurante está listo para operar" + timer "Provisioning completado en 47s" con `Loader2` spinning durante la animación. Respeta `useReducedMotion` (instantáneo).
+- **Section B · 8-Step Wizard**: Progress bar "Paso X de 8" + step pills clickeables (desktop lg+) + botón "Continuar más tarde" que guarda en `localStorage` (`rp:autopilot:wizard`). Los 8 pasos implementados:
+  1. **Identidad**: nombre comercial, razón social, CIF, logo upload, color picker (8 presets + input type=color custom), contacto, instagram, descripción + vista previa en vivo aplicando color.
+  2. **Local y zonas**: nombre, dirección, mesas, capacidad + 7 zonas toggleables (Comedor/Terraza/Barra/Reservado/VIP/Delivery/Take away) + preview de plano automático grid con mesas draggables.
+  3. **Horarios**: horario general, cocina, reservas, comida, cena, cerrados, festivos, valle + sliders duración reserva (45-240min) y buffer (0-60min) con accent emerald. Banner info horas valle.
+  4. **Carta**: 6 opciones import (Excel/CSV/PDF/Imagen/URL/Manual) + preview table con 6 productos, alérgenos chips amarillos + AutoGenDialog con progress bar animada y checklist de generación (Carta digital+QR / TPV / PDA / KDS / Delivery / Take away) + banner "auto-genera carta digital + QR + TPV + PDA + KDS + delivery + take away".
+  5. **Equipo**: añadir empleado (dialog con nombre/apellidos/puesto/email/teléfono/rol + PIN auto-generado regenerable + código auto-gen `XXX-NNN`) + importar CSV (toast) + paleta 11 roles + lista empleados con avatar initials, PIN regenerable, eliminar. Roles: Propietario/Gerente/Encargado/Maître/Camarero/Runner/Cocinero/Jefe cocina/Barra/Repartidor/Solo fichaje.
+  6. **Operativa**: 12 flags toggleables (Sala/Barra/Take away/Delivery/Reservas/Order & Pay/QR/KDS/Impresora/Datáfono/Varias marcas/Cocina central) — cada uno activa/desactiva módulos automáticamente.
+  7. **Fidelización y marketing**: 9 flags violeta (programa sellos, recompensa, segmentos, bienvenida, cumpleaños, inactivo, postvisita, noshow, valle) + banner rojo "Nada se envía sin consentimiento" con ShieldAlert.
+  8. **Prueba completa**: checklist 11 items clickeables con check verde + contador "X/11 verificados" + mensaje final "Tu restaurante está listo para operar." con PartyPopper.
+  - FinalDialog: confirmar guardado o descartar borrador (limpia localStorage).
+- **Section C · Presets**: 5 presets clickeables con icon (Utensils/Store/Bike/ChefHat/Hotel) + tone (emerald/yellow/blue/violet/red) + descripción + módulos chips + botón "Aplicar preset" con Dialog de confirmación mostrando módulos. Card extra placeholder "¿Necesitas otro preset? Próximamente".
+- **Section D · Maintenance**: panel con 9 items (Updates/Migrations/Backups/Security/Monitor/Features/Legal/Integrations/Perf) con status badges (Activo/Requiere revisión/Próximamente), KPIs mini (activos/requiere/próximo), feed actividad 24h (backup/update/sql/integración/security) + disclaimer rojo "No afirmamos que una normativa esté cubierta sin implementación real" con botón centro cumplimiento.
+
+### Archivo 2: `src/components/rp/channels/channels-view.tsx` (1131 líneas, export `ChannelsView`)
+- **Header**: badge "En vivo" con Radio pulsante + contador canales activos X/9.
+- **KPI strip**: 4 cards (Pedidos hoy / Ticket medio ponderado / Comisión agregadores media ponderada / Canales activos).
+- **Dark Kitchen toggle**: Switch + panel colapsable (AnimatePresence height auto) con 3 brands (Burger Lab yellow / Sushi Go violet / Pizza Express emerald) — cada una con catálogo, pedidos hoy, ticket medio, % del total con progress bar + 3 cards inferiores "1 KDS compartido / 1 stock compartido / Rentabilidad por marca".
+- **Channel grid**: 9 cards (Sala/Barra/QR/Web/Take away/Delivery/Glovo/Uber/Just Eat) cada una con icon tone-colored, Switch activar/pausar, 2 mini cards (Pedidos hoy / Ticket medio), chip comisión+margin para agregadores, badge Activo/Pausado, botón Ajustes. AnimatePresence con layout animations.
+- **Unified flow diagram (SVG)**: viewBox 760×280, canales activos a la izquierda conectados con paths Bezier al hub central "TPV / KDS·Stock / CRM", hub a 3 outputs (Ventas/Cocina/Inventario). Cada path con `motion.path` staggered + `motion.circle` animada via cx/cy repeat infinito para mostrar flujo en vivo. Debajo 4 chips "Un solo TPV / KDS / Inventario / CRM".
+- **Comparison table**: canal/pedidos hoy/ticket medio/% del total (con mini progress bar por canal)/margen real tras comisiones (amarillo para agregadores)/estado. Footer con totales.
+- **Settings per channel**: Dialog (desktop) / Sheet bottom (mobile) con 5 fields (Horarios/Zonas/Pedido mínimo/Coste envío/Tiempo estimado) + banner "cambios en tiempo real a los nuevos pedidos". Toggle useIsMobile para elegir modalidad.
+- Toggle en tiempo real dispara toast con mensaje contextual (activado: "empezará a recibir pedidos" / pausado: "se detienen nuevos pedidos, los en curso se completan").
+
+### Archivo 3: `src/components/rp/preinstalled-automations/preinstalled-automations-view.tsx` (1212 líneas, export `PreinstalledAutomationsView`)
+- **Header**: badge "20 preinstaladas".
+- **Metrics panel**: 5 métricas (Activas emerald / Pausadas yellow / Ejecuciones blue / % éxito emerald / Impacto estimado violet) — métricas computadas dinámicamente del estado.
+- **Filters**: search por título/disparador/acción + segmented control Todas/Activas/Pausadas + 10 chips categoría scrollables horizontalmente (Reservas/CRM/Fidelización/Inventario/Operativa/Personal/Pagos/Reputación/Marketing/Cierre).
+- **Grid 20 automation cards**: cada card con icon tone-colored, número #aXX + categoría, título, "Cuando" trigger, "Entonces" action muted, 2 mini cards (Ejecuciones / Impacto +€), badge Activa/Pausada con dot, botón "Ver historial". AnimatePresence con layout animations + delay staggered.
+- **Las 20 automatizaciones** (todas con trigger/action/conditions array/template/history 1-3 ejecuciones/errors/retries):
+  1. Reserva creada → confirmación (312 ejec)
+  2. Reserva próxima T-24h → recordatorio (187)
+  3. Reserva cancelada → avisar waitlist (+1240€, 42 ejec)
+  4. No-show → marcar riesgo + cargo (+540€, 18)
+  5. Cliente satisfecho → reseña Google (+340€, 142)
+  6. Cliente inactivo 30d → reactivación (+890€, 56)
+  7. Cumpleaños → recompensa (+460€, 23)
+  8. Sello a 1 del premio → notificación (+720€, 89)
+  9. Producto agotado → ocultar de todos los canales (14)
+  10. Stock bajo → aviso gerente (38)
+  11. Ticket pagado → añadir sello (286)
+  12. Pedido listo → WhatsApp cliente (124)
+  13. Delivery en ruta → link seguimiento (67)
+  14. Incidencia cocina → aviso encargado (9)
+  15. Turno publicado → avisar equipo (4)
+  16. Fichaje olvidado → crear incidencia (11)
+  17. Pago fallido → reintentar+notificar (inactiva, 6)
+  18. Review negativa → alertar gerente inmediatamente (7)
+  19. Horas valle → sugerir campaña relleno (inactiva, +320€, 12)
+  20. Cierre diario → resumen IA automático (30)
+- **Detail dialog/sheet**: Dialog desktop / Sheet bottom mobile con:
+  - Header (icon + #id + categoría + título + Switch activar/pausar)
+  - 2 cards Disparador/Acción
+  - Condiciones (CheckCircle2 list, items del array)
+  - Plantilla (font-mono en caja bg-foreground/03)
+  - Historial últimas N ejecuciones con status icon (success CheckCircle2 emerald / failed XCircle red / pending Timer yellow) + timestamp + detalle + duración ms
+  - Auditoría: 4 cells (Ejecuciones / Errores (red si >0) / Reintentos (yellow si >0) / % éxito)
+  - Banner "Notificaciones al gerente en cada error o reintento"
+  - Footer con botones Cerrar + Activar/Pausar (cambia color según estado).
+
+### Detalles técnicos comunes
+- TypeScript estricto sin `any` (types inline: `PipelineStep`, `WizardStepMeta`, `Preset`, `MaintenanceItem`, `EmployeeDraft`, `CartaRow`, `OperativaFlag`, `FidelizacionFlag`, `ChannelDef`, `ChannelSettings`, `Brand`, `AutoCategory`, `Automation`, `AutomationExecution`).
+- `"use client"` en los 3 archivos. `useToast` solo en event handlers (onClick, onConfirm).
+- shadcn/ui: Button, Badge, Input, Label, Switch, Textarea, Progress, Separator, Select, Dialog, Sheet. Tailwind v4 + `rp-glass` + dark theme.
+- CSS vars: `var(--rp-emerald/yellow/blue/red/violet)` y sufijos `-soft` para textos claros.
+- Helpers `euro()`, `DemoBadge()`, `genPin()`, `genCodigo()` (autopilot), `useIsMobile()` (channels y automations para Dialog/Sheet responsive).
+- Responsive 390/768/1280+: grids `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4`, scroll horizontal `rp-scroll-thin` en tabs/tablas, Sheet bottom en mobile para settings.
+- Framer Motion: `motion.div` con `layout`, `AnimatePresence` con `mode="wait"`, `useReducedMotion` respeta prefers-reduced-motion (animaciones instantáneas).
+- Imports limpios sin símbolos no usados.
+
+### Lint + TypeScript
+- `bun run lint` → 0 errores, 0 warnings (sólo warning pre-existente `MODULE_TYPELESS_PACKAGE_JSON`).
+- `bunx tsc --noEmit --skipLibCheck` → 0 errores en los 3 archivos nuevos (errores pre-existentes en reservas/executive/marketing/superadmin no relacionados).
+
+Stage Summary:
+- 3 archivos creados en nuevas carpetas `src/components/rp/{autopilot,channels,preinstalled-automations}/` (4485 líneas totales).
+- Exports: `AutopilotView`, `ChannelsView`, `PreinstalledAutomationsView`.
+- Todos siguen el patrón `reservas-view.tsx` con paleta `var(--rp-*)` emerald/yellow/blue/red/violet.
+- Lint limpio + TypeScript sin errores en los 3 archivos.
