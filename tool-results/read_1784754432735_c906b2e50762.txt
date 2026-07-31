@@ -1,0 +1,1613 @@
+     1→"use client";
+     2→
+     3→/* ============================================================================
+     4→ * RestoPanel · Automation Builder
+     5→ * Visual flow builder: Trigger → Conditions → Actions (with Wait / Branch).
+     6→ * PROD-AUTOMATIONS · demo-navegable · dark theme (gold #D4AF37 / teal #3DD6C9)
+     7→ * ========================================================================== */
+     8→
+     9→import * as React from "react";
+    10→import { cn } from "@/lib/utils";
+    11→import { Button } from "@/components/ui/button";
+    12→import { Switch } from "@/components/ui/switch";
+    13→import { Input } from "@/components/ui/input";
+    14→import { Label } from "@/components/ui/label";
+    15→import { Textarea } from "@/components/ui/textarea";
+    16→import {
+    17→  Dialog,
+    18→  DialogContent,
+    19→  DialogDescription,
+    20→  DialogFooter,
+    21→  DialogHeader,
+    22→  DialogTitle,
+    23→} from "@/components/ui/dialog";
+    24→import {
+    25→  Select,
+    26→  SelectContent,
+    27→  SelectItem,
+    28→  SelectTrigger,
+    29→  SelectValue,
+    30→} from "@/components/ui/select";
+    31→import type { LucideIcon } from "lucide-react";
+    32→import {
+    33→  Zap,
+    34→  GitBranch,
+    35→  Send,
+    36→  Clock,
+    37→  Workflow,
+    38→  Plus,
+    39→  X,
+    40→  Play,
+    41→  Copy,
+    42→  Save,
+    43→  ChevronRight,
+    44→  History,
+    45→  MessageCircle,
+    46→  Mail,
+    47→  Tag,
+    48→  ListTodo,
+    49→  Star,
+    50→  Gift,
+    51→  BellRing,
+    52→  CalendarCheck,
+    53→  PhoneCall,
+    54→  Users,
+    55→  Info,
+    56→  FileText,
+    57→  Sparkles,
+    58→  CheckCircle2,
+    59→  AlertTriangle,
+    60→} from "lucide-react";
+    61→import { useToast } from "@/hooks/use-toast";
+    62→
+    63→/* --------------------------------------------------------------------------
+    64→ * Types
+    65→ * ------------------------------------------------------------------------ */
+    66→
+    67→type NodeType = "trigger" | "condition" | "action" | "wait" | "branch";
+    68→
+    69→type TriggerEvent =
+    70→  | "ReservationCreated"
+    71→  | "ReservationConfirmed"
+    72→  | "ReservationCancelled"
+    73→  | "CustomerVisited"
+    74→  | "CustomerNoShow"
+    75→  | "ReviewReceived"
+    76→  | "Birthday"
+    77→  | "CustomerInactive"
+    78→  | "LoyaltyTierUp"
+    79→  | "WaitlistSeat";
+    80→
+    81→type ActionType =
+    82→  | "send_email"
+    83→  | "send_whatsapp"
+    84→  | "send_sms"
+    85→  | "add_tag"
+    86→  | "remove_tag"
+    87→  | "create_task"
+    88→  | "send_review_request"
+    89→  | "apply_loyalty_points"
+    90→  | "notify_staff"
+    91→  | "update_reservation_status";
+    92→
+    93→type Operator =
+    94→  | "=="
+    95→  | "!="
+    96→  | ">"
+    97→  | "<"
+    98→  | ">="
+    99→  | "<="
+   100→  | "contains"
+   101→  | "not_contains"
+   102→  | "in"
+   103→  | "not_in";
+   104→
+   105→type WaitUnit = "minutes" | "hours" | "days";
+   106→type WaitAnchor = "before_event" | "after_event" | "absolute";
+   107→
+   108→interface NodeConfig {
+   109→  event?: TriggerEvent;
+   110→  field?: string;
+   111→  operator?: Operator;
+   112→  value?: string;
+   113→  actionType?: ActionType;
+   114→  template?: string;
+   115→  variables?: string;
+   116→  duration?: number;
+   117→  unit?: WaitUnit;
+   118→  anchor?: WaitAnchor;
+   119→  ifLabel?: string;
+   120→  elseLabel?: string;
+   121→  // action-type-specific extras
+   122→  assignee?: string;
+   123→  channel?: string;
+   124→  status?: string;
+   125→}
+   126→
+   127→interface FlowNode {
+   128→  id: string;
+   129→  type: NodeType;
+   130→  title: string;
+   131→  config: NodeConfig;
+   132→}
+   133→
+   134→interface SimLine {
+   135→  ts: string;
+   136→  level: "info" | "success" | "warn" | "error";
+   137→  msg: string;
+   138→}
+   139→
+   140→interface Execution {
+   141→  id: string;
+   142→  flow: string;
+   143→  startedAt: string;
+   144→  duration: string;
+   145→  status: "success" | "failed" | "pending";
+   146→  triggeredBy: string;
+   147→}
+   148→
+   149→/* --------------------------------------------------------------------------
+   150→ * Identity helper
+   151→ * ------------------------------------------------------------------------ */
+   152→
+   153→let _idCounter = 0;
+   154→function uid(): string {
+   155→  _idCounter += 1;
+   156→  return `n_${_idCounter}_${Math.random().toString(36).slice(2, 7)}`;
+   157→}
+   158→
+   159→/* --------------------------------------------------------------------------
+   160→ * Static catalog data
+   161→ * ------------------------------------------------------------------------ */
+   162→
+   163→const TRIGGER_EVENTS: { value: TriggerEvent; label: string; hint: string }[] = [
+   164→  { value: "ReservationCreated", label: "Reserva creada", hint: "Nueva reserva en el libro" },
+   165→  { value: "ReservationConfirmed", label: "Reserva confirmada", hint: "Cliente confirma asistencia" },
+   166→  { value: "ReservationCancelled", label: "Reserva cancelada", hint: "Cliente cancela reserva" },
+   167→  { value: "CustomerVisited", label: "Cliente visitó el local", hint: "Servicio completado" },
+   168→  { value: "CustomerNoShow", label: "Cliente no-show", hint: "Reserva no atendida" },
+   169→  { value: "ReviewReceived", label: "Reseña recibida", hint: "Nueva reseña en Google" },
+   170→  { value: "Birthday", label: "Cumpleaños del cliente", hint: "Aniversario del cliente" },
+   171→  { value: "CustomerInactive", label: "Cliente inactivo", hint: "Sin visitas en 90 días" },
+   172→  { value: "LoyaltyTierUp", label: "Sube de nivel de fidelidad", hint: "Cambio de tier" },
+   173→  { value: "WaitlistSeat", label: "Mesa liberada en waitlist", hint: "Cancelación abre sitio" },
+   174→];
+   175→
+   176→const CONDITION_FIELDS: { value: string; label: string }[] = [
+   177→  { value: "party_size", label: "Tamaño del grupo" },
+   178→  { value: "confirmed", label: "Confirmada" },
+   179→  { value: "reservation_status", label: "Estado de reserva" },
+   180→  { value: "customer_tags", label: "Etiquetas del cliente" },
+   181→  { value: "visit_count", label: "Nº de visitas" },
+   182→  { value: "avg_ticket", label: "Ticket medio (€)" },
+   183→  { value: "last_visit_days", label: "Días desde última visita" },
+   184→  { value: "reservation_channel", label: "Canal de reserva" },
+   185→  { value: "time_of_day", label: "Franja horaria" },
+   186→  { value: "loyalty_tier", label: "Nivel de fidelidad" },
+   187→];
+   188→
+   189→const OPERATORS: { value: Operator; label: string }[] = [
+   190→  { value: "==", label: "es igual a" },
+   191→  { value: "!=", label: "es distinto de" },
+   192→  { value: ">", label: "mayor que" },
+   193→  { value: "<", label: "menor que" },
+   194→  { value: ">=", label: "mayor o igual que" },
+   195→  { value: "<=", label: "menor o igual que" },
+   196→  { value: "contains", label: "contiene" },
+   197→  { value: "not_contains", label: "no contiene" },
+   198→  { value: "in", label: "está en (lista)" },
+   199→  { value: "not_in", label: "no está en (lista)" },
+   200→];
+   201→
+   202→const WAIT_UNITS: { value: WaitUnit; label: string; short: string }[] = [
+   203→  { value: "minutes", label: "minutos", short: "min" },
+   204→  { value: "hours", label: "horas", short: "h" },
+   205→  { value: "days", label: "días", short: "d" },
+   206→];
+   207→
+   208→const WAIT_ANCHORS: { value: WaitAnchor; label: string }[] = [
+   209→  { value: "before_event", label: "antes del evento" },
+   210→  { value: "after_event", label: "después del evento" },
+   211→  { value: "absolute", label: "fecha/hora absoluta" },
+   212→];
+   213→
+   214→const ACTION_TEMPLATES: Partial<Record<ActionType, { value: string; label: string }[]>> = {
+   215→  send_whatsapp: [
+   216→    { value: "recordatorio_reserva_v2", label: "Recordatorio de reserva v2" },
+   217→    { value: "reconfirmacion_t2h", label: "Reconfirmación T-2h" },
+   218→    { value: "cumpleanos_felicitacion", label: "Felicitación de cumpleaños" },
+   219→    { value: "winback_90d", label: "Winback 90 días" },
+   220→  ],
+   221→  send_email: [
+   222→    { value: "newsletter_semanal", label: "Newsletter semanal" },
+   223→    { value: "oferta_cumpleanos", label: "Oferta de cumpleaños" },
+   224→    { value: "winback_email", label: "Email de winback" },
+   225→    { value: "confirmacion_reserva", label: "Confirmación de reserva" },
+   226→  ],
+   227→  send_sms: [
+   228→    { value: "recordatorio_sms", label: "Recordatorio SMS" },
+   229→    { value: "confirmacion_sms", label: "Confirmación SMS" },
+   230→  ],
+   231→  send_review_request: [
+   232→    { value: "review_postvisita", label: "Post-visita estándar" },
+   233→    { value: "review_targeted", label: "Dirigida a clientes VIP" },
+   234→  ],
+   235→};
+   236→
+   237→const STAFF_CHANNELS: { value: string; label: string }[] = [
+   238→  { value: "slack", label: "Slack" },
+   239→  { value: "whatsapp_internal", label: "WhatsApp interno" },
+   240→  { value: "dashboard", label: "Dashboard (app)" },
+   241→  { value: "tablet_maitre", label: "Tablet maître" },
+   242→];
+   243→
+   244→const RES_STATUSES: { value: string; label: string }[] = [
+   245→  { value: "confirmed", label: "Confirmada" },
+   246→  { value: "cancelled", label: "Cancelada" },
+   247→  { value: "seated", label: "Sentados" },
+   248→  { value: "no_show", label: "No-show" },
+   249→  { value: "finished", label: "Finalizada" },
+   250→];
+   251→
+   252→/* --------------------------------------------------------------------------
+   253→ * Node-type metadata + accent system
+   254→ * ------------------------------------------------------------------------ */
+   255→
+   256→type Accent = "gold" | "teal" | "emerald" | "amber" | "fuchsia";
+   257→
+   258→const NODE_TYPE_META: Record<
+   259→  NodeType,
+   260→  { label: string; icon: LucideIcon; accent: Accent; description: string; defaultTitle: string }
+   261→> = {
+   262→  trigger: { label: "Disparador", icon: Zap, accent: "gold", description: "Evento que inicia el flujo", defaultTitle: "Nuevo disparador" },
+   263→  condition: { label: "Condición", icon: GitBranch, accent: "teal", description: "Lógica if/then", defaultTitle: "Nueva condición" },
+   264→  action: { label: "Acción", icon: Send, accent: "emerald", description: "Ejecuta un resultado", defaultTitle: "Nueva acción" },
+   265→  wait: { label: "Espera", icon: Clock, accent: "amber", description: "Retrasa la ejecución", defaultTitle: "Nueva espera" },
+   266→  branch: { label: "Bifurcación", icon: Workflow, accent: "fuchsia", description: "Camino si/no", defaultTitle: "Nueva bifurcación" },
+   267→};
+   268→
+   269→const ACCENT: Record<
+   270→  Accent,
+   271→  { chip: string; ring: string; text: string; dot: string }
+   272→> = {
+   273→  gold: {
+   274→    chip: "bg-[var(--gold)]/15 text-[var(--gold)] border-[var(--gold)]/30",
+   275→    ring: "ring-2 ring-[var(--gold)]/70 rp-glow-gold",
+   276→    text: "text-[var(--gold)]",
+   277→    dot: "bg-[var(--gold)]",
+   278→  },
+   279→  teal: {
+   280→    chip: "bg-[var(--teal)]/15 text-[var(--teal)] border-[var(--teal)]/30",
+   281→    ring: "ring-2 ring-[var(--teal)]/70 rp-glow-teal",
+   282→    text: "text-[var(--teal)]",
+   283→    dot: "bg-[var(--teal)]",
+   284→  },
+   285→  emerald: {
+   286→    chip: "bg-emerald-400/15 text-emerald-300 border-emerald-400/30",
+   287→    ring: "ring-2 ring-emerald-400/60",
+   288→    text: "text-emerald-300",
+   289→    dot: "bg-emerald-400",
+   290→  },
+   291→  amber: {
+   292→    chip: "bg-amber-400/15 text-amber-300 border-amber-400/30",
+   293→    ring: "ring-2 ring-amber-400/60",
+   294→    text: "text-amber-300",
+   295→    dot: "bg-amber-400",
+   296→  },
+   297→  fuchsia: {
+   298→    chip: "bg-fuchsia-400/15 text-fuchsia-300 border-fuchsia-400/30",
+   299→    ring: "ring-2 ring-fuchsia-400/60",
+   300→    text: "text-fuchsia-300",
+   301→    dot: "bg-fuchsia-400",
+   302→  },
+   303→};
+   304→
+   305→const ACTION_META: Record<
+   306→  ActionType,
+   307→  {
+   308→    label: string;
+   309→    icon: LucideIcon;
+   310→    verb: (c: NodeConfig) => string;
+   311→    successMsg: string;
+   312→  }
+   313→> = {
+   314→  send_whatsapp: {
+   315→    label: "Enviar WhatsApp",
+   316→    icon: MessageCircle,
+   317→    verb: () => "enviar WhatsApp",
+   318→    successMsg: "Mensaje entregado a +34 612 88 21 04 (wamid.6AB3f0…)",
+   319→  },
+   320→  send_email: {
+   321→    label: "Enviar email",
+   322→    icon: Mail,
+   323→    verb: () => "enviar email",
+   324→    successMsg: "Email encolado a SES (msg_id 0102019…)",
+   325→  },
+   326→  send_sms: {
+   327→    label: "Enviar SMS",
+   328→    icon: Send,
+   329→    verb: () => "enviar SMS",
+   330→    successMsg: "SMS entregado (twilio SM9f3…)",
+   331→  },
+   332→  add_tag: {
+   333→    label: "Añadir etiqueta",
+   334→    icon: Tag,
+   335→    verb: (c) => `añadir etiqueta "${c.value || "VIP"}"`,
+   336→    successMsg: "Etiqueta aplicada al perfil del cliente",
+   337→  },
+   338→  remove_tag: {
+   339→    label: "Quitar etiqueta",
+   340→    icon: Tag,
+   341→    verb: (c) => `quitar etiqueta "${c.value || "VIP"}"`,
+   342→    successMsg: "Etiqueta retirada del perfil",
+   343→  },
+   344→  create_task: {
+   345→    label: "Crear tarea",
+   346→    icon: ListTodo,
+   347→    verb: (c) => `crear tarea "${c.value || "Sin título"}"`,
+   348→    successMsg: "Tarea creada y asignada (TASK-204)",
+   349→  },
+   350→  send_review_request: {
+   351→    label: "Solicitar reseña",
+   352→    icon: Star,
+   353→    verb: () => "solicitar reseña",
+   354→    successMsg: "Formulario de reseña enviado (conversión histórica 12%)",
+   355→  },
+   356→  apply_loyalty_points: {
+   357→    label: "Sumar puntos",
+   358→    icon: Gift,
+   359→    verb: (c) => `sumar ${c.value || "0"} puntos`,
+   360→    successMsg: "Puntos abonados al saldo de fidelidad",
+   361→  },
+   362→  notify_staff: {
+   363→    label: "Notificar equipo",
+   364→    icon: BellRing,
+   365→    verb: (c) => `notificar equipo (${c.channel || "slack"})`,
+   366→    successMsg: "Notificación entregada al canal #servicio",
+   367→  },
+   368→  update_reservation_status: {
+   369→    label: "Actualizar reserva",
+   370→    icon: CalendarCheck,
+   371→    verb: (c) => `marcar reserva ${c.status || "confirmed"}`,
+   372→    successMsg: "Estado de reserva actualizado en D1",
+   373→  },
+   374→};
+   375→
+   376→const DEFAULT_CONFIG: Record<NodeType, NodeConfig> = {
+   377→  trigger: { event: "ReservationCreated" },
+   378→  condition: { field: "party_size", operator: ">", value: "4" },
+   379→  action: { actionType: "send_whatsapp", template: "recordatorio_reserva_v2", variables: "{{customer.first_name}}" },
+   380→  wait: { duration: 1, unit: "hours", anchor: "before_event" },
+   381→  branch: { ifLabel: "Confirmada", elseLabel: "Pendiente" },
+   382→};
+   383→
+   384→const NODE_TYPE_ORDER: NodeType[] = ["trigger", "condition", "action", "wait", "branch"];
+   385→
+   386→/* --------------------------------------------------------------------------
+   387→ * Templates
+   388→ * ------------------------------------------------------------------------ */
+   389→
+   390→interface Template {
+   391→  id: string;
+   392→  name: string;
+   393→  description: string;
+   394→  icon: LucideIcon;
+   395→  accent: Accent;
+   396→  build: () => FlowNode[];
+   397→}
+   398→
+   399→const TEMPLATES: Template[] = [
+   400→  {
+   401→    id: "recordatorio",
+   402→    name: "Recordatorio de reserva",
+   403→    description: "WhatsApp 24h antes si la reserva está confirmada.",
+   404→    icon: CalendarCheck,
+   405→    accent: "gold",
+   406→    build: () => [
+   407→      { id: uid(), type: "trigger", title: "Reserva creada", config: { event: "ReservationCreated" } },
+   408→      { id: uid(), type: "wait", title: "Esperar 24h antes", config: { duration: 24, unit: "hours", anchor: "before_event" } },
+   409→      { id: uid(), type: "condition", title: "¿Confirmada?", config: { field: "confirmed", operator: "==", value: "true" } },
+   410→      { id: uid(), type: "action", title: "Recordatorio WhatsApp", config: { actionType: "send_whatsapp", template: "recordatorio_reserva_v2", variables: "{{customer.first_name}}, {{reservation.date}}" } },
+   411→    ],
+   412→  },
+   413→  {
+   414→    id: "reconfirmacion",
+   415→    name: "Reconfirmación T-2h",
+   416→    description: "Pide reconfirmación 2h antes del servicio.",
+   417→    icon: PhoneCall,
+   418→    accent: "teal",
+   419→    build: () => [
+   420→      { id: uid(), type: "trigger", title: "Reserva confirmada", config: { event: "ReservationConfirmed" } },
+   421→      { id: uid(), type: "wait", title: "Esperar 2h antes", config: { duration: 2, unit: "hours", anchor: "before_event" } },
+   422→      { id: uid(), type: "action", title: "Reconfirmación WhatsApp", config: { actionType: "send_whatsapp", template: "reconfirmacion_t2h", variables: "{{customer.first_name}}" } },
+   423→    ],
+   424→  },
+   425→  {
+   426→    id: "cumpleanos",
+   427→    name: "Cumpleaños",
+   428→    description: "Felicitación + oferta el día del cumpleaños.",
+   429→    icon: Gift,
+   430→    accent: "amber",
+   431→    build: () => [
+   432→      { id: uid(), type: "trigger", title: "Cumpleaños", config: { event: "Birthday" } },
+   433→      { id: uid(), type: "condition", title: "¿Cliente válido?", config: { field: "loyalty_tier", operator: "!=", value: "menor" } },
+   434→      { id: uid(), type: "action", title: "Email felicitación", config: { actionType: "send_email", template: "oferta_cumpleanos", variables: "{{customer.first_name}}" } },
+   435→      { id: uid(), type: "action", title: "Etiqueta cumpleaños", config: { actionType: "add_tag", value: "cumpleanos" } },
+   436→    ],
+   437→  },
+   438→  {
+   439→    id: "winback",
+   440→    name: "Recuperación inactivos 90d",
+   441→    description: "Winback por email a clientes sin visitar en 90 días.",
+   442→    icon: Users,
+   443→    accent: "fuchsia",
+   444→    build: () => [
+   445→      { id: uid(), type: "trigger", title: "Cliente inactivo", config: { event: "CustomerInactive" } },
+   446→      { id: uid(), type: "condition", title: "¿Visitas previas ≥ 2?", config: { field: "visit_count", operator: ">=", value: "2" } },
+   447→      { id: uid(), type: "action", title: "Email winback", config: { actionType: "send_email", template: "winback_email", variables: "{{customer.first_name}}" } },
+   448→      { id: uid(), type: "branch", title: "¿Abrió el email?", config: { ifLabel: "Abrió", elseLabel: "No abrió" } },
+   449→      { id: uid(), type: "action", title: "SMS follow-up", config: { actionType: "send_sms", template: "recordatorio_sms", variables: "{{customer.first_name}}" } },
+   450→    ],
+   451→  },
+   452→  {
+   453→    id: "review",
+   454→    name: "Solicitud de reseña post-servicio",
+   455→    description: "Pide reseña 2h después de la visita.",
+   456→    icon: Star,
+   457→    accent: "teal",
+   458→    build: () => [
+   459→      { id: uid(), type: "trigger", title: "Cliente visitó", config: { event: "CustomerVisited" } },
+   460→      { id: uid(), type: "wait", title: "Esperar 2h después", config: { duration: 2, unit: "hours", anchor: "after_event" } },
+   461→      { id: uid(), type: "condition", title: "¿Ticket medio alto?", config: { field: "avg_ticket", operator: ">=", value: "60" } },
+   462→      { id: uid(), type: "action", title: "Solicitar reseña", config: { actionType: "send_review_request", template: "review_postvisita", variables: "{{customer.first_name}}" } },
+   463→    ],
+   464→  },
+   465→];
+   466→
+   467→/* --------------------------------------------------------------------------
+   468→ * Execution history (demo)
+   469→ * ------------------------------------------------------------------------ */
+   470→
+   471→const HISTORY: Execution[] = [
+   472→  { id: "RUN-2841", flow: "Recordatorio de reserva", startedAt: "Hoy · 10:32", duration: "1.2s", status: "success", triggeredBy: "ReservationCreated · RES-9182" },
+   473→  { id: "RUN-2840", flow: "Reconfirmación T-2h", startedAt: "Hoy · 09:15", duration: "0.8s", status: "success", triggeredBy: "ReservationConfirmed · RES-9177" },
+   474→  { id: "RUN-2839", flow: "Solicitud de reseña post-servicio", startedAt: "Ayer · 22:14", duration: "2.1s", status: "failed", triggeredBy: "CustomerVisited · VIS-4402" },
+   475→  { id: "RUN-2838", flow: "Cumpleaños", startedAt: "Ayer · 08:00", duration: "1.5s", status: "success", triggeredBy: "Birthday · cust_8821" },
+   476→  { id: "RUN-2837", flow: "Recordatorio de reserva", startedAt: "Ayer · 10:30", duration: "—", status: "pending", triggeredBy: "Wait programado · RES-9165" },
+   477→];
+   478→
+   479→/* --------------------------------------------------------------------------
+   480→ * Pure helpers: summaries + simulation log
+   481→ * ------------------------------------------------------------------------ */
+   482→
+   483→function nodeSummary(node: FlowNode): string {
+   484→  switch (node.type) {
+   485→    case "trigger": {
+   486→      const e = TRIGGER_EVENTS.find((t) => t.value === node.config.event);
+   487→      return `Cuando: ${e?.label ?? node.config.event ?? "—"}`;
+   488→    }
+   489→    case "condition":
+   490→      return `Si: ${node.config.field ?? "—"} ${node.config.operator ?? "=="} ${node.config.value ?? "—"}`;
+   491→    case "action": {
+   492→      const a = ACTION_META[node.config.actionType ?? "send_whatsapp"];
+   493→      return `Entonces: ${a.verb(node.config)}`;
+   494→    }
+   495→    case "wait": {
+   496→      const u = WAIT_UNITS.find((x) => x.value === node.config.unit);
+   497→      const anchor = WAIT_ANCHORS.find((x) => x.value === node.config.anchor);
+   498→      return `Esperar: ${node.config.duration ?? 0}${u?.short ?? "h"}${anchor ? ` · ${anchor.label}` : ""}`;
+   499→    }
+   500→    case "branch":
+   501→      return `Si: ${node.config.ifLabel ?? "—"} · Si no: ${node.config.elseLabel ?? "—"}`;
+   502→    default:
+   503→      return "";
+   504→  }
+   505→}
+   506→
+   507→function nodeDetail(node: FlowNode): string | null {
+   508→  if (node.type === "action") {
+   509→    const at = node.config.actionType;
+   510→    if (at && ACTION_TEMPLATES[at] && node.config.template) {
+   511→      return `plantilla: ${node.config.template}`;
+   512→    }
+   513→    if (at === "add_tag" || at === "remove_tag" || at === "create_task" || at === "apply_loyalty_points") {
+   514→      return `valor: ${node.config.value ?? "—"}`;
+   515→    }
+   516→    if (at === "notify_staff") return `canal: ${node.config.channel ?? "—"}`;
+   517→    if (at === "update_reservation_status") return `estado: ${node.config.status ?? "—"}`;
+   518→  }
+   519→  return null;
+   520→}
+   521→
+   522→function buildSimLog(nodes: FlowNode[], active: boolean, flowName: string): { runId: string; lines: SimLine[] } {
+   523→  const lines: SimLine[] = [];
+   524→  const start = new Date();
+   525→  const at = (sec: number) => {
+   526→    const d = new Date(start.getTime() + sec * 1000);
+   527→    return d.toTimeString().slice(0, 8);
+   528→  };
+   529→  const runId = `RUN-${2000 + Math.floor(Math.random() * 7000)}`;
+   530→  lines.push({ ts: at(0), level: "info", msg: `Ejecución iniciada — flujo "${flowName}" (#${runId})` });
+   531→  lines.push({ ts: at(0), level: "info", msg: `Modo: dry-run · ${nodes.length} pasos en cola · datos demo` });
+   532→  if (!active) {
+   533→    lines.push({ ts: at(0), level: "warn", msg: "El flujo está pausado en producción — la simulación recorre los pasos igualmente." });
+   534→  }
+   535→  let t = 0.2;
+   536→  for (const n of nodes) {
+   537→    t += 0.05;
+   538→    const ts = at(Math.floor(t));
+   539→    switch (n.type) {
+   540→      case "trigger": {
+   541→        const e = TRIGGER_EVENTS.find((x) => x.value === n.config.event);
+   542→        lines.push({ ts, level: "info", msg: `▸ Trigger: ${e?.label ?? n.config.event} — coincidencia encontrada (RES-9182, mesa 14, 4 pax)` });
+   543→        lines.push({ ts, level: "info", msg: `  Cliente resuelto: Marta Ruiz (cust_8821, +34 612 88 21 04)` });
+   544→        break;
+   545→      }
+   546→      case "wait": {
+   547→        const u = WAIT_UNITS.find((x) => x.value === n.config.unit);
+   548→        const anchor = WAIT_ANCHORS.find((x) => x.value === n.config.anchor);
+   549→        lines.push({ ts, level: "info", msg: `▸ Wait: programando ${n.config.duration ?? 0}${u?.short ?? "h"} ${anchor?.label ?? ""}` });
+   550→        lines.push({ ts, level: "info", msg: `  Ejecución pausada — reanudará al alcanzar el ancla` });
+   551→        t += 1;
+   552→        lines.push({ ts: at(Math.floor(t)), level: "info", msg: `  ── salto simulado al instante de reanudación ──` });
+   553→        break;
+   554→      }
+   555→      case "condition": {
+   556→        const v = n.config.value ?? "";
+   557→        const result = v === "true" || v === "4" || v === "60" || v === "2" ? true : Math.floor(t * 13) % 2 === 0;
+   558→        lines.push({
+   559→          ts,
+   560→          level: result ? "success" : "warn",
+   561→          msg: `▸ Condition: ${n.config.field} ${n.config.operator} ${n.config.value} → ${result ? "TRUE" : "FALSE"}`,
+   562→        });
+   563→        if (!result) {
+   564→          lines.push({ ts, level: "warn", msg: "  Condición no cumplida — el flujo continuaría por la rama alternativa (si existe)." });
+   565→        }
+   566→        break;
+   567→      }
+   568→      case "action": {
+   569→        const a = ACTION_META[n.config.actionType ?? "send_whatsapp"];
+   570→        const tpl = n.config.template ? ` · plantilla "${n.config.template}"` : "";
+   571→        lines.push({ ts, level: "info", msg: `▸ Action: ${a.label}${tpl}` });
+   572→        lines.push({ ts, level: "success", msg: `  ${a.successMsg} (latencia ${Math.floor(80 + Math.random() * 140)}ms)` });
+   573→        break;
+   574→      }
+   575→      case "branch": {
+   576→        lines.push({ ts, level: "info", msg: `▸ Branch: evaluando condición interna — rama "${n.config.ifLabel}" seleccionada` });
+   577→        break;
+   578→      }
+   579→    }
+   580→    t += 0.1;
+   581→  }
+   582→  const total = t.toFixed(2);
+   583→  lines.push({ ts: at(Math.ceil(t)), level: "success", msg: `Ejecución finalizada — estado: success · duración total: ${total}s` });
+   584→  return { runId, lines };
+   585→}
+   586→
+   587→function buildHistoryLog(ex: Execution): SimLine[] {
+   588→  const base: SimLine[] = [
+   589→    { ts: "10:32:01", level: "info", msg: `Ejecución iniciada — flujo "${ex.flow}" (#${ex.id})` },
+   590→    { ts: "10:32:01", level: "info", msg: `Disparador: ${ex.triggeredBy}` },
+   591→    { ts: "10:32:01", level: "info", msg: "Contexto cargado: cliente, reserva y plantillas resueltas" },
+   592→  ];
+   593→  if (ex.status === "pending") {
+   594→    base.push({ ts: "10:32:02", level: "warn", msg: "Ejecución en espera (Wait) — pendiente de reanudación" });
+   595→    base.push({ ts: "—", level: "warn", msg: `Reanudación programada · duración acumulada: ${ex.duration}` });
+   596→    return base;
+   597→  }
+   598→  if (ex.status === "failed") {
+   599→    base.push({ ts: "10:32:03", level: "info", msg: "Pasos previos completados correctamente" });
+   600→    base.push({ ts: "10:32:04", level: "error", msg: "Error en Action: send_review_request — proveedor devolvió 429 (rate limit)" });
+   601→    base.push({ ts: "10:32:05", level: "error", msg: "Reintento 1/3 (backoff 30s) — 2/3 — 3/3 agotados" });
+   602→    base.push({ ts: "10:32:06", level: "error", msg: `Ejecución finalizada — estado: failed · duración: ${ex.duration}` });
+   603→    return base;
+   604→  }
+   605→  base.push({ ts: "10:32:02", level: "info", msg: "Pasos evaluados en orden (trigger → wait → condition → action)" });
+   606→  base.push({ ts: "10:32:03", level: "success", msg: "Action ejecutada: entrega confirmada (wamid.6AB3f0…)" });
+   607→  base.push({ ts: "10:32:03", level: "success", msg: `Ejecución finalizada — estado: success · duración: ${ex.duration}` });
+   608→  return base;
+   609→}
+   610→
+   611→/* --------------------------------------------------------------------------
+   612→ * Small shared UI
+   613→ * ------------------------------------------------------------------------ */
+   614→
+   615→function DemoBadge({ className }: { className?: string }) {
+   616→  return (
+   617→    <span
+   618→      className={cn(
+   619→        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
+   620→        className
+   621→      )}
+   622→    >
+   623→      <span className="h-1 w-1 rounded-full bg-amber-400" aria-hidden />
+   624→      demo
+   625→    </span>
+   626→  );
+   627→}
+   628→
+   629→const LEVEL_META: Record<SimLine["level"], { color: string; tag: string }> = {
+   630→  info: { color: "text-[var(--teal)]", tag: "INFO" },
+   631→  success: { color: "text-emerald-300", tag: " OK " },
+   632→  warn: { color: "text-amber-300", tag: "WARN" },
+   633→  error: { color: "text-rose-300", tag: " ERR" },
+   634→};
+   635→
+   636→function LogView({ lines }: { lines: SimLine[] }) {
+   637→  return (
+   638→    <div className="rounded-lg border border-border/60 bg-black/40 p-4 font-mono text-xs rp-scroll-thin overflow-y-auto max-h-[50vh]">
+   639→      {lines.map((l, i) => (
+   640→        <div key={i} className="flex gap-2 py-0.5 leading-relaxed">
+   641→          <span className="text-muted-foreground/50 shrink-0 tabular-nums">{l.ts}</span>
+   642→          <span className={cn("shrink-0 font-semibold", LEVEL_META[l.level].color)}>[{LEVEL_META[l.level].tag}]</span>
+   643→          <span className="text-foreground/80">{l.msg}</span>
+   644→        </div>
+   645→      ))}
+   646→    </div>
+   647→  );
+   648→}
+   649→
+   650→function StatusPill({ active }: { active: boolean }) {
+   651→  return (
+   652→    <span
+   653→      className={cn(
+   654→        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-mono uppercase tracking-wider",
+   655→        active
+   656→          ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+   657→          : "border-amber-400/30 bg-amber-400/10 text-amber-300"
+   658→      )}
+   659→      aria-label={active ? "Flujo activo" : "Flujo pausado"}
+   660→    >
+   661→      <span className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-emerald-400 animate-pulse" : "bg-amber-400")} aria-hidden />
+   662→      {active ? "Activo" : "Pausado"}
+   663→    </span>
+   664→  );
+   665→}
+   666→
+   667→function StatusBadge({ status }: { status: Execution["status"] }) {
+   668→  const map: Record<Execution["status"], { color: string; dot: string; label: string }> = {
+   669→    success: { color: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", dot: "bg-emerald-400", label: "Éxito" },
+   670→    failed: { color: "border-rose-400/40 bg-rose-400/10 text-rose-300", dot: "bg-rose-400", label: "Fallido" },
+   671→    pending: { color: "border-amber-400/40 bg-amber-400/10 text-amber-300", dot: "bg-amber-400", label: "Pendiente" },
+   672→  };
+   673→  const s = map[status];
+   674→  return (
+   675→    <span className={cn("inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider", s.color)}>
+   676→      <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} aria-hidden />
+   677→      {s.label}
+   678→    </span>
+   679→  );
+   680→}
+   681→
+   682→/* --------------------------------------------------------------------------
+   683→ * Palette + canvas + node card
+   684→ * ------------------------------------------------------------------------ */
+   685→
+   686→function PaletteCard({ type, onAdd }: { type: NodeType; onAdd: () => void }) {
+   687→  const meta = NODE_TYPE_META[type];
+   688→  const a = ACCENT[meta.accent];
+   689→  return (
+   690→    <button
+   691→      type="button"
+   692→      onClick={onAdd}
+   693→      className={cn(
+   694→        "group flex items-center gap-2.5 rounded-lg border border-border/60 bg-card/40 px-3 py-2.5 text-left transition-all hover:border-foreground/30 hover:bg-card/70 shrink-0 md:w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60"
+   695→      )}
+   696→      aria-label={`Añadir nodo ${meta.label}: ${meta.description}`}
+   697→    >
+   698→      <span className={cn("flex h-8 w-8 items-center justify-center rounded-md border", a.chip)}>
+   699→        <meta.icon className="h-4 w-4" aria-hidden />
+   700→      </span>
+   701→      <span className="flex-1 min-w-0">
+   702→        <span className="block text-sm font-medium">{meta.label}</span>
+   703→        <span className="hidden md:block text-[11px] text-muted-foreground truncate">{meta.description}</span>
+   704→      </span>
+   705→      <Plus className="h-3.5 w-3.5 text-muted-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden />
+   706→    </button>
+   707→  );
+   708→}
+   709→
+   710→function Connector() {
+   711→  return (
+   712→    <div className="flex items-center px-1 shrink-0 self-center" aria-hidden>
+   713→      <div className="h-px w-6 bg-gradient-to-r from-[var(--gold)]/40 via-foreground/20 to-[var(--teal)]/40" />
+   714→      <ChevronRight className="h-3.5 w-3.5 -ml-1 text-muted-foreground/50" />
+   715→    </div>
+   716→  );
+   717→}
+   718→
+   719→function NodeCard({
+   720→  node,
+   721→  index,
+   722→  selected,
+   723→  onSelect,
+   724→  onDelete,
+   725→}: {
+   726→  node: FlowNode;
+   727→  index: number;
+   728→  selected: boolean;
+   729→  onSelect: () => void;
+   730→  onDelete: () => void;
+   731→}) {
+   732→  const meta = NODE_TYPE_META[node.type];
+   733→  const a = ACCENT[meta.accent];
+   734→  const summary = nodeSummary(node);
+   735→  const detail = nodeDetail(node);
+   736→  return (
+   737→    <div
+   738→      role="button"
+   739→      tabIndex={0}
+   740→      aria-pressed={selected}
+   741→      aria-label={`Paso ${index}: ${meta.label} — ${node.title}. ${summary}. ${selected ? "Seleccionado." : "Pulsa para seleccionar."}`}
+   742→      onClick={onSelect}
+   743→      onKeyDown={(e) => {
+   744→        if (e.key === "Enter" || e.key === " ") {
+   745→          e.preventDefault();
+   746→          onSelect();
+   747→        }
+   748→      }}
+   749→      className={cn(
+   750→        "group relative flex w-[230px] shrink-0 flex-col gap-2 rounded-xl border bg-card/60 p-3.5 backdrop-blur transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60",
+   751→        selected ? cn("border-transparent", a.ring) : "border-border/60 hover:border-foreground/30"
+   752→      )}
+   753→    >
+   754→      <div className="flex items-center gap-2">
+   755→        <span className={cn("flex h-7 w-7 items-center justify-center rounded-md border", a.chip)}>
+   756→          <meta.icon className="h-3.5 w-3.5" aria-hidden />
+   757→        </span>
+   758→        <span className={cn("text-[10px] font-mono uppercase tracking-wider", a.text)}>{meta.label}</span>
+   759→        <span className="ml-auto text-[10px] font-mono text-muted-foreground/60">#{index}</span>
+   760→      </div>
+   761→      <div className="text-sm font-medium leading-tight line-clamp-2">{node.title}</div>
+   762→      <div className="text-[11px] font-mono text-muted-foreground leading-relaxed line-clamp-3">{summary}</div>
+   763→      {detail ? (
+   764→        <div className="text-[10px] font-mono text-muted-foreground/60 truncate">{detail}</div>
+   765→      ) : null}
+   766→      <button
+   767→        type="button"
+   768→        onClick={(e) => {
+   769→          e.stopPropagation();
+   770→          onDelete();
+   771→        }}
+   772→        aria-label={`Eliminar nodo ${node.title}`}
+   773→        className="absolute -top-2 -right-2 h-9 w-9 md:h-6 md:w-6 rounded-full border border-border/60 bg-background/90 flex items-center justify-center text-muted-foreground opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 hover:text-rose-300 hover:border-rose-400/50 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/40"
+   774→      >
+   775→        <X className="h-4 w-4 md:h-3.5 md:w-3.5" aria-hidden />
+   776→      </button>
+   777→    </div>
+   778→  );
+   779→}
+   780→
+   781→function TemplateCard({
+   782→  tpl,
+   783→  active,
+   784→  onLoad,
+   785→}: {
+   786→  tpl: Template;
+   787→  active: boolean;
+   788→  onLoad: () => void;
+   789→}) {
+   790→  const a = ACCENT[tpl.accent];
+   791→  return (
+   792→    <button
+   793→      type="button"
+   794→      onClick={onLoad}
+   795→      aria-label={`Cargar plantilla ${tpl.name}: ${tpl.description}`}
+   796→      className={cn(
+   797→        "group flex flex-col gap-2 rounded-xl border p-3.5 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60",
+   798→        active ? "border-[var(--gold)]/50 bg-[var(--gold)]/5 rp-glow-gold" : "border-border/60 rp-glass hover:border-foreground/30"
+   799→      )}
+   800→    >
+   801→      <div className="flex items-center gap-2">
+   802→        <span className={cn("flex h-7 w-7 items-center justify-center rounded-md border", a.chip)}>
+   803→          <tpl.icon className="h-3.5 w-3.5" aria-hidden />
+   804→        </span>
+   805→        {active ? (
+   806→          <span className="ml-auto text-[10px] font-mono uppercase tracking-wider text-[var(--gold)]">cargada</span>
+   807→        ) : null}
+   808→      </div>
+   809→      <div className="text-sm font-medium leading-tight">{tpl.name}</div>
+   810→      <div className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">{tpl.description}</div>
+   811→    </button>
+   812→  );
+   813→}
+   814→
+   815→/* --------------------------------------------------------------------------
+   816→ * Config panel (right)
+   817→ * ------------------------------------------------------------------------ */
+   818→
+   819→function FieldLabel({ children }: { children: React.ReactNode }) {
+   820→  return <Label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">{children}</Label>;
+   821→}
+   822→
+   823→function ConfigPanel({
+   824→  node,
+   825→  onUpdateConfig,
+   826→  onUpdateTitle,
+   827→  onClose,
+   828→}: {
+   829→  node: FlowNode | null;
+   830→  onUpdateConfig: (id: string, patch: NodeConfig) => void;
+   831→  onUpdateTitle: (id: string, title: string) => void;
+   832→  onClose: () => void;
+   833→}) {
+   834→  if (!node) {
+   835→    return (
+   836→      <div className="rp-glass rounded-xl p-6 flex flex-col items-center justify-center text-center min-h-[320px] h-full">
+   837→        <div className="h-10 w-10 rounded-full border border-border/60 flex items-center justify-center text-muted-foreground/60 mb-3">
+   838→          <Sparkles className="h-5 w-5" aria-hidden />
+   839→        </div>
+   840→        <p className="text-sm font-medium">Ningún nodo seleccionado</p>
+   841→        <p className="mt-1 text-xs text-muted-foreground max-w-[220px]">
+   842→          Pulsa un nodo del flujo para editar su configuración, o añade uno desde la paleta.
+   843→        </p>
+   844→      </div>
+   845→    );
+   846→  }
+   847→
+   848→  const meta = NODE_TYPE_META[node.type];
+   849→  const a = ACCENT[meta.accent];
+   850→  const c = node.config;
+   851→
+   852→  return (
+   853→    <div className="rp-glass rounded-xl flex flex-col min-h-[320px] h-full">
+   854→      <header className="flex items-center gap-2 px-4 py-3 border-b border-border/60">
+   855→        <span className={cn("flex h-7 w-7 items-center justify-center rounded-md border", a.chip)}>
+   856→          <meta.icon className="h-3.5 w-3.5" aria-hidden />
+   857→        </span>
+   858→        <div className="flex-1 min-w-0">
+   859→          <div className="text-sm font-medium leading-tight">Configuración</div>
+   860→          <div className={cn("text-[10px] font-mono uppercase tracking-wider", a.text)}>{meta.label}</div>
+   861→        </div>
+   862→        <button
+   863→          type="button"
+   864→          onClick={onClose}
+   865→          aria-label="Cerrar panel de configuración"
+   866→          className="h-7 w-7 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60"
+   867→        >
+   868→          <X className="h-3.5 w-3.5" aria-hidden />
+   869→        </button>
+   870→      </header>
+   871→
+   872→      <div className="flex-1 p-4 space-y-4 overflow-y-auto rp-scroll-thin">
+   873→        {/* Title — common to all */}
+   874→        <div className="space-y-1.5">
+   875→          <FieldLabel>Título del nodo</FieldLabel>
+   876→          <Input
+   877→            value={node.title}
+   878→            onChange={(e) => onUpdateTitle(node.id, e.target.value)}
+   879→            aria-label="Título del nodo"
+   880→            className="bg-input/30"
+   881→          />
+   882→        </div>
+   883→
+   884→        {/* Type-specific */}
+   885→        {node.type === "trigger" && (
+   886→          <div className="space-y-1.5">
+   887→            <FieldLabel>Evento</FieldLabel>
+   888→            <Select value={c.event} onValueChange={(v) => onUpdateConfig(node.id, { event: v as TriggerEvent })}>
+   889→              <SelectTrigger className="w-full bg-input/30">
+   890→                <SelectValue placeholder="Selecciona un evento" />
+   891→              </SelectTrigger>
+   892→              <SelectContent>
+   893→                {TRIGGER_EVENTS.map((e) => (
+   894→                  <SelectItem key={e.value} value={e.value}>
+   895→                    <div className="flex flex-col">
+   896→                      <span>{e.label}</span>
+   897→                      <span className="text-[10px] text-muted-foreground">{e.hint}</span>
+   898→                    </div>
+   899→                  </SelectItem>
+   900→                ))}
+   901→              </SelectContent>
+   902→            </Select>
+   903→          </div>
+   904→        )}
+   905→
+   906→        {node.type === "condition" && (
+   907→          <>
+   908→            <div className="space-y-1.5">
+   909→              <FieldLabel>Campo</FieldLabel>
+   910→              <Select value={c.field} onValueChange={(v) => onUpdateConfig(node.id, { field: v })}>
+   911→                <SelectTrigger className="w-full bg-input/30">
+   912→                  <SelectValue placeholder="Selecciona un campo" />
+   913→                </SelectTrigger>
+   914→                <SelectContent>
+   915→                  {CONDITION_FIELDS.map((f) => (
+   916→                    <SelectItem key={f.value} value={f.value}>
+   917→                      {f.label}
+   918→                    </SelectItem>
+   919→                  ))}
+   920→                </SelectContent>
+   921→              </Select>
+   922→            </div>
+   923→            <div className="space-y-1.5">
+   924→              <FieldLabel>Operador</FieldLabel>
+   925→              <Select value={c.operator} onValueChange={(v) => onUpdateConfig(node.id, { operator: v as Operator })}>
+   926→                <SelectTrigger className="w-full bg-input/30">
+   927→                  <SelectValue />
+   928→                </SelectTrigger>
+   929→                <SelectContent>
+   930→                  {OPERATORS.map((o) => (
+   931→                    <SelectItem key={o.value} value={o.value}>
+   932→                      <span className="font-mono text-xs text-muted-foreground mr-2">{o.value}</span>
+   933→                      {o.label}
+   934→                    </SelectItem>
+   935→                  ))}
+   936→                </SelectContent>
+   937→              </Select>
+   938→            </div>
+   939→            <div className="space-y-1.5">
+   940→              <FieldLabel>Valor</FieldLabel>
+   941→              <Input
+   942→                value={c.value ?? ""}
+   943→                onChange={(e) => onUpdateConfig(node.id, { value: e.target.value })}
+   944→                placeholder="ej. 4, true, VIP"
+   945→                aria-label="Valor de la condición"
+   946→                className="bg-input/30"
+   947→              />
+   948→            </div>
+   949→          </>
+   950→        )}
+   951→
+   952→        {node.type === "action" && (
+   953→          <>
+   954→            <div className="space-y-1.5">
+   955→              <FieldLabel>Tipo de acción</FieldLabel>
+   956→              <Select value={c.actionType} onValueChange={(v) => onUpdateConfig(node.id, { actionType: v as ActionType })}>
+   957→                <SelectTrigger className="w-full bg-input/30">
+   958→                  <SelectValue />
+   959→                </SelectTrigger>
+   960→                <SelectContent>
+   961→                  {(Object.keys(ACTION_META) as ActionType[]).map((k) => {
+   962→                    const m = ACTION_META[k];
+   963→                    return (
+   964→                      <SelectItem key={k} value={k}>
+   965→                        <m.icon className="h-3.5 w-3.5 mr-1" aria-hidden />
+   966→                        {m.label}
+   967→                      </SelectItem>
+   968→                    );
+   969→                  })}
+   970→                </SelectContent>
+   971→              </Select>
+   972→            </div>
+   973→
+   974→            {/* Action-specific primary field */}
+   975→            {c.actionType &&
+   976→              ["send_email", "send_whatsapp", "send_sms", "send_review_request"].includes(c.actionType) && (
+   977→                <>
+   978→                  <div className="space-y-1.5">
+   979→                    <FieldLabel>Plantilla</FieldLabel>
+   980→                    <Select value={c.template} onValueChange={(v) => onUpdateConfig(node.id, { template: v })}>
+   981→                      <SelectTrigger className="w-full bg-input/30">
+   982→                        <SelectValue placeholder="Selecciona una plantilla" />
+   983→                      </SelectTrigger>
+   984→                      <SelectContent>
+   985→                        {(ACTION_TEMPLATES[c.actionType as ActionType] ?? []).map((tpl) => (
+   986→                          <SelectItem key={tpl.value} value={tpl.value}>
+   987→                            {tpl.label}
+   988→                          </SelectItem>
+   989→                        ))}
+   990→                      </SelectContent>
+   991→                    </Select>
+   992→                  </div>
+   993→                  <div className="space-y-1.5">
+   994→                    <FieldLabel>Variables</FieldLabel>
+   995→                    <Textarea
+   996→                      value={c.variables ?? ""}
+   997→                      onChange={(e) => onUpdateConfig(node.id, { variables: e.target.value })}
+   998→                      placeholder="{{customer.first_name}}, {{reservation.date}}"
+   999→                      aria-label="Variables de la plantilla"
+  1000→                      className="bg-input/30 font-mono text-xs min-h-[72px]"
+  1001→                    />
+  1002→                  </div>
+  1003→                </>
+  1004→              )}
+  1005→
+  1006→            {(c.actionType === "add_tag" || c.actionType === "remove_tag") && (
+  1007→              <div className="space-y-1.5">
+  1008→                <FieldLabel>Etiqueta</FieldLabel>
+  1009→                <Input
+  1010→                  value={c.value ?? ""}
+  1011→                  onChange={(e) => onUpdateConfig(node.id, { value: e.target.value })}
+  1012→                  placeholder="VIP, cumpleanos, winback…"
+  1013→                  aria-label="Etiqueta"
+  1014→                  className="bg-input/30"
+  1015→                />
+  1016→              </div>
+  1017→            )}
+  1018→
+  1019→            {c.actionType === "create_task" && (
+  1020→              <>
+  1021→                <div className="space-y-1.5">
+  1022→                  <FieldLabel>Título de la tarea</FieldLabel>
+  1023→                  <Input
+  1024→                    value={c.value ?? ""}
+  1025→                    onChange={(e) => onUpdateConfig(node.id, { value: e.target.value })}
+  1026→                    placeholder="Llamar para reconfirmar"
+  1027→                    aria-label="Título de la tarea"
+  1028→                    className="bg-input/30"
+  1029→                  />
+  1030→                </div>
+  1031→                <div className="space-y-1.5">
+  1032→                  <FieldLabel>Asignar a</FieldLabel>
+  1033→                  <Input
+  1034→                    value={c.assignee ?? ""}
+  1035→                    onChange={(e) => onUpdateConfig(node.id, { assignee: e.target.value })}
+  1036→                    placeholder="maître · Ana / equipo @recepcion"
+  1037→                    aria-label="Asignatario"
+  1038→                    className="bg-input/30"
+  1039→                  />
+  1040→                </div>
+  1041→              </>
+  1042→            )}
+  1043→
+  1044→            {c.actionType === "apply_loyalty_points" && (
+  1045→              <div className="space-y-1.5">
+  1046→                <FieldLabel>Puntos a sumar</FieldLabel>
+  1047→                <Input
+  1048→                  type="number"
+  1049→                  value={c.value ?? ""}
+  1050→                  onChange={(e) => onUpdateConfig(node.id, { value: e.target.value })}
+  1051→                  placeholder="50"
+  1052→                  aria-label="Puntos a sumar"
+  1053→                  className="bg-input/30"
+  1054→                />
+  1055→              </div>
+  1056→            )}
+  1057→
+  1058→            {c.actionType === "notify_staff" && (
+  1059→              <div className="space-y-1.5">
+  1060→                <FieldLabel>Canal</FieldLabel>
+  1061→                <Select value={c.channel} onValueChange={(v) => onUpdateConfig(node.id, { channel: v })}>
+  1062→                  <SelectTrigger className="w-full bg-input/30">
+  1063→                    <SelectValue placeholder="Selecciona un canal" />
+  1064→                  </SelectTrigger>
+  1065→                  <SelectContent>
+  1066→                    {STAFF_CHANNELS.map((ch) => (
+  1067→                      <SelectItem key={ch.value} value={ch.value}>
+  1068→                        {ch.label}
+  1069→                      </SelectItem>
+  1070→                    ))}
+  1071→                  </SelectContent>
+  1072→                </Select>
+  1073→              </div>
+  1074→            )}
+  1075→
+  1076→            {c.actionType === "update_reservation_status" && (
+  1077→              <div className="space-y-1.5">
+  1078→                <FieldLabel>Nuevo estado</FieldLabel>
+  1079→                <Select value={c.status} onValueChange={(v) => onUpdateConfig(node.id, { status: v })}>
+  1080→                  <SelectTrigger className="w-full bg-input/30">
+  1081→                    <SelectValue placeholder="Selecciona un estado" />
+  1082→                  </SelectTrigger>
+  1083→                  <SelectContent>
+  1084→                    {RES_STATUSES.map((s) => (
+  1085→                      <SelectItem key={s.value} value={s.value}>
+  1086→                        {s.label}
+  1087→                      </SelectItem>
+  1088→                    ))}
+  1089→                  </SelectContent>
+  1090→                </Select>
+  1091→              </div>
+  1092→            )}
+  1093→          </>
+  1094→        )}
+  1095→
+  1096→        {node.type === "wait" && (
+  1097→          <>
+  1098→            <div className="grid grid-cols-2 gap-3">
+  1099→              <div className="space-y-1.5">
+  1100→                <FieldLabel>Duración</FieldLabel>
+  1101→                <Input
+  1102→                  type="number"
+  1103→                  min={1}
+  1104→                  value={c.duration ?? 1}
+  1105→                  onChange={(e) => onUpdateConfig(node.id, { duration: Number(e.target.value) || 0 })}
+  1106→                  aria-label="Duración"
+  1107→                  className="bg-input/30"
+  1108→                />
+  1109→              </div>
+  1110→              <div className="space-y-1.5">
+  1111→                <FieldLabel>Unidad</FieldLabel>
+  1112→                <Select value={c.unit} onValueChange={(v) => onUpdateConfig(node.id, { unit: v as WaitUnit })}>
+  1113→                  <SelectTrigger className="w-full bg-input/30">
+  1114→                    <SelectValue />
+  1115→                  </SelectTrigger>
+  1116→                  <SelectContent>
+  1117→                    {WAIT_UNITS.map((u) => (
+  1118→                      <SelectItem key={u.value} value={u.value}>
+  1119→                        {u.label}
+  1120→                      </SelectItem>
+  1121→                    ))}
+  1122→                  </SelectContent>
+  1123→                </Select>
+  1124→              </div>
+  1125→            </div>
+  1126→            <div className="space-y-1.5">
+  1127→              <FieldLabel>Referencia temporal</FieldLabel>
+  1128→              <Select value={c.anchor} onValueChange={(v) => onUpdateConfig(node.id, { anchor: v as WaitAnchor })}>
+  1129→                <SelectTrigger className="w-full bg-input/30">
+  1130→                  <SelectValue />
+  1131→                </SelectTrigger>
+  1132→                <SelectContent>
+  1133→                  {WAIT_ANCHORS.map((an) => (
+  1134→                    <SelectItem key={an.value} value={an.value}>
+  1135→                      {an.label}
+  1136→                    </SelectItem>
+  1137→                  ))}
+  1138→                </SelectContent>
+  1139→              </Select>
+  1140→            </div>
+  1141→          </>
+  1142→        )}
+  1143→
+  1144→        {node.type === "branch" && (
+  1145→          <>
+  1146→            <div className="space-y-1.5">
+  1147→              <FieldLabel>Rama «Si» (cumple)</FieldLabel>
+  1148→              <Input
+  1149→                value={c.ifLabel ?? ""}
+  1150→                onChange={(e) => onUpdateConfig(node.id, { ifLabel: e.target.value })}
+  1151→                placeholder="Confirmada"
+  1152→                aria-label="Etiqueta rama si"
+  1153→                className="bg-input/30"
+  1154→              />
+  1155→            </div>
+  1156→            <div className="space-y-1.5">
+  1157→              <FieldLabel>Rama «Si no» (no cumple)</FieldLabel>
+  1158→              <Input
+  1159→                value={c.elseLabel ?? ""}
+  1160→                onChange={(e) => onUpdateConfig(node.id, { elseLabel: e.target.value })}
+  1161→                placeholder="Pendiente"
+  1162→                aria-label="Etiqueta rama si no"
+  1163→                className="bg-input/30"
+  1164→              />
+  1165→            </div>
+  1166→          </>
+  1167→        )}
+  1168→
+  1169→        <div className="pt-2 border-t border-border/40 text-[11px] text-muted-foreground leading-relaxed">
+  1170→          <Info className="h-3 w-3 inline mr-1 -mt-0.5" aria-hidden />
+  1171→          ID: <span className="font-mono">{node.id}</span>
+  1172→        </div>
+  1173→      </div>
+  1174→    </div>
+  1175→  );
+  1176→}
+  1177→
+  1178→/* --------------------------------------------------------------------------
+  1179→ * Main component
+  1180→ * ------------------------------------------------------------------------ */
+  1181→
+  1182→export function AutomationBuilder() {
+  1183→  const { toast } = useToast();
+  1184→  const [nodes, setNodes] = React.useState<FlowNode[]>(() => TEMPLATES[0].build());
+  1185→  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  1186→  const [active, setActive] = React.useState(true);
+  1187→  const [currentTemplateId, setCurrentTemplateId] = React.useState<string>(TEMPLATES[0].id);
+  1188→  const [simResult, setSimResult] = React.useState<{ runId: string; lines: SimLine[] } | null>(null);
+  1189→  const [historyOpen, setHistoryOpen] = React.useState<Execution | null>(null);
+  1190→
+  1191→  const selected = React.useMemo(
+  1192→    () => nodes.find((n) => n.id === selectedId) ?? null,
+  1193→    [nodes, selectedId]
+  1194→  );
+  1195→  const currentTemplateName =
+  1196→    TEMPLATES.find((t) => t.id === currentTemplateId)?.name ?? "Flujo sin título";
+  1197→
+  1198→  /* ---- mutations ---- */
+  1199→  const addNode = React.useCallback(
+  1200→    (type: NodeType) => {
+  1201→      const meta = NODE_TYPE_META[type];
+  1202→      const node: FlowNode = {
+  1203→        id: uid(),
+  1204→        type,
+  1205→        title: meta.defaultTitle,
+  1206→        config: { ...DEFAULT_CONFIG[type] },
+  1207→      };
+  1208→      setNodes((prev) => {
+  1209→        if (selectedId) {
+  1210→          const idx = prev.findIndex((n) => n.id === selectedId);
+  1211→          if (idx >= 0) {
+  1212→            const copy = [...prev];
+  1213→            copy.splice(idx + 1, 0, node);
+  1214→            return copy;
+  1215→          }
+  1216→        }
+  1217→        return [...prev, node];
+  1218→      });
+  1219→      setSelectedId(node.id);
+  1220→      toast({
+  1221→        title: `${meta.label} añadido`,
+  1222→        description: "Se ha insertado en el flujo. Edita su configuración a la derecha.",
+  1223→      });
+  1224→    },
+  1225→    [selectedId, toast]
+  1226→  );
+  1227→
+  1228→  const deleteNode = React.useCallback(
+  1229→    (id: string) => {
+  1230→      setNodes((prev) => prev.filter((n) => n.id !== id));
+  1231→      setSelectedId((cur) => (cur === id ? null : cur));
+  1232→    },
+  1233→    []
+  1234→  );
+  1235→
+  1236→  const updateConfig = React.useCallback((id: string, patch: NodeConfig) => {
+  1237→    setNodes((prev) =>
+  1238→      prev.map((n) => (n.id === id ? { ...n, config: { ...n.config, ...patch } } : n))
+  1239→    );
+  1240→  }, []);
+  1241→
+  1242→  const updateTitle = React.useCallback((id: string, title: string) => {
+  1243→    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, title } : n)));
+  1244→  }, []);
+  1245→
+  1246→  const loadTemplate = React.useCallback(
+  1247→    (tpl: Template) => {
+  1248→      setNodes(tpl.build());
+  1249→      setCurrentTemplateId(tpl.id);
+  1250→      setSelectedId(null);
+  1251→      toast({
+  1252→        title: `Plantilla cargada: ${tpl.name}`,
+  1253→        description: "Puedes editarla y guardarla como nuevo flujo.",
+  1254→      });
+  1255→    },
+  1256→    [toast]
+  1257→  );
+  1258→
+  1259→  const duplicate = React.useCallback(() => {
+  1260→    toast({
+  1261→      title: "Flujo duplicado",
+  1262→      description: `"${currentTemplateName}" copiado a borrador.`,
+  1263→    });
+  1264→  }, [currentTemplateName, toast]);
+  1265→
+  1266→  const save = React.useCallback(() => {
+  1267→    toast({
+  1268→      title: "Flujo guardado",
+  1269→      description: `${nodes.length} nodos · estado ${active ? "activo" : "pausado"}.`,
+  1270→    });
+  1271→  }, [nodes.length, active, toast]);
+  1272→
+  1273→  const simulate = React.useCallback(() => {
+  1274→    const res = buildSimLog(nodes, active, currentTemplateName);
+  1275→    setSimResult(res);
+  1276→  }, [nodes, active, currentTemplateName]);
+  1277→
+  1278→  /* ---- render ---- */
+  1279→  return (
+  1280→    <div className="space-y-6">
+  1281→      {/* Header */}
+  1282→      <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+  1283→        <div>
+  1284→          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1285→            <span className="rp-gold-text">Relación</span>
+  1286→            <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
+  1287→            <span>Automatizaciones</span>
+  1288→          </div>
+  1289→          <h1 className="mt-2 font-display text-2xl sm:text-3xl font-light tracking-tight">
+  1290→            Builder visual de flujos
+  1291→          </h1>
+  1292→          <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
+  1293→            Diseña automatizaciones tipo <span className="rp-gold-text">trigger → condición → acción</span> con
+  1294→            esperas y bifurcaciones. Datos demo navegable.
+  1295→          </p>
+  1296→        </div>
+  1297→        <DemoBadge />
+  1298→      </header>
+  1299→
+  1300→      {/* Controls bar */}
+  1301→      <div className="rp-glass rounded-xl p-3 sm:p-4 flex flex-wrap items-center gap-3">
+  1302→        <div className="flex items-center gap-2.5">
+  1303→          <Switch
+  1304→            checked={active}
+  1305→            onCheckedChange={setActive}
+  1306→            id="flow-active-toggle"
+  1307→            aria-label={active ? "Pausar flujo" : "Activar flujo"}
+  1308→          />
+  1309→          <Label htmlFor="flow-active-toggle" className="text-sm cursor-pointer select-none">
+  1310→            {active ? "Activo" : "Pausado"}
+  1311→          </Label>
+  1312→        </div>
+  1313→        <div className="h-5 w-px bg-border/60 hidden sm:block" />
+  1314→        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+  1315→          <Sparkles className="h-3.5 w-3.5 text-[var(--gold)]" aria-hidden />
+  1316→          <span className="font-mono">{currentTemplateName}</span>
+  1317→        </div>
+  1318→        <div className="ml-auto flex flex-wrap items-center gap-2">
+  1319→          <Button variant="outline" size="sm" onClick={duplicate} className="bg-input/20">
+  1320→            <Copy className="h-4 w-4" aria-hidden />
+  1321→            Duplicar
+  1322→          </Button>
+  1323→          <Button variant="outline" size="sm" onClick={simulate} className="bg-input/20">
+  1324→            <Play className="h-4 w-4" aria-hidden />
+  1325→            Simular
+  1326→          </Button>
+  1327→          <Button
+  1328→            size="sm"
+  1329→            onClick={save}
+  1330→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold)]/90 font-medium"
+  1331→          >
+  1332→            <Save className="h-4 w-4" aria-hidden />
+  1333→            Guardar
+  1334→          </Button>
+  1335→        </div>
+  1336→      </div>
+  1337→
+  1338→      {/* Templates */}
+  1339→      <section className="space-y-3">
+  1340→        <div className="flex items-center gap-2">
+  1341→          <h2 className="text-sm font-medium">Plantillas</h2>
+  1342→          <DemoBadge />
+  1343→          <span className="text-xs text-muted-foreground hidden sm:inline">
+  1344→            Carga un flujo preconfigurado para empezar
+  1345→          </span>
+  1346→        </div>
+  1347→        <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+  1348→          {TEMPLATES.map((tpl) => (
+  1349→            <TemplateCard
+  1350→              key={tpl.id}
+  1351→              tpl={tpl}
+  1352→              active={tpl.id === currentTemplateId}
+  1353→              onLoad={() => loadTemplate(tpl)}
+  1354→            />
+  1355→          ))}
+  1356→        </div>
+  1357→      </section>
+  1358→
+  1359→      {/* Three-area grid: palette | canvas | config */}
+  1360→      <section
+  1361→        className="grid gap-4 md:grid-cols-[200px_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_340px]"
+  1362→        aria-label="Editor de flujo"
+  1363→      >
+  1364→        {/* Palette */}
+  1365→        <aside
+  1366→          className="rp-glass rounded-xl p-3 flex md:flex-col gap-2 overflow-x-auto md:overflow-visible"
+  1367→          aria-label="Paleta de nodos"
+  1368→        >
+  1369→          <div className="hidden md:block px-1 mb-1 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">
+  1370→            Paleta
+  1371→          </div>
+  1372→          {NODE_TYPE_ORDER.map((t) => (
+  1373→            <PaletteCard key={t} type={t} onAdd={() => addNode(t)} />
+  1374→          ))}
+  1375→          <div className="hidden md:block mt-2 px-1 text-[10px] text-muted-foreground/70 leading-relaxed">
+  1376→            Click para añadir tras el nodo seleccionado (o al final).
+  1377→          </div>
+  1378→        </aside>
+  1379→
+  1380→        {/* Canvas */}
+  1381→        <div className="rp-glass rounded-xl overflow-hidden flex flex-col min-h-[340px]">
+  1382→          <header className="flex items-center gap-2 px-4 py-3 border-b border-border/60">
+  1383→            <Workflow className="h-4 w-4 text-[var(--gold)]" aria-hidden />
+  1384→            <h3 className="text-sm font-medium">Flujo de automatización</h3>
+  1385→            <span className="text-xs text-muted-foreground">{nodes.length} nodos</span>
+  1386→            <div className="ml-auto">
+  1387→              <StatusPill active={active} />
+  1388→            </div>
+  1389→          </header>
+  1390→          <div className="flex-1 overflow-x-auto rp-scroll-thin p-4">
+  1391→            {nodes.length === 0 ? (
+  1392→              <div className="h-full min-h-[240px] flex flex-col items-center justify-center text-center text-muted-foreground">
+  1393→                <Workflow className="h-8 w-8 mb-3 opacity-40" aria-hidden />
+  1394→                <p className="text-sm">El flujo está vacío</p>
+  1395→                <p className="text-xs mt-1">Añade un disparador desde la paleta para empezar.</p>
+  1396→              </div>
+  1397→            ) : (
+  1398→              <div className="flex items-stretch gap-0 min-w-min">
+  1399→                {nodes.map((n, i) => (
+  1400→                  <React.Fragment key={n.id}>
+  1401→                    <NodeCard
+  1402→                      node={n}
+  1403→                      index={i + 1}
+  1404→                      selected={n.id === selectedId}
+  1405→                      onSelect={() => setSelectedId(n.id)}
+  1406→                      onDelete={() => deleteNode(n.id)}
+  1407→                    />
+  1408→                    {i < nodes.length - 1 ? <Connector /> : null}
+  1409→                  </React.Fragment>
+  1410→                ))}
+  1411→                {/* trailing add affordance */}
+  1412→                <div className="flex items-center pl-2 shrink-0 self-center" aria-hidden>
+  1413→                  <button
+  1414→                    type="button"
+  1415→                    onClick={() => addNode("action")}
+  1416→                    aria-label="Añadir acción al final del flujo"
+  1417→                    className="h-9 w-9 rounded-full border border-dashed border-border/60 flex items-center justify-center text-muted-foreground/70 hover:text-[var(--gold)] hover:border-[var(--gold)]/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/60"
+  1418→                  >
+  1419→                    <Plus className="h-4 w-4" />
+  1420→                  </button>
+  1421→                </div>
+  1422→              </div>
+  1423→            )}
+  1424→          </div>
+  1425→        </div>
+  1426→
+  1427→        {/* Config */}
+  1428→        <div className="md:col-span-2 lg:col-span-1">
+  1429→          <ConfigPanel
+  1430→            node={selected}
+  1431→            onUpdateConfig={updateConfig}
+  1432→            onUpdateTitle={updateTitle}
+  1433→            onClose={() => setSelectedId(null)}
+  1434→          />
+  1435→        </div>
+  1436→      </section>
+  1437→
+  1438→      {/* Execution history */}
+  1439→      <section className="space-y-3">
+  1440→        <div className="flex items-center gap-2">
+  1441→          <History className="h-4 w-4 text-muted-foreground" aria-hidden />
+  1442→          <h2 className="text-sm font-medium">Historial de ejecuciones</h2>
+  1443→          <DemoBadge />
+  1444→          <span className="text-xs text-muted-foreground hidden sm:inline">Últimas 5 ejecuciones del flujo activo</span>
+  1445→        </div>
+  1446→        <div className="rp-glass rounded-xl overflow-hidden">
+  1447→          <div className="overflow-x-auto rp-scroll-thin">
+  1448→            <table className="w-full text-sm">
+  1449→              <thead>
+  1450→                <tr className="border-b border-border/60 bg-foreground/[0.03] text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1451→                  <th className="px-4 py-2.5 whitespace-nowrap">Run</th>
+  1452→                  <th className="px-4 py-2.5 whitespace-nowrap">Flujo</th>
+  1453→                  <th className="px-4 py-2.5 whitespace-nowrap">Iniciado</th>
+  1454→                  <th className="px-4 py-2.5 whitespace-nowrap">Duración</th>
+  1455→                  <th className="px-4 py-2.5 whitespace-nowrap">Estado</th>
+  1456→                  <th className="px-4 py-2.5 whitespace-nowrap">Disparado por</th>
+  1457→                  <th className="px-4 py-2.5 text-right whitespace-nowrap"><span className="sr-only">Ver log</span></th>
+  1458→                </tr>
+  1459→              </thead>
+  1460→              <tbody>
+  1461→                {HISTORY.map((ex) => (
+  1462→                  <tr
+  1463→                    key={ex.id}
+  1464→                    className="border-b border-border/40 last:border-0 hover:bg-foreground/[0.025] transition-colors"
+  1465→                  >
+  1466→                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">{ex.id}</td>
+  1467→                    <td className="px-4 py-3 font-medium whitespace-nowrap">{ex.flow}</td>
+  1468→                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{ex.startedAt}</td>
+  1469→                    <td className="px-4 py-3 font-mono text-xs whitespace-nowrap">{ex.duration}</td>
+  1470→                    <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={ex.status} /></td>
+  1471→                    <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{ex.triggeredBy}</td>
+  1472→                    <td className="px-4 py-3 text-right whitespace-nowrap">
+  1473→                      <Button
+  1474→                        variant="ghost"
+  1475→                        size="sm"
+  1476→                        onClick={() => setHistoryOpen(ex)}
+  1477→                        className="h-7 text-xs hover:text-[var(--gold)]"
+  1478→                      >
+  1479→                        <FileText className="h-3.5 w-3.5" aria-hidden />
+  1480→                        Ver log
+  1481→                      </Button>
+  1482→                    </td>
+  1483→                  </tr>
+  1484→                ))}
+  1485→              </tbody>
+  1486→            </table>
+  1487→          </div>
+  1488→        </div>
+  1489→      </section>
+  1490→
+  1491→      {/* Simulate dialog */}
+  1492→      <Dialog open={simResult !== null} onOpenChange={(o) => !o && setSimResult(null)}>
+  1493→        <DialogContent className="sm:max-w-2xl">
+  1494→          <DialogHeader>
+  1495→            <div className="flex items-start gap-3">
+  1496→              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[var(--teal)]/15 text-[var(--teal)] border border-[var(--teal)]/30">
+  1497→                <Play className="h-4 w-4" aria-hidden />
+  1498→              </div>
+  1499→              <div className="flex-1">
+  1500→                <DialogTitle className="flex items-center gap-2 flex-wrap">
+  1501→                  Simulación de flujo
+  1502→                  <DemoBadge />
+  1503→                </DialogTitle>
+  1504→                <DialogDescription>
+  1505→                  Dry-run del flujo “{currentTemplateName}” con datos demo. No se envían mensajes reales.
+  1506→                </DialogDescription>
+  1507→              </div>
+  1508→            </div>
+  1509→          </DialogHeader>
+  1510→
+  1511→          {simResult ? (
+  1512→            <>
+  1513→              <div className="flex flex-wrap items-center gap-2 text-xs">
+  1514→                <span className="rounded-md border border-border/60 px-2 py-1 font-mono text-muted-foreground">
+  1515→                  {nodes.length} pasos
+  1516→                </span>
+  1517→                <span className="rounded-md border border-border/60 px-2 py-1 font-mono text-muted-foreground">
+  1518→                  {simResult.runId}
+  1519→                </span>
+  1520→                <span className="inline-flex items-center gap-1.5 rounded-md border border-emerald-400/30 bg-emerald-400/10 px-2 py-1 font-mono text-emerald-300">
+  1521→                  <CheckCircle2 className="h-3 w-3" aria-hidden />
+  1522→                  estado: success
+  1523→                </span>
+  1524→                <span className="rounded-md border border-border/60 px-2 py-1 font-mono text-muted-foreground">
+  1525→                  dry-run
+  1526→                </span>
+  1527→              </div>
+  1528→              <LogView lines={simResult.lines} />
+  1529→            </>
+  1530→          ) : null}
+  1531→
+  1532→          <DialogFooter>
+  1533→            <Button variant="outline" onClick={() => setSimResult(null)}>
+  1534→              Cerrar
+  1535→            </Button>
+  1536→            <Button
+  1537→              onClick={() => {
+  1538→                setSimResult(null);
+  1539→                toast({
+  1540→                  title: "Simulación completada",
+  1541→                  description: "El flujo se ejecutaría correctamente en producción.",
+  1542→                });
+  1543→              }}
+  1544→              className="bg-[var(--teal)] text-black hover:bg-[var(--teal)]/90"
+  1545→            >
+  1546→              <CheckCircle2 className="h-4 w-4" aria-hidden />
+  1547→              Confirmar
+  1548→            </Button>
+  1549→          </DialogFooter>
+  1550→        </DialogContent>
+  1551→      </Dialog>
+  1552→
+  1553→      {/* History log dialog */}
+  1554→      <Dialog open={historyOpen !== null} onOpenChange={(o) => !o && setHistoryOpen(null)}>
+  1555→        <DialogContent className="sm:max-w-2xl">
+  1556→          {historyOpen ? (
+  1557→            <>
+  1558→              <DialogHeader>
+  1559→                <DialogTitle className="flex items-center gap-2 flex-wrap">
+  1560→                  Log de ejecución
+  1561→                  <DemoBadge />
+  1562→                </DialogTitle>
+  1563→                <DialogDescription>
+  1564→                  <span className="font-mono">{historyOpen.id}</span> · {historyOpen.flow}
+  1565→                </DialogDescription>
+  1566→              </DialogHeader>
+  1567→
+  1568→              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+  1569→                <div className="rp-glass rounded-lg p-2.5">
+  1570→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Iniciado</div>
+  1571→                  <div className="text-xs mt-1">{historyOpen.startedAt}</div>
+  1572→                </div>
+  1573→                <div className="rp-glass rounded-lg p-2.5">
+  1574→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Duración</div>
+  1575→                  <div className="text-xs mt-1 font-mono">{historyOpen.duration}</div>
+  1576→                </div>
+  1577→                <div className="rp-glass rounded-lg p-2.5">
+  1578→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Estado</div>
+  1579→                  <div className="mt-1"><StatusBadge status={historyOpen.status} /></div>
+  1580→                </div>
+  1581→                <div className="rp-glass rounded-lg p-2.5">
+  1582→                  <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Disparado</div>
+  1583→                  <div className="text-xs mt-1 truncate" title={historyOpen.triggeredBy}>{historyOpen.triggeredBy}</div>
+  1584→                </div>
+  1585→              </div>
+  1586→
+  1587→              {historyOpen.status === "failed" ? (
+  1588→                <div className="flex items-start gap-2 rounded-lg border border-rose-400/30 bg-rose-400/5 p-3 text-xs text-rose-200">
+  1589→                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+  1590→                  <div>
+  1591→                    <div className="font-medium">Ejecución fallida</div>
+  1592→                    <div className="text-rose-200/80 mt-0.5">
+  1593→                      El proveedor de reseñas devolvió 429 tras 3 reintentos. Revisa las cuotas o el backoff.
+  1594→                    </div>
+  1595→                  </div>
+  1596→                </div>
+  1597→              ) : null}
+  1598→
+  1599→              <LogView lines={buildHistoryLog(historyOpen)} />
+  1600→
+  1601→              <DialogFooter>
+  1602→                <Button variant="outline" onClick={() => setHistoryOpen(null)}>
+  1603→                  Cerrar
+  1604→                </Button>
+  1605→              </DialogFooter>
+  1606→            </>
+  1607→          ) : null}
+  1608→        </DialogContent>
+  1609→      </Dialog>
+  1610→    </div>
+  1611→  );
+  1612→}
+  1613→

@@ -1,0 +1,590 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useNav, type Section } from "./nav-store";
+     6→import { Logo, BrandMark } from "./brand";
+     7→import {
+     8→  LayoutDashboard, CalendarDays, Users, Megaphone, Workflow, Star, BarChart3,
+     9→  Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
+    10→  Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
+    11→  CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
+    12→  Crown, BrainCircuit, BookOpen, UtensilsCrossed, Zap, Gauge,
+    13→  Code2, TerminalSquare, Store, Radio,
+    14→} from "lucide-react";
+    15→import {
+    16→  Dialog,
+    17→  DialogContent,
+    18→  DialogTitle,
+    19→  DialogDescription,
+    20→} from "@/components/ui/dialog";
+    21→import { AiCopilot } from "@/components/rp/ai-center/ai-copilot";
+    22→
+    23→const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
+    24→  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
+    25→  { id: "executive", label: "Centro Ejecutivo", icon: Crown, group: "Operación" },
+    26→  { id: "reservas", label: "Reservas", icon: CalendarDays, group: "Operación" },
+    27→  { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
+    28→  { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
+    29→  { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
+    30→  { id: "growth-analytics", label: "Growth Analytics", icon: TrendingUp, group: "Growth" },
+    31→  { id: "growth-reputation", label: "Centro Reputación", icon: Award, group: "Growth" },
+    32→  { id: "campaigns", label: "Campañas", icon: Megaphone, group: "Growth" },
+    33→  { id: "promotions", label: "Promociones", icon: Ticket, group: "Growth" },
+    34→  { id: "reviews", label: "Google Reviews", icon: Star, group: "Reputación" },
+    35→  { id: "analytics", label: "Analytics", icon: BarChart3, group: "Reputación" },
+    36→  { id: "integraciones", label: "Integraciones", icon: Plug, group: "Plataforma" },
+    37→  { id: "billing", label: "Facturación", icon: CreditCard, group: "Plataforma" },
+    38→  { id: "equipo", label: "Equipo", icon: UserCog, group: "Plataforma" },
+    39→  { id: "configuracion", label: "Configuración", icon: Settings, group: "Plataforma" },
+    40→  { id: "ai-center", label: "Centro de IA", icon: BrainCircuit, group: "Plataforma" },
+    41→  { id: "ai-knowledge", label: "Conocimiento IA", icon: BookOpen, group: "Plataforma" },
+    42→  { id: "ai-menu", label: "IA Menú", icon: UtensilsCrossed, group: "Plataforma" },
+    43→  { id: "growth-engine", label: "Growth Engine", icon: TrendingUp, group: "Plataforma" },
+    44→  { id: "ai-os-actions", label: "Acciones IA", icon: Zap, group: "Plataforma" },
+    45→  { id: "ai-os-predictions", label: "Predicciones IA", icon: Gauge, group: "Plataforma" },
+    46→  { id: "ai-os", label: "AI OS", icon: BrainCircuit, group: "Plataforma" },
+    47→  { id: "superadmin", label: "Super Admin", icon: ShieldCheck, group: "Plataforma" },
+    48→  { id: "dev-portal", label: "Developer Portal", icon: Code2, group: "Developer" },
+    49→  { id: "dev-cli", label: "CLI Simulator", icon: TerminalSquare, group: "Developer" },
+    50→  { id: "dev-marketplace", label: "Marketplace", icon: Store, group: "Developer" },
+    51→  { id: "dev-eventbus", label: "Event Bus", icon: Radio, group: "Developer" },
+    52→];
+    53→
+    54→export function AppShell() {
+    55→  const section = useNav((s) => s.section);
+    56→  const go = useNav((s) => s.go);
+    57→  const setView = useNav((s) => s.setView);
+    58→  const [mobileOpen, setMobileOpen] = React.useState(false);
+    59→  const [cmdOpen, setCmdOpen] = React.useState(false);
+    60→
+    61→  const current = NAV.find((n) => n.id === section);
+    62→
+    63→  // Lock body scroll when mobile drawer is open
+    64→  React.useEffect(() => {
+    65→    if (mobileOpen) {
+    66→      document.body.style.overflow = "hidden";
+    67→    } else {
+    68→      document.body.style.overflow = "";
+    69→    }
+    70→    return () => {
+    71→      document.body.style.overflow = "";
+    72→    };
+    73→  }, [mobileOpen]);
+    74→
+    75→  // Global ⌘K / Ctrl+K shortcut to open the command palette
+    76→  React.useEffect(() => {
+    77→    function onKey(e: KeyboardEvent) {
+    78→      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    79→        e.preventDefault();
+    80→        setCmdOpen((v) => !v);
+    81→      }
+    82→    }
+    83→    window.addEventListener("keydown", onKey);
+    84→    return () => window.removeEventListener("keydown", onKey);
+    85→  }, []);
+    86→
+    87→  return (
+    88→    <div className="flex min-h-screen">
+    89→      {/* Sidebar desktop — sticky, fixed while scrolling */}
+    90→      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border/60 rp-glass-strong sticky top-0 h-screen">
+    91→        <div className="h-16 flex items-center px-5 border-b border-border/60">
+    92→          <button onClick={() => setView("landing")} className="flex items-center gap-2.5" aria-label="Volver a landing">
+    93→            <BrandMark className="h-8 w-8" />
+    94→            <span className="font-display text-lg tracking-tight">RestoPanel</span>
+    95→          </button>
+    96→        </div>
+    97→        <OrgSelector />
+    98→        <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación principal">
+    99→          {GROUPS.map((g) => (
+   100→            <div key={g} className="mb-4">
+   101→              <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+   102→              <ul className="space-y-0.5">
+   103→                {NAV.filter((n) => n.group === g).map((n) => (
+   104→                  <li key={n.id}>
+   105→                    <button
+   106→                      onClick={() => go(n.id)}
+   107→                      className={cn(
+   108→                        "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+   109→                        section === n.id
+   110→                          ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   111→                          : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   112→                      )}
+   113→                      aria-current={section === n.id ? "page" : undefined}
+   114→                    >
+   115→                      <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   116→                      <span className="truncate">{n.label}</span>
+   117→                    </button>
+   118→                  </li>
+   119→                ))}
+   120→              </ul>
+   121→            </div>
+   122→          ))}
+   123→        </nav>
+   124→        <div className="border-t border-border/60 p-3">
+   125→          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-foreground/5 cursor-pointer">
+   126→            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium">AM</div>
+   127→            <div className="flex-1 min-w-0">
+   128→              <div className="text-sm font-medium truncate">Ana Martínez</div>
+   129→              <div className="text-[11px] text-muted-foreground truncate">Owner · Ramses Group</div>
+   130→            </div>
+   131→            <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden />
+   132→          </div>
+   133→        </div>
+   134→      </aside>
+   135→
+   136→      {/* Mobile sidebar — drawer with all nav items, closes on click */}
+   137→      {mobileOpen && (
+   138→        <div className="lg:hidden fixed inset-0 z-50">
+   139→          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+   140→          <aside className="absolute left-0 top-0 h-full w-72 rp-glass-strong border-r border-border/60 flex flex-col">
+   141→            <div className="h-16 flex items-center justify-between pl-5 pr-2 border-b border-border/60">
+   142→              <Logo />
+   143→              <button onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" className="h-11 w-11 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   144→                <X className="h-5 w-5" />
+   145→              </button>
+   146→            </div>
+   147→            <OrgSelector />
+   148→            <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación móvil">
+   149→              {GROUPS.map((g) => (
+   150→                <div key={g} className="mb-4">
+   151→                  <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+   152→                  <ul className="space-y-0.5">
+   153→                    {NAV.filter((n) => n.group === g).map((n) => (
+   154→                      <li key={n.id}>
+   155→                        <button
+   156→                          onClick={() => { go(n.id); setMobileOpen(false); }}
+   157→                          className={cn(
+   158→                            "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+   159→                            section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   160→                          )}
+   161→                          aria-current={section === n.id ? "page" : undefined}
+   162→                        >
+   163→                          <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   164→                          <span className="truncate">{n.label}</span>
+   165→                        </button>
+   166→                      </li>
+   167→                    ))}
+   168→                  </ul>
+   169→                </div>
+   170→              ))}
+   171→            </nav>
+   172→          </aside>
+   173→        </div>
+   174→      )}
+   175→
+   176→      {/* Main */}
+   177→      <div className="flex-1 min-w-0 flex flex-col">
+   178→        <Topbar
+   179→          onMenu={() => setMobileOpen(true)}
+   180→          title={current?.label ?? "Dashboard"}
+   181→          onOpenCmd={() => setCmdOpen(true)}
+   182→        />
+   183→        <main className="flex-1 p-4 sm:p-6 lg:p-8" id="app-main">
+   184→          <SectionRenderer section={section} />
+   185→        </main>
+   186→      </div>
+   187→
+   188→      {/* Command palette (⌘K) */}
+   189→      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+   190→
+   191→      {/* Global floating AI Copilot — available across all app sections */}
+   192→      <AiCopilot />
+   193→    </div>
+   194→  );
+   195→}
+   196→
+   197→const GROUPS = ["Operación", "Relación", "Growth", "Reputación", "Plataforma", "Developer"];
+   198→
+   199→function OrgSelector() {
+   200→  const org = useNav((s) => s.org);
+   201→  const location = useNav((s) => s.location);
+   202→  const [open, setOpen] = React.useState(false);
+   203→  return (
+   204→    <div className="px-3 py-3 border-b border-border/40 relative">
+   205→      <button
+   206→        onClick={() => setOpen((v) => !v)}
+   207→        className="w-full min-h-[44px] flex items-center gap-2.5 rounded-md border border-border/60 px-3 py-2 text-left hover:border-[var(--gold)]/40 transition-colors"
+   208→        aria-expanded={open}
+   209→        aria-label="Seleccionar organización y local"
+   210→      >
+   211→        <div className="h-7 w-7 rounded-md bg-[var(--gold)]/15 flex items-center justify-center text-[var(--gold)] text-xs font-medium">R</div>
+   212→        <div className="flex-1 min-w-0">
+   213→          <div className="text-sm font-medium truncate">{org}</div>
+   214→          <div className="text-[11px] text-muted-foreground truncate">{location}</div>
+   215→        </div>
+   216→        <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+   217→      </button>
+   218→      {open && (
+   219→        <div className="absolute left-3 right-3 top-full mt-1 rp-glass-strong rounded-md border border-border/60 py-1 z-10 max-h-[60vh] overflow-y-auto rp-scroll-thin">
+   220→          {["Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"].map((l) => (
+   221→            <button
+   222→              key={l}
+   223→              onClick={() => { useNav.getState().setLocation(l); setOpen(false); }}
+   224→              className="w-full min-h-[44px] text-left px-3 py-2 text-sm hover:bg-foreground/5"
+   225→            >
+   226→              {l}
+   227→            </button>
+   228→          ))}
+   229→          <div className="border-t border-border/40 my-1" />
+   230→          <button className="w-full min-h-[44px] text-left px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5">
+   231→            + Añadir local
+   232→          </button>
+   233→        </div>
+   234→      )}
+   235→    </div>
+   236→  );
+   237→}
+   238→
+   239→function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: string; onOpenCmd: () => void }) {
+   240→  const [period, setPeriod] = React.useState<"hoy" | "semana" | "mes">("hoy");
+   241→  return (
+   242→    <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
+   243→      <button onClick={onMenu} className="lg:hidden h-11 w-11 -ml-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors" aria-label="Abrir menú">
+   244→        <Menu className="h-5 w-5" />
+   245→      </button>
+   246→      {/* Breadcrumb / title (left) */}
+   247→      <div className="flex items-center gap-2 text-sm min-w-0 flex-1 md:flex-none">
+   248→        <span className="text-muted-foreground hidden sm:inline shrink-0">RestoPanel /</span>
+   249→        <span className="font-medium truncate">{title}</span>
+   250→      </div>
+   251→      {/* Global search (center, hidden on mobile) — clickable, opens command palette */}
+   252→      <button
+   253→        onClick={onOpenCmd}
+   254→        className="flex-1 max-w-[180px] md:max-w-xs xl:max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
+   255→        aria-label="Abrir paleta de comandos"
+   256→      >
+   257→        <Search className="h-4 w-4 shrink-0" aria-hidden />
+   258→        <span className="flex-1 truncate">Buscar reservas, clientes, mesas…</span>
+   259→        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0 flex items-center gap-0.5">
+   260→          <CommandIcon className="h-2.5 w-2.5" />K
+   261→        </kbd>
+   262→      </button>
+   263→      {/* Right cluster: period selector, notifications, help, avatar */}
+   264→      <div className="ml-auto flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
+   265→        <div className="hidden 2xl:flex items-center rounded-md border border-border/60 p-0.5">
+   266→          {(["hoy", "semana", "mes"] as const).map((p) => (
+   267→            <button
+   268→              key={p}
+   269→              onClick={() => setPeriod(p)}
+   270→              className={cn(
+   271→                "min-h-[36px] rounded px-2.5 py-1 text-xs capitalize transition-colors",
+   272→                period === p ? "bg-[var(--gold)] text-black" : "text-muted-foreground hover:text-foreground"
+   273→              )}
+   274→            >
+   275→              {p}
+   276→            </button>
+   277→          ))}
+   278→        </div>
+   279→        <button
+   280→          onClick={onOpenCmd}
+   281→          className="md:hidden h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+   282→          aria-label="Buscar (paleta de comandos)"
+   283→        >
+   284→          <Search className="h-4 w-4" />
+   285→        </button>
+   286→        <button className="relative h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Notificaciones">
+   287→          <Bell className="h-4 w-4" />
+   288→          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--teal)] ring-2 ring-background" aria-hidden />
+   289→        </button>
+   290→        <button className="hidden sm:flex h-9 w-9 rounded-md border border-border/60 items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Ayuda">
+   291→          <HelpCircle className="h-4 w-4" />
+   292→        </button>
+   293→        <button
+   294→          className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium ring-2 ring-transparent hover:ring-[var(--gold)]/40 transition-shadow"
+   295→          aria-label="Cuenta de Ana Martínez"
+   296→        >
+   297→          AM
+   298→        </button>
+   299→      </div>
+   300→    </header>
+   301→  );
+   302→}
+   303→
+   304→/* =========================================================
+   305→ * Command palette (⌘K)
+   306→ * Quick actions modal with search and keyboard navigation.
+   307→ * Navigates via useNav.getState().go(section).
+   308→ * =======================================================*/
+   309→interface CmdAction {
+   310→  id: string;
+   311→  label: string;
+   312→  hint: string;
+   313→  icon: React.ElementType;
+   314→  group: "Navegación" | "Acciones";
+   315→  run: () => void;
+   316→}
+   317→
+   318→function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   319→  const [query, setQuery] = React.useState("");
+   320→  const [active, setActive] = React.useState(0);
+   321→  const inputRef = React.useRef<HTMLInputElement>(null);
+   322→  const listRef = React.useRef<HTMLDivElement>(null);
+   323→
+   324→  const actions = React.useMemo<CmdAction[]>(() => {
+   325→    const nav: CmdAction[] = NAV.map((n) => ({
+   326→      id: `nav-${n.id}`,
+   327→      label: n.label,
+   328→      hint: "Ir a sección",
+   329→      icon: n.icon,
+   330→      group: "Navegación",
+   331→      run: () => useNav.getState().go(n.id),
+   332→    }));
+   333→    const quick: CmdAction[] = [
+   334→      { id: "qa-executive", label: "Abrir Centro Ejecutivo", hint: "IA + Alertas", icon: Crown, group: "Acciones", run: () => useNav.getState().go("executive") },
+   335→      { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   336→      { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
+   337→      { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   338→      { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
+   339→      { id: "qa-growth-analytics", label: "Ver Growth Analytics", hint: "ROI e insights IA", icon: TrendingUp, group: "Acciones", run: () => useNav.getState().go("growth-analytics") },
+   340→      { id: "qa-growth-reputation", label: "Gestionar reputación", hint: "Reseñas + NPS", icon: Award, group: "Acciones", run: () => useNav.getState().go("growth-reputation") },
+   341→      { id: "qa-reviews", label: "Responder reviews", hint: "Google Reviews", icon: Star, group: "Acciones", run: () => useNav.getState().go("reviews") },
+   342→      { id: "qa-analytics", label: "Ver analítica", hint: "Analytics", icon: BarChart3, group: "Acciones", run: () => useNav.getState().go("analytics") },
+   343→      { id: "qa-settings", label: "Configuración", hint: "Ajustes del local", icon: Settings, group: "Acciones", run: () => useNav.getState().go("configuracion") },
+   344→    ];
+   345→    return [...quick, ...nav];
+   346→  }, []);
+   347→
+   348→  const filtered = React.useMemo(() => {
+   349→    const q = query.trim().toLowerCase();
+   350→    if (!q) return actions;
+   351→    return actions.filter((a) =>
+   352→      a.label.toLowerCase().includes(q) || a.hint.toLowerCase().includes(q)
+   353→    );
+   354→  }, [actions, query]);
+   355→
+   356→  // Reset state on open
+   357→  React.useEffect(() => {
+   358→    if (open) {
+   359→      setQuery("");
+   360→      setActive(0);
+   361→      // focus input after dialog mounts
+   362→      requestAnimationFrame(() => inputRef.current?.focus());
+   363→    }
+   364→  }, [open]);
+   365→
+   366→  // Keep active index in range
+   367→  React.useEffect(() => {
+   368→    if (active >= filtered.length) setActive(0);
+   369→  }, [filtered, active]);
+   370→
+   371→  // Scroll active item into view
+   372→  React.useEffect(() => {
+   373→    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
+   374→    el?.scrollIntoView({ block: "nearest" });
+   375→  }, [active]);
+   376→
+   377→  function execute(a: CmdAction) {
+   378→    a.run();
+   379→    onOpenChange(false);
+   380→  }
+   381→
+   382→  function onKeyDown(e: React.KeyboardEvent) {
+   383→    if (e.key === "ArrowDown") {
+   384→      e.preventDefault();
+   385→      setActive((i) => (i + 1) % Math.max(filtered.length, 1));
+   386→    } else if (e.key === "ArrowUp") {
+   387→      e.preventDefault();
+   388→      setActive((i) => (i - 1 + filtered.length) % Math.max(filtered.length, 1));
+   389→    } else if (e.key === "Enter") {
+   390→      e.preventDefault();
+   391→      const a = filtered[active];
+   392→      if (a) execute(a);
+   393→    } else if (e.key === "Escape") {
+   394→      onOpenChange(false);
+   395→    }
+   396→  }
+   397→
+   398→  // Group filtered actions for rendering
+   399→  const groups = React.useMemo(() => {
+   400→    const map = new Map<string, CmdAction[]>();
+   401→    for (const a of filtered) {
+   402→      const arr = map.get(a.group) ?? [];
+   403→      arr.push(a);
+   404→      map.set(a.group, arr);
+   405→    }
+   406→    return Array.from(map.entries());
+   407→  }, [filtered]);
+   408→
+   409→  // Flat index lookup for keyboard nav
+   410→  let flatIdx = -1;
+   411→
+   412→  return (
+   413→    <Dialog open={open} onOpenChange={onOpenChange}>
+   414→      <DialogContent
+   415→        showCloseButton={false}
+   416→        className="p-0 gap-0 sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+   417→        onKeyDown={onKeyDown}
+   418→      >
+   419→        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
+   420→        <DialogDescription className="sr-only">
+   421→          Busca acciones rápidas o secciones y navega con el teclado.
+   422→        </DialogDescription>
+   423→        {/* Search input */}
+   424→        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/60">
+   425→          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+   426→          <input
+   427→            ref={inputRef}
+   428→            type="search"
+   429→            value={query}
+   430→            onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+   431→            placeholder="Busca una acción o sección…"
+   432→            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+   433→            aria-label="Buscar acción"
+   434→            autoComplete="off"
+   435→            spellCheck={false}
+   436→          />
+   437→          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">ESC</kbd>
+   438→        </div>
+   439→        {/* Actions list */}
+   440→        <div ref={listRef} className="flex-1 overflow-y-auto rp-scroll-thin p-2 max-h-[60vh]">
+   441→          {filtered.length === 0 ? (
+   442→            <div className="px-3 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+   443→              <Sparkles className="h-5 w-5 opacity-50" />
+   444→              Sin resultados para “{query}”.
+   445→            </div>
+   446→          ) : (
+   447→            groups.map(([group, items]) => (
+   448→              <div key={group} className="mb-1">
+   449→                <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   450→                  {group}
+   451→                </div>
+   452→                <ul role="listbox" aria-label={group}>
+   453→                  {items.map((a) => {
+   454→                    flatIdx += 1;
+   455→                    const idx = flatIdx;
+   456→                    const isActive = idx === active;
+   457→                    return (
+   458→                      <li key={a.id} role="option" aria-selected={isActive}>
+   459→                        <button
+   460→                          data-idx={idx}
+   461→                          onMouseMove={() => setActive(idx)}
+   462→                          onClick={() => execute(a)}
+   463→                          className={cn(
+   464→                            "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+   465→                            isActive ? "bg-[var(--gold)]/12 text-[var(--gold-soft)]" : "hover:bg-foreground/5"
+   466→                          )}
+   467→                        >
+   468→                          <a.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--gold)]" : "text-muted-foreground")} aria-hidden />
+   469→                          <span className="flex-1 min-w-0 truncate font-medium">{a.label}</span>
+   470→                          <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{a.hint}</span>
+   471→                          {isActive && (
+   472→                            <CornerDownLeft className="h-3.5 w-3.5 text-[var(--gold)] shrink-0" aria-hidden />
+   473→                          )}
+   474→                        </button>
+   475→                      </li>
+   476→                    );
+   477→                  })}
+   478→                </ul>
+   479→              </div>
+   480→            ))
+   481→          )}
+   482→        </div>
+   483→        {/* Footer hint */}
+   484→        <div className="flex items-center justify-between gap-2 px-4 h-10 border-t border-border/60 text-[11px] text-muted-foreground">
+   485→          <div className="flex items-center gap-3">
+   486→            <span className="flex items-center gap-1">
+   487→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↑↓</kbd> navegar
+   488→            </span>
+   489→            <span className="flex items-center gap-1">
+   490→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↵</kbd> seleccionar
+   491→            </span>
+   492→          </div>
+   493→          <span className="font-mono">RestoPanel · ⌘K</span>
+   494→        </div>
+   495→      </DialogContent>
+   496→    </Dialog>
+   497→  );
+   498→}
+   499→
+   500→function SectionRenderer({ section }: { section: Section }) {
+   501→  const Lazy = React.useMemo(() => {
+   502→    const map: Record<Section, React.LazyExoticComponent<React.ComponentType>> = {
+   503→      dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then((m) => ({ default: m.Home }))),
+   504→      executive: React.lazy(() => import("@/components/rp/executive/executive-view").then((m) => ({ default: m.ExecutiveView }))),
+   505→      reservas: React.lazy(() => import("@/components/rp/reservas/reservas-view").then((m) => ({ default: m.ReservasView }))),
+   506→      crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
+   507→      marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),
+   508→      automatizaciones: React.lazy(() => import("@/components/rp/automations/automation-builder").then((m) => ({ default: m.AutomationBuilder }))),
+   509→      "growth-analytics": React.lazy(() => import("@/components/rp/growth/growth-analytics").then((m) => ({ default: m.GrowthAnalytics }))),
+   510→      "growth-reputation": React.lazy(() => import("@/components/rp/growth/growth-reputation").then((m) => ({ default: m.GrowthReputation }))),
+   511→      campaigns: React.lazy(() => import("@/components/rp/growth/growth-campaigns").then((m) => ({ default: m.GrowthCampaigns }))),
+   512→      promotions: React.lazy(() => import("@/components/rp/growth/growth-promotions").then((m) => ({ default: m.GrowthPromotions }))),
+   513→      reviews: React.lazy(() => import("@/components/rp/reviews/reviews-view").then((m) => ({ default: m.ReviewsView }))),
+   514→      analytics: React.lazy(() => import("@/components/rp/reviews/analytics-view").then((m) => ({ default: m.AnalyticsView }))),
+   515→      integraciones: React.lazy(() => import("@/components/rp/superadmin/integrations-view").then((m) => ({ default: m.IntegrationsView }))),
+   516→      billing: React.lazy(() => import("@/components/rp/superadmin/billing-view").then((m) => ({ default: m.BillingView }))),
+   517→      equipo: React.lazy(() => import("@/components/rp/superadmin/team-view").then((m) => ({ default: m.TeamView }))),
+   518→      configuracion: React.lazy(() => import("@/components/rp/superadmin/settings-view").then((m) => ({ default: m.SettingsView }))),
+   519→      superadmin: React.lazy(() => import("@/components/rp/superadmin/super-admin-view").then((m) => ({ default: m.SuperAdminView }))),
+   520→      "ai-center": React.lazy(() => import("@/components/rp/ai-center/ai-center").then((m) => ({ default: m.AiCenter }))),
+   521→      "ai-knowledge": React.lazy(() => import("@/components/rp/ai-center/ai-knowledge").then((m) => ({ default: m.AiKnowledge }))),
+   522→      "ai-menu": React.lazy(() => import("@/components/rp/ai-center/ai-menu").then((m) => ({ default: m.AiMenu }))),
+   523→      "growth-engine": React.lazy(() => import("@/components/rp/growth/growth-engine").then((m) => ({ default: m.GrowthEngine }))),
+   524→      "ai-os-actions": React.lazy(() => import("@/components/rp/ai-os/ai-os-actions").then((m) => ({ default: m.AiOsActions }))),
+   525→      "ai-os-predictions": React.lazy(() => import("@/components/rp/ai-os/ai-os-predictions").then((m) => ({ default: m.AiOsPredictions }))),
+   526→      "ai-os": React.lazy(() => import("@/components/rp/ai-os/ai-os-view").then((m) => ({ default: m.AiOsView }))),
+   527→      "dev-portal": React.lazy(() => import("@/components/rp/dev-platform/dev-portal-v2").then((m) => ({ default: m.DevPortalV2 }))),
+   528→      "dev-cli": React.lazy(() => import("@/components/rp/dev-platform/dev-cli").then((m) => ({ default: m.DevCli }))),
+   529→      "dev-marketplace": React.lazy(() => import("@/components/rp/dev-platform/dev-marketplace-v2").then((m) => ({ default: m.DevMarketplaceV2 }))),
+   530→      "dev-eventbus": React.lazy(() => import("@/components/rp/dev-platform/dev-event-bus").then((m) => ({ default: m.DevEventBus }))),
+   531→    };
+   532→    return map[section];
+   533→  }, [section]);
+   534→
+   535→  return (
+   536→    <React.Suspense fallback={<SectionSkeleton />}>
+   537→      <ErrorBoundary>
+   538→        <Lazy />
+   539→      </ErrorBoundary>
+   540→    </React.Suspense>
+   541→  );
+   542→}
+   543→
+   544→class ErrorBoundary extends React.Component<
+   545→  { children: React.ReactNode },
+   546→  { hasError: boolean; error: Error | null }
+   547→> {
+   548→  constructor(props: { children: React.ReactNode }) {
+   549→    super(props);
+   550→    this.state = { hasError: false, error: null };
+   551→  }
+   552→  static getDerivedStateFromError(error: Error) {
+   553→    return { hasError: true, error };
+   554→  }
+   555→  componentDidCatch(error: Error) {
+   556→    console.error("SectionRenderer error:", error.message);
+   557→  }
+   558→  render() {
+   559→    if (this.state.hasError) {
+   560→      return (
+   561→        <div className="rp-glass rounded-xl p-8 text-center max-w-2xl mx-auto">
+   562→          <p className="text-sm text-destructive mb-3 font-medium">Error al cargar esta sección</p>
+   563→          <p className="text-xs text-muted-foreground mb-4 font-mono break-all">{this.state.error?.message?.slice(0, 300)}</p>
+   564→          <button
+   565→            onClick={() => this.setState({ hasError: false, error: null })}
+   566→            className="rounded-md border border-border/60 px-4 py-2 text-sm hover:bg-foreground/5"
+   567→          >
+   568→            Reintentar
+   569→          </button>
+   570→        </div>
+   571→      );
+   572→    }
+   573→    return this.props.children;
+   574→  }
+   575→}
+   576→
+   577→function SectionSkeleton() {
+   578→  return (
+   579→    <div className="space-y-4" aria-busy="true" aria-label="Cargando sección">
+   580→      <div className="h-8 w-48 rounded-md bg-foreground/10 animate-pulse" />
+   581→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   582→        {Array.from({ length: 4 }).map((_, i) => (
+   583→          <div key={i} className="h-28 rounded-xl bg-foreground/5 animate-pulse" />
+   584→        ))}
+   585→      </div>
+   586→      <div className="h-64 rounded-xl bg-foreground/5 animate-pulse" />
+   587→    </div>
+   588→  );
+   589→}
+   590→

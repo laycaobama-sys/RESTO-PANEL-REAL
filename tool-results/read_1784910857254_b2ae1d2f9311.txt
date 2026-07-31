@@ -1,0 +1,538 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useNav, type Section } from "./nav-store";
+     6→import { Logo, BrandMark } from "./brand";
+     7→import {
+     8→  LayoutDashboard, CalendarDays, Users, Megaphone, Workflow, Star, BarChart3,
+     9→  Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
+    10→  Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
+    11→  CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
+    12→  Crown, BrainCircuit, BookOpen, UtensilsCrossed,
+    13→} from "lucide-react";
+    14→import {
+    15→  Dialog,
+    16→  DialogContent,
+    17→  DialogTitle,
+    18→  DialogDescription,
+    19→} from "@/components/ui/dialog";
+    20→import { AiCopilot } from "@/components/rp/ai-center/ai-copilot";
+    21→
+    22→const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
+    23→  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
+    24→  { id: "executive", label: "Centro Ejecutivo", icon: Crown, group: "Operación" },
+    25→  { id: "reservas", label: "Reservas", icon: CalendarDays, group: "Operación" },
+    26→  { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
+    27→  { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
+    28→  { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
+    29→  { id: "growth-analytics", label: "Growth Analytics", icon: TrendingUp, group: "Growth" },
+    30→  { id: "growth-reputation", label: "Centro Reputación", icon: Award, group: "Growth" },
+    31→  { id: "campaigns", label: "Campañas", icon: Megaphone, group: "Growth" },
+    32→  { id: "promotions", label: "Promociones", icon: Ticket, group: "Growth" },
+    33→  { id: "reviews", label: "Google Reviews", icon: Star, group: "Reputación" },
+    34→  { id: "analytics", label: "Analytics", icon: BarChart3, group: "Reputación" },
+    35→  { id: "integraciones", label: "Integraciones", icon: Plug, group: "Plataforma" },
+    36→  { id: "billing", label: "Facturación", icon: CreditCard, group: "Plataforma" },
+    37→  { id: "equipo", label: "Equipo", icon: UserCog, group: "Plataforma" },
+    38→  { id: "configuracion", label: "Configuración", icon: Settings, group: "Plataforma" },
+    39→  { id: "ai-center", label: "Centro de IA", icon: BrainCircuit, group: "Plataforma" },
+    40→  { id: "ai-knowledge", label: "Conocimiento IA", icon: BookOpen, group: "Plataforma" },
+    41→  { id: "ai-menu", label: "IA Menú", icon: UtensilsCrossed, group: "Plataforma" },
+    42→  { id: "superadmin", label: "Super Admin", icon: ShieldCheck, group: "Plataforma" },
+    43→];
+    44→
+    45→export function AppShell() {
+    46→  const section = useNav((s) => s.section);
+    47→  const go = useNav((s) => s.go);
+    48→  const setView = useNav((s) => s.setView);
+    49→  const [mobileOpen, setMobileOpen] = React.useState(false);
+    50→  const [cmdOpen, setCmdOpen] = React.useState(false);
+    51→
+    52→  const current = NAV.find((n) => n.id === section);
+    53→
+    54→  // Lock body scroll when mobile drawer is open
+    55→  React.useEffect(() => {
+    56→    if (mobileOpen) {
+    57→      document.body.style.overflow = "hidden";
+    58→    } else {
+    59→      document.body.style.overflow = "";
+    60→    }
+    61→    return () => {
+    62→      document.body.style.overflow = "";
+    63→    };
+    64→  }, [mobileOpen]);
+    65→
+    66→  // Global ⌘K / Ctrl+K shortcut to open the command palette
+    67→  React.useEffect(() => {
+    68→    function onKey(e: KeyboardEvent) {
+    69→      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    70→        e.preventDefault();
+    71→        setCmdOpen((v) => !v);
+    72→      }
+    73→    }
+    74→    window.addEventListener("keydown", onKey);
+    75→    return () => window.removeEventListener("keydown", onKey);
+    76→  }, []);
+    77→
+    78→  return (
+    79→    <div className="flex min-h-screen">
+    80→      {/* Sidebar desktop — sticky, fixed while scrolling */}
+    81→      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border/60 rp-glass-strong sticky top-0 h-screen">
+    82→        <div className="h-16 flex items-center px-5 border-b border-border/60">
+    83→          <button onClick={() => setView("landing")} className="flex items-center gap-2.5" aria-label="Volver a landing">
+    84→            <BrandMark className="h-8 w-8" />
+    85→            <span className="font-display text-lg tracking-tight">RestoPanel</span>
+    86→          </button>
+    87→        </div>
+    88→        <OrgSelector />
+    89→        <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación principal">
+    90→          {GROUPS.map((g) => (
+    91→            <div key={g} className="mb-4">
+    92→              <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+    93→              <ul className="space-y-0.5">
+    94→                {NAV.filter((n) => n.group === g).map((n) => (
+    95→                  <li key={n.id}>
+    96→                    <button
+    97→                      onClick={() => go(n.id)}
+    98→                      className={cn(
+    99→                        "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+   100→                        section === n.id
+   101→                          ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   102→                          : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   103→                      )}
+   104→                      aria-current={section === n.id ? "page" : undefined}
+   105→                    >
+   106→                      <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   107→                      <span className="truncate">{n.label}</span>
+   108→                    </button>
+   109→                  </li>
+   110→                ))}
+   111→              </ul>
+   112→            </div>
+   113→          ))}
+   114→        </nav>
+   115→        <div className="border-t border-border/60 p-3">
+   116→          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-foreground/5 cursor-pointer">
+   117→            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium">AM</div>
+   118→            <div className="flex-1 min-w-0">
+   119→              <div className="text-sm font-medium truncate">Ana Martínez</div>
+   120→              <div className="text-[11px] text-muted-foreground truncate">Owner · Ramses Group</div>
+   121→            </div>
+   122→            <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden />
+   123→          </div>
+   124→        </div>
+   125→      </aside>
+   126→
+   127→      {/* Mobile sidebar — drawer with all nav items, closes on click */}
+   128→      {mobileOpen && (
+   129→        <div className="lg:hidden fixed inset-0 z-50">
+   130→          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+   131→          <aside className="absolute left-0 top-0 h-full w-72 rp-glass-strong border-r border-border/60 flex flex-col">
+   132→            <div className="h-16 flex items-center justify-between pl-5 pr-2 border-b border-border/60">
+   133→              <Logo />
+   134→              <button onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" className="h-11 w-11 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   135→                <X className="h-5 w-5" />
+   136→              </button>
+   137→            </div>
+   138→            <OrgSelector />
+   139→            <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación móvil">
+   140→              {GROUPS.map((g) => (
+   141→                <div key={g} className="mb-4">
+   142→                  <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+   143→                  <ul className="space-y-0.5">
+   144→                    {NAV.filter((n) => n.group === g).map((n) => (
+   145→                      <li key={n.id}>
+   146→                        <button
+   147→                          onClick={() => { go(n.id); setMobileOpen(false); }}
+   148→                          className={cn(
+   149→                            "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+   150→                            section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   151→                          )}
+   152→                          aria-current={section === n.id ? "page" : undefined}
+   153→                        >
+   154→                          <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   155→                          <span className="truncate">{n.label}</span>
+   156→                        </button>
+   157→                      </li>
+   158→                    ))}
+   159→                  </ul>
+   160→                </div>
+   161→              ))}
+   162→            </nav>
+   163→          </aside>
+   164→        </div>
+   165→      )}
+   166→
+   167→      {/* Main */}
+   168→      <div className="flex-1 min-w-0 flex flex-col">
+   169→        <Topbar
+   170→          onMenu={() => setMobileOpen(true)}
+   171→          title={current?.label ?? "Dashboard"}
+   172→          onOpenCmd={() => setCmdOpen(true)}
+   173→        />
+   174→        <main className="flex-1 p-4 sm:p-6 lg:p-8" id="app-main">
+   175→          <SectionRenderer section={section} />
+   176→        </main>
+   177→      </div>
+   178→
+   179→      {/* Command palette (⌘K) */}
+   180→      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+   181→
+   182→      {/* Global floating AI Copilot — available across all app sections */}
+   183→      <AiCopilot />
+   184→    </div>
+   185→  );
+   186→}
+   187→
+   188→const GROUPS = ["Operación", "Relación", "Growth", "Reputación", "Plataforma"];
+   189→
+   190→function OrgSelector() {
+   191→  const org = useNav((s) => s.org);
+   192→  const location = useNav((s) => s.location);
+   193→  const [open, setOpen] = React.useState(false);
+   194→  return (
+   195→    <div className="px-3 py-3 border-b border-border/40 relative">
+   196→      <button
+   197→        onClick={() => setOpen((v) => !v)}
+   198→        className="w-full min-h-[44px] flex items-center gap-2.5 rounded-md border border-border/60 px-3 py-2 text-left hover:border-[var(--gold)]/40 transition-colors"
+   199→        aria-expanded={open}
+   200→        aria-label="Seleccionar organización y local"
+   201→      >
+   202→        <div className="h-7 w-7 rounded-md bg-[var(--gold)]/15 flex items-center justify-center text-[var(--gold)] text-xs font-medium">R</div>
+   203→        <div className="flex-1 min-w-0">
+   204→          <div className="text-sm font-medium truncate">{org}</div>
+   205→          <div className="text-[11px] text-muted-foreground truncate">{location}</div>
+   206→        </div>
+   207→        <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+   208→      </button>
+   209→      {open && (
+   210→        <div className="absolute left-3 right-3 top-full mt-1 rp-glass-strong rounded-md border border-border/60 py-1 z-10 max-h-[60vh] overflow-y-auto rp-scroll-thin">
+   211→          {["Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"].map((l) => (
+   212→            <button
+   213→              key={l}
+   214→              onClick={() => { useNav.getState().setLocation(l); setOpen(false); }}
+   215→              className="w-full min-h-[44px] text-left px-3 py-2 text-sm hover:bg-foreground/5"
+   216→            >
+   217→              {l}
+   218→            </button>
+   219→          ))}
+   220→          <div className="border-t border-border/40 my-1" />
+   221→          <button className="w-full min-h-[44px] text-left px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5">
+   222→            + Añadir local
+   223→          </button>
+   224→        </div>
+   225→      )}
+   226→    </div>
+   227→  );
+   228→}
+   229→
+   230→function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: string; onOpenCmd: () => void }) {
+   231→  const [period, setPeriod] = React.useState<"hoy" | "semana" | "mes">("hoy");
+   232→  return (
+   233→    <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
+   234→      <button onClick={onMenu} className="lg:hidden h-11 w-11 -ml-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors" aria-label="Abrir menú">
+   235→        <Menu className="h-5 w-5" />
+   236→      </button>
+   237→      {/* Breadcrumb / title (left) */}
+   238→      <div className="flex items-center gap-2 text-sm min-w-0 flex-1 md:flex-none">
+   239→        <span className="text-muted-foreground hidden sm:inline shrink-0">RestoPanel /</span>
+   240→        <span className="font-medium truncate">{title}</span>
+   241→      </div>
+   242→      {/* Global search (center, hidden on mobile) — clickable, opens command palette */}
+   243→      <button
+   244→        onClick={onOpenCmd}
+   245→        className="flex-1 max-w-[180px] md:max-w-xs xl:max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
+   246→        aria-label="Abrir paleta de comandos"
+   247→      >
+   248→        <Search className="h-4 w-4 shrink-0" aria-hidden />
+   249→        <span className="flex-1 truncate">Buscar reservas, clientes, mesas…</span>
+   250→        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0 flex items-center gap-0.5">
+   251→          <CommandIcon className="h-2.5 w-2.5" />K
+   252→        </kbd>
+   253→      </button>
+   254→      {/* Right cluster: period selector, notifications, help, avatar */}
+   255→      <div className="ml-auto flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
+   256→        <div className="hidden 2xl:flex items-center rounded-md border border-border/60 p-0.5">
+   257→          {(["hoy", "semana", "mes"] as const).map((p) => (
+   258→            <button
+   259→              key={p}
+   260→              onClick={() => setPeriod(p)}
+   261→              className={cn(
+   262→                "min-h-[36px] rounded px-2.5 py-1 text-xs capitalize transition-colors",
+   263→                period === p ? "bg-[var(--gold)] text-black" : "text-muted-foreground hover:text-foreground"
+   264→              )}
+   265→            >
+   266→              {p}
+   267→            </button>
+   268→          ))}
+   269→        </div>
+   270→        <button
+   271→          onClick={onOpenCmd}
+   272→          className="md:hidden h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+   273→          aria-label="Buscar (paleta de comandos)"
+   274→        >
+   275→          <Search className="h-4 w-4" />
+   276→        </button>
+   277→        <button className="relative h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Notificaciones">
+   278→          <Bell className="h-4 w-4" />
+   279→          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--teal)] ring-2 ring-background" aria-hidden />
+   280→        </button>
+   281→        <button className="hidden sm:flex h-9 w-9 rounded-md border border-border/60 items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Ayuda">
+   282→          <HelpCircle className="h-4 w-4" />
+   283→        </button>
+   284→        <button
+   285→          className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium ring-2 ring-transparent hover:ring-[var(--gold)]/40 transition-shadow"
+   286→          aria-label="Cuenta de Ana Martínez"
+   287→        >
+   288→          AM
+   289→        </button>
+   290→      </div>
+   291→    </header>
+   292→  );
+   293→}
+   294→
+   295→/* =========================================================
+   296→ * Command palette (⌘K)
+   297→ * Quick actions modal with search and keyboard navigation.
+   298→ * Navigates via useNav.getState().go(section).
+   299→ * =======================================================*/
+   300→interface CmdAction {
+   301→  id: string;
+   302→  label: string;
+   303→  hint: string;
+   304→  icon: React.ElementType;
+   305→  group: "Navegación" | "Acciones";
+   306→  run: () => void;
+   307→}
+   308→
+   309→function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   310→  const [query, setQuery] = React.useState("");
+   311→  const [active, setActive] = React.useState(0);
+   312→  const inputRef = React.useRef<HTMLInputElement>(null);
+   313→  const listRef = React.useRef<HTMLDivElement>(null);
+   314→
+   315→  const actions = React.useMemo<CmdAction[]>(() => {
+   316→    const nav: CmdAction[] = NAV.map((n) => ({
+   317→      id: `nav-${n.id}`,
+   318→      label: n.label,
+   319→      hint: "Ir a sección",
+   320→      icon: n.icon,
+   321→      group: "Navegación",
+   322→      run: () => useNav.getState().go(n.id),
+   323→    }));
+   324→    const quick: CmdAction[] = [
+   325→      { id: "qa-executive", label: "Abrir Centro Ejecutivo", hint: "IA + Alertas", icon: Crown, group: "Acciones", run: () => useNav.getState().go("executive") },
+   326→      { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   327→      { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
+   328→      { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   329→      { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
+   330→      { id: "qa-growth-analytics", label: "Ver Growth Analytics", hint: "ROI e insights IA", icon: TrendingUp, group: "Acciones", run: () => useNav.getState().go("growth-analytics") },
+   331→      { id: "qa-growth-reputation", label: "Gestionar reputación", hint: "Reseñas + NPS", icon: Award, group: "Acciones", run: () => useNav.getState().go("growth-reputation") },
+   332→      { id: "qa-reviews", label: "Responder reviews", hint: "Google Reviews", icon: Star, group: "Acciones", run: () => useNav.getState().go("reviews") },
+   333→      { id: "qa-analytics", label: "Ver analítica", hint: "Analytics", icon: BarChart3, group: "Acciones", run: () => useNav.getState().go("analytics") },
+   334→      { id: "qa-settings", label: "Configuración", hint: "Ajustes del local", icon: Settings, group: "Acciones", run: () => useNav.getState().go("configuracion") },
+   335→    ];
+   336→    return [...quick, ...nav];
+   337→  }, []);
+   338→
+   339→  const filtered = React.useMemo(() => {
+   340→    const q = query.trim().toLowerCase();
+   341→    if (!q) return actions;
+   342→    return actions.filter((a) =>
+   343→      a.label.toLowerCase().includes(q) || a.hint.toLowerCase().includes(q)
+   344→    );
+   345→  }, [actions, query]);
+   346→
+   347→  // Reset state on open
+   348→  React.useEffect(() => {
+   349→    if (open) {
+   350→      setQuery("");
+   351→      setActive(0);
+   352→      // focus input after dialog mounts
+   353→      requestAnimationFrame(() => inputRef.current?.focus());
+   354→    }
+   355→  }, [open]);
+   356→
+   357→  // Keep active index in range
+   358→  React.useEffect(() => {
+   359→    if (active >= filtered.length) setActive(0);
+   360→  }, [filtered, active]);
+   361→
+   362→  // Scroll active item into view
+   363→  React.useEffect(() => {
+   364→    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
+   365→    el?.scrollIntoView({ block: "nearest" });
+   366→  }, [active]);
+   367→
+   368→  function execute(a: CmdAction) {
+   369→    a.run();
+   370→    onOpenChange(false);
+   371→  }
+   372→
+   373→  function onKeyDown(e: React.KeyboardEvent) {
+   374→    if (e.key === "ArrowDown") {
+   375→      e.preventDefault();
+   376→      setActive((i) => (i + 1) % Math.max(filtered.length, 1));
+   377→    } else if (e.key === "ArrowUp") {
+   378→      e.preventDefault();
+   379→      setActive((i) => (i - 1 + filtered.length) % Math.max(filtered.length, 1));
+   380→    } else if (e.key === "Enter") {
+   381→      e.preventDefault();
+   382→      const a = filtered[active];
+   383→      if (a) execute(a);
+   384→    } else if (e.key === "Escape") {
+   385→      onOpenChange(false);
+   386→    }
+   387→  }
+   388→
+   389→  // Group filtered actions for rendering
+   390→  const groups = React.useMemo(() => {
+   391→    const map = new Map<string, CmdAction[]>();
+   392→    for (const a of filtered) {
+   393→      const arr = map.get(a.group) ?? [];
+   394→      arr.push(a);
+   395→      map.set(a.group, arr);
+   396→    }
+   397→    return Array.from(map.entries());
+   398→  }, [filtered]);
+   399→
+   400→  // Flat index lookup for keyboard nav
+   401→  let flatIdx = -1;
+   402→
+   403→  return (
+   404→    <Dialog open={open} onOpenChange={onOpenChange}>
+   405→      <DialogContent
+   406→        showCloseButton={false}
+   407→        className="p-0 gap-0 sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+   408→        onKeyDown={onKeyDown}
+   409→      >
+   410→        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
+   411→        <DialogDescription className="sr-only">
+   412→          Busca acciones rápidas o secciones y navega con el teclado.
+   413→        </DialogDescription>
+   414→        {/* Search input */}
+   415→        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/60">
+   416→          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+   417→          <input
+   418→            ref={inputRef}
+   419→            type="search"
+   420→            value={query}
+   421→            onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+   422→            placeholder="Busca una acción o sección…"
+   423→            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+   424→            aria-label="Buscar acción"
+   425→            autoComplete="off"
+   426→            spellCheck={false}
+   427→          />
+   428→          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">ESC</kbd>
+   429→        </div>
+   430→        {/* Actions list */}
+   431→        <div ref={listRef} className="flex-1 overflow-y-auto rp-scroll-thin p-2 max-h-[60vh]">
+   432→          {filtered.length === 0 ? (
+   433→            <div className="px-3 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+   434→              <Sparkles className="h-5 w-5 opacity-50" />
+   435→              Sin resultados para “{query}”.
+   436→            </div>
+   437→          ) : (
+   438→            groups.map(([group, items]) => (
+   439→              <div key={group} className="mb-1">
+   440→                <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   441→                  {group}
+   442→                </div>
+   443→                <ul role="listbox" aria-label={group}>
+   444→                  {items.map((a) => {
+   445→                    flatIdx += 1;
+   446→                    const idx = flatIdx;
+   447→                    const isActive = idx === active;
+   448→                    return (
+   449→                      <li key={a.id} role="option" aria-selected={isActive}>
+   450→                        <button
+   451→                          data-idx={idx}
+   452→                          onMouseMove={() => setActive(idx)}
+   453→                          onClick={() => execute(a)}
+   454→                          className={cn(
+   455→                            "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+   456→                            isActive ? "bg-[var(--gold)]/12 text-[var(--gold-soft)]" : "hover:bg-foreground/5"
+   457→                          )}
+   458→                        >
+   459→                          <a.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--gold)]" : "text-muted-foreground")} aria-hidden />
+   460→                          <span className="flex-1 min-w-0 truncate font-medium">{a.label}</span>
+   461→                          <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{a.hint}</span>
+   462→                          {isActive && (
+   463→                            <CornerDownLeft className="h-3.5 w-3.5 text-[var(--gold)] shrink-0" aria-hidden />
+   464→                          )}
+   465→                        </button>
+   466→                      </li>
+   467→                    );
+   468→                  })}
+   469→                </ul>
+   470→              </div>
+   471→            ))
+   472→          )}
+   473→        </div>
+   474→        {/* Footer hint */}
+   475→        <div className="flex items-center justify-between gap-2 px-4 h-10 border-t border-border/60 text-[11px] text-muted-foreground">
+   476→          <div className="flex items-center gap-3">
+   477→            <span className="flex items-center gap-1">
+   478→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↑↓</kbd> navegar
+   479→            </span>
+   480→            <span className="flex items-center gap-1">
+   481→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↵</kbd> seleccionar
+   482→            </span>
+   483→          </div>
+   484→          <span className="font-mono">RestoPanel · ⌘K</span>
+   485→        </div>
+   486→      </DialogContent>
+   487→    </Dialog>
+   488→  );
+   489→}
+   490→
+   491→function SectionRenderer({ section }: { section: Section }) {
+   492→  const Lazy = React.useMemo(() => {
+   493→    const map: Record<Section, React.LazyExoticComponent<React.ComponentType>> = {
+   494→      dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then((m) => ({ default: m.Home }))),
+   495→      executive: React.lazy(() => import("@/components/rp/executive/executive-view").then((m) => ({ default: m.ExecutiveView }))),
+   496→      reservas: React.lazy(() => import("@/components/rp/reservas/reservas-view").then((m) => ({ default: m.ReservasView }))),
+   497→      crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
+   498→      marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),
+   499→      automatizaciones: React.lazy(() => import("@/components/rp/automations/automation-builder").then((m) => ({ default: m.AutomationBuilder }))),
+   500→      "growth-analytics": React.lazy(() => import("@/components/rp/growth/growth-analytics").then((m) => ({ default: m.GrowthAnalytics }))),
+   501→      "growth-reputation": React.lazy(() => import("@/components/rp/growth/growth-reputation").then((m) => ({ default: m.GrowthReputation }))),
+   502→      campaigns: React.lazy(() => import("@/components/rp/growth/growth-campaigns").then((m) => ({ default: m.GrowthCampaigns }))),
+   503→      promotions: React.lazy(() => import("@/components/rp/growth/growth-promotions").then((m) => ({ default: m.GrowthPromotions }))),
+   504→      reviews: React.lazy(() => import("@/components/rp/reviews/reviews-view").then((m) => ({ default: m.ReviewsView }))),
+   505→      analytics: React.lazy(() => import("@/components/rp/reviews/analytics-view").then((m) => ({ default: m.AnalyticsView }))),
+   506→      integraciones: React.lazy(() => import("@/components/rp/superadmin/integrations-view").then((m) => ({ default: m.IntegrationsView }))),
+   507→      billing: React.lazy(() => import("@/components/rp/superadmin/billing-view").then((m) => ({ default: m.BillingView }))),
+   508→      equipo: React.lazy(() => import("@/components/rp/superadmin/team-view").then((m) => ({ default: m.TeamView }))),
+   509→      configuracion: React.lazy(() => import("@/components/rp/superadmin/settings-view").then((m) => ({ default: m.SettingsView }))),
+   510→      superadmin: React.lazy(() => import("@/components/rp/superadmin/super-admin-view").then((m) => ({ default: m.SuperAdminView }))),
+   511→      "ai-center": React.lazy(() => import("@/components/rp/ai-center/ai-center").then((m) => ({ default: m.AiCenter }))),
+   512→      "ai-knowledge": React.lazy(() => import("@/components/rp/ai-center/ai-knowledge").then((m) => ({ default: m.AiKnowledge }))),
+   513→      "ai-menu": React.lazy(() => import("@/components/rp/ai-center/ai-menu").then((m) => ({ default: m.AiMenu }))),
+   514→    };
+   515→    return map[section];
+   516→  }, [section]);
+   517→
+   518→  return (
+   519→    <React.Suspense fallback={<SectionSkeleton />}>
+   520→      <Lazy />
+   521→    </React.Suspense>
+   522→  );
+   523→}
+   524→
+   525→function SectionSkeleton() {
+   526→  return (
+   527→    <div className="space-y-4" aria-busy="true" aria-label="Cargando sección">
+   528→      <div className="h-8 w-48 rounded-md bg-foreground/10 animate-pulse" />
+   529→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   530→        {Array.from({ length: 4 }).map((_, i) => (
+   531→          <div key={i} className="h-28 rounded-xl bg-foreground/5 animate-pulse" />
+   532→        ))}
+   533→      </div>
+   534→      <div className="h-64 rounded-xl bg-foreground/5 animate-pulse" />
+   535→    </div>
+   536→  );
+   537→}
+   538→

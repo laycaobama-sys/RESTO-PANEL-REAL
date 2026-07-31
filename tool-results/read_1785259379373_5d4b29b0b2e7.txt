@@ -1,0 +1,702 @@
+     1→=================================================================
+     2→RESTOPANEL ENTERPRISE v3.0
+     3→THE RESTAURANT OPERATING SYSTEM
+     4→Master Blueprint — Única fuente de verdad
+     5→Destino: IA de desarrollo y equipo de ingeniería
+     6→Sustituye a TODA especificación anterior
+     7→=================================================================
+     8→
+     9→#################################################################
+    10→PARTE A — CÓMO USAR ESTE DOCUMENTO
+    11→#################################################################
+    12→
+    13→A.1 REGLAS PARA LA IA QUE IMPLEMENTA
+    14→1. Este documento manda. Si algo contradice una conversación previa,
+    15→manda este documento.
+    16→2. Ejecutar EN ORDEN DE FASES. No adelantar fases. Cada fase tiene un
+    17→"GATE DE SALIDA": si no se cumple, no se pasa a la siguiente.
+    18→3. Antes de escribir código de un módulo, releer PARTE B (invariantes).
+    19→Ningún módulo puede violar un invariante, ni "temporalmente".
+    20→4. Nada de mocks silenciosos. Si algo no está implementado, debe fallar
+    21→de forma explícita y estar registrado en el backlog de la fase.
+    22→5. Cada entregable debe incluir: migraciones, tests, feature flag,
+    23→evento de auditoría, estado de carga/error/vacío y documentación.
+    24→6. No inventar cifras, logos, certificaciones ni clientes en ninguna
+    25→superficie (producto, landing, demo). Ver B.12.
+    26→
+    27→A.2 GLOSARIO CANÓNICO (usar estos términos en código y BD)
+    28→- Organization (org): cliente contratante. Titular de la suscripción.
+    29→- Brand: marca comercial dentro de una organización.
+    30→- Venue: local físico. Unidad operativa.
+    31→- Zone / Table: zona y mesa dentro de un venue.
+    32→- Member: usuario humano con acceso a una org (empleado).
+    33→- Guest: cliente final del restaurante (comensal).
+    34→- Order: comanda. Ticket: documento de cobro. Course: pase/ronda.
+    35→- Entitlement: derecho de uso resuelto para una org.
+    36→- Feature Flag: interruptor de existencia de una capacidad.
+    37→- Control Plane: sistema propio (Super Admin, licencias, billing).
+    38→- Data Plane: los datos de cada restaurante.
+    39→
+    40→A.3 STACK OFICIAL (no desviarse sin decisión registrada)
+    41→Frontend: Next.js (App Router, RSC) · React · TypeScript estricto ·
+    42→Tailwind · Radix primitives · Framer Motion · TanStack Query ·
+    43→Zod para validación compartida.
+    44→Edge/Backend: Cloudflare Workers · Hono · Durable Objects · Workflows ·
+    45→Queues · Cron Triggers.
+    46→Datos: D1 (SQLite) · KV (cache de entitlements y config) ·
+    47→R2 (media, backups, exports) · Vectorize (búsqueda semántica e IA) ·
+    48→Analytics Engine (métricas de alto volumen).
+    49→IA: AI Gateway como único punto de salida a modelos. Multi-proveedor.
+    50→Pagos: Stripe como primer adaptador, detrás de un Billing Engine propio.
+    51→Observabilidad: OpenTelemetry → Sentry + Cloudflare Analytics + Logpush.
+    52→Testing: Vitest (unit) · Playwright (E2E) · k6 (carga).
+    53→CI/CD: GitHub Actions · Wrangler · despliegue por gradual rollout.
+    54→
+    55→#################################################################
+    56→PARTE B — RESTOPANEL OPERATING STANDARDS (ROS)
+    57→La constitución técnica. Inviolable.
+    58→#################################################################
+    59→
+    60→B.1 AISLAMIENTO
+    61→Ningún dato de una organización puede ser accesible desde otra, bajo
+    62→ninguna circunstancia, ni por bug, ni por parámetro manipulado.
+    63→Implementación: una base de datos D1 POR ORGANIZACIÓN (ver C.3).
+    64→Test obligatorio en CI: suite de fuga cross-tenant que intenta acceder
+    65→a recursos de otra org con 30+ vectores. Si pasa uno, el build falla.
+    66→
+    67→B.2 AUTORIZACIÓN
+    68→Ningún permiso ni entitlement se valida solo en el frontend.
+    69→Todo endpoint declara su `requiredFeature` y su `requiredPermission`.
+    70→Middleware obligatorio. Un endpoint sin declaración no compila (lint rule).
+    71→
+    72→B.3 EXISTENCIA POR PLAN
+    73→Una capacidad que el plan no incluye NO EXISTE para ese usuario:
+    74→no se renderiza, no se descarga su bundle, su endpoint devuelve 404
+    75→(no 403, para no filtrar la existencia del recurso salvo cuando el
+    76→objetivo sea vender el upgrade, ver H.4), y no aparece en navegación,
+    77→búsqueda global, Ctrl+K, notificaciones ni API.
+    78→
+    79→B.4 RENDIMIENTO
+    80→- LCP < 2,0 s en 4G en cualquier pantalla del panel.
+    81→- Interacción crítica (comandar, cobrar) responde en < 100 ms percibidos.
+    82→- Evento sala → cocina en < 300 ms p95.
+    83→- Ninguna acción crítica requiere más de 3 toques.
+    84→- Presupuesto de bundle por ruta: 180 KB JS comprimido. Se rompe → falla CI.
+    85→
+    86→B.5 DISPONIBILIDAD OPERATIVA
+    87→Cobrar, comandar y cocinar funcionan SIN internet. Siempre.
+    88→Ningún límite de plan, impago o incidencia puede bloquear una operación
+    89→crítica en curso. Se avisa y se factura después. Nunca se corta el servicio
+    90→en hora punta.
+    91→
+    92→B.6 AUDITORÍA
+    93→Toda operación relevante emite un evento inmutable con actor, dispositivo,
+    94→IP, timestamp, antes/después y correlation id. Sin excepciones.
+    95→
+    96→B.7 ACCESIBILIDAD
+    97→WCAG 2.2 AA en todas las superficies. Navegación completa por teclado.
+    98→Contraste verificado en CI (axe). Modo alto contraste para cocina.
+    99→
+   100→B.8 DESIGN SYSTEM
+   101→Ningún componente ad-hoc. Todo sale de @restopanel/ui.
+   102→Si falta un componente, se añade al Design System, no al módulo.
+   103→Lint rule: prohibido importar colores o espaciados literales, solo tokens.
+   104→
+   105→B.9 DESPLIEGUE
+   106→Cero downtime. Migraciones siempre compatibles hacia atrás (expand →
+   107→migrate → contract). Todo cambio detrás de feature flag. Rollback en < 5 min.
+   108→
+   109→B.10 CALIDAD
+   110→Todo código nuevo con tests. Cobertura mínima 80% en dominio,
+   111→100% en cálculo de dinero, impuestos, entitlements y fiscalidad.
+   112→Los importes monetarios SIEMPRE en enteros (céntimos). Jamás float.
+   113→
+   114→B.11 INTEGRACIONES
+   115→Toda integración se activa y desactiva por feature flag y es tolerante a
+   116→fallos: si cae, el resto del sistema sigue operando.
+   117→
+   118→B.12 VERACIDAD
+   119→Ningún claim numérico sin registro en `impact_benchmarks` (métrica, valor,
+   120→muestra, periodo, fuente, verificado_por, fecha). Sin dato verificado:
+   121→se etiqueta "estimación" y se enlaza a la calculadora de ROI.
+   122→Prohibido: testimonios, logos o certificaciones ficticias presentadas
+   123→como reales. Los datos de demo se etiquetan visiblemente como demo.
+   124→
+   125→B.13 IA
+   126→La IA no inventa datos: responde solo desde el contexto recuperado y cita
+   127→la fuente. Pide confirmación explícita antes de escribir o ejecutar.
+   128→Respeta el rol y los entitlements de quien pregunta. Nunca expone PII a
+   129→quien no tiene permiso. Todo prompt y respuesta queda trazado con coste.
+   130→
+   131→B.14 PRIVACIDAD
+   132→PII cifrada a nivel de campo. Minimización de datos. Retención configurable.
+   133→Derechos RGPD automatizados (acceso, rectificación, supresión, portabilidad).
+   134→El acceso de soporte a datos de cliente requiere justificación y queda auditado.
+   135→
+   136→#################################################################
+   137→PARTE C — ARQUITECTURA DE SUPERFICIES Y DATOS
+   138→#################################################################
+   139→
+   140→C.1 CUATRO APLICACIONES SEPARADAS (decisión clave)
+   141→No son secciones de una misma app. Son despliegues distintos,
+   142→con dominios distintos y autenticación distinta.
+   143→
+   144→1. WEB PÚBLICA — restopanel.com
+   145→Landing dinámica, precios, comparadores, blog, recursos, demo, status.
+   146→
+   147→2. APP DE CLIENTE — app.restopanel.com
+   148→El panel del restaurante. Shell dinámico según plan.
+   149→Incluye TPV, PDA (PWA/nativa), KDS (pantalla dedicada).
+   150→
+   151→3. CARTA / GUEST — menu.restopanel.com o dominio del restaurante
+   152→Carta digital, Order & Pay, reservas, tienda de delivery, waitlist.
+   153→Sin login del comensal (opcional identificación ligera).
+   154→
+   155→4. SUPER ADMIN — panel interno, dominio propio no público
+   156→(ej. ops.restopanel.internal, detrás de Cloudflare Access / Zero Trust).
+   157→NUNCA accesible desde app.restopanel.com. Ni un enlace. Ni un rol oculto.
+   158→Ver PARTE F.
+   159→
+   160→C.2 CONTROL PLANE vs DATA PLANE
+   161→CONTROL PLANE (una sola base de datos global, `rp_control`):
+   162→organizaciones, suscripciones, planes, features, entitlements,
+   163→facturación, usuarios de staff, incidencias, health scores, métricas SaaS,
+   164→catálogo de tenants y sus bindings de BD, flags globales, App Store.
+   165→DATA PLANE (una base de datos D1 por organización, `rp_org_{id}`):
+   166→todos los datos operativos del restaurante.
+   167→
+   168→Por qué así:
+   169→- D1 no tiene Row Level Security. Confiar en un WHERE org_id es una bomba
+   170→de relojería. Base por tenant elimina la clase entera de bugs de fuga.
+   171→- Cumple B.1 por construcción, no por disciplina.
+   172→- Aísla el rendimiento: un grupo con 40 locales no degrada a un bar.
+   173→- Facilita borrado RGPD, export, backup y residencia de datos por región.
+   174→- Facilita "restaurar un cliente a ayer" sin tocar a los demás.
+   175→Coste: hay que construir un orquestador de migraciones multi-BD (C.4).
+   176→Se asume. Es la decisión correcta.
+   177→
+   178→C.3 RESOLUCIÓN DE TENANT
+   179→- `rp_control.tenants`: org_id, slug, d1_database_id, region, shard,
+   180→estado (activo, suspendido, migrando, archivado), created_at.
+   181→- Un Worker de enrutado resuelve org por subdominio, dominio custom o
+   182→claim del token, obtiene el binding de D1 y abre la sesión.
+   183→- Cache en KV con TTL corto e invalidación por evento.
+   184→- Si el tenant está suspendido: modo solo lectura + aviso, jamás pantalla
+   185→en blanco (ver B.5 y H.6).
+   186→
+   187→C.4 ORQUESTADOR DE MIGRACIONES
+   188→- Migraciones versionadas y numeradas, idempotentes, reversibles.
+   189→- Ejecución por lotes con canary: primero tenants internos, luego 1%,
+   190→5%, 25%, 100%. Estado por tenant en el control plane.
+   191→- Migración expand → migrate → contract (nunca romper la versión anterior).
+   192→- Dashboard en Super Admin: qué tenant está en qué versión de esquema.
+   193→- Bloqueo de despliegue si hay tenants más de 2 versiones por detrás.
+   194→
+   195→C.5 TIEMPO REAL: DURABLE OBJECTS
+   196→- Un Durable Object por VENUE: `VenueHub`. Fuente de verdad en vivo de
+   197→mesas, comandas abiertas, presencia, y difusión WebSocket.
+   198→- Un Durable Object por PANTALLA DE COCINA: `KdsStation`, con la cola
+   199→ordenada y el motor de priorización (ver Fase 1).
+   200→- Un Durable Object por SESIÓN DE CAJA: `CashSession`, serializa
+   201→movimientos y evita descuadres por concurrencia.
+   202→- Los DO son la única forma correcta de tener orden garantizado en el edge.
+   203→- Persistencia periódica del estado del DO a D1 + snapshot en R2.
+   204→
+   205→C.6 MEDIA
+   206→- R2 para imágenes y vídeos de carta, logos, exports y backups.
+   207→- Pipeline de subida: original a R2 → Queue → transcodificación
+   208→(AVIF/WebP multi-resolución, MP4/WebM, poster frame) → CDN.
+   209→- Límites de tamaño y duración por plan (feature flag).
+   210→
+   211→C.7 IA
+   212→- AI Gateway como ÚNICO punto de salida. Sin llamadas directas a proveedores.
+   213→- Multi-proveedor con enrutado por tarea, coste y latencia, y failover.
+   214→- Vectorize por organización para RAG sobre datos del restaurante.
+   215→- Presupuesto de tokens por org y por mes, medido y limitado por plan.
+   216→- Todo consumo de IA se contabiliza como coste imputable al tenant (FinOps).
+   217→
+   218→#################################################################
+   219→PARTE D — MOTOR DE PLANES: FEATURE FLAGS, ENTITLEMENTS, LICENCIAS
+   220→#################################################################
+   221→
+   222→D.1 TRES CONCEPTOS DISTINTOS (no confundirlos jamás)
+   223→- FEATURE FLAG: ¿esta capacidad existe? (producto)
+   224→- ENTITLEMENT: ¿esta organización tiene derecho a usarla y con qué límite?
+   225→(comercial)
+   226→- PERMISSION: ¿este usuario concreto puede hacerlo? (seguridad)
+   227→La respuesta final es la conjunción de los tres. Siempre en el backend.
+   228→
+   229→D.2 CATÁLOGO DE FEATURE FLAGS (namespace.capability)
+   230→Cada flag: clave, nombre, descripción, tipo (bool | limit | enum),
+   231→categoría, plan mínimo, dependencias, estado (GA | beta | interno |
+   232→deprecado), fecha de retirada si aplica.
+   233→
+   234→CORE
+   235→core.venue limit locales
+   236→core.member limit usuarios
+   237→core.role.custom bool
+   238→core.audit.retention limit días
+   239→core.offline bool
+   240→core.multicurrency bool
+   241→core.brand.multi bool
+   242→POS
+   243→pos.terminal bool
+   244→pos.customer_display bool
+   245→pos.split_bill bool
+   246→pos.tips.distribution bool
+   247→pos.cash.blind_count bool
+   248→pos.fiscal.verifactu bool
+   249→pos.fiscal.ticketbai bool
+   250→pos.hardware.scale bool
+   251→PDA
+   252→pda.unlimited_devices bool (true en TODOS los planes)
+   253→pda.courses bool
+   254→pda.upsell_suggestions bool
+   255→pda.reservation_context bool
+   256→pda.training_mode bool
+   257→KDS
+   258→kds.station limit pantallas
+   259→kds.routing.stations limit partidas
+   260→kds.priority.basic bool
+   261→kds.priority.advanced bool
+   262→kds.priority.custom_weights bool
+   263→kds.batching bool
+   264→kds.expo_screen bool
+   265→kds.sla_alerts bool
+   266→MENU
+   267→menu.digital bool
+   268→menu.media.video limit platos con vídeo
+   269→menu.immersive_view bool
+   270→menu.languages limit
+   271→menu.variants limit cartas activas
+   272→menu.recommender.basic bool
+   273→menu.recommender.ai bool
+   274→menu.upsell.checkout bool
+   275→menu.ab_testing bool
+   276→menu.branding.full bool
+   277→menu.whitelabel bool
+   278→ORDER & PAY
+   279→orderpay.enabled bool
+   280→orderpay.group_round bool
+   281→orderpay.call_waiter bool
+   282→orderpay.call_escalation bool
+   283→orderpay.pay_at_table bool
+   284→RESERVATIONS
+   285→reservation.online bool
+   286→reservation.widget bool
+   287→reservation.channels.google bool
+   288→reservation.shift_engine.basic bool
+   289→reservation.shift_engine.adv bool
+   290→reservation.pacing bool
+   291→reservation.autoassign bool
+   292→reservation.reminders.email bool
+   293→reservation.reminders.whatsapp bool
+   294→reservation.prepayment bool
+   295→reservation.noshow_scoring bool
+   296→reservation.waitlist bool
+   297→reservation.events_groups bool
+   298→DELIVERY
+   299→delivery.takeaway bool
+   300→delivery.own_channel bool
+   301→delivery.riders bool
+   302→delivery.route_optimization bool
+   303→delivery.aggregators bool
+   304→CRM
+   305→crm.enabled bool
+   306→crm.guests limit fichas
+   307→crm.segmentation.basic bool
+   308→crm.segmentation.dynamic bool
+   309→crm.loyalty.stamps bool
+   310→crm.loyalty.points_tiers bool
+   311→crm.loyalty.wallet bool
+   312→crm.campaign.email limit envíos/mes
+   313→crm.campaign.whatsapp bool
+   314→crm.campaign.sms bool
+   315→crm.attribution bool
+   316→REVIEWS
+   317→reviews.panel bool
+   318→reviews.request.auto bool
+   319→reviews.negative_filter bool
+   320→reviews.ai_reply bool
+   321→reviews.sentiment bool
+   322→INVENTORY
+   323→inventory.enabled bool
+   324→inventory.recipes bool
+   325→inventory.purchasing bool
+   326→inventory.ai_replenishment bool
+   327→inventory.traceability bool
+   328→inventory.menu_engineering bool
+   329→STAFF
+   330→staff.timeclock bool
+   331→staff.scheduling bool
+   332→staff.ai_forecast_staffing bool
+   333→staff.labor_cost_live bool
+   334→staff.performance bool
+   335→ANALYTICS
+   336→analytics.live bool
+   337→analytics.history limit meses
+   338→analytics.advanced bool
+   339→analytics.scheduled_reports bool
+   340→analytics.forecast bool
+   341→analytics.anomaly_detection bool
+   342→analytics.warehouse_export bool
+   343→AI
+   344→ai.copilot bool
+   345→ai.copilot.queries limit consultas/mes
+   346→ai.copilot.actions bool
+   347→ai.daily_digest bool
+   348→ai.contextual_everywhere bool
+   349→ai.custom_instructions bool
+   350→AUTOMATION
+   351→automation.flows limit flujos activos
+   352→automation.builder bool
+   353→automation.webhooks bool
+   354→automation.templates.all bool
+   355→WEBSITE
+   356→website.builder bool
+   357→website.custom_domain bool
+   358→website.social_publishing bool
+   359→website.ai_content bool
+   360→PLATFORM
+   361→api.read bool
+   362→api.write bool
+   363→api.rate_limit limit rpm
+   364→api.sdk bool
+   365→api.sandbox bool
+   366→marketplace.install limit apps
+   367→marketplace.private_apps bool
+   368→GOVERNANCE
+   369→gov.franchise_mode bool
+   370→gov.central_menu bool
+   371→gov.consolidated_reports bool
+   372→gov.sso_saml bool
+   373→gov.scim bool
+   374→gov.passkeys bool
+   375→gov.ip_allowlist bool
+   376→gov.data_residency bool
+   377→SUPPORT
+   378→support.sla enum standard | priority | dedicated
+   379→support.csm bool
+   380→support.onboarding enum self | guided | managed
+   381→support.migration.managed bool
+   382→
+   383→D.3 MODELO DE DATOS (control plane)
+   384→plans(code, name, description, tier_order, visible, active)
+   385→features(key, name, description, type, category, min_plan, deps[], status)
+   386→plan_features(plan_code, feature_key, value) -- bool/num/enum
+   387→subscriptions(org_id, plan_code, cycle, status, current_period_start/end,
+   388→trial_ends_at, cancel_at, coupon, negotiated_price_cents)
+   389→entitlement_overrides(org_id, feature_key, value, reason, expires_at,
+   390→granted_by, created_at) -- tratos Enterprise
+   391→addons(code, name, unit, price_cents, feature_key, delta)
+   392→subscription_addons(org_id, addon_code, quantity)
+   393→usage_counters(org_id, feature_key, period, used, limit_snapshot)
+   394→entitlement_snapshots(org_id, version, payload_json, computed_at)
+   395→
+   396→D.4 LICENSE ENGINE (servicio único)
+   397→API interna:
+   398→resolve(org_id) → EntitlementSet (todos los flags resueltos + límites)
+   399→can(org_id, feature_key) → boolean
+   400→limit(org_id, feature_key) → number | null (null = ilimitado)
+   401→consume(org_id, feature_key, amount) → { allowed, remaining, overage }
+   402→reason(org_id, feature_key) → motivo si está denegado (para el upsell)
+   403→
+   404→Orden de resolución (el primero que responde, gana):
+   405→1. Suspensión por seguridad o fraude (bloquea todo salvo B.5).
+   406→2. Override manual del Super Admin (con caducidad y motivo).
+   407→3. Addons contratados.
+   408→4. Plan de la suscripción.
+   409→5. Estado de la suscripción (trial, activa, morosa, cancelada).
+   410→6. Default del feature.
+   411→
+   412→Estados de suscripción y su efecto:
+   413→trialing → acceso a Professional completo, con marca de trial.
+   414→active → según plan.
+   415→past_due → acceso completo, avisos crecientes, 14 días de gracia.
+   416→unpaid → modo restringido: operar SÍ (B.5), pero se bloquean
+   417→marketing, API, exports y creación de nuevos locales.
+   418→canceled → degradación a Starter. Datos conservados 90 días.
+   419→suspended → solo lectura + export. Nunca borrado automático.
+   420→archived → datos cifrados y fuera de línea, restaurables 12 meses.
+   421→
+   422→Rendimiento: EntitlementSet cacheado en KV (TTL 300 s) + invalidación por
+   423→evento de suscripción. Resolución en < 5 ms. Se inyecta en el token de
+   424→sesión como versión (`ent_v`) para invalidar clientes al cambiar.
+   425→
+   426→D.5 PROPAGACIÓN EN CINCO CAPAS (exigencia del cliente, cumplida)
+   427→Stripe/Billing → License Engine → EntitlementSet
+   428→↓ (1) BUNDLE: el shell solo importa dinámicamente los módulos
+   429→permitidos. Code splitting por feature. El JS de Enterprise
+   430→no llega nunca al navegador de un Starter.
+   431→↓ (2) NAVEGACIÓN: el menú, Ctrl+K, búsqueda global, favoritos y
+   432→notificaciones se construyen desde el EntitlementSet.
+   433→↓ (3) UI: componentes envueltos en <Gate feature="..."> que no
+   434→renderizan nada (no un candado, salvo modo upsell explícito).
+   435→↓ (4) BACKEND: middleware por endpoint. Sin flag → 404.
+   436→↓ (5) API PÚBLICA + WEBHOOKS: el esquema expuesto se filtra por
+   437→entitlements. Los eventos de features no contratadas no se emiten.
+   438→Test obligatorio: para cada plan, un E2E que verifica que ninguna ruta,
+   439→endpoint, evento o string de una feature superior es alcanzable.
+   440→
+   441→D.6 UI DINÁMICA POR PLAN (Dashboard Inteligente)
+   442→El shell se compone en runtime desde un MANIFIESTO DE NAVEGACIÓN
+   443→declarativo: cada entrada tiene feature requerida, permiso requerido,
+   444→icono, orden, grupo y widget por defecto.
+   445→
+   446→STARTER — "Operar bien hoy"
+   447→Inicio · Reservas · Mesas · TPV · Comandas · Clientes · Caja · Carta ·
+   448→Equipo (fichaje) · Configuración
+   449→Widgets: ventas de hoy, reservas de hoy, ocupación, tickets, alertas.
+   450→
+   451→PROFESSIONAL — "Crecer" (parece otra aplicación)
+   452→Inicio Ejecutivo · Reservas · Sala · TPV · Cocina · Carta · Delivery ·
+   453→CRM · Fidelización · Marketing · Reseñas · Automatizaciones · Analítica ·
+   454→Inventario · Personal · Copilot · Integraciones · Configuración
+   455→Widgets: rotación de mesa, ticket medio por canal, ROI de campañas,
+   456→food cost, ranking de platos, coste de personal en vivo.
+   457→
+   458→ENTERPRISE — "Escalar sin perder el control"
+   459→Dashboard Global (grupo) · Locales · Franquicias · Carta Central ·
+   460→Reservas · Sala · TPV · Cocina · Delivery · CRM · Marketing · Reseñas ·
+   461→Automatizaciones · BI y Forecast · Inventario y Compras · RRHH ·
+   462→Copilot Avanzado · App Store · API y Webhooks · Data Warehouse ·
+   463→Seguridad y SSO · Auditoría · Monitorización · Configuración de Grupo
+   464→Widgets: mapa de locales, comparativa entre locales, forecast,
+   465→anomalías, consumo de API, SLA, health interno.
+   466→
+   467→Además, personalización por usuario (Fase 3+): widgets movibles
+   468→(drag & drop), tamaños, temas, modo claro/oscuro, favoritos, accesos
+   469→rápidos, Ctrl+K, centro de actividad, timeline de eventos, densidad
+   470→compacta/cómoda. Guardado por usuario y por dispositivo.
+   471→
+   472→D.7 UPGRADE ENGINE (motor, no botón)
+   473→- Detección continua de señales: uso al 80/90/100% de un límite,
+   474→intento de acceso a feature no contratada, patrón de uso propio de un
+   475→plan superior, crecimiento de locales o de volumen.
+   476→- Cada señal genera una OFERTA CONTEXTUAL con: qué límite, cuánto lleva,
+   477→qué desbloquea el plan superior, delta de precio y beneficio ESTIMADO
+   478→en euros calculado con SUS datos.
+   479→Ej.: "Has usado 490 de 500 emails. Professional incluye envíos
+   480→ilimitados y campañas por WhatsApp. Tus 3 últimas campañas generaron
+   481→1.240 € atribuidos. +25 €/mes. [Actualizar ahora]"
+   482→- Reglas: máximo 1 oferta visible a la vez, cooldown de 7 días por señal,
+   483→descartable, nunca modal bloqueante, nunca en medio de una operación.
+   484→- Upgrade instantáneo con prorrateo automático y activación en < 10 s.
+   485→- Todo se mide: impresiones, clics, conversión por señal, plan y cohorte.
+   486→Los mensajes con peor conversión se retiran.
+   487→
+   488→#################################################################
+   489→PARTE E — BILLING ENGINE
+   490→#################################################################
+   491→
+   492→E.1 PRINCIPIO
+   493→Stripe es un adaptador, no la fuente de verdad. La fuente de verdad de
+   494→qué puede usar un cliente es SIEMPRE el control plane de RestoPanel.
+   495→
+   496→E.2 ARQUITECTURA
+   497→PaymentProvider (interfaz): createCustomer, createSubscription,
+   498→updateSubscription, cancel, charge, refund, createMandate,
+   499→getInvoice, handleWebhook.
+   500→Adaptadores: Stripe (v1) · Redsys · Adyen · PayPal · GoCardless (SEPA) ·
+   501→Transferencia manual · Factura manual Enterprise.
+   502→Ledger propio: `billing_events` append-only. Toda factura, cobro,
+   503→prorrateo, nota de crédito y ajuste se registra internamente.
+   504→Idempotencia por clave en todo webhook y toda mutación.
+   505→Reconciliación diaria: proveedor vs ledger propio. Discrepancia →
+   506→incidencia automática en Super Admin.
+   507→
+   508→E.3 FUNCIONALIDAD
+   509→- Ciclos mensual y anual con descuento anual visible.
+   510→- Prueba gratuita 14 días con acceso Professional, sin tarjeta.
+   511→Al terminar: degradación a Starter, nunca corte.
+   512→- Prorrateo en upgrade inmediato; downgrade al final del periodo.
+   513→- Addons con cantidad (locales, pantallas KDS, créditos WhatsApp/SMS,
+   514→quiosco, dominio premium).
+   515→- Consumo medido: emails, WhatsApp, SMS, tokens de IA, llamadas API,
+   516→almacenamiento. Facturación de exceso o bloqueo suave según feature.
+   517→- Cupones, descuentos, precios negociados, contratos plurianuales.
+   518→- Impuestos: IVA español, IVA intracomunitario con validación VIES,
+   519→inversión del sujeto pasivo, OSS si aplica. Todo configurable por país.
+   520→- Facturación propia de RestoPanel: serie, numeración correlativa, PDF,
+   521→envío automático, portal de facturas descargables.
+   522→- Dunning inteligente: reintentos escalonados, aviso en producto y por
+   523→email, escalado a Customer Success antes de restringir.
+   524→- Portal de cliente: plan, consumo en vivo, facturas, método de pago,
+   525→cambio de plan, addons, cancelación con encuesta de motivo.
+   526→
+   527→#################################################################
+   528→PARTE F — SUPER ADMIN (EL CEREBRO)
+   529→#################################################################
+   530→
+   531→F.1 AISLAMIENTO ABSOLUTO (requisito del propietario)
+   532→- Aplicación independiente, repositorio o workspace separado,
+   533→desplegada en un dominio interno que NO aparece en ninguna parte del
+   534→producto de cliente.
+   535→- Detrás de Cloudflare Access / Zero Trust: identidad corporativa
+   536→obligatoria + passkey/2FA + IP allowlist + dispositivo gestionado.
+   537→- Base de usuarios de staff completamente separada de la de clientes.
+   538→Un usuario de cliente NUNCA puede escalar a Super Admin: no existe el rol.
+   539→- Ni un enlace, ni un string, ni una ruta desde app.restopanel.com.
+   540→- Acceso a datos de tenant siempre a través de un servicio auditado
+   541→(`TenantAccessService`), nunca por conexión directa a la BD del cliente.
+   542→
+   543→F.2 ROLES DE STAFF
+   544→Founder/Owner (tú) — todo, incluido break-glass.
+   545→Platform Engineer — infra, migraciones, despliegues, logs.
+   546→Support L1 / L2 — lectura, diagnóstico, impersonación limitada.
+   547→Customer Success Manager — cartera, health, comunicación, upgrades.
+   548→Finance — facturación, cobros, impagos, informes.
+   549→Sales — pipeline, trials, presupuestos, demos.
+   550→Auditor — solo lectura de todo, sin acciones.
+   551→Principio de mínimo privilegio + aprobación de dos personas para
+   552→acciones destructivas (borrar tenant, cambiar plan a coste cero,
+   553→exportar PII masiva).
+   554→
+   555→F.3 MÓDULOS DEL SUPER ADMIN
+   556→
+   557→F.3.1 Torre de control (inicio)
+   558→Estado global de la plataforma, MRR del día, altas, bajas, incidencias
+   559→abiertas, tenants en riesgo, errores en curso, coste de infraestructura
+   560→del mes, consumo de IA, despliegues recientes, mapa mundial de actividad.
+   561→
+   562→F.3.2 Tenants (organizaciones)
+   563→Lista con búsqueda y filtros por plan, estado, país, MRR, health, uso.
+   564→Ficha de tenant con TODO:
+   565→- Datos, plan, suscripción, historial de facturación, tickets, notas.
+   566→- Locales, usuarios, dispositivos activos y versiones.
+   567→- Entitlements resueltos y overrides aplicados (con motivo y caducidad).
+   568→- Uso por feature y evolución. Adopción por módulo.
+   569→- Salud técnica: latencia p50/p95/p99, tasa de error, jobs fallidos,
+   570→estado de la BD, versión de esquema, tamaño, backups, último restore test.
+   571→- Estado de dominio custom, DNS, SSL, entregabilidad de email (SPF/DKIM/
+   572→DMARC), estado de WhatsApp Business, estado de integraciones.
+   573→- Coste real imputado: Workers, D1, R2, KV, Queues, Vectorize, IA,
+   574→emails, WhatsApp, SMS → margen bruto por cliente.
+   575→- Timeline unificado: eventos de producto, soporte, facturación y errores.
+   576→Acciones: cambiar plan, aplicar override, conceder crédito, extender trial,
+   577→suspender, reactivar, forzar migración, purgar cache, reindexar, exportar,
+   578→reenviar factura, abrir incidencia, dejar nota interna.
+   579→
+   580→F.3.3 Impersonación segura (soporte real)
+   581→- "Ver como" con motivo obligatorio, duración máxima 60 min,
+   582→solo lectura por defecto; escritura requiere aprobación de segundo staff.
+   583→- Banner rojo permanente e inocultable en la sesión impersonada.
+   584→- Consentimiento del cliente configurable por org (Enterprise puede
+   585→exigirlo siempre).
+   586→- Grabación completa de la sesión: cada acción, cada endpoint.
+   587→- Notificación al owner del tenant de que hubo acceso de soporte.
+   588→- PII enmascarada por defecto; desenmascarar es una acción auditada aparte.
+   589→
+   590→F.3.4 Observabilidad por cliente (exigencia cumplida)
+   591→Métricas por org y por venue: latencia, errores 4xx/5xx, saturación,
+   592→colas, Durable Objects activos, WebSockets abiertos, consumo de D1/R2/KV,
+   593→ejecución de Workflows, cron fallidos, uso de IA (tokens y coste),
+   594→llamadas API y rate limits alcanzados, emails/WhatsApp enviados y rebotes.
+   595→Trazas distribuidas con correlation id que atraviesa web → worker → DO → D1.
+   596→Logs consultables con retención por plan. Sin PII en logs (redacción
+   597→automática en el pipeline).
+   598→Alertas: por umbral, por anomalía y por SLA. Enrutado a on-call.
+   599→
+   600→F.3.5 Customer Success + Health Score
+   601→HEALTH SCORE 0-100 por organización, recalculado a diario.
+   602→Dimensiones y peso sugerido (configurable):
+   603→Adopción de módulos clave 30
+   604→(usa reservas, TPV, KDS, CRM, automatizaciones, fidelización)
+   605→Frecuencia y profundidad de uso 20
+   606→(días activos, usuarios activos, acciones por día)
+   607→Resultado de negocio del cliente 20
+   608→(rotación, ticket medio, retorno de comensales vs su baseline)
+   609→Salud técnica 10
+   610→(errores, incidencias, dispositivos desactualizados)
+   611→Relación comercial 10
+   612→(pagos al día, tickets de soporte, NPS, respuesta a comunicaciones)
+   613→Señales de expansión 10
+   614→(límites tocados, locales nuevos, uso de features de plan superior)
+   615→Bandas: 0-39 crítico · 40-59 riesgo · 60-79 estable · 80-100 saludable.
+   616→Ejemplos: "usa reservas + CRM + automatizaciones + IA + fidelización" → 98.
+   617→"solo usa TPV, 1 usuario, 0 automatizaciones" → 35, riesgo alto.
+   618→La IA genera para cada tenant: diagnóstico, causa probable, acción
+   619→recomendada y borrador de mensaje al cliente. Notificación proactiva al CSM.
+   620→Playbooks automáticos: onboarding incompleto, caída de uso, feature clave
+   621→sin activar, impago, pico de errores, cliente listo para upgrade.
+   622→Vistas: cartera por CSM, cohortes, churn previsto, expansión prevista.
+   623→
+   624→F.3.6 Negocio y finanzas
+   625→MRR, ARR, ARPA, LTV, CAC, payback, churn bruto y neto, NRR, quick ratio,
+   626→expansión y contracción, por plan, país, cohorte y canal de adquisición.
+   627→Embudo: visita → trial → activación → pago → expansión.
+   628→Previsión de ingresos. Análisis de motivos de cancelación.
+   629→FinOps: coste de infraestructura por tenant y por feature, margen bruto
+   630→por cliente y por plan, alertas de clientes con margen negativo
+   631→(típicamente: mucho consumo de IA en plan bajo).
+   632→
+   633→F.3.7 Operaciones de plataforma
+   634→Gestión de feature flags globales y por tenant (rollout progresivo:
+   635→interno → beta → 5% → 25% → 100%, con kill switch inmediato).
+   636→Migraciones multi-tenant y su estado. Despliegues, canary y rollback.
+   637→Cola de incidencias con severidad, SLA, responsable y post-mortem.
+   638→Página de status pública alimentada desde aquí.
+   639→Comunicados y anuncios in-app segmentados por plan, país o uso.
+   640→Gestión de la App Store: revisión, aprobación, versiones, retirada.
+   641→Backups: estado, verificación, y RESTORE TEST automático semanal
+   642→(un backup no probado no es un backup).
+   643→Break-glass: acceso de emergencia con justificación, alerta a todo el
+   644→equipo, expiración automática y post-mortem obligatorio.
+   645→
+   646→#################################################################
+   647→PARTE G — DESIGN SYSTEM (@restopanel/ui)
+   648→#################################################################
+   649→
+   650→G.1 TOKENS (única fuente: JSON → CSS vars → Tailwind → Figma)
+   651→Color: escalas de marca, neutros, semánticos (éxito, aviso, error, info),
+   652→estados de mesa (libre, reservada, ocupada, cuenta pedida, limpieza,
+   653→bloqueada), estados de comanda, estados de plan.
+   654→Tipografía: familia, escala modular, pesos, altura de línea, tracking.
+   655→Espaciado: escala base 4 px. Radios. Sombras (5 niveles + glow).
+   656→Blur, opacidad, z-index, breakpoints, duraciones y curvas de animación.
+   657→Temas: claro, oscuro, alto contraste (cocina), y branding por tenant
+   658→(solo en superficies de comensal y en white-label Enterprise).
+   659→
+   660→G.2 COMPONENTES (todos con estados: default, hover, focus visible, active,
+   661→disabled, loading, error, vacío, y variantes de densidad)
+   662→Primitivos: Button, IconButton, Input, NumberInput, MoneyInput, Textarea,
+   663→Select, Combobox, MultiSelect, Checkbox, Radio, Switch, Slider,
+   664→DatePicker, DateRangePicker, TimePicker, ColorPicker, FileUpload,
+   665→MediaUpload, PinPad, Stepper, Tag, Badge, Avatar, Tooltip, Popover,
+   666→Dropdown, ContextMenu, Dialog, Drawer, Sheet, Toast, Banner, Alert,
+   667→Progress, Spinner, Skeleton, Divider, Kbd.
+   668→Composición: Card, Panel, Tabs, Accordion, Breadcrumb, Pagination,
+   669→Sidebar, Topbar, CommandPalette (Ctrl+K), SearchGlobal, Toolbar,
+   670→FilterBar, EmptyState, ErrorState, Wizard, SplitView, ResizablePanel.
+   671→Datos: DataTable (virtualizada, columnas configurables, agrupación,
+   672→orden, filtros guardados, exportación, selección masiva),
+   673→KpiCard, StatDelta, Sparkline, LineChart, BarChart, AreaChart,
+   674→DonutChart, Heatmap, FunnelChart, GaugeChart, Timeline, ActivityFeed.
+   675→Dominio (específicos de RestoPanel):
+   676→TableMap (plano de mesas con drag & drop, unir/separar, zoom, estados),
+   677→ReservationCard, ReservationTimeline, ShiftGrid, PacingBar,
+   678→OrderTicket, CourseSelector, ModifierPicker, KdsTicket, KdsBoard,
+   679→BillSplitter, PaymentPad, CashCountSheet, MenuItemCard,
+   680→MenuItemMediaCard (foto + vídeo), GuestProfileCard, StampCard,
+   681→ReviewCard, FlowBuilderCanvas, FlowNode, PlanBadge, UpgradePrompt,
+   682→FeatureGate, UsageMeter, HealthScoreDial, AiCopilotPanel,
+   683→AiSuggestionCard, OfflineIndicator, SyncQueueBadge.
+   684→
+   685→G.3 MOTION
+   686→Principio: la animación explica, no decora. Duraciones 120-320 ms.
+   687→Curvas estándar del sistema. Respeto obligatorio a prefers-reduced-motion.
+   688→Framer Motion para UI. GSAP ScrollTrigger solo en la web pública.
+   689→Three.js solo en la web pública y solo si no penaliza LCP.
+   690→Glassmorphism, aurora, gradient mesh y cursor glow: SOLO en la web
+   691→pública y en el hero del onboarding. En el panel operativo se prohíben:
+   692→la sala necesita legibilidad, no efectos.
+   693→
+   694→G.4 GOBIERNO
+   695→Storybook con todos los estados. Tests visuales de regresión.
+   696→Tests de accesibilidad automáticos por componente.
+   697→Versionado semántico del paquete. Changelog. Deprecaciones anunciadas.
+   698→Paridad Figma ↔ código verificada por tokens compartidos.
+   699→
+   700→#################################################################
+   701→PARTE H — IMPLEMENTACIÓN POR FASES
+   702→#################################################################

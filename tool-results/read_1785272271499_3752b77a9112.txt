@@ -1,0 +1,1222 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import {
+     9→  Collapsible,
+    10→  CollapsibleContent,
+    11→  CollapsibleTrigger,
+    12→} from "@/components/ui/collapsible";
+    13→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+    14→import {
+    15→  Sparkles, Gauge, Lock, TrendingUp, Activity, ArrowUpRight, Bell,
+    16→  X, Check, Clock, Eye, MousePointerClick, Euro, ShieldCheck, Zap,
+    17→  AlertTriangle, Ban, Crown, Infinity as InfinityIcon, ChevronDown,
+    18→  Lightbulb, Building2, MessageCircle, BrainCircuit, Layers,
+    19→  History, Target, Cpu, BarChart3, CalendarClock, RefreshCw,
+    20→} from "lucide-react";
+    21→
+    22→/* =========================================================
+    23→ * Types
+    24→ * =======================================================*/
+    25→
+    26→export type SignalType =
+    27→  | "limit-80"
+    28→  | "limit-90"
+    29→  | "limit-100"
+    30→  | "feature-access"
+    31→  | "growth-pattern"
+    32→  | "volume-increase"
+    33→  | "plan-superior";
+    34→
+    35→export type SignalStatus = "active" | "shown" | "dismissed" | "converted" | "expired";
+    36→
+    37→export interface UpgradeSignal {
+    38→  id: string;
+    39→  type: SignalType;
+    40→  title: string;
+    41→  description: string;
+    42→  recommendation: string;
+    43→  benefit: string;
+    44→  deltaCost: string; // "+25€/mes"
+    45→  targetPlan: "professional" | "enterprise";
+    46→  severity: "high" | "medium" | "low";
+    47→  detectedAt: string; // ISO date
+    48→  metric?: { current: number; limit: number; unit: string };
+    49→}
+    50→
+    51→export interface SignalHistoryEntry {
+    52→  id: string;
+    53→  signalType: SignalType;
+    54→  title: string;
+    55→  detectedAt: string;
+    56→  status: Exclude<SignalStatus, "active">;
+    57→  result?: string; // e.g. "Upgrade a Professional · +25€/mes"
+    58→  revenue?: number; // € atribuidos
+    59→}
+    60→
+    61→/* =========================================================
+    62→ * Mock data — active signals
+    63→ * =======================================================*/
+    64→
+    65→const ACTIVE_SIGNALS: UpgradeSignal[] = [
+    66→  {
+    67→    id: "sig-1",
+    68→    type: "limit-80",
+    69→    title: "Has usado 490 de 500 emails",
+    70→    description:
+    71→      "Professional incluye envíos ilimitados y campañas por WhatsApp. Tus 3 últimas campañas generaron 1.240€ atribuidos.",
+    72→    recommendation: "Actualiza a Professional",
+    73→    benefit: "Ilimitado emails + WhatsApp + atribución avanzada",
+    74→    deltaCost: "+25€/mes",
+    75→    targetPlan: "professional",
+    76→    severity: "high",
+    77→    detectedAt: "2025-02-18T09:14:00Z",
+    78→    metric: { current: 490, limit: 500, unit: "envíos/mes" },
+    79→  },
+    80→  {
+    81→    id: "sig-2",
+    82→    type: "feature-access",
+    83→    title: "Intento de acceso a Order & Pay",
+    84→    description:
+    85→      "Detectamos 3 intentos de abrir Order & Pay desde la carta digital. La función no está activa en tu plan Starter.",
+    86→    recommendation: "Professional incluye Order & Pay",
+    87→    benefit: "Cobro en mesa vía QR + propina digital + rotación +12%",
+    88→    deltaCost: "+25€/mes",
+    89→    targetPlan: "professional",
+    90→    severity: "high",
+    91→    detectedAt: "2025-02-17T20:42:00Z",
+    92→  },
+    93→  {
+    94→    id: "sig-3",
+    95→    type: "growth-pattern",
+    96→    title: "3 locales activos, límite Starter es 1",
+    97→    description:
+    98→      "Tu organización gestiona 3 locales. El plan Starter está pensado para 1. Enterprise soporta locales ilimitados y los gestiona desde un panel global.",
+    99→    recommendation: "Enterprise hasta 5 locales incluidos",
+   100→    benefit: "Multi-local · Dashboard global · BI consolidado",
+   101→    deltaCost: "+150€/mes",
+   102→    targetPlan: "enterprise",
+   103→    severity: "high",
+   104→    detectedAt: "2025-02-16T11:30:00Z",
+   105→  },
+   106→  {
+   107→    id: "sig-4",
+   108→    type: "limit-80",
+   109→    title: "Uso de IA: 8/10 consultas este mes",
+   110→    description:
+   111→      "Te quedan 2 consultas al Copiloto IA. Professional incluye Copiloto ilimitado con sugerencias contextuales por turno.",
+   112→    recommendation: "Professional ilimitado",
+   113→    benefit: "Copiloto IA sin límite + sugerencias en flujo",
+   114→    deltaCost: "+25€/mes",
+   115→    targetPlan: "professional",
+   116→    severity: "medium",
+   117→    detectedAt: "2025-02-18T08:05:00Z",
+   118→    metric: { current: 8, limit: 10, unit: "consultas/mes" },
+   119→  },
+   120→  {
+   121→    id: "sig-5",
+   122→    type: "plan-superior",
+   123→    title: "Patrón de uso: abre CRM + Marketing + Analytics",
+   124→    description:
+   125→      "En los últimos 14 días has abierto CRM, Marketing y Analytics en el 92% de tus sesiones. Es el patrón típico de cuentas Professional.",
+   126→    recommendation: "Tu uso encaja con Professional",
+   127→    benefit: "Workflows unificados + exportación + segmentación",
+   128→    deltaCost: "+25€/mes",
+   129→    targetPlan: "professional",
+   130→    severity: "low",
+   131→    detectedAt: "2025-02-15T17:22:00Z",
+   132→  },
+   133→];
+   134→
+   135→/* =========================================================
+   136→ * Mock data — signal history (8 entries)
+   137→ * =======================================================*/
+   138→
+   139→const SIGNAL_HISTORY: SignalHistoryEntry[] = [
+   140→  {
+   141→    id: "h-1",
+   142→    signalType: "limit-100",
+   143→    title: "4 autom. ejecutadas de 25/mes",
+   144→    detectedAt: "2025-01-22",
+   145→    status: "converted",
+   146→    result: "Upgrade a Professional · +25€/mes",
+   147→    revenue: 312,
+   148→  },
+   149→  {
+   150→    id: "h-2",
+   151→    signalType: "feature-access",
+   152→    title: "Acceso a predictivo de demanda",
+   153→    detectedAt: "2025-01-19",
+   154→    status: "converted",
+   155→    result: "Upgrade a Professional · +25€/mes",
+   156→    revenue: 312,
+   157→  },
+   158→  {
+   159→    id: "h-3",
+   160→    signalType: "limit-80",
+   161→    title: "420/500 emails enviados",
+   162→    detectedAt: "2025-01-15",
+   163→    status: "dismissed",
+   164→    result: "Descartada · cooldown 7 días",
+   165→  },
+   166→  {
+   167→    id: "h-4",
+   168→    signalType: "growth-pattern",
+   169→    title: "2º local activado",
+   170→    detectedAt: "2025-01-10",
+   171→    status: "converted",
+   172→    result: "Upgrade a Enterprise · +150€/mes",
+   173→    revenue: 1872,
+   174→  },
+   175→  {
+   176→    id: "h-5",
+   177→    signalType: "volume-increase",
+   178→    title: "+38% reservas vs mes anterior",
+   179→    detectedAt: "2025-01-05",
+   180→    status: "shown",
+   181→    result: "Impresión sin interacción",
+   182→  },
+   183→  {
+   184→    id: "h-6",
+   185→    signalType: "plan-superior",
+   186→    title: "Patrón: Analytics + CRM diarios",
+   187→    detectedAt: "2024-12-28",
+   188→    status: "dismissed",
+   189→    result: "Descartada · nunca convirtió",
+   190→  },
+   191→  {
+   192→    id: "h-7",
+   193→    signalType: "feature-access",
+   194→    title: "Intento: exportación Excel",
+   195→    detectedAt: "2024-12-20",
+   196→    status: "converted",
+   197→    result: "Upgrade a Professional · +25€/mes",
+   198→    revenue: 312,
+   199→  },
+   200→  {
+   201→    id: "h-8",
+   202→    signalType: "limit-90",
+   203→    title: "230/250 clientes CRM",
+   204→    detectedAt: "2024-12-12",
+   205→    status: "expired",
+   206→    result: "Oferta expirada tras 14 días",
+   207→  },
+   208→];
+   209→
+   210→/* =========================================================
+   211→ * Signal type metadata
+   212→ * =======================================================*/
+   213→
+   214→interface SignalTypeMeta {
+   215→  id: SignalType;
+   216→  label: string;
+   217→  icon: React.ElementType;
+   218→  tone: "warn" | "danger" | "teal" | "gold" | "muted";
+   219→}
+   220→
+   221→const SIGNAL_TYPES: SignalTypeMeta[] = [
+   222→  { id: "limit-80", label: "Límite al 80%", icon: Gauge, tone: "warn" },
+   223→  { id: "limit-90", label: "Límite al 90%", icon: Gauge, tone: "danger" },
+   224→  { id: "limit-100", label: "Límite al 100%", icon: Ban, tone: "danger" },
+   225→  { id: "feature-access", label: "Acceso a feature", icon: Lock, tone: "gold" },
+   226→  { id: "growth-pattern", label: "Patrón de crecimiento", icon: TrendingUp, tone: "teal" },
+   227→  { id: "volume-increase", label: "Aumento de volumen", icon: Activity, tone: "teal" },
+   228→  { id: "plan-superior", label: "Uso de plan superior", icon: Crown, tone: "gold" },
+   229→];
+   230→
+   231→function signalTypeMeta(type: SignalType): SignalTypeMeta {
+   232→  return SIGNAL_TYPES.find((s) => s.id === type) ?? SIGNAL_TYPES[0];
+   233→}
+   234→
+   235→function toneCls(tone: SignalTypeMeta["tone"]): {
+   236→  text: string;
+   237→  bg: string;
+   238→  border: string;
+   239→  dot: string;
+   240→} {
+   241→  switch (tone) {
+   242→    case "danger":
+   243→      return {
+   244→        text: "text-rose-300",
+   245→        bg: "bg-rose-500/10",
+   246→        border: "border-rose-500/40",
+   247→        dot: "bg-rose-500",
+   248→      };
+   249→    case "warn":
+   250→      return {
+   251→        text: "text-amber-300",
+   252→        bg: "bg-amber-400/10",
+   253→        border: "border-amber-400/40",
+   254→        dot: "bg-amber-400",
+   255→      };
+   256→    case "teal":
+   257→      return {
+   258→        text: "text-[var(--teal)]",
+   259→        bg: "bg-[var(--teal)]/10",
+   260→        border: "border-[var(--teal)]/40",
+   261→        dot: "bg-[var(--teal)]",
+   262→      };
+   263→    case "gold":
+   264→      return {
+   265→        text: "text-[var(--gold-soft)]",
+   266→        bg: "bg-[var(--gold)]/10",
+   267→        border: "border-[var(--gold)]/40",
+   268→        dot: "bg-[var(--gold)]",
+   269→      };
+   270→    default:
+   271→      return {
+   272→        text: "text-muted-foreground",
+   273→        bg: "bg-foreground/[0.04]",
+   274→        border: "border-border/40",
+   275→        dot: "bg-zinc-500",
+   276→      };
+   277→  }
+   278→}
+   279→
+   280→/* =========================================================
+   281→ * Helpers
+   282→ * =======================================================*/
+   283→
+   284→function severityBadge(sev: UpgradeSignal["severity"]): React.ReactNode {
+   285→  if (sev === "high") {
+   286→    return (
+   287→      <Badge className="border-rose-500/40 bg-rose-500/10 text-rose-300 text-[10px] uppercase tracking-wider font-mono">
+   288→        <AlertTriangle className="h-3 w-3 mr-1" /> Prioridad
+   289→      </Badge>
+   290→    );
+   291→  }
+   292→  if (sev === "medium") {
+   293→    return (
+   294→      <Badge className="border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] uppercase tracking-wider font-mono">
+   295→        <Clock className="h-3 w-3 mr-1" /> Próxima
+   296→      </Badge>
+   297→    );
+   298→  }
+   299→  return (
+   300→    <Badge className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[10px] uppercase tracking-wider font-mono">
+   301→      <Sparkles className="h-3 w-3 mr-1" /> Oportunidad
+   302→    </Badge>
+   303→  );
+   304→}
+   305→
+   306→function statusBadge(status: SignalHistoryEntry["status"]): React.ReactNode {
+   307→  switch (status) {
+   308→    case "converted":
+   309→      return (
+   310→        <Badge className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px] uppercase tracking-wider font-mono">
+   311→          <Check className="h-3 w-3 mr-1" /> Convertida
+   312→        </Badge>
+   313→      );
+   314→    case "dismissed":
+   315→      return (
+   316→        <Badge className="border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] uppercase tracking-wider font-mono">
+   317→          <X className="h-3 w-3 mr-1" /> Descartada
+   318→        </Badge>
+   319→      );
+   320→    case "shown":
+   321→      return (
+   322→        <Badge className="border-border/40 bg-foreground/[0.04] text-muted-foreground text-[10px] uppercase tracking-wider font-mono">
+   323→          <Eye className="h-3 w-3 mr-1" /> Mostrada
+   324→        </Badge>
+   325→      );
+   326→    case "expired":
+   327→      return (
+   328→        <Badge className="border-rose-500/40 bg-rose-500/10 text-rose-300 text-[10px] uppercase tracking-wider font-mono">
+   329→          <Clock className="h-3 w-3 mr-1" /> Expirada
+   330→        </Badge>
+   331→      );
+   332→    default:
+   333→      return null;
+   334→  }
+   335→}
+   336→
+   337→function formatDate(iso: string): string {
+   338→  try {
+   339→    const d = new Date(iso);
+   340→    return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+   341→  } catch {
+   342→    return iso;
+   343→  }
+   344→}
+   345→
+   346→function formatDateTime(iso: string): string {
+   347→  try {
+   348→    const d = new Date(iso);
+   349→    return d.toLocaleString("es-ES", {
+   350→      day: "2-digit",
+   351→      month: "short",
+   352→      hour: "2-digit",
+   353→      minute: "2-digit",
+   354→    });
+   355→  } catch {
+   356→    return iso;
+   357→  }
+   358→}
+   359→
+   360→function pct(current: number, limit: number): number {
+   361→  if (limit <= 0) return 0;
+   362→  return Math.min(100, Math.round((current / limit) * 100));
+   363→}
+   364→
+   365→/* =========================================================
+   366→ * Shared atoms
+   367→ * =======================================================*/
+   368→
+   369→function DemoBadge({ className }: { className?: string }) {
+   370→  return (
+   371→    <Badge
+   372→      variant="outline"
+   373→      className={cn(
+   374→        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
+   375→        className
+   376→      )}
+   377→    >
+   378→      demo
+   379→    </Badge>
+   380→  );
+   381→}
+   382→
+   383→function SectionCard({
+   384→  title,
+   385→  desc,
+   386→  icon: Icon,
+   387→  action,
+   388→  children,
+   389→  className,
+   390→}: {
+   391→  title: string;
+   392→  desc?: string;
+   393→  icon: React.ElementType;
+   394→  action?: React.ReactNode;
+   395→  children: React.ReactNode;
+   396→  className?: string;
+   397→}) {
+   398→  return (
+   399→    <section className={cn("rp-glass rounded-2xl overflow-hidden flex flex-col min-w-0", className)}>
+   400→      <div className="flex items-center justify-between gap-3 p-4 border-b border-border/40">
+   401→        <div className="flex items-center gap-2.5 min-w-0">
+   402→          <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-foreground/[0.05] text-[var(--gold)] shrink-0">
+   403→            <Icon className="h-4 w-4" />
+   404→          </div>
+   405→          <div className="min-w-0">
+   406→            <h2 className="font-display text-base sm:text-lg leading-tight truncate">{title}</h2>
+   407→            {desc && <p className="text-[11px] text-muted-foreground truncate">{desc}</p>}
+   408→          </div>
+   409→        </div>
+   410→        {action && <div className="shrink-0">{action}</div>}
+   411→      </div>
+   412→      <div className="p-4 flex-1 min-w-0">{children}</div>
+   413→    </section>
+   414→  );
+   415→}
+   416→
+   417→/* =========================================================
+   418→ * Active signal card (collapsed row in the panel)
+   419→ * =======================================================*/
+   420→
+   421→function ActiveSignalRow({
+   422→  signal,
+   423→  onSelect,
+   424→  isSelected,
+   425→}: {
+   426→  signal: UpgradeSignal;
+   427→  onSelect: (id: string) => void;
+   428→  isSelected: boolean;
+   429→}) {
+   430→  const meta = signalTypeMeta(signal.type);
+   431→  const tone = toneCls(meta.tone);
+   432→  const Icon = meta.icon;
+   433→  const reduce = useReducedMotion();
+   434→
+   435→  return (
+   436→    <button
+   437→      type="button"
+   438→      onClick={() => onSelect(signal.id)}
+   439→      aria-pressed={isSelected}
+   440→      className={cn(
+   441→        "w-full text-left rounded-xl border p-3 transition-colors min-w-0",
+   442→        "hover:bg-foreground/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold)]/40",
+   443→        isSelected
+   444→          ? cn(tone.border, tone.bg, "ring-1 ring-[var(--gold)]/30")
+   445→          : "border-border/40 bg-foreground/[0.02]"
+   446→      )}
+   447→    >
+   448→      <div className="flex items-start gap-3 min-w-0">
+   449→        <div
+   450→          className={cn(
+   451→            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 border",
+   452→            tone.border,
+   453→            tone.bg,
+   454→            tone.text
+   455→          )}
+   456→        >
+   457→          <Icon className="h-4 w-4" />
+   458→        </div>
+   459→        <div className="min-w-0 flex-1">
+   460→          <div className="flex items-center justify-between gap-2">
+   461→            <span className="text-sm font-medium truncate">{signal.title}</span>
+   462→            {severityBadge(signal.severity)}
+   463→          </div>
+   464→          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-muted-foreground">
+   465→            <span className={cn("font-mono uppercase tracking-wider", tone.text)}>
+   466→              {meta.label}
+   467→            </span>
+   468→            <span className="text-muted-foreground/50">·</span>
+   469→            <span>{formatDateTime(signal.detectedAt)}</span>
+   470→          </div>
+   471→          {signal.metric && (
+   472→            <div className="mt-2">
+   473→              <div className="flex items-baseline justify-between gap-2 mb-1">
+   474→                <span className="font-mono text-xs tabular-nums">
+   475→                  <span className={tone.text}>{signal.metric.current}</span>
+   476→                  <span className="text-muted-foreground mx-1">/</span>
+   477→                  <span className="text-muted-foreground">{signal.metric.limit}</span>
+   478→                  <span className="text-muted-foreground ml-1.5 text-[10px]">
+   479→                    {signal.metric.unit}
+   480→                  </span>
+   481→                </span>
+   482→                <span className={cn("font-mono text-[11px] tabular-nums", tone.text)}>
+   483→                  {pct(signal.metric.current, signal.metric.limit)}%
+   484→                </span>
+   485→              </div>
+   486→              <div className="h-1 rounded-full bg-foreground/[0.08] overflow-hidden">
+   487→                <motion.div
+   488→                  initial={reduce ? false : { width: 0 }}
+   489→                  animate={{ width: `${pct(signal.metric.current, signal.metric.limit)}%` }}
+   490→                  transition={{ duration: 0.5, ease: "easeOut" }}
+   491→                  className={cn("h-full rounded-full", tone.dot)}
+   492→                />
+   493→              </div>
+   494→            </div>
+   495→          )}
+   496→        </div>
+   497→      </div>
+   498→    </button>
+   499→  );
+   500→}
+   501→
+   502→/* =========================================================
+   503→ * Contextual offer card (single, visible)
+   504→ * =======================================================*/
+   505→
+   506→function ContextualOfferCard({
+   507→  signal,
+   508→  onUpgrade,
+   509→  onDismiss,
+   510→}: {
+   511→  signal: UpgradeSignal;
+   512→  onUpgrade: (s: UpgradeSignal) => void;
+   513→  onDismiss: (s: UpgradeSignal) => void;
+   514→}) {
+   515→  const reduce = useReducedMotion();
+   516→  const meta = signalTypeMeta(signal.type);
+   517→  const tone = toneCls(meta.tone);
+   518→  const isEnterprise = signal.targetPlan === "enterprise";
+   519→
+   520→  return (
+   521→    <motion.div
+   522→      key={signal.id}
+   523→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   524→      animate={{ opacity: 1, y: 0 }}
+   525→      exit={{ opacity: 0, y: -8 }}
+   526→      transition={{ duration: 0.35, ease: "easeOut" }}
+   527→      className={cn(
+   528→        "rounded-2xl border p-4 sm:p-5 flex flex-col gap-4 min-w-0",
+   529→        isEnterprise
+   530→          ? "border-[var(--teal)]/50 bg-[var(--teal)]/[0.06] rp-glow-teal"
+   531→          : "border-[var(--gold)]/50 bg-[var(--gold)]/[0.06] rp-glow-gold"
+   532→      )}
+   533→    >
+   534→      {/* Header row */}
+   535→      <div className="flex items-start justify-between gap-3 min-w-0">
+   536→        <div className="flex items-start gap-3 min-w-0">
+   537→          <div
+   538→            className={cn(
+   539→              "h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border",
+   540→              isEnterprise
+   541→                ? "border-[var(--teal)]/40 bg-[var(--teal)]/15 text-[var(--teal)]"
+   542→                : "border-[var(--gold)]/40 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+   543→            )}
+   544→          >
+   545→            {isEnterprise ? <Crown className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
+   546→          </div>
+   547→          <div className="min-w-0">
+   548→            <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+   549→              <span
+   550→                className={cn(
+   551→                  "text-[10px] font-mono uppercase tracking-wider",
+   552→                  isEnterprise ? "text-[var(--teal)]" : "text-[var(--gold-soft)]"
+   553→                )}
+   554→              >
+   555→                Oferta contextual
+   556→              </span>
+   557→              <Badge
+   558→                variant="outline"
+   559→                className={cn(
+   560→                  "text-[10px] uppercase tracking-wider",
+   561→                  isEnterprise
+   562→                    ? "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+   563→                    : "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   564→                )}
+   565→              >
+   566→                {isEnterprise ? "Enterprise" : "Professional"}
+   567→              </Badge>
+   568→              {severityBadge(signal.severity)}
+   569→            </div>
+   570→            <h3 className="font-display text-lg sm:text-xl leading-tight">{signal.title}</h3>
+   571→          </div>
+   572→        </div>
+   573→        <button
+   574→          type="button"
+   575→          onClick={() => onDismiss(signal)}
+   576→          aria-label="Cerrar oferta"
+   577→          className="h-8 w-8 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors shrink-0"
+   578→        >
+   579→          <X className="h-4 w-4" />
+   580→        </button>
+   581→      </div>
+   582→
+   583→      {/* Body */}
+   584→      <p className="text-sm text-foreground/85 leading-relaxed">{signal.description}</p>
+   585→
+   586→      {/* Benefit + delta grid */}
+   587→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   588→        <div className="rounded-xl border border-border/40 bg-foreground/[0.02] p-3">
+   589→          <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground mb-1">
+   590→            <Check className="h-3 w-3 text-emerald-300" /> Beneficio
+   591→          </div>
+   592→          <div className="text-sm text-foreground/90 leading-snug">{signal.benefit}</div>
+   593→        </div>
+   594→        <div
+   595→          className={cn(
+   596→            "rounded-xl border p-3",
+   597→            isEnterprise
+   598→              ? "border-[var(--teal)]/30 bg-[var(--teal)]/[0.06]"
+   599→              : "border-[var(--gold)]/30 bg-[var(--gold)]/[0.06]"
+   600→          )}
+   601→        >
+   602→          <div
+   603→            className={cn(
+   604→              "flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider mb-1",
+   605→              isEnterprise ? "text-[var(--teal)]" : "text-[var(--gold-soft)]"
+   606→            )}
+   607→          >
+   608→            <ArrowUpRight className="h-3 w-3" /> Delta
+   609→          </div>
+   610→          <div className="font-display text-xl tabular-nums">{signal.deltaCost}</div>
+   611→          <div className="text-[11px] text-muted-foreground mt-0.5">
+   612→            Prorrateo automático · sin permanencia
+   613→          </div>
+   614→        </div>
+   615→      </div>
+   616→
+   617→      {/* Footer actions */}
+   618→      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+   619→        <Button
+   620→          onClick={() => onUpgrade(signal)}
+   621→          className={cn(
+   622→            "min-h-11 flex-1",
+   623→            isEnterprise
+   624→              ? "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80"
+   625→              : "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+   626→          )}
+   627→        >
+   628→          <Zap className="h-4 w-4" />
+   629→          Actualizar ahora
+   630→        </Button>
+   631→        <Button
+   632→          variant="outline"
+   633→          onClick={() => onDismiss(signal)}
+   634→          className="min-h-11 sm:flex-none"
+   635→        >
+   636→          <Clock className="h-4 w-4" />
+   637→          Recordármelo luego
+   638→        </Button>
+   639→      </div>
+   640→
+   641→      {/* Non-blocking note */}
+   642→      <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+   643→        <ShieldCheck className="h-3.5 w-3.5 text-[var(--teal)] shrink-0" />
+   644→        <span>
+   645→          No modal · no bloquea operación · cooldown de 7 días si la descartas.
+   646→        </span>
+   647→      </div>
+   648→    </motion.div>
+   649→  );
+   650→}
+   651→
+   652→/* =========================================================
+   653→ * Signal types reference panel
+   654→ * =======================================================*/
+   655→
+   656→function SignalTypesPanel() {
+   657→  return (
+   658→    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+   659→      {SIGNAL_TYPES.map((t) => {
+   660→        const Icon = t.icon;
+   661→        const tone = toneCls(t.tone);
+   662→        return (
+   663→          <div
+   664→            key={t.id}
+   665→            className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-foreground/[0.02] p-2.5 min-w-0"
+   666→          >
+   667→            <div
+   668→              className={cn(
+   669→                "h-8 w-8 rounded-md flex items-center justify-center shrink-0 border",
+   670→                tone.border,
+   671→                tone.bg,
+   672→                tone.text
+   673→              )}
+   674→            >
+   675→              <Icon className="h-3.5 w-3.5" />
+   676→            </div>
+   677→            <div className="min-w-0">
+   678→              <div className="text-xs font-medium truncate">{t.label}</div>
+   679→              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   680→                {t.id}
+   681→              </div>
+   682→            </div>
+   683→          </div>
+   684→        );
+   685→      })}
+   686→    </div>
+   687→  );
+   688→}
+   689→
+   690→/* =========================================================
+   691→ * Signal history table
+   692→ * =======================================================*/
+   693→
+   694→function SignalHistoryTable() {
+   695→  const [open, setOpen] = React.useState(true);
+   696→  return (
+   697→    <Collapsible open={open} onOpenChange={setOpen}>
+   698→      <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   699→        <table className="w-full min-w-[640px] text-sm">
+   700→          <thead>
+   701→            <tr className="text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   702→              <th className="py-2 pr-3 font-normal">Fecha</th>
+   703→              <th className="py-2 px-2 font-normal">Tipo</th>
+   704→              <th className="py-2 px-2 font-normal">Señal</th>
+   705→              <th className="py-2 px-2 font-normal">Estado</th>
+   706→              <th className="py-2 pl-2 font-normal text-right">Resultado</th>
+   707→            </tr>
+   708→          </thead>
+   709→          <tbody>
+   710→            {SIGNAL_HISTORY.map((h, i) => {
+   711→              const meta = signalTypeMeta(h.signalType);
+   712→              const Icon = meta.icon;
+   713→              const tone = toneCls(meta.tone);
+   714→              return (
+   715→                <tr
+   716→                  key={h.id}
+   717→                  className={cn(
+   718→                    "border-t border-border/30 hover:bg-foreground/[0.02]",
+   719→                    i === SIGNAL_HISTORY.length - 1 && "border-b"
+   720→                  )}
+   721→                >
+   722→                  <td className="py-2.5 pr-3 text-muted-foreground font-mono text-xs tabular-nums whitespace-nowrap">
+   723→                    {formatDate(h.detectedAt)}
+   724→                  </td>
+   725→                  <td className="py-2.5 px-2">
+   726→                    <span
+   727→                      className={cn(
+   728→                        "inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider",
+   729→                        tone.text
+   730→                      )}
+   731→                    >
+   732→                      <Icon className="h-3 w-3" />
+   733→                      {meta.label}
+   734→                    </span>
+   735→                  </td>
+   736→                  <td className="py-2.5 px-2 text-foreground/90">{h.title}</td>
+   737→                  <td className="py-2.5 px-2">{statusBadge(h.status)}</td>
+   738→                  <td className="py-2.5 pl-2 text-right">
+   739→                    <div className="text-xs text-muted-foreground">{h.result}</div>
+   740→                    {h.revenue != null && (
+   741→                      <div className="text-[11px] font-mono tabular-nums text-emerald-300">
+   742→                        +{h.revenue.toLocaleString("es-ES")}€
+   743→                      </div>
+   744→                    )}
+   745→                  </td>
+   746→                </tr>
+   747→              );
+   748→            })}
+   749→          </tbody>
+   750→        </table>
+   751→      </div>
+   752→      <CollapsibleTrigger asChild>
+   753→        <button
+   754→          className="mt-3 inline-flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+   755→          aria-expanded={open}
+   756→        >
+   757→          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", !open && "-rotate-90")} />
+   758→          {open ? "Contraer historial" : "Expandir historial"}
+   759→        </button>
+   760→      </CollapsibleTrigger>
+   761→    </Collapsible>
+   762→  );
+   763→}
+   764→
+   765→/* =========================================================
+   766→ * Metrics strip
+   767→ * =======================================================*/
+   768→
+   769→function MetricStat({
+   770→  icon: Icon,
+   771→  label,
+   772→  value,
+   773→  tone = "muted",
+   774→}: {
+   775→  icon: React.ElementType;
+   776→  label: string;
+   777→  value: string;
+   778→  tone?: "muted" | "gold" | "teal" | "emerald";
+   779→}) {
+   780→  const textCls =
+   781→    tone === "gold"
+   782→      ? "text-[var(--gold-soft)]"
+   783→      : tone === "teal"
+   784→        ? "text-[var(--teal)]"
+   785→        : tone === "emerald"
+   786→          ? "text-emerald-300"
+   787→          : "text-foreground";
+   788→  return (
+   789→    <div className="flex items-center gap-2.5 rounded-xl border border-border/40 bg-foreground/[0.02] p-3 min-w-0">
+   790→      <div className="h-8 w-8 rounded-md flex items-center justify-center bg-foreground/[0.05] text-muted-foreground shrink-0">
+   791→        <Icon className="h-4 w-4" />
+   792→      </div>
+   793→      <div className="min-w-0">
+   794→        <div className={cn("font-display text-base sm:text-lg tabular-nums leading-none", textCls)}>
+   795→          {value}
+   796→        </div>
+   797→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground mt-1 truncate">
+   798→          {label}
+   799→        </div>
+   800→      </div>
+   801→    </div>
+   802→  );
+   803→}
+   804→
+   805→/* =========================================================
+   806→ * Cooldown rules card
+   807→ * =======================================================*/
+   808→
+   809→const COOLDOWN_RULES: { icon: React.ElementType; label: string; tone: "gold" | "teal" | "warn" }[] = [
+   810→  { icon: Layers, label: "Máx 1 oferta visible al mismo tiempo", tone: "gold" },
+   811→  { icon: Clock, label: "Cooldown de 7 días por señal descartada", tone: "teal" },
+   812→  { icon: ShieldCheck, label: "Descartable · nunca modal", tone: "teal" },
+   813→  { icon: Ban, label: "Nunca durante una operación en curso", tone: "warn" },
+   814→];
+   815→
+   816→function CooldownRulesCard() {
+   817→  return (
+   818→    <div className="space-y-2">
+   819→      {COOLDOWN_RULES.map((r) => {
+   820→        const Icon = r.icon;
+   821→        const tone = toneCls(
+   822→          r.tone === "gold" ? "gold" : r.tone === "teal" ? "teal" : "warn"
+   823→        );
+   824→        return (
+   825→          <div
+   826→            key={r.label}
+   827→            className="flex items-center gap-2.5 rounded-lg border border-border/40 bg-foreground/[0.02] p-2.5"
+   828→          >
+   829→            <div
+   830→              className={cn(
+   831→                "h-7 w-7 rounded-md flex items-center justify-center shrink-0 border",
+   832→                tone.border,
+   833→                tone.bg,
+   834→                tone.text
+   835→              )}
+   836→            >
+   837→              <Icon className="h-3.5 w-3.5" />
+   838→            </div>
+   839→            <span className="text-xs text-foreground/90">{r.label}</span>
+   840→          </div>
+   841→        );
+   842→      })}
+   843→    </div>
+   844→  );
+   845→}
+   846→
+   847→/* =========================================================
+   848→ * Main view
+   849→ * =======================================================*/
+   850→
+   851→export function UpgradeEngineView() {
+   852→  const { toast } = useToast();
+   853→  const reduce = useReducedMotion();
+   854→
+   855→  // The currently displayed offer (only 1 visible). Initialized to the
+   856→  // highest-priority active signal.
+   857→  const [visibleOfferId, setVisibleOfferId] = React.useState<string>(ACTIVE_SIGNALS[0].id);
+   858→  // Set of dismissed signal ids (for the panel to grey out)
+   859→  const [dismissed, setDismissed] = React.useState<Set<string>>(new Set());
+   860→  // Selected signal in the side list (for highlighting + offering next)
+   861→  const [selectedId, setSelectedId] = React.useState<string>(ACTIVE_SIGNALS[0].id);
+   862→
+   863→  const visibleSignal = React.useMemo<UpgradeSignal | undefined>(
+   864→    () => ACTIVE_SIGNALS.find((s) => s.id === visibleOfferId),
+   865→    [visibleOfferId]
+   866→  );
+   867→
+   868→  function handleUpgrade(s: UpgradeSignal) {
+   869→    toast({
+   870→      title: "Abriendo checkout seguro",
+   871→      description: `Upgrade a ${s.targetPlan === "enterprise" ? "Enterprise" : "Professional"} · ${s.deltaCost}. Prorrateo automático.`,
+   872→    });
+   873→  }
+   874→
+   875→  function handleDismiss(s: UpgradeSignal) {
+   876→    setDismissed((prev) => {
+   877→      const n = new Set(prev);
+   878→      n.add(s.id);
+   879→      return n;
+   880→    });
+   881→    // Find next non-dismissed active signal to show
+   882→    const next = ACTIVE_SIGNALS.find((x) => x.id !== s.id && !dismissed.has(x.id));
+   883→    if (next) {
+   884→      setVisibleOfferId(next.id);
+   885→      setSelectedId(next.id);
+   886→    } else {
+   887→      setVisibleOfferId("");
+   888→    }
+   889→    toast({
+   890→      title: "Oferta pospuesta",
+   891→      description: "Te la recordaremos en 7 días. No interrumpirá tu operación.",
+   892→    });
+   893→  }
+   894→
+   895→  function handleSelectSignal(id: string) {
+   896→    setSelectedId(id);
+   897→    setVisibleOfferId(id);
+   898→    // Re-activate if it was previously dismissed
+   899→    if (dismissed.has(id)) {
+   900→      setDismissed((prev) => {
+   901→        const n = new Set(prev);
+   902→        n.delete(id);
+   903→        return n;
+   904→      });
+   905→    }
+   906→  }
+   907→
+   908→  function handleReactivate() {
+   909→    setDismissed(new Set());
+   910→    setVisibleOfferId(ACTIVE_SIGNALS[0].id);
+   911→    setSelectedId(ACTIVE_SIGNALS[0].id);
+   912→    toast({
+   913→      title: "Señales reactivadas",
+   914→      description: "Todas las señales descartadas vuelven a estar disponibles.",
+   915→    });
+   916→  }
+   917→
+   918→  const activeCount = ACTIVE_SIGNALS.length - dismissed.size;
+   919→  const visibleMetrics = { impressions: 142, clicks: 18, conversion: 12.7, revenue: 3740 };
+   920→
+   921→  return (
+   922→    <div className="space-y-5 overflow-x-hidden">
+   923→      {/* Header */}
+   924→      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   925→        <div>
+   926→          <div className="flex items-center gap-2">
+   927→            <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
+   928→              Upgrade Engine
+   929→            </h1>
+   930→            <DemoBadge />
+   931→          </div>
+   932→          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+   933→            Motor contextual de upgrades — no es un botón, es un sistema. Detecta
+   934→            señales honestas y propone mejoras en el momento oportuno.
+   935→          </p>
+   936→        </div>
+   937→        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+   938→          <Button
+   939→            variant="outline"
+   940→            onClick={handleReactivate}
+   941→            className="min-h-11"
+   942→          >
+   943→            <RefreshCw className="h-4 w-4" />
+   944→            <span className="hidden sm:inline">Reactivar señales</span>
+   945→            <span className="sm:hidden">Reactivar</span>
+   946→          </Button>
+   947→          <Button
+   948→            onClick={() =>
+   949→              toast({
+   950→                title: "Motor de upgrade",
+   951→                description: `${activeCount} señal${activeCount === 1 ? "" : "es"} activa${activeCount === 1 ? "" : "s"} · 1 oferta visible.`,
+   952→              })
+   953→            }
+   954→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-11"
+   955→          >
+   956→            <Sparkles className="h-4 w-4" />
+   957→            <span className="hidden sm:inline">Evaluar ahora</span>
+   958→            <span className="sm:hidden">Evaluar</span>
+   959→          </Button>
+   960→        </div>
+   961→      </header>
+   962→
+   963→      {/* Metrics strip */}
+   964→      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+   965→        <MetricStat
+   966→          icon={Eye}
+   967→          label="Impresiones"
+   968→          value={visibleMetrics.impressions.toString()}
+   969→        />
+   970→        <MetricStat
+   971→          icon={MousePointerClick}
+   972→          label="Clics"
+   973→          value={visibleMetrics.clicks.toString()}
+   974→          tone="gold"
+   975→        />
+   976→        <MetricStat
+   977→          icon={Target}
+   978→          label="Conversión"
+   979→          value={`${visibleMetrics.conversion}%`}
+   980→          tone="teal"
+   981→        />
+   982→        <MetricStat
+   983→          icon={Euro}
+   984→          label="Ingresos generados"
+   985→          value={`${visibleMetrics.revenue.toLocaleString("es-ES")}€`}
+   986→          tone="emerald"
+   987→        />
+   988→      </div>
+   989→
+   990→      {/* Main 2-col layout: signals list (left) + offer (right) */}
+   991→      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+   992→        {/* Active signals list — left */}
+   993→        <SectionCard
+   994→          title="Señales activas"
+   995→          desc={`${activeCount} de ${ACTIVE_SIGNALS.length} señales · prioridad → oportunidad`}
+   996→          icon={Bell}
+   997→          className="lg:col-span-2"
+   998→          action={
+   999→            <Badge
+  1000→              variant="outline"
+  1001→              className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px] uppercase tracking-wider font-mono"
+  1002→            >
+  1003→              <span className="inline-flex items-center gap-1">
+  1004→                <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)] animate-pulse" />
+  1005→                en vivo
+  1006→              </span>
+  1007→            </Badge>
+  1008→          }
+  1009→        >
+  1010→          <div className="space-y-2">
+  1011→            {ACTIVE_SIGNALS.map((s) => {
+  1012→              const isDismissed = dismissed.has(s.id);
+  1013→              return (
+  1014→                <div
+  1015→                  key={s.id}
+  1016→                  className={cn(isDismissed && "opacity-40 pointer-events-none")}
+  1017→                >
+  1018→                  <ActiveSignalRow
+  1019→                    signal={s}
+  1020→                    onSelect={handleSelectSignal}
+  1021→                    isSelected={selectedId === s.id}
+  1022→                  />
+  1023→                </div>
+  1024→              );
+  1025→            })}
+  1026→            {activeCount === 0 && (
+  1027→              <div className="rounded-xl border border-dashed border-border/50 p-6 text-center">
+  1028→                <ShieldCheck className="h-6 w-6 text-[var(--teal)] mx-auto mb-2" />
+  1029→                <div className="text-sm font-medium">Sin señales activas</div>
+  1030→                <div className="text-[11px] text-muted-foreground mt-1">
+  1031→                  Has descartado o convertido todas las ofertas. Volverán a aparecer
+  1032→                  según el cooldown de cada señal.
+  1033→                </div>
+  1034→              </div>
+  1035→            )}
+  1036→          </div>
+  1037→        </SectionCard>
+  1038→
+  1039→        {/* Contextual offer — right */}
+  1040→        <div className="lg:col-span-3">
+  1041→          <div className="flex items-center gap-2 mb-3 flex-wrap">
+  1042→            <Sparkles className="h-4 w-4 text-[var(--gold)]" />
+  1043→            <h2 className="font-display text-lg">Oferta contextual</h2>
+  1044→            <Badge
+  1045→              variant="outline"
+  1046→              className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px] uppercase tracking-wider font-mono"
+  1047→            >
+  1048→              1 visible · no modal
+  1049→            </Badge>
+  1050→          </div>
+  1051→          <AnimatePresence mode="wait">
+  1052→            {visibleSignal ? (
+  1053→              <ContextualOfferCard
+  1054→                key={visibleSignal.id}
+  1055→                signal={visibleSignal}
+  1056→                onUpgrade={handleUpgrade}
+  1057→                onDismiss={handleDismiss}
+  1058→              />
+  1059→            ) : (
+  1060→              <motion.div
+  1061→                initial={reduce ? false : { opacity: 0 }}
+  1062→                animate={{ opacity: 1 }}
+  1063→                exit={{ opacity: 0 }}
+  1064→                className="rounded-2xl border border-dashed border-border/50 p-6 text-center"
+  1065→              >
+  1066→                <Check className="h-6 w-6 text-emerald-300 mx-auto mb-2" />
+  1067→                <div className="text-sm font-medium">No hay oferta visible</div>
+  1068→                <div className="text-[11px] text-muted-foreground mt-1">
+  1069→                  Has revisado todas las señales activas. Se reactivarán según el cooldown.
+  1070→                </div>
+  1071→              </motion.div>
+  1072→            )}
+  1073→          </AnimatePresence>
+  1074→        </div>
+  1075→      </div>
+  1076→
+  1077→      {/* Signal types reference */}
+  1078→      <SectionCard
+  1079→        title="Tipos de señal"
+  1080→        desc="Categorías detectadas por el motor · con icono y tono"
+  1081→        icon={Layers}
+  1082→      >
+  1083→        <SignalTypesPanel />
+  1084→      </SectionCard>
+  1085→
+  1086→      {/* History + Cooldown rules (2-col) */}
+  1087→      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+  1088→        <SectionCard
+  1089→          title="Historial de señales"
+  1090→          desc={`${SIGNAL_HISTORY.length} señales pasadas · conversión 50%`}
+  1091→          icon={History}
+  1092→          className="lg:col-span-2"
+  1093→          action={
+  1094→            <Badge
+  1095→              variant="outline"
+  1096→              className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px] uppercase tracking-wider font-mono"
+  1097→            >
+  1098→              <Euro className="h-3 w-3 mr-1" />
+  1099→              2.808€ atribuidos
+  1100→            </Badge>
+  1101→          }
+  1102→        >
+  1103→          <SignalHistoryTable />
+  1104→        </SectionCard>
+  1105→
+  1106→        <SectionCard
+  1107→          title="Reglas de cooldown"
+  1108→          desc="Anti-spam · anti-bloqueo"
+  1109→          icon={ShieldCheck}
+  1110→        >
+  1111→          <CooldownRulesCard />
+  1112→          <div className="mt-3 rounded-xl border border-dashed border-border/50 p-3 flex items-start gap-2">
+  1113→            <Lightbulb className="h-4 w-4 text-[var(--gold)] shrink-0 mt-0.5" />
+  1114→            <div className="text-[11px] text-muted-foreground leading-relaxed">
+  1115→              El motor prioriza señales de <span className="text-foreground/80">alta severidad</span>{" "}
+  1116→              y respeta el contexto del usuario: nunca en hora punta, nunca durante
+  1117→              una operación de TPV o reserva.
+  1118→            </div>
+  1119→          </div>
+  1120→        </SectionCard>
+  1121→      </div>
+  1122→
+  1123→      {/* Footer — how it works */}
+  1124→      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+  1125→        {[
+  1126→          {
+  1127→            icon: Cpu,
+  1128→            tone: "gold" as const,
+  1129→            title: "1 · Detección",
+  1130→            detail: "El motor consulta entitlements, uso y patrones cada 60s.",
+  1131→          },
+  1132→          {
+  1133→            icon: BrainCircuit,
+  1134→            tone: "gold" as const,
+  1135→            title: "2 · Priorización",
+  1136→            detail: "Ranking por severidad + contexto operativo + cooldown.",
+  1137→          },
+  1138→          {
+  1139→            icon: Bell,
+  1140→            tone: "teal" as const,
+  1141→            title: "3 · Presentación",
+  1142→            detail: "Máx 1 oferta visible · no modal · no en operación.",
+  1143→          },
+  1144→          {
+  1145→            icon: BarChart3,
+  1146→            tone: "teal" as const,
+  1147→            title: "4 · Medición",
+  1148→            detail: "Impresión → clic → conversión → ingreso atribuido.",
+  1149→          },
+  1150→        ].map((step) => {
+  1151→          const Icon = step.icon;
+  1152→          const tone = toneCls(step.tone);
+  1153→          return (
+  1154→            <motion.div
+  1155→              key={step.title}
+  1156→              initial={reduce ? false : { opacity: 0, y: 8 }}
+  1157→              whileInView={{ opacity: 1, y: 0 }}
+  1158→              viewport={{ once: true }}
+  1159→              transition={{ duration: 0.35, ease: "easeOut" }}
+  1160→              className="rp-glass rounded-xl border border-border/40 p-3 min-w-0"
+  1161→            >
+  1162→              <div className="flex items-center gap-2 mb-2">
+  1163→                <div
+  1164→                  className={cn(
+  1165→                    "h-7 w-7 rounded-md flex items-center justify-center border shrink-0",
+  1166→                    tone.border,
+  1167→                    tone.bg,
+  1168→                    tone.text
+  1169→                  )}
+  1170→                >
+  1171→                  <Icon className="h-3.5 w-3.5" />
+  1172→                </div>
+  1173→                <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1174→                  {step.title}
+  1175→                </span>
+  1176→              </div>
+  1177→              <div className="text-[11px] text-foreground/80 leading-relaxed">
+  1178→                {step.detail}
+  1179→              </div>
+  1180→            </motion.div>
+  1181→          );
+  1182→        })}
+  1183→      </div>
+  1184→
+  1185→      {/* Plan badges row */}
+  1186→      <div className="rp-glass rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+  1187→        <div className="flex items-center gap-3 min-w-0">
+  1188→          <div className="h-9 w-9 rounded-lg flex items-center justify-center bg-[var(--gold)]/15 text-[var(--gold-soft)] shrink-0">
+  1189→            <Crown className="h-4 w-4" />
+  1190→          </div>
+  1191→          <div className="min-w-0">
+  1192→            <div className="text-sm font-medium">Casa Marena · Starter</div>
+  1193→            <div className="text-[11px] text-muted-foreground">
+  1194→              Plan actual · 1 local · 490/500 emails · 8/10 IA · 3 locales activos
+  1195→            </div>
+  1196→          </div>
+  1197→        </div>
+  1198→        <div className="flex items-center gap-2 shrink-0">
+  1199→          <Badge
+  1200→            variant="outline"
+  1201→            className="border-border/40 bg-foreground/[0.04] text-muted-foreground text-[10px] uppercase tracking-wider font-mono"
+  1202→          >
+  1203→            <Building2 className="h-3 w-3 mr-1" /> 49€/mes
+  1204→          </Badge>
+  1205→          <Badge
+  1206→            variant="outline"
+  1207→            className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px] uppercase tracking-wider font-mono"
+  1208→          >
+  1209→            <ArrowUpRight className="h-3 w-3 mr-1" /> Pro 74€
+  1210→          </Badge>
+  1211→          <Badge
+  1212→            variant="outline"
+  1213→            className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[10px] uppercase tracking-wider font-mono"
+  1214→          >
+  1215→            <InfinityIcon className="h-3 w-3 mr-1" /> Ent 199€
+  1216→          </Badge>
+  1217→        </div>
+  1218→      </div>
+  1219→    </div>
+  1220→  );
+  1221→}
+  1222→

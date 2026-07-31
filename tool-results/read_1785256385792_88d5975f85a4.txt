@@ -1,0 +1,902 @@
+     1→=========================================================
+     2→RESTOPANEL — MASTER SPEC ENTERPRISE v2.0
+     3→Documento único de producto, arquitectura y empaquetado
+     4→Destino: IA de desarrollo / equipo de ingeniería
+     5→Sustituye y amplía todas las especificaciones anteriores
+     6→=========================================================
+     7→
+     8→-----------------------------------------
+     9→0. TESIS DE PRODUCTO
+    10→-----------------------------------------
+    11→
+    12→RestoPanel es el sistema operativo del restaurante.
+    13→No un TPV con extras. No un motor de reservas con añadidos.
+    14→Una única plataforma donde sala, cocina, cliente, dato y dinero
+    15→viven en el mismo modelo.
+    16→
+    17→Promesa central:
+    18→"Duplicar tu facturación no es abrir más horas.
+    19→Es aprovechar mejor las horas que ya tienes."
+    20→
+    21→Los tres motores de esa promesa:
+    22→1. ROTACIÓN — reducir el ciclo de mesa (sentar antes, pedir antes,
+    23→cocinar en orden lógico, cobrar sin fricción).
+    24→2. TICKET MEDIO — recomendación inteligente en carta digital, upsell
+    25→en checkout, sugerencia al camarero en PDA.
+    26→3. RECURRENCIA — CRM con dato propio, fidelización por sellos,
+    27→reputación gestionada y campañas automáticas.
+    28→
+    29→Regla de oro de arquitectura:
+    30→Un solo grafo de datos.
+    31→Cliente ↔ Reserva ↔ Mesa ↔ Comanda ↔ Pase ↔ Ticket ↔ Pago ↔ Reseña ↔ Campaña.
+    32→Ningún módulo puede tener su propia tabla de clientes. Nunca.
+    33→
+    34→-----------------------------------------
+    35→0.1 DISCIPLINA DE CLAIMS (obligatorio)
+    36→-----------------------------------------
+    37→
+    38→Las cifras de impacto se muestran SIEMPRE con contexto y método.
+    39→Nunca como promesa absoluta.
+    40→
+    41→Formato aprobado:
+    42→"Restaurantes con Order & Pay activo registran hasta un +30% en
+    43→pedidos y hasta 1,5x de rotación de mesa.
+    44→Media observada en [N] locales entre [periodo]. Resultados variables."
+    45→
+    46→Formato prohibido:
+    47→"Aumenta un 30% tus pedidos." (sin fuente, sin rango, sin muestra)
+    48→
+    49→Implementación técnica:
+    50→- Tabla `impact_benchmarks`: métrica, valor, muestra, periodo, segmento,
+    51→fuente, verificado_por, fecha_actualización.
+    52→- Todo claim en web y en producto se renderiza desde esa tabla.
+    53→- Si no hay dato verificado, el componente muestra el caso teórico
+    54→etiquetado como "estimación" y enlaza a la calculadora de ROI.
+    55→- El propio RestoPanel debe MEDIR estas métricas en cada cliente:
+    56→así en 6 meses tus claims son datos reales y auditables.
+    57→Esa es la ventaja competitiva real frente a Qamarero y CoverManager.
+    58→
+    59→KPIs que la plataforma mide de serie por local:
+    60→- Ciclo de mesa (sentado → cuenta cerrada), por franja y zona.
+    61→- Rotaciones por servicio y por mesa.
+    62→- Tiempo hasta primera comanda.
+    63→- Tiempo de preparación por partida.
+    64→- Ticket medio por canal (sala, QR, PDA, delivery, take away).
+    65→- Tasa de upsell aceptado.
+    66→- Tasa de no-show y de recuperación por waitlist.
+    67→- Frecuencia de retorno y LTV.
+    68→Cada cliente ve su "antes vs después" desde el día 1 (baseline automático
+    69→en los primeros 30 días).
+    70→
+    71→=========================================================
+    72→PARTE I — FUNDACIÓN TÉCNICA
+    73→=========================================================
+    74→
+    75→-----------------------------------------
+    76→1. MULTI-TENANT Y JERARQUÍA
+    77→-----------------------------------------
+    78→
+    79→Organización (grupo/franquicia)
+    80→└ Marca
+    81→└ Local (venue)
+    82→└ Zona (sala, terraza, barra, reservado, delivery)
+    83→└ Mesa (con capacidad, forma, combinable, posición x/y)
+    84→
+    85→- Todo registro lleva org_id + venue_id. Row Level Security obligatoria.
+    86→- Herencia de configuración: Org define defaults → Marca ajusta →
+    87→Local sobreescribe. Con bloqueo por nivel ("el local no puede
+    88→cambiar precios" en modelo franquicia).
+    89→- Carta central con overrides de precio, disponibilidad e IVA por local.
+    90→- Informes consolidados y comparativa entre locales.
+    91→- Cambio de local en 1 clic sin cerrar sesión.
+    92→- Soporte multi-moneda, multi-idioma y multi-zona horaria desde el core
+    93→(no como parche posterior).
+    94→
+    95→-----------------------------------------
+    96→2. OFFLINE-FIRST (BLOQUEANTE)
+    97→-----------------------------------------
+    98→
+    99→Un TPV que no cobra sin internet no es un TPV. Esto va en Fase 1.
+   100→
+   101→- Motor local: SQLite (nativo) / IndexedDB (web) con cola de sincronización.
+   102→- IDs generados en cliente: ULID o UUIDv7. Nunca autoincrementales.
+   103→- Resolución de conflictos: log de eventos + merge por campo.
+   104→Los importes monetarios nunca se sobreescriben, se reconcilian.
+   105→- Cacheado local: carta, precios, mesas, clientes frecuentes, impuestos,
+   106→plantillas de impresión, permisos.
+   107→- Indicador permanente: Online / Sincronizando (N) / Offline (N pendientes).
+   108→- Impresión y KDS funcionan en red local aunque no haya internet
+   109→(descubrimiento por mDNS/IP fija).
+   110→- Modo degradado explícito: qué SÍ funciona offline (cobrar efectivo,
+   111→comandar, imprimir, abrir/cerrar mesa) y qué NO (pago con tarjeta online,
+   112→pedido QR nuevo, consulta de reservas remotas).
+   113→- Test de aceptación: 4 horas sin red, 200 tickets, 0 pérdidas, 0 duplicados.
+   114→
+   115→-----------------------------------------
+   116→3. TIEMPO REAL
+   117→-----------------------------------------
+   118→
+   119→- WebSocket por local: canal `venue:{id}` + subcanales por rol
+   120→(`kitchen:hot`, `kitchen:cold`, `floor:zone_a`, `bar`, `delivery`).
+   121→- Eventos núcleo:
+   122→order.created / order.line.added / order.line.voided
+   123→course.fired / course.ready / course.served
+   124→table.status.changed / table.merged / table.split / table.transferred
+   125→kds.ticket.bumped / kds.ticket.recalled / kds.sla.breached
+   126→payment.captured / ticket.closed / cash.session.closed
+   127→reservation.created / reservation.seated / reservation.no_show
+   128→waitlist.notified / waitlist.accepted
+   129→delivery.status.changed / rider.assigned
+   130→shift.clock_in / shift.clock_out
+   131→stock.low / product.86ed (agotado)
+   132→review.received / review.negative
+   133→- Latencia objetivo sala↔cocina: <300 ms. Alerta si >1 s sostenido.
+   134→- Reconexión con replay por cursor de evento. Cero eventos perdidos.
+   135→- Presencia: quién está conectado, en qué dispositivo, en qué pantalla.
+   136→
+   137→-----------------------------------------
+   138→4. EVENT BUS Y AUDITORÍA
+   139→-----------------------------------------
+   140→
+   141→- Event sourcing ligero: todo cambio relevante se persiste como evento
+   142→inmutable con actor, dispositivo, timestamp, payload y contexto.
+   143→- Ese log alimenta: automatizaciones, IA, BI, webhooks y auditoría.
+   144→- Consecuencia clave: puedes reconstruir cualquier servicio minuto a minuto.
+   145→Enterprise lo exige, y es un argumento de venta ante grupos.
+   146→- Retención por plan (ver matriz). Exportable.
+   147→
+   148→-----------------------------------------
+   149→5. IDENTIDAD, RBAC Y SEGURIDAD
+   150→-----------------------------------------
+   151→
+   152→Roles base (personalizables en Enterprise):
+   153→Owner · Director de grupo · Gerente · Encargado de turno · Camarero ·
+   154→Jefe de cocina · Cocinero · Runner · Repartidor · Barra · Contable ·
+   155→Marketing · Auditor (solo lectura) · Partner/Integrador
+   156→
+   157→Permisos granulares (mínimo 60), agrupados:
+   158→- Ventas: anular línea, anular ticket, descuento %, descuento importe,
+   159→invitar, cambiar precio, reabrir ticket, devolver.
+   160→- Caja: abrir cajón, retirada de efectivo, arqueo, cerrar caja, ver descuadre.
+   161→- Carta: editar productos, precios, disponibilidad, escandallos, ver márgenes.
+   162→- Personal: ver cuadrante, editar turnos, aprobar ausencias, ver salarios.
+   163→- Datos: exportar clientes, ver PII completa, borrar cliente (RGPD).
+   164→- Sistema: invitar usuarios, cambiar integraciones, ver auditoría, API keys.
+   165→
+   166→Seguridad:
+   167→- PIN 4-6 dígitos para dispositivos compartidos, sesión nominal por acción.
+   168→- SSO/SAML/SCIM + 2FA + passkeys (Enterprise).
+   169→- Cifrado en tránsito y en reposo. PII con cifrado a nivel de campo.
+   170→- Logs de auditoría inmutables con retención configurable.
+   171→- Aislamiento de datos verificado por tests automáticos multi-tenant.
+   172→- Gestión de secretos, rotación de claves API, IP allowlist (Enterprise).
+   173→- Plan de continuidad: backups con RPO/RTO declarados y restauración probada.
+   174→
+   175→-----------------------------------------
+   176→6. CUMPLIMIENTO (ESPAÑA + UE) — BLOQUEANTE
+   177→-----------------------------------------
+   178→
+   179→Verificar fechas y requisitos vigentes antes de desarrollar.
+   180→
+   181→- Sistema de facturación verificable: registro encadenado con hash,
+   182→huella, firma y QR en el ticket (RD 1007/2023 / Veri*Factu).
+   183→- TicketBAI (Álava, Bizkaia, Gipuzkoa) y adaptación a Navarra.
+   184→- Numeración correlativa por serie y local. Borrado imposible;
+   185→solo rectificativas trazables al documento original.
+   186→- Factura simplificada y completa con NIF. Rectificativas.
+   187→- Registro de jornada laboral conservable 4 años y exportable a inspección.
+   188→- RGPD: base legal por finalidad, consentimiento granular por canal,
+   189→derecho de acceso/rectificación/supresión/portabilidad automatizado,
+   190→registro de tratamientos, DPA con subencargados, retención configurable.
+   191→- Alérgenos: los 14 de la UE visibles en carta digital y en comanda.
+   192→- Accesibilidad: WCAG 2.2 AA en carta digital y backoffice.
+   193→
+   194→=========================================================
+   195→PARTE II — MÓDULOS DE PRODUCTO
+   196→=========================================================
+   197→
+   198→-----------------------------------------
+   199→7. CARTA DIGITAL PREMIUM CON ORDER & PAY
+   200→-----------------------------------------
+   201→(Este es tu escaparate. Tiene que ser el mejor del mercado.)
+   202→
+   203→7.1 EXPERIENCIA VISUAL
+   204→- QR por mesa que identifica mesa, zona y camarero asignado.
+   205→- Sin app, sin registro, sin descarga. Carga útil <1,5 s en 4G.
+   206→- Fichas de producto con foto en alta calidad Y VÍDEO corto en bucle
+   207→(autoplay, muted, 3-8 s, formato vertical, <2 MB, AVIF/WebP + MP4/WebM).
+   208→- Transcodificación automática al subir: múltiples resoluciones,
+   209→poster frame, lazy loading, CDN con edge caching.
+   210→- Vista inmersiva tipo stories: deslizar entre platos a pantalla completa.
+   211→- Navegación: categorías fijas, buscador, filtros por dieta y alérgeno.
+   212→- Diseño personalizable por marca: logo, colores, tipografía, tono.
+   213→- Modo claro/oscuro. Multiidioma con traducción IA revisable.
+   214→- Accesible: contraste, tamaños, lector de pantalla, navegación por teclado.
+   215→
+   216→7.2 CONTENIDO Y CONFIANZA
+   217→- Alérgenos (14 UE), info nutricional, calorías, origen, maridaje.
+   218→- Etiquetas: novedad, top ventas, favorito del chef, vegano, sin gluten,
+   219→picante, para compartir, últimas unidades.
+   220→- Valoraciones del plato por clientes reales que lo pidieron (verificado).
+   221→- Tiempo estimado de preparación por plato.
+   222→- Disponibilidad en vivo: agotar desde TPV/KDS y desaparece al instante
+   223→de carta, PDA, delivery y agregadores (86-ing global en <3 s).
+   224→
+   225→7.3 MOTOR DE RECOMENDACIÓN (IA)
+   226→Señales de entrada:
+   227→- Historial del cliente si está identificado.
+   228→- Contenido del carrito actual y combinaciones frecuentes.
+   229→- Hora, día, clima, ocupación y estado de cocina.
+   230→- Rentabilidad del plato (margen real vía escandallo).
+   231→- Rotación de stock y productos a punto de caducar.
+   232→- Popularidad en el local y en la franja horaria.
+   233→Salidas:
+   234→- "Combina bien con" en la ficha del plato.
+   235→- "Suele pedirse junto a" en el carrito.
+   236→- Upsell en checkout: bebida, postre, café, digestivo.
+   237→- Sugerencia de menú completo para grupos.
+   238→- Recomendación al camarero en la PDA (mismo motor, otro canal).
+   239→Reglas:
+   240→- Nunca recomendar un producto agotado o fuera de horario.
+   241→- Priorizar margen SIN sacrificar experiencia (tope configurable).
+   242→- Medir tasa de aceptación y aprender por local. A/B testing nativo.
+   243→- El gerente puede fijar reglas manuales y excluir productos.
+   244→
+   245→7.4 PEDIR Y PAGAR
+   246→- Pedido directo del cliente → entra en KDS y TPV sin tocar nada.
+   247→- Modificadores, notas de cocina, medias raciones, combos.
+   248→- Ronda de grupo: varios comensales, misma mesa, un solo ticket.
+   249→- Pedir por rondas (entrantes ahora, principales después).
+   250→- Pago en mesa: dividir por comensal/producto/importe, propina sugerida,
+   251→factura por email o WhatsApp, pago con Apple Pay/Google Pay/Bizum/tarjeta.
+   252→- Aplicar sellos, cupones y monedero de fidelización desde el mismo flujo.
+   253→- Captura de dato: cada pedido crea o enriquece la ficha de cliente.
+   254→
+   255→7.5 LLAMAR AL CAMARERO
+   256→- Botones contextuales: llamar camarero, pedir la cuenta, pedir agua,
+   257→incidencia con el plato.
+   258→- Llega como notificación push a la PDA del camarero asignado a esa mesa,
+   259→con escalado automático: si no se atiende en X segundos, salta al
+   260→encargado y a la pantalla de sala.
+   261→- Anti-abuso: cooldown por mesa, límite por servicio.
+   262→- Métrica registrada: tiempo de respuesta a llamada, por camarero y turno.
+   263→
+   264→7.6 CARTAS DINÁMICAS
+   265→- Por franja horaria (desayuno, menú del día, tarde, cena, brunch weekend).
+   266→- Por zona (precio de terraza distinto), por canal (sala, take away, delivery).
+   267→- Programación de cambios con fecha y hora.
+   268→- Menú del día con selección por pasos y suplementos.
+   269→
+   270→-----------------------------------------
+   271→8. PDA / COMANDERO — LICENCIAS ILIMITADAS
+   272→-----------------------------------------
+   273→(Argumento comercial: licencias ilimitadas incluidas en TODOS los planes.
+   274→Nunca cobres por dispositivo. Cobra por local y por capacidades.)
+   275→
+   276→- Funciona en CUALQUIER smartphone del camarero: PWA instalable +
+   277→apps nativas iOS/Android. Sin comprar hardware.
+   278→- Cero fricción: comanda en menos de 3 toques (mesa → producto → enviar).
+   279→- Carta cacheada localmente. Funciona offline con cola de sincronización.
+   280→- Gestión de rango de mesas por camarero, traspaso de rango, ayuda entre rangos.
+   281→- Comanda por PASES/rondas: entrantes, principales, postres, bebidas.
+   282→Marcar por línea: hacer ya · esperar · urgente · alergia · sin (ingrediente).
+   283→- Modificadores obligatorios y opcionales, notas libres, medias raciones.
+   284→- Sugerencia de venta cruzada en tiempo real (mismo motor que la carta).
+   285→- Estado en vivo por línea: enviado → en preparación → listo → servido.
+   286→- Notificación push cuando cocina marca "listo" en su rango.
+   287→- CONEXIÓN CON RESERVAS: al abrir una mesa, el camarero ve
+   288→quién viene, la hora, el número de comensales, si es VIP, alergias,
+   289→preferencias, última visita, plato favorito, cumpleaños y notas internas.
+   290→Sabe a quién sienta y cómo tratarle antes de llegar a la mesa.
+   291→- Acciones desde PDA: sentar reserva, marcar no-show, mover mesa,
+   292→unir/separar, cobrar, pedir la cuenta, aplicar fidelización.
+   293→- Vista de cocina para el camarero: qué está retrasado en su rango.
+   294→- Modo formación para personal nuevo.
+   295→
+   296→-----------------------------------------
+   297→9. KDS — MOTOR DE ORQUESTACIÓN DE COCINA
+   298→-----------------------------------------
+   299→(El corazón del "los platos salen antes". Aquí está la ventaja real.)
+   300→
+   301→9.1 ENRUTADO
+   302→- Cada producto se enruta a una o varias partidas: fríos, calientes,
+   303→plancha, horno, fritos, postres, barra, cafetería, pase.
+   304→- Reglas de enrutado por producto, categoría, modificador o canal.
+   305→- Un mismo pedido se descompone en tickets por partida, coordinados.
+   306→
+   307→9.2 MOTOR DE PRIORIZACIÓN CONFIGURABLE
+   308→El gerente elige y combina criterios de ordenación con pesos:
+   309→- Hora de reserva o de compromiso de entrega.
+   310→- Tiempo de espera acumulado del ticket (antigüedad).
+   311→- Tipo de plato y tiempo de preparación estimado.
+   312→- Pase/ronda (no sacar el principal antes del entrante).
+   313→- Agrupación por ingrediente o técnica (batching: 4 solomillos juntos).
+   314→- Carga actual por partida y capacidad (nº de fuegos, plancha, freidora).
+   315→- Canal: sala > take away > delivery, o el orden que decida el local.
+   316→- Cliente VIP o mesa con incidencia previa.
+   317→- Complejidad del plato (los largos se lanzan antes).
+   318→Objetivo del motor:
+   319→Que TODOS los platos de una mesa salgan a la vez, calientes,
+   320→minimizando el tiempo total de espera del comedor.
+   321→Salida: "cuándo empezar cada plato", no solo "qué hay pendiente".
+   322→
+   323→9.3 PANTALLA
+   324→- Vistas: tickets, lista agregada de productos, pase/expedidor, por partida.
+   325→- Cronómetro por ticket con semáforo y SLA configurable por plato.
+   326→- Bump, recall, marcar línea individual, marcar ticket completo.
+   327→- Alerta de retraso, sonido configurable, modo alto contraste para cocina.
+   328→- Coordinación de salida: la pantalla del pase muestra qué falta por mesa.
+   329→- Comunicación cocina→sala: "listo", "2 min", "producto agotado", "incidencia".
+   330→- 86-ing desde cocina: agotar un producto y propagarlo a todos los canales.
+   331→- Modo impresora si el local no tiene pantalla (misma lógica, salida en papel).
+   332→
+   333→9.4 MÉTRICAS
+   334→- Tiempo medio por plato, por partida, por cocinero, por franja.
+   335→- Cuellos de botella detectados automáticamente.
+   336→- Platos que sistemáticamente retrasan la mesa.
+   337→- Comparativa entre turnos y entre locales.
+   338→- Recomendación IA: rediseñar carta, reordenar partidas, reforzar plantilla.
+   339→
+   340→-----------------------------------------
+   341→10. TPV
+   342→-----------------------------------------
+   343→
+   344→- Modos: mesas, barra/venta rápida, take away, delivery, autoservicio, quiosco.
+   345→- Turno de caja: fondo, movimientos, arqueo ciego, descuadre con motivo.
+   346→- Pedido: categorías, favoritos, buscador, modificadores, combos,
+   347→medias raciones, notas, alérgenos visibles, productos por peso.
+   348→- Cuentas abiertas, transferencia de mesa, unión/separación, cambio de camarero.
+   349→- División de cuenta: por comensal, por producto, por importe, por porcentaje.
+   350→- Descuentos y anulaciones con motivo obligatorio y permiso.
+   351→- Propinas: sugerencia configurable y reparto por turno según regla.
+   352→- Devoluciones y rectificativas trazables.
+   353→- Pagos: efectivo, tarjeta integrada, QR del cliente, Bizum, Apple/Google Pay,
+   354→vales, monedero de fidelización, cobro a cuenta/empresa, pago mixto.
+   355→- Datáfono integrado o semi-integrado (importe enviado desde el TPV).
+   356→- Reconciliación automática pagos ↔ tickets ↔ cierre de caja.
+   357→- Hardware: impresoras térmicas por destino, cajón, balanza, lector,
+   358→impresora de etiquetas, monitor cliente, quiosco.
+   359→- PANTALLA DE CLIENTE (añadido que faltaba): segunda pantalla con
+   360→el pedido en vivo, publicidad del local, propina, firma y recibo digital.
+   361→
+   362→-----------------------------------------
+   363→11. RESERVAS Y GESTIÓN DE TURNOS
+   364→-----------------------------------------
+   365→
+   366→11.1 CAPTACIÓN
+   367→- Widget propio 24/7 en web, con dominio del restaurante.
+   368→- Reservar con Google, Instagram, Facebook, WhatsApp, TheFork.
+   369→- Reserva por teléfono registrada por el equipo en 15 segundos.
+   370→
+   371→11.2 MOTOR DE TURNOS AUTOMÁTICO
+   372→- Duración estimada por tamaño de grupo, tipo de servicio y día.
+   373→Aprendida de datos reales del propio local (no una constante fija).
+   374→- Turnos y doble turno con buffer configurable y control de solapes.
+   375→- Pacing: límite de comensales por franja de 15 min para no ahogar cocina.
+   376→- Asignación inteligente de mesa: optimiza ocupación, combina y separa
+   377→mesas automáticamente, respeta preferencias del cliente y del local.
+   378→- Bloqueos: mesas reservadas para walk-in, zonas cerradas, mantenimiento.
+   379→- Sobreventa controlada con umbral configurable.
+   380→- Recolocación automática cuando una mesa se retrasa (con aviso al equipo).
+   381→
+   382→11.3 ANTI NO-SHOW
+   383→- Confirmación inmediata + recordatorio T-24h y T-3h (WhatsApp/SMS/email).
+   384→- Botón de cancelación fácil (mejor una cancelación que un no-show).
+   385→- Prepago, tarjeta en garantía y penalización configurable.
+   386→- Scoring de riesgo por cliente basado en historial real (IA).
+   387→- Reconfirmación reforzada solo para reservas de alto riesgo.
+   388→
+   389→11.4 LISTA DE ESPERA Y WALK-INS (añadido)
+   390→- Waitlist digital: alta desde la puerta, tiempo estimado dinámico,
+   391→el cliente espera fuera y recibe WhatsApp cuando su mesa está lista.
+   392→- Al liberarse una mesa: candidato compatible → aviso automático →
+   393→aceptación en 1 clic → mesa asignada.
+   394→- Cola de reservas canceladas: ofrecer el hueco a la lista de espera.
+   395→- Métrica: mesas recuperadas y euros recuperados por waitlist.
+   396→
+   397→11.5 EVENTOS Y GRUPOS
+   398→- Menús cerrados, depósitos, presupuestos, contratos, privatizaciones.
+   399→- Preasignación de platos por comensal para grupos grandes.
+   400→
+   401→-----------------------------------------
+   402→12. DELIVERY Y TAKE AWAY (0% COMISIÓN)
+   403→-----------------------------------------
+   404→
+   405→12.1 CANAL PROPIO
+   406→- Tienda online con dominio del restaurante, SEO local y pago integrado.
+   407→- 0% de comisión. Gancho comercial: cuantificar el ahorro frente al ~30%
+   408→de los agregadores dentro de la calculadora de ROI.
+   409→- Zonas por polígono, radio o código postal. Pedido mínimo, gastos de envío
+   410→y horarios por zona. Tiempos estimados dinámicos según carga de cocina.
+   411→- Programar pedido, recogida en local, pago en entrega.
+   412→- Take away con hora de recogida y aviso "tu pedido está listo".
+   413→
+   414→12.2 REPARTO
+   415→- Estados: recibido, aceptado, en cocina, listo, asignado, en ruta,
+   416→entregado, incidencia.
+   417→- Asignación de repartidores, agrupación por proximidad, optimización de
+   418→ruta, mapa en vivo, app del repartidor.
+   419→- Seguimiento público para el cliente + notificación WhatsApp.
+   420→- Liquidación por repartidor: efectivo, entregas, propinas, kilómetros.
+   421→
+   422→12.3 AGREGADORES
+   423→- Glovo, Uber Eats, Just Eat: todos los pedidos entran al MISMO KDS.
+   424→- Sincronización de carta y disponibilidad en ambos sentidos.
+   425→- Comparativa de rentabilidad real por canal, después de comisiones.
+   426→
+   427→-----------------------------------------
+   428→13. CRM Y FIDELIZACIÓN POR SELLOS
+   429→-----------------------------------------
+   430→
+   431→13.1 DATO PROPIO
+   432→Mensaje clave: "Tus clientes son tuyos. No de un agregador."
+   433→- Ficha unificada alimentada por reserva, QR, PDA, delivery, wifi, pago y reseña.
+   434→- Deduplicación por teléfono y email con fusión asistida.
+   435→- Timeline completo: visitas, gasto, platos favoritos, canal, campañas.
+   436→- Campos: preferencias, alergias, cumpleaños, mesa favorita, notas internas,
+   437→ticket medio, frecuencia, LTV, última visita, NPS.
+   438→- Estado del ciclo de vida: nuevo · recurrente · fiel · en riesgo · perdido.
+   439→- Segmentación dinámica por cualquier combinación de atributos y comportamiento.
+   440→- Consentimientos RGPD por canal, con origen registrado y baja en 1 clic.
+   441→
+   442→13.2 PROGRAMA DE SELLOS Y RECOMPENSAS
+   443→- Motor de sellos: X sellos = recompensa. Reglas por importe mínimo,
+   444→por producto, por visita, por canal, por franja horaria.
+   445→- Alternativas configurables: puntos, cashback/monedero, niveles VIP
+   446→(bronce/plata/oro) con beneficios por nivel.
+   447→- Tarjeta digital en Apple Wallet y Google Wallet. Sin app.
+   448→- Sello automático al pagar (TPV, QR, delivery). Cero fricción.
+   449→- Canje directo en TPV, PDA, carta digital y tienda online.
+   450→- Notificación: "te falta 1 sello para tu café gratis" → dispara visita.
+   451→- Caducidad configurable de sellos y recompensas.
+   452→- Métrica obligatoria: frecuencia de visita de miembros vs no miembros,
+   453→ticket medio comparado y ROI del programa en euros.
+   454→
+   455→13.3 MARKETING Y HORAS VALLE
+   456→- Campañas WhatsApp, email y SMS con editor visual y plantillas.
+   457→- Automatizaciones nativas listas: bienvenida, cumpleaños,
+   458→cliente en riesgo 30/60/90 días, post-visita con petición de reseña,
+   459→carrito abandonado, recuperación de no-show, relleno de horas valle.
+   460→- Ofertas por franja para llenar el hueco (martes 16-19h, terraza con lluvia).
+   461→- Atribución real: cada campaña reporta reservas, pedidos e ingresos generados.
+   462→
+   463→-----------------------------------------
+   464→14. REPUTACIÓN Y GOOGLE REVIEWS
+   465→-----------------------------------------
+   466→
+   467→- Conexión a Google Business Profile, TripAdvisor, TheFork.
+   468→- Solicitud automática de reseña tras la visita, en el momento óptimo.
+   469→- Encuesta interna previa: si es negativa, se desvía a atención privada
+   470→antes de que llegue a Google.
+   471→- Panel: valoración media, evolución, sentimiento, temas recurrentes.
+   472→- Respuesta sugerida por IA con tono configurable y aprobación humana.
+   473→- Alerta inmediata al gerente ante reseña negativa.
+   474→- Cruce reseña ↔ turno ↔ camarero ↔ pedido para hallar la causa raíz.
+   475→
+   476→-----------------------------------------
+   477→15. INVENTARIO Y ESCANDALLOS
+   478→-----------------------------------------
+   479→
+   480→- Artículos, unidades de compra vs consumo, conversiones, proveedores.
+   481→- Escandallo por plato con subrecetas, coste teórico, margen y food cost %.
+   482→- Descuento automático de stock al vender.
+   483→- Pedidos de compra, recepción, albaranes, facturas, comparativa de precios.
+   484→- Inventario periódico con desviación teórico vs real (mermas en euros).
+   485→- Alertas de stock mínimo y sugerencia de pedido según consumo previsto.
+   486→- Caducidades y lotes para trazabilidad sanitaria (APPCC básico).
+   487→- Producción interna de elaborados.
+   488→- Menu engineering: matriz estrella / vaca / puzzle / perro por plato.
+   489→
+   490→-----------------------------------------
+   491→16. GESTIÓN DE PERSONAL
+   492→-----------------------------------------
+   493→
+   494→- Fichaje desde TPV, PDA, móvil o quiosco (PIN, QR o biometría).
+   495→- Registro horario conservable 4 años, exportable a inspección.
+   496→- Geolocalización opcional y alerta de fichaje fuera de zona.
+   497→- Cuadrante drag & drop, plantillas semanales, cobertura por franja.
+   498→- Previsión de plantilla por IA cruzando reservas, histórico y clima.
+   499→- Ausencias, vacaciones, bajas, solicitudes y aprobaciones.
+   500→- Horas extra, descansos, alertas de exceso de jornada.
+   501→- Coste de personal en vivo y ratio coste/ventas por franja.
+   502→- Rendimiento por camarero: ventas, ticket medio, upsell aceptado,
+   503→propinas, tiempo de respuesta a llamadas, reseñas asociadas.
+   504→- Reparto de propinas por horas, rol o ventas.
+   505→- Resumen diario personal al cerrar turno.
+   506→
+   507→-----------------------------------------
+   508→17. ANALÍTICAS AVANZADAS Y BI
+   509→-----------------------------------------
+   510→
+   511→- Dashboard en vivo: ventas, tickets, ticket medio, comensales,
+   512→rotación, ocupación, tiempo de servicio, ventas por hora.
+   513→- Comparativas: vs ayer, semana pasada, mismo día año anterior, entre locales.
+   514→- Rentabilidad por plato, por categoría, por canal, por zona, por camarero.
+   515→- Heatmap de ocupación día × hora.
+   516→- Embudo completo: visita a carta → pedido → ticket → reseña → retorno.
+   517→- Forecast de ventas y demanda con recomendación de plantilla y compras.
+   518→- Detección de anomalías: descuentos excesivos, anulaciones sospechosas,
+   519→descuadres, mermas fuera de rango.
+   520→- Informes programados por email, exportación y (Enterprise) acceso
+   521→al almacén de datos vía API o conector BI.
+   522→
+   523→-----------------------------------------
+   524→18. IA OPERATIVA (DIFERENCIAL)
+   525→-----------------------------------------
+   526→
+   527→- Copiloto conversacional sobre los datos reales del local:
+   528→"¿Qué plato me deja menos margen los viernes?"
+   529→"¿Cuántos VIP no vienen hace 30 días?" → "18" → [Crear campaña]
+   530→"¿Cuánta gente pongo el sábado?" → previsión + cuadrante sugerido.
+   531→- Capacidades: consultar, resumir, segmentar, predecir, recomendar
+   532→y EJECUTAR acciones con confirmación explícita.
+   533→- Resumen diario automático al cierre: ventas, incidencias, alertas, mañana.
+   534→- Sugerencias proactivas: precio, plantilla, compra, promoción, carta.
+   535→- Reglas duras: no inventar cifras, citar la fuente del dato,
+   536→pedir confirmación antes de escribir, respetar el rol de quien pregunta,
+   537→y no exponer PII a quien no tiene permiso.
+   538→
+   539→-----------------------------------------
+   540→19. AUTOMATIZACIONES (FLOW BUILDER)
+   541→-----------------------------------------
+   542→
+   543→- Constructor visual: Disparador → Condición → Acción → Espera → Ramificación.
+   544→- Disparadores: reserva creada/cancelada/no-show, mesa liberada, pedido pagado,
+   545→reseña recibida, stock bajo, cliente inactivo, cumpleaños, sello conseguido,
+   546→turno cerrado, hora valle detectada, SLA de cocina incumplido.
+   547→- Acciones: WhatsApp, email, SMS, notificación interna, crear tarea,
+   548→aplicar cupón, añadir a segmento, llamar webhook, actualizar campo,
+   549→86 producto, avisar a encargado.
+   550→- Mínimo 25 plantillas listas para activar en 1 clic.
+   551→- Historial de ejecuciones, errores, reintentos e impacto medido en euros.
+   552→
+   553→-----------------------------------------
+   554→20. WEB, REDES E INTEGRACIONES
+   555→-----------------------------------------
+   556→
+   557→- Generador de web del restaurante: dominio propio, plantillas, editor,
+   558→carta sincronizada, reservas, pedidos, SEO local, Schema Restaurant.
+   559→- Sincronización de ficha Google (horarios, carta, fotos).
+   560→- Publicación y programación en Instagram/Facebook desde el panel.
+   561→- Generación de contenido con IA: plato del día, novedades, respuestas.
+   562→- Integraciones: Stripe, Redsys, Adyen, SumUp, Bizum · Holded, Sage, A3,
+   563→Odoo, Contasimple · Glovo, Uber Eats, Just Eat · TheFork, Google Reserve ·
+   564→WhatsApp Business API, Twilio, Slack · Meta, Mailchimp, HubSpot.
+   565→- API pública REST + Webhooks + SDK + sandbox + changelog + rate limits.
+   566→- Marketplace de integraciones con instalación en 1 clic.
+   567→
+   568→-----------------------------------------
+   569→21. MIGRACIÓN Y ONBOARDING (DECIDE LA VENTA)
+   570→-----------------------------------------
+   571→
+   572→- Importador de carta (CSV, Excel, o foto de la carta con OCR + IA),
+   573→clientes, reservas históricas, stock y saldos de fidelización.
+   574→- Conectores de migración desde competidores conocidos.
+   575→- Asistente de alta en <30 min: local → carta → mesas → impresoras → cobrar.
+   576→- Datos demo precargados para probar sin configurar nada.
+   577→- Modo formación sin afectar a datos reales.
+   578→- Checklist de puesta en marcha y acompañamiento la primera semana.
+   579→- Baseline automático de KPIs en los primeros 30 días para poder
+   580→demostrar el "antes vs después" con datos del propio cliente.
+   581→
+   582→=========================================================
+   583→PARTE III — EMPAQUETADO POR PLANES
+   584→=========================================================
+   585→
+   586→-----------------------------------------
+   587→22. PRINCIPIOS DE PACKAGING
+   588→-----------------------------------------
+   589→
+   590→1. Nunca cobrar por dispositivo. Licencias de PDA ILIMITADAS en los 3 planes.
+   591→Es tu arma frente a los competidores que cobran por comandero.
+   592→2. Nunca cobrar comisión sobre reservas ni sobre pedidos propios.
+   593→3. Los planes se diferencian por CAPACIDAD, AUTOMATIZACIÓN, INTELIGENCIA
+   594→y GOBIERNO. No por poner peajes en lo básico.
+   595→4. Todo lo operativo crítico (cobrar, comandar, cocinar) está en Starter.
+   596→Si el restaurante no puede operar, no hay negocio ni upsell.
+   597→5. El upgrade debe ser una consecuencia natural del crecimiento,
+   598→no un castigo. Mostrar siempre "esto lo desbloquea Professional"
+   599→con el beneficio en euros, no con una pared.
+   600→
+   601→-----------------------------------------
+   602→23. MATRIZ DE FUNCIONALIDADES POR PLAN
+   603→-----------------------------------------
+   604→
+   605→LEYENDA: ✔ incluido · ➕ ampliado · ✖ no incluido · ⚙ opcional/add-on
+   606→
+   607→--- NÚCLEO OPERATIVO ---
+   608→STARTER PRO ENTERPRISE
+   609→TPV completo ✔ ✔ ✔
+   610→Modo offline-first ✔ ✔ ✔
+   611→PDA licencias ilimitadas ✔ ✔ ✔
+   612→KDS pantallas 1 3 ilimitadas
+   613→Motor de priorización KDS básico avanzado configurable total
+   614→Enrutado por partida 2 6 ilimitado
+   615→Comanda por pases ✔ ✔ ✔
+   616→Impresión por destino ✔ ✔ ✔
+   617→Pantalla de cliente ✖ ✔ ✔
+   618→Cumplimiento fiscal (VF/TBAI) ✔ ✔ ✔
+   619→
+   620→--- CARTA DIGITAL Y ORDER & PAY ---
+   621→Carta digital con QR ✔ ✔ ✔
+   622→Imágenes en alta calidad ✔ ✔ ✔
+   623→Vídeos en ficha de producto 3 platos ilimitado ilimitado
+   624→Vista inmersiva tipo stories ✖ ✔ ✔
+   625→Order & Pay desde la mesa ✔ ✔ ✔
+   626→Llamar al camarero ✔ ✔ ✔
+   627→Escalado de llamadas sin atender ✖ ✔ ✔
+   628→Recomendador IA de productos básico avanzado a medida
+   629→Upsell en checkout ✖ ✔ ✔
+   630→A/B testing de carta ✖ ✖ ✔
+   631→Cartas por franja/zona/canal 1 ilimitadas ilimitadas
+   632→Multiidioma 2 8 ilimitados
+   633→Personalización de marca básica completa white-label
+   634→
+   635→--- RESERVAS ---
+   636→Reservas online 24/7 ✔ ✔ ✔
+   637→Widget web propio ✔ ✔ ✔
+   638→Reservar con Google / Redes ✔ ✔ ✔
+   639→Motor de turnos automático básico avanzado avanzado
+   640→Asignación inteligente de mesas ✔ ✔ ✔
+   641→Pacing y control de solapes ✖ ✔ ✔
+   642→Recordatorios automáticos email WA+SMS+email ➕ personalizados
+   643→Prepago / tarjeta en garantía ✖ ✔ ✔
+   644→Scoring de no-show con IA ✖ ✔ ✔
+   645→Lista de espera digital ✖ ✔ ✔
+   646→Eventos, grupos y depósitos ✖ ✔ ✔
+   647→Reservas ↔ PDA (ficha en mesa) ✔ ✔ ✔
+   648→
+   649→--- DELIVERY Y TAKE AWAY ---
+   650→Take away ✔ ✔ ✔
+   651→Delivery propio 0% comisión ✖ ✔ ✔
+   652→Gestión de repartidores ✖ ✔ ✔
+   653→Optimización de rutas ✖ ✖ ✔
+   654→Integración con agregadores ✖ ✔ ✔
+   655→
+   656→--- CRM Y FIDELIZACIÓN ---
+   657→Ficha de cliente unificada ✔ ✔ ✔
+   658→Clientes en base de datos 1.000 ilimitados ilimitados
+   659→Programa de sellos ✔ ✔ ✔
+   660→Puntos / cashback / niveles VIP ✖ ✔ ✔
+   661→Wallet Apple / Google ✖ ✔ ✔
+   662→Segmentación dinámica básica avanzada avanzada
+   663→Campañas email 500/mes ilimitadas ilimitadas
+   664→Campañas WhatsApp ✖ ✔ ✔
+   665→Atribución de ingresos por campaña ✖ ✔ ✔
+   666→
+   667→--- REPUTACIÓN ---
+   668→Panel de reseñas ✔ ✔ ✔
+   669→Solicitud automática de reseña ✔ ✔ ✔
+   670→Filtro de reseña negativa ✖ ✔ ✔
+   671→Respuesta sugerida por IA ✖ ✔ ✔
+   672→Análisis de sentimiento y temas ✖ ✔ ✔
+   673→
+   674→--- INVENTARIO Y PERSONAL ---
+   675→Control de stock básico ✖ ✔ ✔
+   676→Escandallos y food cost ✖ ✔ ✔
+   677→Proveedores y compras ✖ ✔ ✔
+   678→Sugerencia de pedido por IA ✖ ✖ ✔
+   679→Trazabilidad y lotes ✖ ✖ ✔
+   680→Fichaje y registro horario ✔ ✔ ✔
+   681→Cuadrante de turnos ✖ ✔ ✔
+   682→Previsión de plantilla por IA ✖ ✖ ✔
+   683→Reparto de propinas ✖ ✔ ✔
+   684→Coste de personal en vivo ✖ ✔ ✔
+   685→
+   686→--- ANALÍTICA E IA ---
+   687→Dashboard en vivo ✔ ✔ ✔
+   688→Histórico de datos 3 meses 24 meses ilimitado
+   689→Informes avanzados ✖ ✔ ✔
+   690→Menu engineering ✖ ✔ ✔
+   691→Forecast de ventas y demanda ✖ ✖ ✔
+   692→Detección de anomalías ✖ ✖ ✔
+   693→Copiloto IA conversacional 10 preg/mes ilimitado ilimitado + a medida
+   694→Resumen diario automático ✖ ✔ ✔
+   695→Informes programados ✖ ✔ ✔
+   696→Exportación a BI / data warehouse ✖ ✖ ✔
+   697→
+   698→--- AUTOMATIZACIÓN ---
+   699→Automatizaciones activas 3 25 ilimitadas
+   700→Flow Builder visual ✖ ✔ ✔
+   701→Webhooks ✖ ✔ ✔
+   702→Plantillas de automatización 5 todas todas + a medida
+   703→
+   704→--- WEB, INTEGRACIONES Y API ---
+   705→Web del restaurante plantilla personalizable a medida
+   706→Redes sociales desde el panel ✖ ✔ ✔
+   707→Integraciones del marketplace 3 ilimitadas ilimitadas
+   708→API pública REST ✖ solo lectura completa
+   709→SDK y sandbox ✖ ✖ ✔
+   710→Rate limit API - 60 rpm personalizado
+   711→
+   712→--- ORGANIZACIÓN Y GOBIERNO ---
+   713→Locales incluidos 1 hasta 5 ilimitados
+   714→Usuarios 10 ilimitados ilimitados
+   715→Roles predefinidos predefinidos personalizados
+   716→Permisos granulares básicos completos completos
+   717→Carta central multi-local ✖ ✔ ✔
+   718→Informes consolidados de grupo ✖ ✔ ✔
+   719→Modelo franquicia y bloqueos ✖ ✖ ✔
+   720→SSO / SAML / SCIM ✖ ✖ ✔
+   721→2FA ✔ ✔ ✔
+   722→Passkeys ✖ ✔ ✔
+   723→Logs de auditoría 30 días 1 año ilimitado + export
+   724→IP allowlist ✖ ✖ ✔
+   725→Entorno sandbox ✖ ✖ ✔
+   726→
+   727→--- SOPORTE Y SERVICIO ---
+   728→Soporte email/chat chat prioritario 24/7 dedicado
+   729→Tiempo de respuesta objetivo 48 h 8 h 1 h (crítico)
+   730→Onboarding autoservicio guiado implantación a medida
+   731→Migración de datos ⚙ ✔ ✔ gestionada
+   732→Gestor de cuenta ✖ ✖ ✔
+   733→SLA contractual con penalización ✖ ✖ ✔
+   734→Formación del equipo vídeos sesión online presencial
+   735→Revisión trimestral de negocio ✖ ✖ ✔
+   736→
+   737→--- ADD-ONS (cualquier plan) ---
+   738→Local adicional ⚙ ⚙ incluido
+   739→Créditos de WhatsApp/SMS ⚙ ⚙ ⚙
+   740→Quiosco de autoservicio ⚙ ⚙ ⚙
+   741→Pantalla KDS adicional ⚙ ⚙ incluido
+   742→Dominio y web premium ⚙ ⚙ incluido
+   743→White-label completo ✖ ✖ ⚙
+   744→
+   745→-----------------------------------------
+   746→24. MOTOR DE PLANES Y ENTITLEMENTS (TÉCNICO)
+   747→-----------------------------------------
+   748→(Esto es lo que realmente hay que construir. No basta con una tabla en la web.)
+   749→
+   750→24.1 MODELO DE DATOS
+   751→- `plans`: código, nombre, descripción, orden, activo.
+   752→- `features`: clave única, nombre, descripción, categoría, tipo
+   753→(booleano | límite numérico | enumerado).
+   754→- `plan_features`: plan × feature → valor (true/false, número, enum).
+   755→- `subscriptions`: org, plan, ciclo (mensual/anual), estado, periodo,
+   756→fecha de renovación, cupón, precio pactado.
+   757→- `subscription_overrides`: excepciones negociadas por cliente
+   758→(indispensable en Enterprise: siempre habrá un trato especial).
+   759→- `usage_counters`: consumo por feature y periodo (clientes en CRM,
+   760→emails enviados, mensajes WhatsApp, llamadas API, automatizaciones activas).
+   761→- `addons`: complementos contratados y su cantidad.
+   762→
+   763→24.2 EVALUACIÓN
+   764→- Un único servicio `can(org, feature)` y `limit(org, feature)`.
+   765→Consultado SIEMPRE en el backend. El frontend solo pinta.
+   766→- Nunca decidir permisos solo en el cliente. Nunca.
+   767→- Cache de entitlements con invalidación por evento de suscripción.
+   768→- Todo endpoint protegido declara su feature requerida.
+   769→
+   770→24.3 COMPORTAMIENTO AL LLEGAR AL LÍMITE
+   771→- Aviso al 80% y al 100% del consumo, en producto y por email.
+   772→- Nunca cortar una operación crítica en curso (cobrar, comandar, cocinar).
+   773→Si se supera el límite en algo operativo: permitir y facturar el exceso
+   774→o avisar, jamás bloquear el servicio en plena hora punta.
+   775→- Para features no críticas: bloqueo elegante con explicación del beneficio
+   776→y CTA de upgrade que muestre el impacto estimado en euros.
+   777→- Degradación al bajar de plan: nunca borrar datos. Marcarlos como
+   778→inaccesibles y restaurarlos al volver a subir.
+   779→
+   780→24.4 CICLO DE VIDA COMERCIAL
+   781→- Prueba gratuita con acceso a Professional durante 14-30 días.
+   782→- Al terminar: degradación automática a Starter, no corte de servicio.
+   783→- Upgrade instantáneo con prorrateo. Downgrade al final del periodo.
+   784→- Facturación mensual y anual (con descuento anual visible).
+   785→- Portal de autogestión de suscripción, facturas y método de pago.
+   786→- Enterprise: contrato, factura, transferencia, orden de compra, SLA.
+   787→
+   788→24.5 MEDICIÓN INTERNA (SaaS metrics)
+   789→- MRR, ARR, ARPA, churn, expansión, NRR por plan y por cohorte.
+   790→- Adopción por feature: quién usa qué, y qué features predicen retención.
+   791→- Señales de upgrade: quién está tocando límites de forma sostenida.
+   792→- Señales de riesgo: caída de uso del TPV, de reservas o de KDS.
+   793→- Alerta automática al equipo de éxito de cliente.
+   794→
+   795→-----------------------------------------
+   796→25. PRESENTACIÓN COMERCIAL DE LOS PLANES
+   797→-----------------------------------------
+   798→
+   799→Posicionamiento sugerido:
+   800→
+   801→STARTER — "Empieza a operar mejor hoy"
+   802→Para: restaurante único, equipo pequeño, primera digitalización.
+   803→Mensaje: todo lo que necesitas para cobrar, comandar y reservar,
+   804→con PDAs ilimitadas incluidas desde el primer día.
+   805→Gancho: sustituye a 3 herramientas por menos de lo que pagas por una.
+   806→
+   807→PROFESSIONAL — "Haz crecer la facturación" (PLAN RECOMENDADO)
+   808→Para: restaurante consolidado que quiere más rotación y más recurrencia.
+   809→Mensaje: Order & Pay, delivery propio sin comisiones, fidelización,
+   810→automatizaciones y analítica avanzada. Aquí es donde está el dinero.
+   811→Gancho: el ahorro en comisiones de delivery suele pagar el plan entero.
+   812→
+   813→ENTERPRISE — "Escala sin perder el control"
+   814→Para: grupos, cadenas y franquicias.
+   815→Mensaje: multi-local, gobierno, seguridad, API, forecast, SLA y
+   816→gestor dedicado. Un solo panel para todo el grupo.
+   817→Gancho: informes consolidados, carta central y control de qué puede
+   818→tocar cada local.
+   819→
+   820→Reglas de presentación:
+   821→- El comparador de planes es interactivo, con buscador, filtros por
+   822→categoría, tooltips explicativos y primera columna fija.
+   823→- Toggle mensual/anual con el ahorro anual siempre visible.
+   824→- Al seleccionar un plan cambia todo: color, dashboard mostrado,
+   825→beneficios, vídeo y CTA. No tres tarjetas estáticas.
+   826→- La calculadora de ROI recomienda el plan óptimo según los datos
+   827→que introduce el usuario.
+   828→- Nada de "consultar precio" en Starter y Professional. Precio visible.
+   829→Enterprise sí es "hablar con ventas".
+   830→
+   831→=========================================================
+   832→PARTE IV — EJECUCIÓN
+   833→=========================================================
+   834→
+   835→-----------------------------------------
+   836→26. ROADMAP POR FASES
+   837→-----------------------------------------
+   838→
+   839→FASE 1 — FUNDACIÓN (sin esto no eres all-in-one)
+   840→Bloque 0 completo · Multi-tenant · Offline-first · Tiempo real ·
+   841→Event bus · RBAC · Cumplimiento fiscal · TPV · PDA ilimitada ·
+   842→KDS con enrutado y pases · Carta digital con QR.
+   843→Criterio de salida: un restaurante real opera un servicio completo
+   844→de viernes noche sin incidencias.
+   845→
+   846→FASE 2 — DATO Y DINERO
+   847→Order & Pay · Pantalla de cliente · Reservas con motor de turnos ·
+   848→Waitlist · CRM unificado · Sellos · Analítica básica · Onboarding y migración.
+   849→Criterio de salida: reserva → mesa → comanda → pago → sello → reseña
+   850→genera UNA sola ficha de cliente.
+   851→
+   852→FASE 3 — CRECIMIENTO
+   853→Delivery propio 0% · Take away · Recomendador IA · Reseñas con IA ·
+   854→Automatizaciones y Flow Builder · Campañas WhatsApp · Motor de planes
+   855→y entitlements completo.
+   856→Criterio de salida: el cliente puede demostrar con SUS datos
+   857→la mejora en rotación y ticket medio.
+   858→
+   859→FASE 4 — CONTROL
+   860→Inventario y escandallos · Menu engineering · Personal y cuadrantes ·
+   861→BI avanzado · Forecast · Detección de anomalías · Copiloto IA completo.
+   862→
+   863→FASE 5 — ESCALA
+   864→Web y redes · Marketplace · API pública y SDK · Agregadores ·
+   865→Multi-local avanzado · Franquicias · SSO/SCIM · SLA y sandbox.
+   866→
+   867→-----------------------------------------
+   868→27. CRITERIOS DE ACEPTACIÓN TRANSVERSALES
+   869→-----------------------------------------
+   870→
+   871→- Cobrar un ticket sin internet y que sincronice al volver: OK, sin duplicados.
+   872→- Un pedido desde la carta QR aparece en KDS en menos de 3 segundos.
+   873→- Agotar un producto se propaga a carta, PDA, delivery y agregadores en <3 s.
+   874→- Un cliente que reserva, pide por QR, paga y deja reseña genera UNA ficha.
+   875→- El camarero ve la ficha del cliente al sentar la reserva, sin buscarla.
+   876→- Todos los platos de una mesa salen coordinados desde el pase.
+   877→- Cerrar caja en menos de 2 minutos con arqueo y descuadre explicado.
+   878→- Cualquier acción sensible queda auditada con usuario y dispositivo.
+   879→- Todo el backoffice es usable desde móvil.
+   880→- Ningún módulo mantiene una base de clientes paralela.
+   881→- Ninguna feature de pago se controla únicamente en el frontend.
+   882→- Ningún límite de plan puede bloquear una operación crítica en hora punta.
+   883→- Cada claim de impacto está respaldado por la tabla de benchmarks.
+   884→
+   885→-----------------------------------------
+   886→28. LO QUE TE FALTABA Y AHORA ESTÁ INCLUIDO
+   887→-----------------------------------------
+   888→
+   889→1. Motor de entitlements y planes como sistema real, no como tabla de precios.
+   890→2. Pantalla de cliente en el TPV (propina, recibo digital, pedido en vivo).
+   891→3. Lista de espera y gestión de walk-ins (no solo reservas).
+   892→4. Escalado automático de llamadas al camarero sin atender.
+   893→5. 86-ing global instantáneo en todos los canales.
+   894→6. Baseline automático de KPIs para demostrar el antes/después con datos reales.
+   895→7. Disciplina de claims con tabla de benchmarks auditable.
+   896→8. Modelo de franquicia con bloqueos de configuración por nivel.
+   897→9. Modo formación para personal nuevo sin tocar datos reales.
+   898→10. Menu engineering conectado a escandallos y al recomendador de la carta.
+   899→11. Métricas SaaS internas y señales de upgrade/riesgo.
+   900→12. Multi-moneda y multi-zona horaria en el core, no como parche.
+   901→13. Importador de carta por foto con OCR + IA para onboarding en minutos.
+   902→14. Test de aceptación de 4 horas offline como requisito de release.

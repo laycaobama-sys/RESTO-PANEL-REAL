@@ -1,0 +1,1473 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Input } from "@/components/ui/input";
+     9→import { Label } from "@/components/ui/label";
+    10→import { Textarea } from "@/components/ui/textarea";
+    11→import {
+    12→  Dialog,
+    13→  DialogContent,
+    14→  DialogDescription,
+    15→  DialogFooter,
+    16→  DialogHeader,
+    17→  DialogTitle,
+    18→} from "@/components/ui/dialog";
+    19→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+    20→import {
+    21→  Plus, Minus, ArrowLeft, Send, Wallet, CreditCard, QrCode,
+    22→  Smartphone, Coins, Receipt, Lock, Wifi, WifiOff, Clock,
+    23→  Users, UtensilsCrossed, Soup, Beef, Cake, Wine, GlassWater,
+    24→  Bike, ShoppingBag, Armchair, Coffee, CheckCircle2, AlertTriangle,
+    25→  Banknote, SplitSquareHorizontal, X, ChefHat,
+    26→} from "lucide-react";
+    27→
+    28→/* =========================================================
+    29→ * Types
+    30→ * =======================================================*/
+    31→type TpvMode = "mesas" | "barra" | "takeaway" | "delivery";
+    32→type TableStatus = "libre" | "ocupada" | "cuenta" | "reservada";
+    33→type Category = "entrantes" | "principales" | "postres" | "bebidas";
+    34→type PaymentMethod = "efectivo" | "tarjeta" | "qr" | "bizum" | "monedero";
+    35→type SplitMode = "igual" | "porcentaje" | "importe";
+    36→
+    37→interface TpvTable {
+    38→  id: string;
+    39→  name: string;
+    40→  seats: number;
+    41→  status: TableStatus;
+    42→  zone: "sala" | "terraza" | "barra" | "vip";
+    43→  occupants?: number;
+    44→  openedAt?: string; // "HH:mm"
+    45→}
+    46→
+    47→interface Product {
+    48→  id: string;
+    49→  name: string;
+    50→  price: number; // minor units (cents)
+    51→  category: Category;
+    52→  icon: React.ElementType;
+    53→  modifiers?: string[];
+    54→}
+    55→
+    56→interface OrderLine {
+    57→  id: string;
+    58→  product: Product;
+    59→  qty: number;
+    60→  half?: boolean; // media ración
+    61→  note?: string; // nota de cocina
+    62→  status: "pendiente" | "enviada";
+    63→}
+    64→
+    65→interface Order {
+    66→  tableId: string;
+    67→  lines: OrderLine[];
+    68→  diners: number;
+    69→}
+    70→
+    71→/* =========================================================
+    72→ * Mock data
+    73→ * =======================================================*/
+    74→const TABLES: TpvTable[] = [
+    75→  { id: "m1", name: "Mesa 1", seats: 2, status: "ocupada", zone: "sala", occupants: 2, openedAt: "13:42" },
+    76→  { id: "m2", name: "Mesa 2", seats: 4, status: "libre", zone: "sala" },
+    77→  { id: "m3", name: "Mesa 3", seats: 4, status: "cuenta", zone: "sala", occupants: 3, openedAt: "13:10" },
+    78→  { id: "m4", name: "Mesa 4", seats: 6, status: "reservada", zone: "sala" },
+    79→  { id: "m5", name: "Mesa 5", seats: 2, status: "libre", zone: "terraza" },
+    80→  { id: "m6", name: "Mesa 6", seats: 4, status: "ocupada", zone: "terraza", occupants: 4, openedAt: "14:05" },
+    81→  { id: "m7", name: "Mesa 7", seats: 4, status: "libre", zone: "terraza" },
+    82→  { id: "m8", name: "Mesa 8", seats: 8, status: "reservada", zone: "vip" },
+    83→  { id: "m9", name: "Mesa 9", seats: 2, status: "libre", zone: "vip" },
+    84→  { id: "m10", name: "Mesa 10", seats: 4, status: "ocupada", zone: "vip", occupants: 3, openedAt: "13:55" },
+    85→  { id: "m11", name: "Barra 1", seats: 1, status: "cuenta", zone: "barra", occupants: 1, openedAt: "13:30" },
+    86→  { id: "m12", name: "Barra 2", seats: 1, status: "libre", zone: "barra" },
+    87→];
+    88→
+    89→const PRODUCTS: Product[] = [
+    90→  // Entrantes
+    91→  { id: "e1", name: "Croquetas de jamón", price: 950, category: "entrantes", icon: Soup, modifiers: ["Sin gluten"] },
+    92→  { id: "e2", name: "Ensaladilla rusa", price: 850, category: "entrantes", icon: Soup },
+    93→  { id: "e3", name: "Calamares a la andaluza", price: 1250, category: "entrantes", icon: Soup, modifiers: ["Media ración", "Ración"] },
+    94→  { id: "e4", name: "Gazpacho", price: 700, category: "entrantes", icon: Soup },
+    95→  { id: "e5", name: "Patatas bravas", price: 800, category: "entrantes", icon: Soup, modifiers: ["Media ración", "Ración"] },
+    96→  // Principales
+    97→  { id: "p1", name: "Secreto ibérico", price: 1650, category: "principales", icon: Beef, modifiers: ["Punto: poco/hecho/punto", "Guarnición"] },
+    98→  { id: "p2", name: "Bacalao confitado", price: 1850, category: "principales", icon: Beef },
+    99→  { id: "p3", name: "Risotto de setas", price: 1400, category: "principales", icon: Beef, modifiers: ["Sin lactosa"] },
+   100→  { id: "p4", name: "Hamburguesa de ternera", price: 1350, category: "principales", icon: Beef, modifiers: ["Punto carne", "Sin cebolla"] },
+   101→  { id: "p5", name: "Pollo asado", price: 1250, category: "principales", icon: Beef },
+   102→  { id: "p6", name: "Paella de marisco", price: 1950, category: "principales", icon: Beef },
+   103→  // Postres
+   104→  { id: "d1", name: "Tarta de queso", price: 650, category: "postres", icon: Cake },
+   105→  { id: "d2", name: "Torrija caramelizada", price: 600, category: "postres", icon: Cake },
+   106→  { id: "d3", name: "Helado artesano", price: 500, category: "postres", icon: Cake, modifiers: ["Vainilla", "Chocolate", "Fresa"] },
+   107→  { id: "d4", name: "Coulant de chocolate", price: 700, category: "postres", icon: Cake },
+   108→  // Bebidas
+   109→  { id: "b1", name: "Refresco", price: 250, category: "bebidas", icon: Wine, modifiers: ["Coca-Cola", "Naranja", "Limón"] },
+   110→  { id: "b2", name: "Cerveza", price: 300, category: "bebidas", icon: GlassWater, modifiers: ["Caña", "Doble", "Sin alcohol"] },
+   111→  { id: "b3", name: "Vino copa", price: 450, category: "bebidas", icon: Wine, modifiers: ["Tinto", "Blanco", "Rosado"] },
+   112→  { id: "b4", name: "Agua", price: 200, category: "bebidas", icon: GlassWater },
+   113→  { id: "b5", name: "Café", price: 180, category: "bebidas", icon: Coffee, modifiers: ["Solo", "Cortado", "Con leche"] },
+   114→];
+   115→
+   116→const CATEGORIES: { id: Category; label: string; icon: React.ElementType }[] = [
+   117→  { id: "entrantes", label: "Entrantes", icon: Soup },
+   118→  { id: "principales", label: "Principales", icon: Beef },
+   119→  { id: "postres", label: "Postres", icon: Cake },
+   120→  { id: "bebidas", label: "Bebidas", icon: Wine },
+   121→];
+   122→
+   123→const MODES: { id: TpvMode; label: string; icon: React.ElementType }[] = [
+   124→  { id: "mesas", label: "Mesas", icon: Armchair },
+   125→  { id: "barra", label: "Barra rápida", icon: Coffee },
+   126→  { id: "takeaway", label: "Take away", icon: ShoppingBag },
+   127→  { id: "delivery", label: "Delivery", icon: Bike },
+   128→];
+   129→
+   130→const PAYMENT_METHODS: { id: PaymentMethod; label: string; icon: React.ElementType }[] = [
+   131→  { id: "efectivo", label: "Efectivo", icon: Banknote },
+   132→  { id: "tarjeta", label: "Tarjeta", icon: CreditCard },
+   133→  { id: "qr", label: "QR", icon: QrCode },
+   134→  { id: "bizum", label: "Bizum", icon: Smartphone },
+   135→  { id: "monedero", label: "Monedero", icon: Wallet },
+   136→];
+   137→
+   138→const TABLE_STATUS_META: Record<
+   139→  TableStatus,
+   140→  { label: string; dot: string; border: string; bg: string; text: string }
+   141→> = {
+   142→  libre: { label: "Libre", dot: "bg-emerald-400", border: "border-emerald-400/55", bg: "bg-emerald-400/10", text: "text-emerald-300" },
+   143→  ocupada: { label: "Ocupada", dot: "bg-[var(--teal)]", border: "border-[var(--teal)]/60", bg: "bg-[var(--teal)]/12", text: "text-[var(--teal)]" },
+   144→  cuenta: { label: "Cuenta abierta", dot: "bg-[var(--gold)]", border: "border-[var(--gold)]/60", bg: "bg-[var(--gold)]/12", text: "text-[var(--gold-soft)]" },
+   145→  reservada: { label: "Reservada", dot: "bg-violet-400", border: "border-violet-400/55", bg: "bg-violet-400/10", text: "text-violet-300" },
+   146→};
+   147→
+   148→/* =========================================================
+   149→ * Helpers
+   150→ * =======================================================*/
+   151→function formatEUR(cents: number): string {
+   152→  return new Intl.NumberFormat("es-ES", {
+   153→    style: "currency",
+   154→    currency: "EUR",
+   155→  }).format(cents / 100);
+   156→}
+   157→
+   158→function newLineId(): string {
+   159→  return Math.random().toString(36).slice(2, 10);
+   160→}
+   161→
+   162→function DemoBadge({ className }: { className?: string }) {
+   163→  return (
+   164→    <Badge
+   165→      variant="outline"
+   166→      className={cn(
+   167→        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
+   168→        className
+   169→      )}
+   170→    >
+   171→      demo
+   172→    </Badge>
+   173→  );
+   174→}
+   175→
+   176→function useAnimatedNumber(value: number, duration = 350) {
+   177→  const reduce = useReducedMotion();
+   178→  const [display, setDisplay] = React.useState(value);
+   179→  const fromRef = React.useRef(value);
+   180→  const rafRef = React.useRef<number | null>(null);
+   181→
+   182→  React.useEffect(() => {
+   183→    if (reduce) {
+   184→      setDisplay(value);
+   185→      return;
+   186→    }
+   187→    const from = fromRef.current;
+   188→    const to = value;
+   189→    if (from === to) return;
+   190→    const start = performance.now();
+   191→    function tick(now: number) {
+   192→      const t = Math.min(1, (now - start) / duration);
+   193→      const eased = 1 - Math.pow(1 - t, 3);
+   194→      setDisplay(Math.round(from + (to - from) * eased));
+   195→      if (t < 1) {
+   196→        rafRef.current = requestAnimationFrame(tick);
+   197→      } else {
+   198→        fromRef.current = to;
+   199→      }
+   200→    }
+   201→    rafRef.current = requestAnimationFrame(tick);
+   202→    return () => {
+   203→      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+   204→      fromRef.current = value;
+   205→    };
+   206→  }, [value, duration, reduce]);
+   207→
+   208→  return display;
+   209→}
+   210→
+   211→/* =========================================================
+   212→ * Main view
+   213→ * =======================================================*/
+   214→export function TpvView() {
+   215→  const { toast } = useToast();
+   216→  const reduce = useReducedMotion();
+   217→
+   218→  const [mode, setMode] = React.useState<TpvMode>("mesas");
+   219→  const [tables, setTables] = React.useState<TpvTable[]>(TABLES);
+   220→  const [selectedTableId, setSelectedTableId] = React.useState<string | null>(null);
+   221→  const [orders, setOrders] = React.useState<Record<string, Order>>({
+   222→    // one open order example on Mesa 1
+   223→    m1: {
+   224→      tableId: "m1",
+   225→      diners: 2,
+   226→      lines: [
+   227→        { id: "l1", product: PRODUCTS[0], qty: 1, status: "enviada" },
+   228→        { id: "l2", product: PRODUCTS[5], qty: 2, half: true, note: "Poco hecho", status: "enviada" },
+   229→        { id: "l3", product: PRODUCTS[16], qty: 2, status: "pendiente" },
+   230→      ],
+   231→    },
+   232→  });
+   233→
+   234→  const [activeCategory, setActiveCategory] = React.useState<Category>("entrantes");
+   235→  const [modifierDialog, setModifierDialog] = React.useState<{
+   236→    product: Product;
+   237→  } | null>(null);
+   238→  const [paymentDialog, setPaymentDialog] = React.useState<{ tableId: string } | null>(null);
+   239→  const [closeTillDialog, setCloseTillDialog] = React.useState(false);
+   240→
+   241→  const [online, setOnline] = React.useState(true);
+   242→  const [pendingSync, setPendingSync] = React.useState(0);
+   243→  const [soundOn, setSoundOn] = React.useState(true);
+   244→  const [shiftOpen, setShiftOpen] = React.useState(true);
+   245→
+   246→  const selectedTable = tables.find((t) => t.id === selectedTableId) ?? null;
+   247→  const currentOrder = selectedTableId ? orders[selectedTableId] ?? null : null;
+   248→
+   249→  const orderSubtotal = currentOrder
+   250→    ? currentOrder.lines.reduce(
+   251→        (sum, l) => sum + l.product.price * l.qty * (l.half ? 0.6 : 1),
+   252→        0
+   253→      )
+   254→    : 0;
+   255→
+   256→  const occupiedCount = tables.filter(
+   257→    (t) => t.status === "ocupada" || t.status === "cuenta"
+   258→  ).length;
+   259→  const freeCount = tables.filter((t) => t.status === "libre").length;
+   260→  const reservedCount = tables.filter((t) => t.status === "reservada").length;
+   261→
+   262→  const animOccupied = useAnimatedNumber(occupiedCount);
+   263→  const animFree = useAnimatedNumber(freeCount);
+   264→  const animReserved = useAnimatedNumber(reservedCount);
+   265→
+   266→  /* ----- handlers ----- */
+   267→  function openTable(t: TpvTable) {
+   268→    if (t.status === "reservada") {
+   269→      toast({
+   270→        title: "Mesa reservada",
+   271→        description: `${t.name} tiene reserva. Confirma la llegada antes de abrir.`,
+   272→        variant: "destructive",
+   273→      });
+   274→      return;
+   275→    }
+   276→    setSelectedTableId(t.id);
+   277→    if (!orders[t.id]) {
+   278→      setOrders((o) => ({
+   279→        ...o,
+   280→        [t.id]: { tableId: t.id, lines: [], diners: t.occupants ?? t.seats },
+   281→      }));
+   282→      setTables((ts) =>
+   283→        ts.map((x) =>
+   284→          x.id === t.id
+   285→            ? {
+   286→                ...x,
+   287→                status: x.status === "libre" ? "ocupada" : x.status,
+   288→                occupants: x.occupants ?? x.seats,
+   289→                openedAt: x.openedAt ?? new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+   290→              }
+   291→            : x
+   292→        )
+   293→      );
+   294→    }
+   295→  }
+   296→
+   297→  function selectProduct(p: Product) {
+   298→    if (!p.modifiers || p.modifiers.length === 0) {
+   299→      addLine(p);
+   300→      return;
+   301→    }
+   302→    setModifierDialog({ product: p });
+   303→  }
+   304→
+   305→  function addLine(p: Product, opts?: { half?: boolean; note?: string }) {
+   306→    if (!selectedTableId) return;
+   307→    const newLine: OrderLine = {
+   308→      id: newLineId(),
+   309→      product: p,
+   310→      qty: 1,
+   311→      half: opts?.half,
+   312→      note: opts?.note,
+   313→      status: "pendiente",
+   314→    };
+   315→    setOrders((o) => ({
+   316→      ...o,
+   317→      [selectedTableId]: {
+   318→        ...(o[selectedTableId] ?? { tableId: selectedTableId, lines: [], diners: 2 }),
+   319→        lines: [...(o[selectedTableId]?.lines ?? []), newLine],
+   320→      },
+   321→    }));
+   322→    if (!online) setPendingSync((n) => n + 1);
+   323→  }
+   324→
+   325→  function changeLineQty(lineId: string, delta: number) {
+   326→    if (!selectedTableId) return;
+   327→    setOrders((o) => {
+   328→      const order = o[selectedTableId];
+   329→      if (!order) return o;
+   330→      return {
+   331→        ...o,
+   332→        [selectedTableId]: {
+   333→          ...order,
+   334→          lines: order.lines
+   335→            .map((l) => (l.id === lineId ? { ...l, qty: Math.max(0, l.qty + delta) } : l))
+   336→            .filter((l) => l.qty > 0),
+   337→        },
+   338→      };
+   339→    });
+   340→  }
+   341→
+   342→  function removeLine(lineId: string) {
+   343→    if (!selectedTableId) return;
+   344→    setOrders((o) => {
+   345→      const order = o[selectedTableId];
+   346→      if (!order) return o;
+   347→      return {
+   348→        ...o,
+   349→        [selectedTableId]: {
+   350→          ...order,
+   351→          lines: order.lines.filter((l) => l.id !== lineId),
+   352→        },
+   353→      };
+   354→    });
+   355→  }
+   356→
+   357→  function sendToKitchen() {
+   358→    if (!selectedTableId || !currentOrder) return;
+   359→    const pendientes = currentOrder.lines.filter((l) => l.status === "pendiente");
+   360→    if (pendientes.length === 0) {
+   361→      toast({
+   362→        title: "Nada pendiente",
+   363→        description: "Todos los platos ya fueron enviados a cocina.",
+   364→      });
+   365→      return;
+   366→    }
+   367→    setOrders((o) => {
+   368→      const order = o[selectedTableId];
+   369→      if (!order) return o;
+   370→      return {
+   371→        ...o,
+   372→        [selectedTableId]: {
+   373→          ...order,
+   374→          lines: order.lines.map((l) =>
+   375→            l.status === "pendiente" ? { ...l, status: "enviada" } : l
+   376→          ),
+   377→        },
+   378→      };
+   379→    });
+   380→    setTables((ts) =>
+   381→      ts.map((x) => (x.id === selectedTableId ? { ...x, status: "ocupada" } : x))
+   382→    );
+   383→    toast({
+   384→      title: "Enviado a cocina",
+   385→      description: `${pendientes.length} líneas · ${selectedTable?.name ?? ""}`,
+   386→    });
+   387→    if (!online) setPendingSync((n) => n + pendientes.length);
+   388→  }
+   389→
+   390→  function openPayment(tableId: string) {
+   391→    setPaymentDialog({ tableId });
+   392→  }
+   393→
+   394→  function toggleOnline() {
+   395→    if (online) {
+   396→      setOnline(false);
+   397→      toast({
+   398→        title: "Modo offline",
+   399→        description: "Los tickets se guardan localmente y se sincronizarán al recuperar conexión.",
+   400→      });
+   401→    } else {
+   402→      setOnline(true);
+   403→      if (pendingSync > 0) {
+   404→        toast({
+   405→          title: "Sincronización completa",
+   406→          description: `${pendingSync} operaciones sincronizadas con el servidor.`,
+   407→        });
+   408→        setPendingSync(0);
+   409→      } else {
+   410→        toast({ title: "Online", description: "Conexión restablecida." });
+   411→      }
+   412→    }
+   413→  }
+   414→
+   415→  function closeTill() {
+   416→    setShiftOpen(false);
+   417→    setCloseTillDialog(false);
+   418→    toast({
+   419→      title: "Caja cerrada",
+   420→      description: "Arqueo ciego enviado. Turno finalizado correctamente.",
+   421→    });
+   422→  }
+   423→
+   424→  function openTill() {
+   425→    setShiftOpen(true);
+   426→    toast({ title: "Turno abierto", description: "Fondo inicial 200,00 €." });
+   427→  }
+   428→
+   429→  function backToTables() {
+   430→    setSelectedTableId(null);
+   431→  }
+   432→
+   433→  /* ----- render ----- */
+   434→  return (
+   435→    <div className="space-y-6">
+   436→      {/* Header */}
+   437→      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   438→        <div>
+   439→          <div className="flex items-center gap-2">
+   440→            <h1 className="font-display text-2xl sm:text-3xl tracking-tight">TPV</h1>
+   441→            <DemoBadge />
+   442→          </div>
+   443→          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+   444→            Terminal punto de venta · mesas, barra, take away y delivery.
+   445→            Cobro dividido, propinas y arqueo ciego.
+   446→          </p>
+   447→        </div>
+   448→        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+   449→          <button
+   450→            type="button"
+   451→            onClick={toggleOnline}
+   452→            aria-label={online ? "Marcar offline" : "Sincronizar"}
+   453→            className={cn(
+   454→              "inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-mono uppercase tracking-wider transition-colors min-h-11",
+   455→              online
+   456→                ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+   457→                : "border-amber-400/50 bg-amber-400/10 text-amber-300"
+   458→            )}
+   459→          >
+   460→            {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
+   461→            {online ? "Online" : `Sincronizando (${pendingSync} pendientes)`}
+   462→          </button>
+   463→          <Button
+   464→            variant="outline"
+   465→            onClick={() => setSoundOn((s) => !s)}
+   466→            className="min-h-11"
+   467→            aria-pressed={soundOn}
+   468→            aria-label={soundOn ? "Silenciar avisos" : "Activar avisos"}
+   469→          >
+   470→            {soundOn ? "Sonido on" : "Sonido off"}
+   471→          </Button>
+   472→        </div>
+   473→      </header>
+   474→
+   475→      {/* Shift status strip */}
+   476→      <div className="rp-glass rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+   477→        <div className="flex items-center gap-3 min-w-0">
+   478→          <div
+   479→            className={cn(
+   480→              "h-2.5 w-2.5 rounded-full shrink-0",
+   481→              shiftOpen ? "bg-emerald-400 animate-pulse" : "bg-zinc-500"
+   482→            )}
+   483→          />
+   484→          <div className="min-w-0">
+   485→            <div className="text-sm font-medium">
+   486→              {shiftOpen ? "Turno abierto" : "Turno cerrado"}
+   487→            </div>
+   488→            <div className="text-[11px] font-mono text-muted-foreground truncate">
+   489→              {shiftOpen
+   490→                ? "Fondo 200,00 € · Arqueo ciego · Inicio 12:30"
+   491→                : "Sin turno activo · Abre caja para empezar"}
+   492→            </div>
+   493→          </div>
+   494→        </div>
+   495→        <Button
+   496→          variant={shiftOpen ? "destructive" : "default"}
+   497→          className={cn(
+   498→            "min-h-11 shrink-0",
+   499→            !shiftOpen && "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]"
+   500→          )}
+   501→          onClick={() => (shiftOpen ? setCloseTillDialog(true) : openTill())}
+   502→        >
+   503→          <Lock className="h-4 w-4" />
+   504→          {shiftOpen ? "Cerrar caja" : "Abrir caja"}
+   505→        </Button>
+   506→      </div>
+   507→
+   508→      {/* Mode tabs */}
+   509→      <div className="relative">
+   510→        <div
+   511→          className="flex items-center gap-1 overflow-x-auto rp-scroll-thin pb-1 -mb-2"
+   512→          role="tablist"
+   513→          aria-label="Modos de venta"
+   514→        >
+   515→          {MODES.map((m) => (
+   516→            <button
+   517→              key={m.id}
+   518→              role="tab"
+   519→              aria-selected={mode === m.id}
+   520→              onClick={() => {
+   521→                setMode(m.id);
+   522→                setSelectedTableId(null);
+   523→              }}
+   524→              className={cn(
+   525→                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors min-h-[40px] border",
+   526→                mode === m.id
+   527→                  ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border-[var(--gold)]/30"
+   528→                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border-transparent"
+   529→              )}
+   530→            >
+   531→              <m.icon className="h-4 w-4" aria-hidden />
+   532→              {m.label}
+   533→            </button>
+   534→          ))}
+   535→        </div>
+   536→        <div className="pointer-events-none absolute left-0 top-0 bottom-1 w-6 bg-gradient-to-r from-background to-transparent" aria-hidden />
+   537→        <div className="pointer-events-none absolute right-0 top-0 bottom-1 w-6 bg-gradient-to-l from-background to-transparent" aria-hidden />
+   538→      </div>
+   539→
+   540→      {/* KPI strip */}
+   541→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+   542→        <KpiCard icon={Armchair} label="Ocupadas" value={String(animOccupied)} caption={`${occupiedCount} de ${tables.length} mesas`} tone="teal" />
+   543→        <KpiCard icon={CheckCircle2} label="Libres" value={String(animFree)} caption="disponibles ahora" tone="gold" />
+   544→        <KpiCard icon={Clock} label="Reservadas" value={String(animReserved)} caption="próximas llegadas" tone="muted" />
+   545→        <KpiCard icon={Receipt} label="Tickets abiertos" value={String(Object.keys(orders).length)} caption="cuentas activas" tone="gold" />
+   546→      </div>
+   547→
+   548→      {mode === "mesas" && !selectedTable && <TablesGrid tables={tables} onOpen={openTable} />}
+   549→
+   550→      {mode === "mesas" && selectedTable && (
+   551→        <OrderScreen
+   552→          table={selectedTable}
+   553→          order={currentOrder}
+   554→          activeCategory={activeCategory}
+   555→          onCategory={setActiveCategory}
+   556→          onSelectProduct={selectProduct}
+   557→          onChangeQty={changeLineQty}
+   558→          onRemoveLine={removeLine}
+   559→          onSendKitchen={sendToKitchen}
+   560→          onPayment={() => openPayment(selectedTable.id)}
+   561→          onBack={backToTables}
+   562→          subtotal={orderSubtotal}
+   563→          reduce={reduce}
+   564→        />
+   565→      )}
+   566→
+   567→      {mode !== "mesas" && (
+   568→        <QuickOrderPanel mode={mode} products={PRODUCTS} onSelectProduct={selectProduct} />
+   569→      )}
+   570→
+   571→      {/* Modifier dialog */}
+   572→      <ModifierDialog
+   573→        state={modifierDialog}
+   574→        onClose={() => setModifierDialog(null)}
+   575→        onConfirm={(p, opts) => {
+   576→          addLine(p, opts);
+   577→          setModifierDialog(null);
+   578→        }}
+   579→      />
+   580→
+   581→      {/* Payment dialog */}
+   582→      <PaymentDialog
+   583→        state={paymentDialog}
+   584→        order={paymentDialog ? orders[paymentDialog.tableId] ?? null : null}
+   585→        tableName={paymentDialog ? tables.find((t) => t.id === paymentDialog.tableId)?.name ?? "" : ""}
+   586→        onClose={() => setPaymentDialog(null)}
+   587→        onCharge={(method, total, tip) => {
+   588→          if (!paymentDialog) return;
+   589→          const tableName = tables.find((t) => t.id === paymentDialog.tableId)?.name ?? "";
+   590→          setOrders((o) => {
+   591→            const next = { ...o };
+   592→            delete next[paymentDialog.tableId];
+   593→            return next;
+   594→          });
+   595→          setTables((ts) =>
+   596→            ts.map((x) =>
+   597→              x.id === paymentDialog.tableId
+   598→                ? { ...x, status: "libre", occupants: undefined, openedAt: undefined }
+   599→                : x
+   600→            )
+   601→          );
+   602→          setPaymentDialog(null);
+   603→          toast({
+   604→            title: "Cobro realizado",
+   605→            description: `${tableName} · ${formatEUR(total + tip)} vía ${method}${tip > 0 ? ` · propina ${formatEUR(tip)}` : ""}`,
+   606→          });
+   607→        }}
+   608→      />
+   609→
+   610→      {/* Close till dialog */}
+   611→      <CloseTillDialog
+   612→        open={closeTillDialog}
+   613→        onClose={() => setCloseTillDialog(false)}
+   614→        onConfirm={closeTill}
+   615→        orders={orders}
+   616→      />
+   617→    </div>
+   618→  );
+   619→}
+   620→
+   621→/* =========================================================
+   622→ * KPI card
+   623→ * =======================================================*/
+   624→function KpiCard({
+   625→  icon: Icon,
+   626→  label,
+   627→  value,
+   628→  caption,
+   629→  tone,
+   630→}: {
+   631→  icon: React.ElementType;
+   632→  label: string;
+   633→  value: string;
+   634→  caption: string;
+   635→  tone: "gold" | "teal" | "muted";
+   636→}) {
+   637→  const toneCls =
+   638→    tone === "gold"
+   639→      ? "text-[var(--gold)]"
+   640→      : tone === "teal"
+   641→        ? "text-[var(--teal)]"
+   642→        : "text-muted-foreground";
+   643→  return (
+   644→    <div className="rp-glass rounded-xl p-4 flex items-center gap-3">
+   645→      <div className={cn("h-10 w-10 rounded-lg flex items-center justify-center bg-foreground/[0.04]", toneCls)}>
+   646→        <Icon className="h-5 w-5" />
+   647→      </div>
+   648→      <div className="min-w-0">
+   649→        <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground truncate">
+   650→          {label}
+   651→        </div>
+   652→        <div className="text-xl font-display font-medium tabular-nums leading-tight">
+   653→          {value}
+   654→        </div>
+   655→        <div className="text-[11px] text-muted-foreground truncate">{caption}</div>
+   656→      </div>
+   657→    </div>
+   658→  );
+   659→}
+   660→
+   661→/* =========================================================
+   662→ * Tables grid
+   663→ * =======================================================*/
+   664→function TablesGrid({
+   665→  tables,
+   666→  onOpen,
+   667→}: {
+   668→  tables: TpvTable[];
+   669→  onOpen: (t: TpvTable) => void;
+   670→}) {
+   671→  return (
+   672→    <section className="rp-glass rounded-2xl overflow-hidden">
+   673→      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 flex-wrap gap-3">
+   674→        <div className="flex items-center gap-2">
+   675→          <Armchair className="h-4 w-4 text-[var(--gold)]" />
+   676→          <span className="text-sm font-medium">Sala · {tables.length} mesas</span>
+   677→          <DemoBadge />
+   678→        </div>
+   679→        <div className="flex items-center gap-3 text-[11px] font-mono text-muted-foreground flex-wrap">
+   680→          <span className="flex items-center gap-1">
+   681→            <span className="h-2 w-2 rounded-full bg-emerald-400" /> Libre
+   682→          </span>
+   683→          <span className="flex items-center gap-1">
+   684→            <span className="h-2 w-2 rounded-full bg-[var(--teal)]" /> Ocupada
+   685→          </span>
+   686→          <span className="flex items-center gap-1">
+   687→            <span className="h-2 w-2 rounded-full bg-[var(--gold)]" /> Cuenta
+   688→          </span>
+   689→          <span className="flex items-center gap-1">
+   690→            <span className="h-2 w-2 rounded-full bg-violet-400" /> Reservada
+   691→          </span>
+   692→        </div>
+   693→      </div>
+   694→      <div className="p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+   695→        {tables.map((t) => {
+   696→          const meta = TABLE_STATUS_META[t.status];
+   697→          return (
+   698→            <button
+   699→              key={t.id}
+   700→              type="button"
+   701→              onClick={() => onOpen(t)}
+   702→              className={cn(
+   703→                "group text-left rounded-xl border p-3 transition-all hover:scale-[1.02] hover:shadow-lg",
+   704→                meta.border,
+   705→                meta.bg
+   706→              )}
+   707→            >
+   708→              <div className="flex items-start justify-between gap-2">
+   709→                <div className="flex items-center gap-2 min-w-0">
+   710→                  <Armchair className={cn("h-4 w-4 shrink-0", meta.text)} />
+   711→                  <span className="font-medium text-sm truncate">{t.name}</span>
+   712→                </div>
+   713→                <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", meta.dot)} />
+   714→              </div>
+   715→              <div className="mt-2 flex items-center justify-between text-[11px] font-mono text-muted-foreground">
+   716→                <span className="flex items-center gap-1">
+   717→                  <Users className="h-3 w-3" />
+   718→                  {t.occupants ?? t.seats}/{t.seats}
+   719→                </span>
+   720→                {t.openedAt && (
+   721→                  <span className="flex items-center gap-1">
+   722→                    <Clock className="h-3 w-3" />
+   723→                    {t.openedAt}
+   724→                  </span>
+   725→                )}
+   726→              </div>
+   727→              <div className={cn("mt-2 text-[10px] font-mono uppercase tracking-wider", meta.text)}>
+   728→                {meta.label}
+   729→              </div>
+   730→            </button>
+   731→          );
+   732→        })}
+   733→      </div>
+   734→    </section>
+   735→  );
+   736→}
+   737→
+   738→/* =========================================================
+   739→ * Order screen (table open)
+   740→ * =======================================================*/
+   741→function OrderScreen({
+   742→  table,
+   743→  order,
+   744→  activeCategory,
+   745→  onCategory,
+   746→  onSelectProduct,
+   747→  onChangeQty,
+   748→  onRemoveLine,
+   749→  onSendKitchen,
+   750→  onPayment,
+   751→  onBack,
+   752→  subtotal,
+   753→  reduce,
+   754→}: {
+   755→  table: TpvTable;
+   756→  order: Order | null;
+   757→  activeCategory: Category;
+   758→  onCategory: (c: Category) => void;
+   759→  onSelectProduct: (p: Product) => void;
+   760→  onChangeQty: (lineId: string, delta: number) => void;
+   761→  onRemoveLine: (lineId: string) => void;
+   762→  onSendKitchen: () => void;
+   763→  onPayment: () => void;
+   764→  onBack: () => void;
+   765→  subtotal: number;
+   766→  reduce: boolean | null;
+   767→}) {
+   768→  const products = PRODUCTS.filter((p) => p.category === activeCategory);
+   769→  const pendientes = order?.lines.filter((l) => l.status === "pendiente").length ?? 0;
+   770→
+   771→  return (
+   772→    <div className="space-y-4">
+   773→      {/* Top bar */}
+   774→      <div className="rp-glass rounded-2xl p-3 flex flex-wrap items-center justify-between gap-3">
+   775→        <div className="flex items-center gap-3 min-w-0">
+   776→          <Button variant="ghost" size="sm" onClick={onBack} className="shrink-0">
+   777→            <ArrowLeft className="h-4 w-4" /> Volver
+   778→          </Button>
+   779→          <div className="min-w-0">
+   780→            <div className="flex items-center gap-2 flex-wrap">
+   781→              <span className="font-display text-lg font-medium">{table.name}</span>
+   782→              <Badge variant="outline" className="border-[var(--teal)]/40 text-[var(--teal)] bg-[var(--teal)]/10 text-[10px] uppercase tracking-wider">
+   783→                {TABLE_STATUS_META[table.status].label}
+   784→              </Badge>
+   785→            </div>
+   786→            <div className="text-[11px] font-mono text-muted-foreground">
+   787→              {order?.diners ?? table.occupants ?? table.seats} comensales · abierta {table.openedAt ?? "—"}
+   788→            </div>
+   789→          </div>
+   790→        </div>
+   791→        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+   792→          <Button
+   793→            onClick={onSendKitchen}
+   794→            variant="outline"
+   795→            className="border-[var(--teal)]/40 text-[var(--teal)] hover:bg-[var(--teal)]/10 min-h-11"
+   796→            disabled={pendientes === 0}
+   797→          >
+   798→            <Send className="h-4 w-4" />
+   799→            Enviar a cocina
+   800→            {pendientes > 0 && (
+   801→              <Badge className="ml-1 bg-[var(--teal)]/20 text-[var(--teal)] border-[var(--teal)]/40">
+   802→                {pendientes}
+   803→              </Badge>
+   804→            )}
+   805→          </Button>
+   806→          <Button onClick={onPayment} className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-11">
+   807→            <Receipt className="h-4 w-4" /> Cobrar
+   808→          </Button>
+   809→        </div>
+   810→      </div>
+   811→
+   812→      <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr_360px] gap-4">
+   813→        {/* Categories sidebar */}
+   814→        <aside className="rp-glass rounded-2xl p-2 lg:p-3 order-1">
+   815→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground px-2 py-1 hidden lg:block">
+   816→            Categorías
+   817→          </div>
+   818→          <div className="flex lg:flex-col gap-1 overflow-x-auto rp-scroll-thin">
+   819→            {CATEGORIES.map((c) => (
+   820→              <button
+   821→                key={c.id}
+   822→                type="button"
+   823→                onClick={() => onCategory(c.id)}
+   824→                className={cn(
+   825→                  "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors min-h-11 lg:w-full lg:justify-start justify-center",
+   826→                  activeCategory === c.id
+   827→                    ? "bg-[var(--gold)]/12 text-[var(--gold-soft)] border border-[var(--gold)]/30"
+   828→                    : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border border-transparent"
+   829→                )}
+   830→              >
+   831→                <c.icon className="h-4 w-4 shrink-0" />
+   832→                {c.label}
+   833→              </button>
+   834→            ))}
+   835→          </div>
+   836→        </aside>
+   837→
+   838→        {/* Product grid */}
+   839→        <section className="order-3 lg:order-2 min-w-0">
+   840→          <div className="rp-glass rounded-2xl p-3">
+   841→            <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-2">
+   842→              {products.map((p) => (
+   843→                <button
+   844→                  key={p.id}
+   845→                  type="button"
+   846→                  onClick={() => onSelectProduct(p)}
+   847→                  className="group text-left rounded-xl border border-border/50 bg-foreground/[0.03] p-3 transition-all hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/5 hover:scale-[1.02]"
+   848→                >
+   849→                  <div className="flex items-start justify-between gap-2">
+   850→                    <div className="h-9 w-9 rounded-lg bg-foreground/[0.05] flex items-center justify-center text-[var(--gold)] shrink-0">
+   851→                      <p.icon className="h-4 w-4" />
+   852→                    </div>
+   853→                    <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   854→                      {CATEGORIES.find((c) => c.id === p.category)?.label.slice(0, 3)}
+   855→                    </span>
+   856→                  </div>
+   857→                  <div className="mt-2 text-sm font-medium leading-tight line-clamp-2">{p.name}</div>
+   858→                  <div className="mt-1 text-sm font-display font-medium rp-gold-text tabular-nums">
+   859→                    {formatEUR(p.price)}
+   860→                  </div>
+   861→                  {p.modifiers && (
+   862→                    <div className="mt-1 text-[10px] text-muted-foreground truncate">
+   863→                      {p.modifiers.length} opciones
+   864→                    </div>
+   865→                  )}
+   866→                </button>
+   867→              ))}
+   868→            </div>
+   869→          </div>
+   870→        </section>
+   871→
+   872→        {/* Order ticket */}
+   873→        <aside className="order-2 lg:order-3 min-w-0">
+   874→          <div className="rp-glass rounded-2xl overflow-hidden lg:sticky lg:top-4">
+   875→            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+   876→              <div className="flex items-center gap-2">
+   877→                <ChefHat className="h-4 w-4 text-[var(--gold)]" />
+   878→                <span className="text-sm font-medium">Ticket · {table.name}</span>
+   879→              </div>
+   880→              <DemoBadge />
+   881→            </div>
+   882→
+   883→            <div className="max-h-[440px] overflow-y-auto rp-scroll-thin">
+   884→              {!order || order.lines.length === 0 ? (
+   885→                <div className="p-8 text-center text-sm text-muted-foreground">
+   886→                  <UtensilsCrossed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+   887→                  Añade productos desde la cuadrícula.
+   888→                </div>
+   889→              ) : (
+   890→                <ul className="divide-y divide-border/40">
+   891→                  <AnimatePresence initial={false}>
+   892→                    {order.lines.map((l) => (
+   893→                      <motion.li
+   894→                        key={l.id}
+   895→                        initial={reduce ? false : { opacity: 0, y: -6 }}
+   896→                        animate={{ opacity: 1, y: 0 }}
+   897→                        exit={{ opacity: 0, x: 12 }}
+   898→                        className="p-3 flex items-start gap-2"
+   899→                      >
+   900→                        <div className="flex-1 min-w-0">
+   901→                          <div className="flex items-center gap-2">
+   902→                            <span className="text-sm font-medium truncate">{l.product.name}</span>
+   903→                            {l.status === "enviada" && (
+   904→                              <Badge className="bg-[var(--teal)]/15 text-[var(--teal)] border-[var(--teal)]/30 text-[10px] uppercase tracking-wider shrink-0">
+   905→                                enviada
+   906→                              </Badge>
+   907→                            )}
+   908→                          </div>
+   909→                          {l.half && (
+   910→                            <div className="text-[11px] text-[var(--gold-soft)] font-mono mt-0.5">
+   911→                              Media ración
+   912→                            </div>
+   913→                          )}
+   914→                          {l.note && (
+   915→                            <div className="text-[11px] text-muted-foreground italic mt-0.5 truncate">
+   916→                              ↳ {l.note}
+   917→                            </div>
+   918→                          )}
+   919→                          <div className="text-[11px] font-mono text-muted-foreground mt-0.5 tabular-nums">
+   920→                            {formatEUR(l.product.price * (l.half ? 0.6 : 1))} c/u
+   921→                          </div>
+   922→                        </div>
+   923→                        <div className="flex items-center gap-1 shrink-0">
+   924→                          <Button
+   925→                            size="icon"
+   926→                            variant="outline"
+   927→                            className="h-7 w-7"
+   928→                            onClick={() => onChangeQty(l.id, -1)}
+   929→                            aria-label={`Quitar uno de ${l.product.name}`}
+   930→                          >
+   931→                            <Minus className="h-3 w-3" />
+   932→                          </Button>
+   933→                          <span className="w-6 text-center text-sm font-mono tabular-nums">{l.qty}</span>
+   934→                          <Button
+   935→                            size="icon"
+   936→                            variant="outline"
+   937→                            className="h-7 w-7"
+   938→                            onClick={() => onChangeQty(l.id, 1)}
+   939→                            aria-label={`Añadir uno de ${l.product.name}`}
+   940→                          >
+   941→                            <Plus className="h-3 w-3" />
+   942→                          </Button>
+   943→                          <Button
+   944→                            size="icon"
+   945→                            variant="ghost"
+   946→                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+   947→                            onClick={() => onRemoveLine(l.id)}
+   948→                            aria-label={`Eliminar ${l.product.name}`}
+   949→                          >
+   950→                            <X className="h-3.5 w-3.5" />
+   951→                          </Button>
+   952→                        </div>
+   953→                        <div className="w-16 text-right text-sm font-mono tabular-nums shrink-0">
+   954→                          {formatEUR(l.product.price * l.qty * (l.half ? 0.6 : 1))}
+   955→                        </div>
+   956→                      </motion.li>
+   957→                    ))}
+   958→                  </AnimatePresence>
+   959→                </ul>
+   960→              )}
+   961→            </div>
+   962→
+   963→            {/* Totals */}
+   964→            <div className="border-t border-border/40 p-3 space-y-1.5 bg-foreground/[0.02]">
+   965→              <div className="flex justify-between text-sm text-muted-foreground">
+   966→                <span>Base</span>
+   967→                <span className="font-mono tabular-nums">{formatEUR(Math.round(subtotal / 1.1))}</span>
+   968→              </div>
+   969→              <div className="flex justify-between text-sm text-muted-foreground">
+   970→                <span>IVA (10%)</span>
+   971→                <span className="font-mono tabular-nums">{formatEUR(subtotal - Math.round(subtotal / 1.1))}</span>
+   972→              </div>
+   973→              <div className="flex justify-between text-base font-display font-medium pt-1 border-t border-border/40">
+   974→                <span>Total</span>
+   975→                <span className="rp-gold-text tabular-nums">{formatEUR(subtotal)}</span>
+   976→              </div>
+   977→              <Button
+   978→                onClick={onPayment}
+   979→                className="w-full bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] mt-2 min-h-11"
+   980→                disabled={!order || order.lines.length === 0}
+   981→              >
+   982→                <Receipt className="h-4 w-4" /> Cobrar {formatEUR(subtotal)}
+   983→              </Button>
+   984→            </div>
+   985→          </div>
+   986→        </aside>
+   987→      </div>
+   988→    </div>
+   989→  );
+   990→}
+   991→
+   992→/* =========================================================
+   993→ * Quick order panel (barra / takeaway / delivery)
+   994→ * =======================================================*/
+   995→function QuickOrderPanel({
+   996→  mode,
+   997→  products,
+   998→  onSelectProduct,
+   999→}: {
+  1000→  mode: TpvMode;
+  1001→  products: Product[];
+  1002→  onSelectProduct: (p: Product) => void;
+  1003→}) {
+  1004→  const [cat, setCat] = React.useState<Category>("entrantes");
+  1005→  const filtered = products.filter((p) => p.category === cat);
+  1006→  const labels: Record<TpvMode, string> = {
+  1007→    mesas: "Mesas",
+  1008→    barra: "Barra rápida",
+  1009→    takeaway: "Take away",
+  1010→    delivery: "Delivery",
+  1011→  };
+  1012→  return (
+  1013→    <section className="rp-glass rounded-2xl overflow-hidden">
+  1014→      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40">
+  1015→        <div className="flex items-center gap-2">
+  1016→          {mode === "barra" && <Coffee className="h-4 w-4 text-[var(--gold)]" />}
+  1017→          {mode === "takeaway" && <ShoppingBag className="h-4 w-4 text-[var(--gold)]" />}
+  1018→          {mode === "delivery" && <Bike className="h-4 w-4 text-[var(--gold)]" />}
+  1019→          <span className="text-sm font-medium">{labels[mode]}</span>
+  1020→          <DemoBadge />
+  1021→        </div>
+  1022→      </div>
+  1023→      <div className="p-3 space-y-3">
+  1024→        <div className="flex items-center gap-1 overflow-x-auto rp-scroll-thin pb-1">
+  1025→          {CATEGORIES.map((c) => (
+  1026→            <button
+  1027→              key={c.id}
+  1028→              type="button"
+  1029→              onClick={() => setCat(c.id)}
+  1030→              className={cn(
+  1031→                "inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors min-h-11 border",
+  1032→                cat === c.id
+  1033→                  ? "bg-[var(--gold)]/10 text-[var(--gold-soft)] border-[var(--gold)]/30"
+  1034→                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/5 border-transparent"
+  1035→              )}
+  1036→            >
+  1037→              <c.icon className="h-4 w-4" />
+  1038→              {c.label}
+  1039→            </button>
+  1040→          ))}
+  1041→        </div>
+  1042→        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+  1043→          {filtered.map((p) => (
+  1044→            <button
+  1045→              key={p.id}
+  1046→              type="button"
+  1047→              onClick={() => onSelectProduct(p)}
+  1048→              className="text-left rounded-xl border border-border/50 bg-foreground/[0.03] p-3 transition-all hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/5 hover:scale-[1.02]"
+  1049→            >
+  1050→              <div className="flex items-start justify-between gap-2">
+  1051→                <div className="h-9 w-9 rounded-lg bg-foreground/[0.05] flex items-center justify-center text-[var(--gold)] shrink-0">
+  1052→                  <p.icon className="h-4 w-4" />
+  1053→                </div>
+  1054→              </div>
+  1055→              <div className="mt-2 text-sm font-medium leading-tight line-clamp-2">{p.name}</div>
+  1056→              <div className="mt-1 text-sm font-display font-medium rp-gold-text tabular-nums">
+  1057→                {formatEUR(p.price)}
+  1058→              </div>
+  1059→            </button>
+  1060→          ))}
+  1061→        </div>
+  1062→      </div>
+  1063→    </section>
+  1064→  );
+  1065→}
+  1066→
+  1067→/* =========================================================
+  1068→ * Modifier dialog
+  1069→ * =======================================================*/
+  1070→function ModifierDialog({
+  1071→  state,
+  1072→  onClose,
+  1073→  onConfirm,
+  1074→}: {
+  1075→  state: { product: Product } | null;
+  1076→  onClose: () => void;
+  1077→  onConfirm: (p: Product, opts: { half?: boolean; note?: string }) => void;
+  1078→}) {
+  1079→  const [half, setHalf] = React.useState(false);
+  1080→  const [note, setNote] = React.useState("");
+  1081→  React.useEffect(() => {
+  1082→    if (state) {
+  1083→      setHalf(false);
+  1084→      setNote("");
+  1085→    }
+  1086→  }, [state]);
+  1087→
+  1088→  return (
+  1089→    <Dialog open={!!state} onOpenChange={(o) => !o && onClose()}>
+  1090→      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rp-scroll-thin">
+  1091→        <DialogHeader>
+  1092→          <DialogTitle className="font-display flex items-center gap-2">
+  1093→            {state && <state.product.icon className="h-5 w-5 text-[var(--gold)]" />}
+  1094→            {state?.product.name ?? ""}
+  1095→          </DialogTitle>
+  1096→          <DialogDescription>
+  1097→            Configura el plato antes de añadirlo al ticket.
+  1098→          </DialogDescription>
+  1099→        </DialogHeader>
+  1100→        {state && (
+  1101→          <div className="space-y-4">
+  1102→            <div className="rp-glass rounded-xl p-3">
+  1103→              <Label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1104→                Ración
+  1105→              </Label>
+  1106→              <div className="mt-2 flex gap-2">
+  1107→                <button
+  1108→                  type="button"
+  1109→                  onClick={() => setHalf(false)}
+  1110→                  className={cn(
+  1111→                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium min-h-11 transition-colors",
+  1112→                    !half
+  1113→                      ? "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+  1114→                      : "border-border/60 text-muted-foreground hover:text-foreground"
+  1115→                  )}
+  1116→                >
+  1117→                  Ración
+  1118→                </button>
+  1119→                <button
+  1120→                  type="button"
+  1121→                  onClick={() => setHalf(true)}
+  1122→                  className={cn(
+  1123→                    "flex-1 rounded-lg border px-3 py-2 text-sm font-medium min-h-11 transition-colors",
+  1124→                    half
+  1125→                      ? "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+  1126→                      : "border-border/60 text-muted-foreground hover:text-foreground"
+  1127→                  )}
+  1128→                >
+  1129→                  Media ración
+  1130→                </button>
+  1131→              </div>
+  1132→              {half && (
+  1133→                <p className="text-[11px] text-muted-foreground mt-1.5">
+  1134→                  Se aplica un factor de 0,6 sobre el precio.
+  1135→                </p>
+  1136→              )}
+  1137→            </div>
+  1138→
+  1139→            <div className="rp-glass rounded-xl p-3">
+  1140→              <Label htmlFor="note" className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1141→                Nota de cocina
+  1142→              </Label>
+  1143→              <Textarea
+  1144→                id="note"
+  1145→                value={note}
+  1146→                onChange={(e) => setNote(e.target.value)}
+  1147→                placeholder="Ej. poco hecho, sin cebolla, alergia a frutos secos…"
+  1148→                className="mt-2 min-h-20"
+  1149→                maxLength={120}
+  1150→              />
+  1151→              <div className="text-[11px] text-muted-foreground mt-1 text-right font-mono">
+  1152→                {note.length}/120
+  1153→              </div>
+  1154→            </div>
+  1155→
+  1156→            <div className="text-xs text-muted-foreground">
+  1157→              Opciones del producto:{" "}
+  1158→              <span className="text-foreground">
+  1159→                {state.product.modifiers?.join(" · ") ?? "—"}
+  1160→              </span>
+  1161→            </div>
+  1162→          </div>
+  1163→        )}
+  1164→        <DialogFooter>
+  1165→          <Button variant="outline" onClick={onClose} className="min-h-11">
+  1166→            Cancelar
+  1167→          </Button>
+  1168→          <Button
+  1169→            onClick={() => state && onConfirm(state.product, { half, note: note.trim() || undefined })}
+  1170→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-11"
+  1171→          >
+  1172→            <Plus className="h-4 w-4" /> Añadir · {state && formatEUR(state.product.price * (half ? 0.6 : 1))}
+  1173→          </Button>
+  1174→        </DialogFooter>
+  1175→      </DialogContent>
+  1176→    </Dialog>
+  1177→  );
+  1178→}
+  1179→
+  1180→/* =========================================================
+  1181→ * Payment dialog
+  1182→ * =======================================================*/
+  1183→function PaymentDialog({
+  1184→  state,
+  1185→  order,
+  1186→  tableName,
+  1187→  onClose,
+  1188→  onCharge,
+  1189→}: {
+  1190→  state: { tableId: string } | null;
+  1191→  order: Order | null;
+  1192→  tableName: string;
+  1193→  onClose: () => void;
+  1194→  onCharge: (method: PaymentMethod, total: number, tip: number) => void;
+  1195→}) {
+  1196→  const [method, setMethod] = React.useState<PaymentMethod>("tarjeta");
+  1197→  const [split, setSplit] = React.useState<SplitMode>("igual");
+  1198→  const [diners, setDiners] = React.useState(2);
+  1199→  const [tipPct, setTipPct] = React.useState(0);
+  1200→  const [customTip, setCustomTip] = React.useState("");
+  1201→
+  1202→  React.useEffect(() => {
+  1203→    if (state && order) {
+  1204→      setDiners(Math.max(1, order.diners));
+  1205→      setTipPct(0);
+  1206→      setCustomTip("");
+  1207→      setMethod("tarjeta");
+  1208→      setSplit("igual");
+  1209→    }
+  1210→  }, [state, order]);
+  1211→
+  1212→  const subtotal = order
+  1213→    ? order.lines.reduce(
+  1214→        (sum, l) => sum + l.product.price * l.qty * (l.half ? 0.6 : 1),
+  1215→        0
+  1216→      )
+  1217→    : 0;
+  1218→
+  1219→  const tipAmount = customTip
+  1220→    ? Math.round(parseFloat(customTip) * 100) || 0
+  1221→    : Math.round(subtotal * (tipPct / 100));
+  1222→  const total = subtotal + tipAmount;
+  1223→  const perDiner = split === "igual" && diners > 0 ? total / diners : 0;
+  1224→
+  1225→  return (
+  1226→    <Dialog open={!!state} onOpenChange={(o) => !o && onClose()}>
+  1227→      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto rp-scroll-thin">
+  1228→        <DialogHeader>
+  1229→          <DialogTitle className="font-display flex items-center gap-2">
+  1230→            <Receipt className="h-5 w-5 text-[var(--gold)]" />
+  1231→            Cobro de cuenta
+  1232→          </DialogTitle>
+  1233→          <DialogDescription>
+  1234→            Ticket · {tableName} · {order?.diners ?? 0} comensales
+  1235→          </DialogDescription>
+  1236→        </DialogHeader>
+  1237→
+  1238→        <div className="space-y-4">
+  1239→          {/* Totals */}
+  1240→          <div className="rp-glass rounded-xl p-4 space-y-1.5">
+  1241→            <div className="flex justify-between text-sm text-muted-foreground">
+  1242→              <span>Base imponible</span>
+  1243→              <span className="font-mono tabular-nums">{formatEUR(Math.round(subtotal / 1.1))}</span>
+  1244→            </div>
+  1245→            <div className="flex justify-between text-sm text-muted-foreground">
+  1246→              <span>IVA (10%)</span>
+  1247→              <span className="font-mono tabular-nums">{formatEUR(subtotal - Math.round(subtotal / 1.1))}</span>
+  1248→            </div>
+  1249→            <div className="flex justify-between text-sm">
+  1250→              <span>Propina {tipPct > 0 ? `(${tipPct}%)` : ""}</span>
+  1251→              <span className="font-mono tabular-nums rp-teal-text">{formatEUR(tipAmount)}</span>
+  1252→            </div>
+  1253→            <div className="flex justify-between text-base font-display font-medium pt-1.5 border-t border-border/40">
+  1254→              <span>Total a cobrar</span>
+  1255→              <span className="rp-gold-text tabular-nums">{formatEUR(total)}</span>
+  1256→            </div>
+  1257→          </div>
+  1258→
+  1259→          {/* Split bill */}
+  1260→          <div>
+  1261→            <Label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1262→              <SplitSquareHorizontal className="h-3 w-3 inline mr-1" />
+  1263→              Dividir cuenta
+  1264→            </Label>
+  1265→            <div className="mt-2 grid grid-cols-3 gap-1.5">
+  1266→              {([
+  1267→                { id: "igual" as const, label: "Por comensal" },
+  1268→                { id: "porcentaje" as const, label: "Por %" },
+  1269→                { id: "importe" as const, label: "Por importe" },
+  1270→              ]).map((s) => (
+  1271→                <button
+  1272→                  key={s.id}
+  1273→                  type="button"
+  1274→                  onClick={() => setSplit(s.id)}
+  1275→                  className={cn(
+  1276→                    "rounded-lg border px-2 py-2 text-xs font-medium min-h-10 transition-colors",
+  1277→                    split === s.id
+  1278→                      ? "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+  1279→                      : "border-border/60 text-muted-foreground hover:text-foreground"
+  1280→                  )}
+  1281→                >
+  1282→                  {s.label}
+  1283→                </button>
+  1284→              ))}
+  1285→            </div>
+  1286→            {split === "igual" && (
+  1287→              <div className="mt-2 flex items-center gap-2 flex-wrap">
+  1288→                <Label className="text-xs text-muted-foreground shrink-0">Comensales</Label>
+  1289→                <Input
+  1290→                  type="number"
+  1291→                  min={1}
+  1292→                  max={20}
+  1293→                  value={diners}
+  1294→                  onChange={(e) => setDiners(Math.max(1, parseInt(e.target.value, 10) || 1))}
+  1295→                  className="w-20"
+  1296→                />
+  1297→                <span className="text-sm text-muted-foreground">
+  1298→                  Cada uno paga <span className="rp-gold-text font-mono tabular-nums">{formatEUR(perDiner / 100)}</span>
+  1299→                </span>
+  1300→              </div>
+  1301→            )}
+  1302→            {split === "porcentaje" && (
+  1303→              <p className="text-[11px] text-muted-foreground mt-2">
+  1304→                Reparte porcentajes libres desde la pantalla principal del cobro. (Demo)
+  1305→              </p>
+  1306→            )}
+  1307→            {split === "importe" && (
+  1308→              <p className="text-[11px] text-muted-foreground mt-2">
+  1309→                Asigna importes fijos por comensal. (Demo)
+  1310→              </p>
+  1311→            )}
+  1312→          </div>
+  1313→
+  1314→          {/* Tip */}
+  1315→          <div>
+  1316→            <Label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1317→              Propina
+  1318→            </Label>
+  1319→            <div className="mt-2 grid grid-cols-4 gap-1.5">
+  1320→              {[
+  1321→                { pct: 0, label: "0%" },
+  1322→                { pct: 5, label: "5%" },
+  1323→                { pct: 10, label: "10%" },
+  1324→                { pct: 15, label: "15%" },
+  1325→              ].map((t) => (
+  1326→                <button
+  1327→                  key={t.pct}
+  1328→                  type="button"
+  1329→                  onClick={() => {
+  1330→                    setTipPct(t.pct);
+  1331→                    setCustomTip("");
+  1332→                  }}
+  1333→                  className={cn(
+  1334→                    "rounded-lg border px-2 py-2 text-sm font-medium min-h-10 transition-colors",
+  1335→                    tipPct === t.pct && !customTip
+  1336→                      ? "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+  1337→                      : "border-border/60 text-muted-foreground hover:text-foreground"
+  1338→                  )}
+  1339→                >
+  1340→                  {t.label}
+  1341→                </button>
+  1342→              ))}
+  1343→            </div>
+  1344→            <div className="mt-2 flex items-center gap-2">
+  1345→              <Input
+  1346→                type="number"
+  1347→                min={0}
+  1348→                step="0.50"
+  1349→                placeholder="Otra cantidad €"
+  1350→                value={customTip}
+  1351→                onChange={(e) => setCustomTip(e.target.value)}
+  1352→                className="flex-1"
+  1353→              />
+  1354→              <span className="text-xs text-muted-foreground shrink-0">€</span>
+  1355→            </div>
+  1356→          </div>
+  1357→
+  1358→          {/* Payment methods */}
+  1359→          <div>
+  1360→            <Label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1361→              Método de pago
+  1362→            </Label>
+  1363→            <div className="mt-2 grid grid-cols-3 sm:grid-cols-5 gap-1.5">
+  1364→              {PAYMENT_METHODS.map((m) => (
+  1365→                <button
+  1366→                  key={m.id}
+  1367→                  type="button"
+  1368→                  onClick={() => setMethod(m.id)}
+  1369→                  className={cn(
+  1370→                    "rounded-lg border px-2 py-2.5 text-xs font-medium min-h-12 transition-colors flex flex-col items-center gap-1",
+  1371→                    method === m.id
+  1372→                      ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+  1373→                      : "border-border/60 text-muted-foreground hover:text-foreground"
+  1374→                  )}
+  1375→                >
+  1376→                  <m.icon className="h-4 w-4" />
+  1377→                  {m.label}
+  1378→                </button>
+  1379→              ))}
+  1380→            </div>
+  1381→          </div>
+  1382→        </div>
+  1383→
+  1384→        <DialogFooter>
+  1385→          <Button variant="outline" onClick={onClose} className="min-h-11">
+  1386→            Cancelar
+  1387→          </Button>
+  1388→          <Button
+  1389→            onClick={() => onCharge(method, subtotal, tipAmount)}
+  1390→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-11"
+  1391→          >
+  1392→            <Coins className="h-4 w-4" /> Cobrar {formatEUR(total)}
+  1393→          </Button>
+  1394→        </DialogFooter>
+  1395→      </DialogContent>
+  1396→    </Dialog>
+  1397→  );
+  1398→}
+  1399→
+  1400→/* =========================================================
+  1401→ * Close till dialog
+  1402→ * =======================================================*/
+  1403→function CloseTillDialog({
+  1404→  open,
+  1405→  onClose,
+  1406→  onConfirm,
+  1407→  orders,
+  1408→}: {
+  1409→  open: boolean;
+  1410→  onClose: () => void;
+  1411→  onConfirm: () => void;
+  1412→  orders: Record<string, Order>;
+  1413→}) {
+  1414→  const [counted, setCounted] = React.useState("");
+  1415→  const openTickets = Object.keys(orders).length;
+  1416→
+  1417→  return (
+  1418→    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+  1419→      <DialogContent className="sm:max-w-md">
+  1420→        <DialogHeader>
+  1421→          <DialogTitle className="font-display flex items-center gap-2">
+  1422→            <Lock className="h-5 w-5 text-destructive" />
+  1423→            Cerrar caja · arqueo ciego
+  1424→          </DialogTitle>
+  1425→          <DialogDescription>
+  1426→            Cuenta el dinero físico e introdúcelo. El sistema validará contra el esperado.
+  1427→          </DialogDescription>
+  1428→        </DialogHeader>
+  1429→        <div className="space-y-4">
+  1430→          {openTickets > 0 && (
+  1431→            <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 flex items-start gap-2">
+  1432→              <AlertTriangle className="h-4 w-4 text-amber-300 shrink-0 mt-0.5" />
+  1433→              <div className="text-sm">
+  1434→                <div className="font-medium text-amber-300">
+  1435→                  {openTickets} ticket{openTickets > 1 ? "s" : ""} abierto{openTickets > 1 ? "s" : ""}
+  1436→                </div>
+  1437→                <div className="text-[11px] text-muted-foreground">
+  1438→                  Cobrar o anular antes de cerrar caja.
+  1439→                </div>
+  1440→              </div>
+  1441→            </div>
+  1442→          )}
+  1443→          <div>
+  1444→            <Label htmlFor="counted" className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1445→              Efectivo contado
+  1446→            </Label>
+  1447→            <Input
+  1448→              id="counted"
+  1449→              type="number"
+  1450→              step="0.01"
+  1451→              placeholder="0,00"
+  1452→              value={counted}
+  1453→              onChange={(e) => setCounted(e.target.value)}
+  1454→              className="mt-2"
+  1455→            />
+  1456→            <p className="text-[11px] text-muted-foreground mt-1">
+  1457→              Fondo inicial 200,00 € · arqueo ciego: el sistema no muestra lo esperado.
+  1458→            </p>
+  1459→          </div>
+  1460→        </div>
+  1461→        <DialogFooter>
+  1462→          <Button variant="outline" onClick={onClose} className="min-h-11">
+  1463→            Cancelar
+  1464→          </Button>
+  1465→          <Button variant="destructive" onClick={onConfirm} className="min-h-11">
+  1466→            <Lock className="h-4 w-4" /> Confirmar cierre
+  1467→          </Button>
+  1468→        </DialogFooter>
+  1469→      </DialogContent>
+  1470→    </Dialog>
+  1471→  );
+  1472→}
+  1473→

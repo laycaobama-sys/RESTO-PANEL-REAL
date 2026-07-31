@@ -1,0 +1,1099 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Switch } from "@/components/ui/switch";
+     9→import {
+    10→  Select,
+    11→  SelectContent,
+    12→  SelectItem,
+    13→  SelectTrigger,
+    14→  SelectValue,
+    15→} from "@/components/ui/select";
+    16→import {
+    17→  Collapsible,
+    18→  CollapsibleContent,
+    19→  CollapsibleTrigger,
+    20→} from "@/components/ui/collapsible";
+    21→import { motion, useReducedMotion } from "framer-motion";
+    22→import {
+    23→  ShieldCheck, Sparkles, Zap, Building2, Users, Check, X,
+    24→  TrendingUp, AlertTriangle, Ban, Cpu, KeyRound, CalendarClock,
+    25→  ArrowUpRight, ChevronDown, Gauge, Crown, Clock, Infinity as InfinityIcon,
+    26→  Lightbulb, FileWarning, CircleDollarSign, MessageCircle,
+    27→} from "lucide-react";
+    28→
+    29→/* =========================================================
+    30→ * Types
+    31→ * =======================================================*/
+    32→
+    33→export type PlanId = "starter" | "professional" | "enterprise";
+    34→
+    35→export interface Plan {
+    36→  id: PlanId;
+    37→  name: string;
+    38→  tagline: string;
+    39→  price: number; // €/mes
+    40→  locals: number | null; // null = unlimited
+    41→  users: number | null;
+    42→  accent: "muted" | "gold" | "teal";
+    43→  highlighted?: boolean;
+    44→  badge?: string;
+    45→}
+    46→
+    47→/** A single row of the feature matrix. */
+    48→export interface FeatureRow {
+    49→  category: string;
+    50→  feature: string;
+    51→  /** Per-plan value: true = ✔, false = ✖, number = quota. */
+    52→  values: Record<PlanId, boolean | number>;
+    53→  /** Optional unit shown after a numeric value (e.g. "mes"). */
+    54→  unit?: string;
+    55→}
+    56→
+    57→export interface UsageCounter {
+    58→  id: string;
+    59→  label: string;
+    60→  feature: string;
+    61→  current: number;
+    62→  limit: number; // 0 = blocked, -1 = unlimited
+    63→  unit: string;
+    64→  icon: React.ElementType;
+    65→}
+    66→
+    67→export interface OverrideItem {
+    68→  label: string;
+    69→  detail: string;
+    70→  icon: React.ElementType;
+    71→}
+    72→
+    73→/* =========================================================
+    74→ * Mock data
+    75→ * =======================================================*/
+    76→
+    77→const PLANS: Plan[] = [
+    78→  {
+    79→    id: "starter",
+    80→    name: "Starter",
+    81→    tagline: "1 local · arranque",
+    82→    price: 49,
+    83→    locals: 1,
+    84→    users: 3,
+    85→    accent: "muted",
+    86→  },
+    87→  {
+    88→    id: "professional",
+    89→    name: "Professional",
+    90→    tagline: "Multi-local · crecimiento",
+    91→    price: 99,
+    92→    locals: 3,
+    93→    users: 10,
+    94→    accent: "gold",
+    95→    highlighted: true,
+    96→    badge: "Plan actual",
+    97→  },
+    98→  {
+    99→    id: "enterprise",
+   100→    name: "Enterprise",
+   101→    tagline: "Cadena · sin límites",
+   102→    price: 249,
+   103→    locals: null,
+   104→    users: null,
+   105→    accent: "teal",
+   106→    badge: "Sobrecarga",
+   107→  },
+   108→];
+   109→
+   110→const CATEGORIES: string[] = [
+   111→  "Núcleo operativo",
+   112→  "Carta digital",
+   113→  "Reservas",
+   114→  "Delivery",
+   115→  "CRM",
+   116→  "Reputación",
+   117→  "Inventario",
+   118→  "Analítica",
+   119→  "Automatización",
+   120→  "API",
+   121→  "Organización",
+   122→  "Soporte",
+   123→];
+   124→
+   125→const FEATURES: FeatureRow[] = [
+   126→  // Núcleo operativo
+   127→  { category: "Núcleo operativo", feature: "TPV", values: { starter: true, professional: true, enterprise: true } },
+   128→  { category: "Núcleo operativo", feature: "KDS (pantallas cocina)", values: { starter: 1, professional: 3, enterprise: -1 }, unit: "pantallas" },
+   129→  { category: "Núcleo operativo", feature: "Comandero PDA", values: { starter: 1, professional: 3, enterprise: -1 }, unit: "dispositivos" },
+   130→  // Carta digital
+   131→  { category: "Carta digital", feature: "Carta QR dinámica", values: { starter: true, professional: true, enterprise: true } },
+   132→  { category: "Carta digital", feature: "Order & Pay", values: { starter: false, professional: true, enterprise: true } },
+   133→  { category: "Carta digital", feature: "Carta multilingüe", values: { starter: false, professional: true, enterprise: true } },
+   134→  // Reservas
+   135→  { category: "Reservas", feature: "Motor de reservas", values: { starter: true, professional: true, enterprise: true } },
+   136→  { category: "Reservas", feature: "Floor plan interactivo", values: { starter: false, professional: true, enterprise: true } },
+   137→  { category: "Reservas", feature: "Lista de espera inteligente", values: { starter: false, professional: true, enterprise: true } },
+   138→  { category: "Reservas", feature: "Predicción IA de demanda", values: { starter: false, professional: true, enterprise: true } },
+   139→  { category: "Reservas", feature: "Yield pricing por franja", values: { starter: false, professional: false, enterprise: true } },
+   140→  // Delivery
+   141→  { category: "Delivery", feature: "Delivery propio", values: { starter: false, professional: true, enterprise: true } },
+   142→  { category: "Delivery", feature: "Agregadores (Glovo/Uber)", values: { starter: false, professional: true, enterprise: true } },
+   143→  // CRM
+   144→  { category: "CRM", feature: "Fichas de cliente", values: { starter: 200, professional: -1, enterprise: -1 }, unit: "clientes" },
+   145→  { category: "CRM", feature: "Segmentación", values: { starter: false, professional: true, enterprise: true } },
+   146→  { category: "CRM", feature: "Campañas email", values: { starter: 50, professional: 500, enterprise: -1 }, unit: "mes" },
+   147→  { category: "CRM", feature: "WhatsApp Business", values: { starter: 0, professional: 0, enterprise: 500 }, unit: "mes" },
+   148→  // Reputación
+   149→  { category: "Reputación", feature: "Respuestas IA a reseñas", values: { starter: false, professional: true, enterprise: true } },
+   150→  { category: "Reputación", feature: "Encuestas NPS automáticas", values: { starter: false, professional: true, enterprise: true } },
+   151→  // Inventario
+   152→  { category: "Inventario", feature: "Escandallos", values: { starter: false, professional: true, enterprise: true } },
+   153→  { category: "Inventario", feature: "Recuentos", values: { starter: false, professional: true, enterprise: true } },
+   154→  { category: "Inventario", feature: "Gestión de proveedores", values: { starter: false, professional: true, enterprise: true } },
+   155→  // Analítica
+   156→  { category: "Analítica", feature: "Dashboard operativo", values: { starter: true, professional: true, enterprise: true } },
+   157→  { category: "Analítica", feature: "Exportación CSV/Excel", values: { starter: false, professional: true, enterprise: true } },
+   158→  { category: "Analítica", feature: "Benchmarks colectivos", values: { starter: false, professional: false, enterprise: true } },
+   159→  // Automatización
+   160→  { category: "Automatización", feature: "Triggers (no-show, cumpleaños)", values: { starter: 3, professional: 25, enterprise: -1 }, unit: "mes" },
+   161→  { category: "Automatización", feature: "Workflows multi-paso", values: { starter: false, professional: true, enterprise: true } },
+   162→  // API
+   163→  { category: "API", feature: "API lectura", values: { starter: true, professional: true, enterprise: true } },
+   164→  { category: "API", feature: "API escritura", values: { starter: false, professional: false, enterprise: true } },
+   165→  { category: "API", feature: "Webhooks salientes", values: { starter: false, professional: false, enterprise: true } },
+   166→  // Organización
+   167→  { category: "Organización", feature: "Multi-local", values: { starter: 1, professional: 3, enterprise: -1 }, unit: "locales" },
+   168→  { category: "Organización", feature: "Roles personalizados", values: { starter: false, professional: true, enterprise: true } },
+   169→  { category: "Organización", feature: "Permisos granulares", values: { starter: false, professional: true, enterprise: true } },
+   170→  { category: "Organización", feature: "Audit log", values: { starter: false, professional: true, enterprise: true } },
+   171→  // Soporte
+   172→  { category: "Soporte", feature: "Soporte email", values: { starter: true, professional: true, enterprise: true } },
+   173→  { category: "Soporte", feature: "Soporte chat", values: { starter: false, professional: true, enterprise: true } },
+   174→  { category: "Soporte", feature: "Onboarding dedicado", values: { starter: false, professional: false, enterprise: true } },
+   175→];
+   176→
+   177→const USAGE: UsageCounter[] = [
+   178→  { id: "u1", label: "Clientes CRM", feature: "Fichas de cliente", current: 1247, limit: -1, unit: "clientes", icon: Users },
+   179→  { id: "u2", label: "Campañas email", feature: "Campañas email", current: 320, limit: 500, unit: "envíos/mes", icon: MessageCircle },
+   180→  { id: "u3", label: "WhatsApp Business", feature: "WhatsApp Business", current: 89, limit: 0, unit: "mensajes/mes", icon: MessageCircle },
+   181→  { id: "u4", label: "Automatizaciones", feature: "Triggers (no-show, cumpleaños)", current: 18, limit: 25, unit: "ejecuciones/mes", icon: Zap },
+   182→  { id: "u5", label: "Llamadas API", feature: "API escritura", current: 0, limit: 0, unit: "escrituras/mes", icon: Cpu },
+   183→  { id: "u6", label: "KDS pantallas", feature: "KDS (pantallas cocina)", current: 3, limit: 3, unit: "pantallas", icon: Gauge },
+   184→];
+   185→
+   186→const OVERRIDES: OverrideItem[] = [
+   187→  { label: "Local extra incluido", detail: "4 locales en Enterprise estándar — esta cuenta opera 5 sin coste adicional.", icon: Building2 },
+   188→  { label: "Créditos WA extra 500/mes", detail: "Sobre los 500 incluidos en Enterprise → 1.000 mensajes WhatsApp/mes.", icon: MessageCircle },
+   189→];
+   190→
+   191→/* =========================================================
+   192→ * Helpers
+   193→ * =======================================================*/
+   194→
+   195→function fmtLimit(v: number | null | boolean, unit?: string): string {
+   196→  if (v === true) return "✔";
+   197→  if (v === false) return "✖";
+   198→  if (v === -1) return "∞";
+   199→  if (v === null) return "∞";
+   200→  if (v === 0) return "✖";
+   201→  return `${v}${unit ? ` ${unit}` : ""}`;
+   202→}
+   203→
+   204→function planAccentCls(plan: Plan): {
+   205→  border: string;
+   206→  bg: string;
+   207→  text: string;
+   208→  ring: string;
+   209→  dot: string;
+   210→} {
+   211→  if (plan.accent === "gold") {
+   212→    return {
+   213→      border: "border-[var(--gold)]/60",
+   214→      bg: "bg-[var(--gold)]/10",
+   215→      text: "text-[var(--gold-soft)]",
+   216→      ring: "ring-[var(--gold)]/40",
+   217→      dot: "bg-[var(--gold)]",
+   218→    };
+   219→  }
+   220→  if (plan.accent === "teal") {
+   221→    return {
+   222→      border: "border-[var(--teal)]/55",
+   223→      bg: "bg-[var(--teal)]/10",
+   224→      text: "text-[var(--teal)]",
+   225→      ring: "ring-[var(--teal)]/40",
+   226→      dot: "bg-[var(--teal)]",
+   227→    };
+   228→  }
+   229→  return {
+   230→    border: "border-border/60",
+   231→    bg: "bg-foreground/[0.04]",
+   232→    text: "text-muted-foreground",
+   233→    ring: "ring-foreground/15",
+   234→    dot: "bg-zinc-500",
+   235→  };
+   236→}
+   237→
+   238→function useUsageState(current: number, limit: number): {
+   239→  pct: number;
+   240→  tone: "ok" | "warn" | "danger" | "blocked" | "unlimited";
+   241→} {
+   242→  if (limit === -1) return { pct: 0, tone: "unlimited" };
+   243→  if (limit === 0) return { pct: 0, tone: "blocked" };
+   244→  const pct = Math.min(100, Math.round((current / limit) * 100));
+   245→  let tone: "ok" | "warn" | "danger" = "ok";
+   246→  if (pct >= 100) tone = "danger";
+   247→  else if (pct >= 80) tone = "warn";
+   248→  return { pct, tone };
+   249→}
+   250→
+   251→/** Pure entitlements engine — can(org, feature). */
+   252→function can(plan: PlanId, feature: string): boolean {
+   253→  const row = FEATURES.find((f) => f.feature === feature);
+   254→  if (!row) return false;
+   255→  const v = row.values[plan];
+   256→  if (v === true) return true;
+   257→  if (v === false || v === 0) return false;
+   258→  return true; // numeric (incl. -1) = available
+   259→}
+   260→
+   261→/** limit(org, feature) → numeric limit, -1 = ∞, 0 = blocked. */
+   262→function limitOf(plan: PlanId, feature: string): number {
+   263→  const row = FEATURES.find((f) => f.feature === feature);
+   264→  if (!row) return 0;
+   265→  const v = row.values[plan];
+   266→  if (v === true) return -1;
+   267→  if (v === false) return 0;
+   268→  return v;
+   269→}
+   270→
+   271→/* =========================================================
+   272→ * Shared atoms
+   273→ * =======================================================*/
+   274→
+   275→function DemoBadge({ className }: { className?: string }) {
+   276→  return (
+   277→    <Badge
+   278→      variant="outline"
+   279→      className={cn(
+   280→        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
+   281→        className
+   282→      )}
+   283→    >
+   284→      demo
+   285→    </Badge>
+   286→  );
+   287→}
+   288→
+   289→function SectionCard({
+   290→  title,
+   291→  desc,
+   292→  icon: Icon,
+   293→  action,
+   294→  children,
+   295→  className,
+   296→}: {
+   297→  title: string;
+   298→  desc?: string;
+   299→  icon: React.ElementType;
+   300→  action?: React.ReactNode;
+   301→  children: React.ReactNode;
+   302→  className?: string;
+   303→}) {
+   304→  return (
+   305→    <section className={cn("rp-glass rounded-2xl overflow-hidden flex flex-col min-w-0", className)}>
+   306→      <div className="flex items-center justify-between gap-3 p-4 border-b border-border/40">
+   307→        <div className="flex items-center gap-2.5 min-w-0">
+   308→          <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-foreground/[0.05] text-[var(--gold)] shrink-0">
+   309→            <Icon className="h-4 w-4" />
+   310→          </div>
+   311→          <div className="min-w-0">
+   312→            <h2 className="font-display text-base sm:text-lg leading-tight truncate">{title}</h2>
+   313→            {desc && <p className="text-[11px] text-muted-foreground truncate">{desc}</p>}
+   314→          </div>
+   315→        </div>
+   316→        {action && <div className="shrink-0">{action}</div>}
+   317→      </div>
+   318→      <div className="p-4 flex-1 min-w-0">{children}</div>
+   319→    </section>
+   320→  );
+   321→}
+   322→
+   323→/* =========================================================
+   324→ * Plan column
+   325→ * =======================================================*/
+   326→
+   327→function PlanColumn({ plan, current }: { plan: Plan; current: boolean }) {
+   328→  const accent = planAccentCls(plan);
+   329→  const reduce = useReducedMotion();
+   330→  return (
+   331→    <motion.div
+   332→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   333→      animate={{ opacity: 1, y: 0 }}
+   334→      transition={{ duration: 0.35, ease: "easeOut" }}
+   335→      className={cn(
+   336→        "rp-glass rounded-2xl border p-5 flex flex-col gap-4 min-w-0",
+   337→        accent.border,
+   338→        plan.highlighted && "ring-1 ring-[var(--gold)]/40"
+   339→      )}
+   340→    >
+   341→      <div className="flex items-center justify-between gap-2">
+   342→        <div className="flex items-center gap-2 min-w-0">
+   343→          {plan.id === "starter" && <Sparkles className={cn("h-4 w-4", accent.text)} />}
+   344→          {plan.id === "professional" && <Zap className={cn("h-4 w-4", accent.text)} />}
+   345→          {plan.id === "enterprise" && <Crown className={cn("h-4 w-4", accent.text)} />}
+   346→          <h3 className="font-display text-lg sm:text-xl truncate">{plan.name}</h3>
+   347→        </div>
+   348→        {plan.badge && (
+   349→          <Badge
+   350→            variant="outline"
+   351→            className={cn(
+   352→              "text-[10px] uppercase tracking-wider",
+   353→              current
+   354→                ? "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]"
+   355→                : "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]"
+   356→            )}
+   357→          >
+   358→            {plan.badge}
+   359→          </Badge>
+   360→        )}
+   361→      </div>
+   362→      <p className="text-xs text-muted-foreground -mt-2">{plan.tagline}</p>
+   363→
+   364→      <div className="flex items-baseline gap-1">
+   365→        <span className="font-display text-3xl tabular-nums">{plan.price}€</span>
+   366→        <span className="text-xs text-muted-foreground">/mes + IVA</span>
+   367→      </div>
+   368→
+   369→      <div className="space-y-1.5 text-sm border-t border-border/40 pt-3">
+   370→        <div className="flex items-center justify-between gap-2">
+   371→          <span className="text-muted-foreground flex items-center gap-1.5">
+   372→            <Building2 className="h-3.5 w-3.5" /> Locales
+   373→          </span>
+   374→          <span className="font-mono tabular-nums">
+   375→            {plan.locals === null ? "∞" : plan.locals}
+   376→          </span>
+   377→        </div>
+   378→        <div className="flex items-center justify-between gap-2">
+   379→          <span className="text-muted-foreground flex items-center gap-1.5">
+   380→            <Users className="h-3.5 w-3.5" /> Usuarios
+   381→          </span>
+   382→          <span className="font-mono tabular-nums">
+   383→            {plan.users === null ? "∞" : plan.users}
+   384→          </span>
+   385→        </div>
+   386→        <div className="flex items-center justify-between gap-2">
+   387→          <span className="text-muted-foreground flex items-center gap-1.5">
+   388→            <Zap className="h-3.5 w-3.5" /> Automatizaciones
+   389→          </span>
+   390→          <span className="font-mono tabular-nums">
+   391→            {plan.id === "starter" ? "3/mes" : plan.id === "professional" ? "25/mes" : "∞"}
+   392→          </span>
+   393→        </div>
+   394→        <div className="flex items-center justify-between gap-2">
+   395→          <span className="text-muted-foreground flex items-center gap-1.5">
+   396→            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp
+   397→          </span>
+   398→          <span className="font-mono tabular-nums">
+   399→            {plan.id === "enterprise" ? "500/mes" : "—"}
+   400→          </span>
+   401→        </div>
+   402→        <div className="flex items-center justify-between gap-2">
+   403→          <span className="text-muted-foreground flex items-center gap-1.5">
+   404→            <KeyRound className="h-3.5 w-3.5" /> API escritura
+   405→          </span>
+   406→          <span className="font-mono tabular-nums">
+   407→            {plan.id === "enterprise" ? "✔" : "✖"}
+   408→          </span>
+   409→        </div>
+   410→      </div>
+   411→
+   412→      <Button
+   413→        variant={current ? "outline" : "default"}
+   414→        disabled={current}
+   415→        className={cn(
+   416→          "mt-1 min-h-11",
+   417→          !current && plan.accent === "gold" && "bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)]",
+   418→          !current && plan.accent === "teal" && "bg-[var(--teal)] text-black hover:bg-[var(--teal)]/80",
+   419→          !current && plan.accent === "muted" && "bg-foreground/[0.08] text-foreground hover:bg-foreground/[0.14]",
+   420→          current && "text-muted-foreground"
+   421→        )}
+   422→      >
+   423→        {current ? (
+   424→          <>
+   425→            <Check className="h-4 w-4" /> Plan actual
+   426→          </>
+   427→        ) : (
+   428→          <>
+   429→            <ArrowUpRight className="h-4 w-4" /> Cambiar a {plan.name}
+   430→          </>
+   431→        )}
+   432→      </Button>
+   433→    </motion.div>
+   434→  );
+   435→}
+   436→
+   437→/* =========================================================
+   438→ * Feature matrix table
+   439→ * =======================================================*/
+   440→
+   441→function FeatureCell({ value, unit }: { value: boolean | number; unit?: string }) {
+   442→  if (value === true) {
+   443→    return (
+   444→      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-emerald-400/15 text-emerald-300">
+   445→        <Check className="h-3 w-3" />
+   446→      </span>
+   447→    );
+   448→  }
+   449→  if (value === false || value === 0) {
+   450→    return (
+   451→      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-foreground/[0.06] text-muted-foreground/60">
+   452→        <X className="h-3 w-3" />
+   453→      </span>
+   454→    );
+   455→  }
+   456→  if (value === -1) {
+   457→    return (
+   458→      <span className="inline-flex items-center gap-1 text-[var(--teal)] font-mono text-xs">
+   459→        <InfinityIcon className="h-3 w-3" />
+   460→        <span>ilimitado</span>
+   461→      </span>
+   462→    );
+   463→  }
+   464→  return (
+   465→    <span className="font-mono text-xs tabular-nums text-foreground/90">
+   466→      {value}
+   467→      {unit && <span className="text-muted-foreground ml-1">{unit}</span>}
+   468→    </span>
+   469→  );
+   470→}
+   471→
+   472→function FeatureMatrix() {
+   473→  const [openCats, setOpenCats] = React.useState<Set<string>>(
+   474→    new Set(CATEGORIES.slice(0, 4))
+   475→  );
+   476→  function toggle(cat: string) {
+   477→    setOpenCats((s) => {
+   478→      const n = new Set(s);
+   479→      if (n.has(cat)) n.delete(cat);
+   480→      else n.add(cat);
+   481→      return n;
+   482→    });
+   483→  }
+   484→  return (
+   485→    <div className="overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   486→      <table className="w-full min-w-[640px] text-sm">
+   487→        <thead>
+   488→          <tr className="text-left text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   489→            <th className="py-2 pr-3 font-normal">Funcionalidad</th>
+   490→            <th className="py-2 px-2 font-normal text-center w-[88px]">Starter</th>
+   491→            <th className="py-2 px-2 font-normal text-center w-[88px] text-[var(--gold-soft)]">
+   492→              Professional
+   493→            </th>
+   494→            <th className="py-2 pl-2 font-normal text-center w-[88px] text-[var(--teal)]">Enterprise</th>
+   495→          </tr>
+   496→        </thead>
+   497→        <tbody>
+   498→          {CATEGORIES.map((cat) => {
+   499→            const rows = FEATURES.filter((f) => f.category === cat);
+   500→            const isOpen = openCats.has(cat);
+   501→            return (
+   502→              <React.Fragment key={cat}>
+   503→                <tr>
+   504→                  <td colSpan={4} className="pt-3 pb-1">
+   505→                    <Collapsible open={isOpen} onOpenChange={() => toggle(cat)}>
+   506→                      <CollapsibleTrigger asChild>
+   507→                        <button
+   508→                          className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors min-h-9"
+   509→                          aria-expanded={isOpen}
+   510→                        >
+   511→                          <ChevronDown
+   512→                            className={cn(
+   513→                              "h-3.5 w-3.5 transition-transform",
+   514→                              isOpen ? "" : "-rotate-90"
+   515→                            )}
+   516→                          />
+   517→                          {cat}
+   518→                          <span className="text-muted-foreground/60 normal-case font-sans tracking-normal">
+   519→                            ({rows.length})
+   520→                          </span>
+   521→                        </button>
+   522→                      </CollapsibleTrigger>
+   523→                    </Collapsible>
+   524→                  </td>
+   525→                </tr>
+   526→                {isOpen && rows.map((row, i) => (
+   527→                  <tr
+   528→                    key={`${cat}-${row.feature}-${i}`}
+   529→                    className="border-t border-border/30 hover:bg-foreground/[0.02]"
+   530→                  >
+   531→                    <td className="py-2 pr-3 text-foreground/90">{row.feature}</td>
+   532→                    <td className="py-2 px-2 text-center">
+   533→                      <FeatureCell value={row.values.starter} unit={row.unit} />
+   534→                    </td>
+   535→                    <td className="py-2 px-2 text-center bg-[var(--gold)]/[0.04]">
+   536→                      <FeatureCell value={row.values.professional} unit={row.unit} />
+   537→                    </td>
+   538→                    <td className="py-2 pl-2 text-center">
+   539→                      <FeatureCell value={row.values.enterprise} unit={row.unit} />
+   540→                    </td>
+   541→                  </tr>
+   542→                ))}
+   543→              </React.Fragment>
+   544→            );
+   545→          })}
+   546→        </tbody>
+   547→      </table>
+   548→    </div>
+   549→  );
+   550→}
+   551→
+   552→/* =========================================================
+   553→ * Usage counter row
+   554→ * =======================================================*/
+   555→
+   556→function UsageRow({ u }: { u: UsageCounter }) {
+   557→  const { pct, tone } = useUsageState(u.current, u.limit);
+   558→  const Icon = u.icon;
+   559→  const pctCls =
+   560→    tone === "danger"
+   561→      ? "bg-rose-500"
+   562→      : tone === "warn"
+   563→        ? "bg-amber-400"
+   564→        : tone === "unlimited"
+   565→          ? "bg-[var(--teal)]"
+   566→          : "bg-[var(--gold)]";
+   567→  const pctTextCls =
+   568→    tone === "danger"
+   569→      ? "text-rose-300"
+   570→      : tone === "warn"
+   571→        ? "text-amber-300"
+   572→        : tone === "unlimited"
+   573→          ? "text-[var(--teal)]"
+   574→          : tone === "blocked"
+   575→            ? "text-rose-300"
+   576→            : "text-[var(--gold-soft)]";
+   577→
+   578→  return (
+   579→    <div className="rp-glass rounded-xl p-4 min-w-0">
+   580→      <div className="flex items-start gap-3 mb-3">
+   581→        <div
+   582→          className={cn(
+   583→            "h-9 w-9 rounded-lg flex items-center justify-center bg-foreground/[0.04] shrink-0",
+   584→            pctTextCls
+   585→          )}
+   586→        >
+   587→          <Icon className="h-4 w-4" />
+   588→        </div>
+   589→        <div className="min-w-0 flex-1">
+   590→          <div className="flex items-center justify-between gap-2">
+   591→            <span className="text-sm font-medium truncate">{u.label}</span>
+   592→            {tone === "warn" && (
+   593→              <Badge className="border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] uppercase tracking-wider font-mono shrink-0">
+   594→                <AlertTriangle className="h-3 w-3 mr-1" /> 80%
+   595→              </Badge>
+   596→            )}
+   597→            {tone === "danger" && (
+   598→              <Badge className="border-rose-500/40 bg-rose-500/10 text-rose-300 text-[10px] uppercase tracking-wider font-mono shrink-0">
+   599→                <Ban className="h-3 w-3 mr-1" /> Límite
+   600→              </Badge>
+   601→            )}
+   602→            {tone === "blocked" && (
+   603→              <Badge className="border-rose-500/40 bg-rose-500/10 text-rose-300 text-[10px] uppercase tracking-wider font-mono shrink-0">
+   604→                <Ban className="h-3 w-3 mr-1" /> Bloqueado
+   605→              </Badge>
+   606→            )}
+   607→            {tone === "unlimited" && (
+   608→              <Badge className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[10px] uppercase tracking-wider font-mono shrink-0">
+   609→                <InfinityIcon className="h-3 w-3 mr-1" /> Sin límite
+   610→              </Badge>
+   611→            )}
+   612→          </div>
+   613→          <div className="text-[11px] text-muted-foreground truncate">{u.feature}</div>
+   614→        </div>
+   615→      </div>
+   616→
+   617→      {tone === "blocked" ? (
+   618→        <div className="rounded-md border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-xs text-rose-300">
+   619→          No disponible en tu plan.{" "}
+   620→          <span className="font-mono tabular-nums">{u.current}</span> intentos registrados.
+   621→        </div>
+   622→      ) : tone === "unlimited" ? (
+   623→        <div className="flex items-baseline justify-between gap-2">
+   624→          <span className="font-display text-xl tabular-nums text-[var(--teal)]">
+   625→            {u.current.toLocaleString("es-ES")}
+   626→          </span>
+   627→          <span className="text-xs text-muted-foreground font-mono">
+   628→            ∞ {u.unit}
+   629→          </span>
+   630→        </div>
+   631→      ) : (
+   632→        <>
+   633→          <div className="flex items-baseline justify-between gap-2 mb-1.5">
+   634→            <span className="font-display text-lg tabular-nums">
+   635→              <span className={pctTextCls}>{u.current.toLocaleString("es-ES")}</span>
+   636→              <span className="text-muted-foreground mx-1">/</span>
+   637→              <span className="text-muted-foreground">
+   638→                {u.limit.toLocaleString("es-ES")}
+   639→              </span>
+   640→            </span>
+   641→            <span className="text-[11px] font-mono text-muted-foreground">{u.unit}</span>
+   642→          </div>
+   643→          <div className="h-1.5 rounded-full bg-foreground/[0.08] overflow-hidden">
+   644→            <motion.div
+   645→              initial={false}
+   646→              animate={{ width: `${pct}%` }}
+   647→              transition={{ duration: 0.5, ease: "easeOut" }}
+   648→              className={cn("h-full rounded-full", pctCls)}
+   649→            />
+   650→          </div>
+   651→          <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+   652→            <span className="font-mono tabular-nums">{pct}% usado</span>
+   653→            <span className="font-mono tabular-nums">
+   654→              {u.limit - u.current} restantes
+   655→            </span>
+   656→          </div>
+   657→        </>
+   658→      )}
+   659→    </div>
+   660→  );
+   661→}
+   662→
+   663→/* =========================================================
+   664→ * can() simulator + limit() display
+   665→ * =======================================================*/
+   666→
+   667→function EntitlementsSimulator() {
+   668→  const [plan, setPlan] = React.useState<PlanId>("professional");
+   669→  const [feature, setFeature] = React.useState<string>("WhatsApp Business");
+   670→
+   671→  const allowed = can(plan, feature);
+   672→  const limit = limitOf(plan, feature);
+   673→
+   674→  return (
+   675→    <div className="space-y-4">
+   676→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   677→        <div>
+   678→          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
+   679→            Plan
+   680→          </label>
+   681→          <Select value={plan} onValueChange={(v) => setPlan(v as PlanId)}>
+   682→            <SelectTrigger className="min-h-11" aria-label="Plan">
+   683→              <SelectValue />
+   684→            </SelectTrigger>
+   685→            <SelectContent>
+   686→              {PLANS.map((p) => (
+   687→                <SelectItem key={p.id} value={p.id}>
+   688→                  {p.name}
+   689→                </SelectItem>
+   690→              ))}
+   691→            </SelectContent>
+   692→          </Select>
+   693→        </div>
+   694→        <div>
+   695→          <label className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground block mb-1.5">
+   696→            Funcionalidad
+   697→          </label>
+   698→          <Select value={feature} onValueChange={setFeature}>
+   699→            <SelectTrigger className="min-h-11" aria-label="Funcionalidad">
+   700→              <SelectValue />
+   701→            </SelectTrigger>
+   702→            <SelectContent>
+   703→              {FEATURES.map((f, i) => (
+   704→                <SelectItem key={`${f.feature}-${i}`} value={f.feature}>
+   705→                  <span className="text-xs text-muted-foreground mr-1">{f.category} ·</span>
+   706→                  {f.feature}
+   707→                </SelectItem>
+   708→              ))}
+   709→            </SelectContent>
+   710→          </Select>
+   711→        </div>
+   712→      </div>
+   713→
+   714→      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   715→        {/* can() result */}
+   716→        <div className="rp-glass rounded-xl p-4 border border-border/40">
+   717→          <div className="flex items-center gap-2 mb-2">
+   718→            <KeyRound className="h-4 w-4 text-[var(--gold)]" />
+   719→            <code className="text-[11px] font-mono text-muted-foreground">
+   720→              can(org, &quot;{feature}&quot;)
+   721→            </code>
+   722→          </div>
+   723→          {allowed ? (
+   724→            <div className="flex items-center gap-2">
+   725→              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-emerald-400/15 text-emerald-300">
+   726→                <Check className="h-4 w-4" />
+   727→              </span>
+   728→              <div>
+   729→                <div className="text-sm font-medium text-emerald-300">true · Permitido</div>
+   730→                <div className="text-[11px] text-muted-foreground">
+   731→                  La organización puede usar esta funcionalidad.
+   732→                </div>
+   733→              </div>
+   734→            </div>
+   735→          ) : (
+   736→            <div className="flex items-center gap-2">
+   737→              <span className="inline-flex items-center justify-center h-7 w-7 rounded-full bg-rose-500/15 text-rose-300">
+   738→                <X className="h-4 w-4" />
+   739→              </span>
+   740→              <div>
+   741→                <div className="text-sm font-medium text-rose-300">false · No disponible</div>
+   742→                <div className="text-[11px] text-muted-foreground">
+   743→                  Bloqueado por el plan. Requiere upgrade.
+   744→                </div>
+   745→              </div>
+   746→            </div>
+   747→          )}
+   748→        </div>
+   749→
+   750→        {/* limit() result */}
+   751→        <div className="rp-glass rounded-xl p-4 border border-border/40">
+   752→          <div className="flex items-center gap-2 mb-2">
+   753→            <Gauge className="h-4 w-4 text-[var(--teal)]" />
+   754→            <code className="text-[11px] font-mono text-muted-foreground">
+   755→              limit(org, &quot;{feature}&quot;)
+   756→            </code>
+   757→          </div>
+   758→          <div className="flex items-baseline gap-2">
+   759→            {limit === -1 ? (
+   760→              <>
+   761→                <span className="font-display text-2xl tabular-nums text-[var(--teal)]">∞</span>
+   762→                <span className="text-xs text-muted-foreground">ilimitado</span>
+   763→              </>
+   764→            ) : limit === 0 ? (
+   765→              <>
+   766→                <span className="font-display text-2xl tabular-nums text-rose-300">0</span>
+   767→                <span className="text-xs text-muted-foreground">bloqueado</span>
+   768→              </>
+   769→            ) : (
+   770→              <>
+   771→                <span className="font-display text-2xl tabular-nums text-[var(--gold-soft)]">
+   772→                  {limit.toLocaleString("es-ES")}
+   773→                </span>
+   774→                <span className="text-xs text-muted-foreground">
+   775→                  {FEATURES.find((f) => f.feature === feature)?.unit ?? "uds."}
+   776→                </span>
+   777→              </>
+   778→            )}
+   779→          </div>
+   780→          <div className="text-[11px] text-muted-foreground mt-1">
+   781→            Límite duro · la operación se bloquea al superarlo (excepto en hora punta).
+   782→          </div>
+   783→        </div>
+   784→      </div>
+   785→    </div>
+   786→  );
+   787→}
+   788→
+   789→/* =========================================================
+   790→ * Lifecycle panel
+   791→ * =======================================================*/
+   792→
+   793→function LifecyclePanel() {
+   794→  const items = [
+   795→    {
+   796→      icon: CalendarClock,
+   797→      tone: "amber" as const,
+   798→      title: "Prueba gratuita",
+   799→      detail: "14 días restantes · degradación a Starter al terminar",
+   800→    },
+   801→    {
+   802→      icon: ArrowUpRight,
+   803→      tone: "gold" as const,
+   804→      title: "Upgrade instantáneo",
+   805→      detail: "Cambio aplicado al instante con prorrateo por días restantes",
+   806→    },
+   807→    {
+   808→      icon: Clock,
+   809→      tone: "teal" as const,
+   810→      title: "Downgrade programado",
+   811→      detail: "Aplica al final del periodo de facturación en curso",
+   812→    },
+   813→  ];
+   814→  return (
+   815→    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   816→      {items.map((it) => {
+   817→        const toneCls =
+   818→          it.tone === "gold"
+   819→            ? "text-[var(--gold-soft)] bg-[var(--gold)]/10 border-[var(--gold)]/30"
+   820→            : it.tone === "teal"
+   821→              ? "text-[var(--teal)] bg-[var(--teal)]/10 border-[var(--teal)]/30"
+   822→              : "text-amber-300 bg-amber-400/10 border-amber-400/30";
+   823→        const Icon = it.icon;
+   824→        return (
+   825→          <div key={it.title} className="rp-glass rounded-xl p-4 border border-border/40">
+   826→            <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center mb-2 border", toneCls)}>
+   827→              <Icon className="h-4 w-4" />
+   828→            </div>
+   829→            <div className="text-sm font-medium">{it.title}</div>
+   830→            <div className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+   831→              {it.detail}
+   832→            </div>
+   833→          </div>
+   834→        );
+   835→      })}
+   836→    </div>
+   837→  );
+   838→}
+   839→
+   840→/* =========================================================
+   841→ * Subscription overrides (Enterprise)
+   842→ * =======================================================*/
+   843→
+   844→function OverridesCard() {
+   845→  return (
+   846→    <div className="space-y-3">
+   847→      {OVERRIDES.map((o) => {
+   848→        const Icon = o.icon;
+   849→        return (
+   850→          <div
+   851→            key={o.label}
+   852→            className="flex items-start gap-3 rounded-xl border border-[var(--teal)]/30 bg-[var(--teal)]/[0.06] p-3"
+   853→          >
+   854→            <div className="h-8 w-8 rounded-lg flex items-center justify-center bg-[var(--teal)]/15 text-[var(--teal)] shrink-0">
+   855→              <Icon className="h-4 w-4" />
+   856→            </div>
+   857→            <div className="min-w-0">
+   858→              <div className="text-sm font-medium text-[var(--teal)]">{o.label}</div>
+   859→              <div className="text-[11px] text-muted-foreground leading-relaxed">{o.detail}</div>
+   860→            </div>
+   861→          </div>
+   862→        );
+   863→      })}
+   864→      <div className="rounded-xl border border-dashed border-border/50 p-3 flex items-start gap-3">
+   865→        <Lightbulb className="h-4 w-4 text-[var(--gold)] shrink-0 mt-0.5" />
+   866→        <div className="text-[11px] text-muted-foreground leading-relaxed">
+   867→          Las excepciones negociadas se almacenan en <code className="font-mono text-foreground/80">subscription_overrides</code>{" "}
+   868→          y prevalecen sobre la matriz de planes estándar.
+   869→        </div>
+   870→      </div>
+   871→    </div>
+   872→  );
+   873→}
+   874→
+   875→/* =========================================================
+   876→ * Main view
+   877→ * =======================================================*/
+   878→
+   879→export function EntitlementsView() {
+   880→  const { toast } = useToast();
+   881→  const reduce = useReducedMotion();
+   882→  const [currentPlan] = React.useState<PlanId>("professional");
+   883→  const [degradationGrace, setDegradationGrace] = React.useState(true);
+   884→
+   885→  return (
+   886→    <div className="space-y-5 overflow-x-hidden">
+   887→      {/* Header */}
+   888→      <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   889→        <div>
+   890→          <div className="flex items-center gap-2">
+   891→            <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
+   892→              Entitlements y Plans
+   893→            </h1>
+   894→            <DemoBadge />
+   895→          </div>
+   896→          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+   897→            Motor de planes, límites por funcionalidad y consumo en tiempo real.
+   898→            Reglas honestas: nada de paywall oculto en operación crítica.
+   899→          </p>
+   900→        </div>
+   901→        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+   902→          <Button
+   903→            variant="outline"
+   904→            onClick={() =>
+   905→              toast({
+   906→                title: "Matriz exportada",
+   907→                description: "Comparativa Starter / Professional / Enterprise en CSV.",
+   908→              })
+   909→            }
+   910→            className="min-h-11"
+   911→          >
+   912→            <FileWarning className="h-4 w-4" />
+   913→            <span className="hidden sm:inline">Exportar matriz</span>
+   914→            <span className="sm:hidden">Exportar</span>
+   915→          </Button>
+   916→          <Button
+   917→            onClick={() =>
+   918→              toast({
+   919→                title: "Solicitud enviada a CSM",
+   920→                description: "Te contactaremos en 24h para customizar tu plan Enterprise.",
+   921→              })
+   922→            }
+   923→            className="bg-[var(--gold)] text-black hover:bg-[var(--gold-soft)] min-h-11"
+   924→          >
+   925→            <Crown className="h-4 w-4" /> Hablar con ventas
+   926→          </Button>
+   927→        </div>
+   928→      </header>
+   929→
+   930→      {/* Lifecycle banner */}
+   931→      <SectionCard
+   932→        title="Ciclo de vida de la suscripción"
+   933→        desc="Prueba → Upgrade → Downgrade · prorrateo automático"
+   934→        icon={CalendarClock}
+   935→      >
+   936→        <LifecyclePanel />
+   937→      </SectionCard>
+   938→
+   939→      {/* Plan columns */}
+   940→      <div>
+   941→        <div className="flex items-center gap-2 mb-3">
+   942→          <ShieldCheck className="h-4 w-4 text-[var(--gold)]" />
+   943→          <h2 className="font-display text-lg">Planes disponibles</h2>
+   944→        </div>
+   945→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   946→          {PLANS.map((p) => (
+   947→            <PlanColumn key={p.id} plan={p} current={p.id === currentPlan} />
+   948→          ))}
+   949→        </div>
+   950→      </div>
+   951→
+   952→      {/* Feature matrix */}
+   953→      <SectionCard
+   954→        title="Matriz de funcionalidades"
+   955→        desc="36 funcionalidades en 12 categorías · ✔ / ✖ / cuota"
+   956→        icon={Sparkles}
+   957→        action={
+   958→          <Badge
+   959→            variant="outline"
+   960→            className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px] uppercase tracking-wider font-mono"
+   961→          >
+   962→            Profesional · resaltado
+   963→          </Badge>
+   964→        }
+   965→      >
+   966→        <FeatureMatrix />
+   967→      </SectionCard>
+   968→
+   969→      {/* Usage counters */}
+   970→      <div>
+   971→        <div className="flex items-center gap-2 mb-3 flex-wrap">
+   972→          <Gauge className="h-4 w-4 text-[var(--gold)]" />
+   973→          <h2 className="font-display text-lg">Consumo en tiempo real</h2>
+   974→          <Badge
+   975→            variant="outline"
+   976→            className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px] uppercase tracking-wider font-mono"
+   977→          >
+   978→            Casa Marena · Professional
+   979→          </Badge>
+   980→        </div>
+   981→        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+   982→          {USAGE.map((u) => (
+   983→            <UsageRow key={u.id} u={u} />
+   984→          ))}
+   985→        </div>
+   986→      </div>
+   987→
+   988→      {/* can() + limit() simulator */}
+   989→      <SectionCard
+   990→        title="Simulador de entitlements"
+   991→        desc="can(org, feature) · limit(org, feature) — evalúa el motor en vivo"
+   992→        icon={KeyRound}
+   993→      >
+   994→        <EntitlementsSimulator />
+   995→      </SectionCard>
+   996→
+   997→      {/* Overrides + Degradation rule (2-col) */}
+   998→      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+   999→        <SectionCard
+  1000→          title="Excepciones negociadas"
+  1001→          desc="Overrides Enterprise · contractuales"
+  1002→          icon={Crown}
+  1003→        >
+  1004→          <OverridesCard />
+  1005→        </SectionCard>
+  1006→
+  1007→        <SectionCard
+  1008→          title="Regla de degradación"
+  1009→          desc="Política anti-punición en operación crítica"
+  1010→          icon={CircleDollarSign}
+  1011→        >
+  1012→          <div className="space-y-4">
+  1013→            <div className="rounded-xl border border-[var(--gold)]/30 bg-[var(--gold)]/[0.06] p-4">
+  1014→              <div className="flex items-start gap-3">
+  1015→                <CircleDollarSign className="h-5 w-5 text-[var(--gold)] shrink-0 mt-0.5" />
+  1016→                <div>
+  1017→                  <div className="text-sm font-medium text-[var(--gold-soft)] leading-snug">
+  1018→                    Nunca bloquear operación crítica en hora punta — permitir y facturar exceso.
+  1019→                  </div>
+  1020→                  <div className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+  1021→                    Si un límite se alcanca entre 13:00–16:00 o 20:00–23:30, el sistema
+  1022→                    permite la operación, registra el consumo excedente y lo factura en
+  1023→                    la próxima factura con tarifa de overage.
+  1024→                  </div>
+  1025→                </div>
+  1026→              </div>
+  1027→            </div>
+  1028→
+  1029→            <div className="flex items-center justify-between gap-3 rounded-xl border border-border/40 p-3">
+  1030→              <div className="min-w-0">
+  1031→                <div className="text-sm font-medium">Modo gracia (hora punta)</div>
+  1032→                <div className="text-[11px] text-muted-foreground">
+  1033→                  Permite excesos sin bloquear · se facturan al cierre
+  1034→                </div>
+  1035→              </div>
+  1036→              <Switch
+  1037→                checked={degradationGrace}
+  1038→                onCheckedChange={(v) => {
+  1039→                  setDegradationGrace(v);
+  1040→                  toast({
+  1041→                    title: v ? "Modo gracia activado" : "Modo gracia desactivado",
+  1042→                    description: v
+  1043→                      ? "Los excesos se permitirán y facturarán."
+  1044→                      : "Los límites se aplicarán estrictamente.",
+  1045→                  });
+  1046→                }}
+  1047→                aria-label="Modo gracia"
+  1048→              />
+  1049→            </div>
+  1050→
+  1051→            <div className="grid grid-cols-3 gap-2">
+  1052→              <div className="rounded-md border border-border/40 bg-foreground/[0.03] p-2.5 text-center">
+  1053→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1054→                  Overage email
+  1055→                </div>
+  1056→                <div className="font-display text-sm tabular-nums text-amber-300">
+  1057→                  0,02€<span className="text-[10px] text-muted-foreground">/ud</span>
+  1058→                </div>
+  1059→              </div>
+  1060→              <div className="rounded-md border border-border/40 bg-foreground/[0.03] p-2.5 text-center">
+  1061→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1062→                  Overage WA
+  1063→                </div>
+  1064→                <div className="font-display text-sm tabular-nums text-amber-300">
+  1065→                  0,05€<span className="text-[10px] text-muted-foreground">/ud</span>
+  1066→                </div>
+  1067→              </div>
+  1068→              <div className="rounded-md border border-border/40 bg-foreground/[0.03] p-2.5 text-center">
+  1069→                <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1070→                  Overage auto
+  1071→                </div>
+  1072→                <div className="font-display text-sm tabular-nums text-amber-300">
+  1073→                  0,10€<span className="text-[10px] text-muted-foreground">/ud</span>
+  1074→                </div>
+  1075→              </div>
+  1076→            </div>
+  1077→          </div>
+  1078→        </SectionCard>
+  1079→      </div>
+  1080→
+  1081→      {/* Footer note */}
+  1082→      <div className="rp-glass rounded-2xl p-4 flex items-start gap-3">
+  1083→        <TrendingUp className="h-5 w-5 text-[var(--teal)] shrink-0 mt-0.5" />
+  1084→        <div className="text-[12px] text-muted-foreground leading-relaxed">
+  1085→          <span className="text-foreground font-medium">Dato demo:</span> esta vista
+  1086→          muestra el plan <span className="text-[var(--gold-soft)] font-medium">Professional</span>{" "}
+  1087→          de Casa Marena (3 locales, 1.247 clientes CRM). El motor{" "}
+  1088→          <code className="font-mono text-foreground/80">can()</code> /{" "}
+  1089→          <code className="font-mono text-foreground/80">limit()</code> se evalúa en
+  1090→          runtime en cada acción del usuario contra la tabla{" "}
+  1091→          <code className="font-mono text-foreground/80">entitlements</code> y los{" "}
+  1092→          <code className="font-mono text-foreground/80">subscription_overrides</code>{" "}
+  1093→          de la organización.
+  1094→        </div>
+  1095→      </div>
+  1096→    </div>
+  1097→  );
+  1098→}
+  1099→

@@ -1,0 +1,581 @@
+     1→     1→"use client";
+     2→     2→
+     3→     3→import * as React from "react";
+     4→     4→import { cn } from "@/lib/utils";
+     5→     5→import { useNav, type Section } from "./nav-store";
+     6→     6→import { Logo, BrandMark } from "./brand";
+     7→     7→import {
+     8→     8→  LayoutDashboard, CalendarDays, Users, Megaphone, Workflow, Star, BarChart3,
+     9→     9→  Plug, CreditCard, UserCog, Settings, ShieldCheck, Bell, Search, ChevronDown,
+    10→    10→  Menu, X, HelpCircle, LogOut, Command as CommandIcon, CornerDownLeft,
+    11→    11→  CalendarPlus, UserSearch, Map as MapIcon, Sparkles, TrendingUp, Award, Ticket,
+    12→    12→  Crown, BrainCircuit, BookOpen, UtensilsCrossed, Zap, Gauge,
+    13→    13→} from "lucide-react";
+    14→    14→import {
+    15→    15→  Dialog,
+    16→    16→  DialogContent,
+    17→    17→  DialogTitle,
+    18→    18→  DialogDescription,
+    19→    19→} from "@/components/ui/dialog";
+    20→    20→import { AiCopilot } from "@/components/rp/ai-center/ai-copilot";
+    21→    21→
+    22→    22→const NAV: { id: Section; label: string; icon: React.ElementType; group: string }[] = [
+    23→    23→  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
+    24→    24→  { id: "executive", label: "Centro Ejecutivo", icon: Crown, group: "Operación" },
+    25→    25→  { id: "reservas", label: "Reservas", icon: CalendarDays, group: "Operación" },
+    26→    26→  { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
+    27→    27→  { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
+    28→    28→  { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
+    29→    29→  { id: "growth-analytics", label: "Growth Analytics", icon: TrendingUp, group: "Growth" },
+    30→    30→  { id: "growth-reputation", label: "Centro Reputación", icon: Award, group: "Growth" },
+    31→    31→  { id: "campaigns", label: "Campañas", icon: Megaphone, group: "Growth" },
+    32→    32→  { id: "promotions", label: "Promociones", icon: Ticket, group: "Growth" },
+    33→    33→  { id: "reviews", label: "Google Reviews", icon: Star, group: "Reputación" },
+    34→    34→  { id: "analytics", label: "Analytics", icon: BarChart3, group: "Reputación" },
+    35→    35→  { id: "integraciones", label: "Integraciones", icon: Plug, group: "Plataforma" },
+    36→    36→  { id: "billing", label: "Facturación", icon: CreditCard, group: "Plataforma" },
+    37→    37→  { id: "equipo", label: "Equipo", icon: UserCog, group: "Plataforma" },
+    38→    38→  { id: "configuracion", label: "Configuración", icon: Settings, group: "Plataforma" },
+    39→    39→  { id: "ai-center", label: "Centro de IA", icon: BrainCircuit, group: "Plataforma" },
+    40→    40→  { id: "ai-knowledge", label: "Conocimiento IA", icon: BookOpen, group: "Plataforma" },
+    41→    41→  { id: "ai-menu", label: "IA Menú", icon: UtensilsCrossed, group: "Plataforma" },
+    42→    42→  { id: "growth-engine", label: "Growth Engine", icon: TrendingUp, group: "Plataforma" },
+    43→    43→  { id: "ai-os-actions", label: "Acciones IA", icon: Zap, group: "Plataforma" },
+    44→    44→  { id: "ai-os-predictions", label: "Predicciones IA", icon: Gauge, group: "Plataforma" },
+    45→    45→  { id: "ai-os", label: "AI OS", icon: BrainCircuit, group: "Plataforma" },
+    46→    46→  { id: "superadmin", label: "Super Admin", icon: ShieldCheck, group: "Plataforma" },
+    47→    47→];
+    48→    48→
+    49→    49→export function AppShell() {
+    50→    50→  const section = useNav((s) => s.section);
+    51→    51→  const go = useNav((s) => s.go);
+    52→    52→  const setView = useNav((s) => s.setView);
+    53→    53→  const [mobileOpen, setMobileOpen] = React.useState(false);
+    54→    54→  const [cmdOpen, setCmdOpen] = React.useState(false);
+    55→    55→
+    56→    56→  const current = NAV.find((n) => n.id === section);
+    57→    57→
+    58→    58→  // Lock body scroll when mobile drawer is open
+    59→    59→  React.useEffect(() => {
+    60→    60→    if (mobileOpen) {
+    61→    61→      document.body.style.overflow = "hidden";
+    62→    62→    } else {
+    63→    63→      document.body.style.overflow = "";
+    64→    64→    }
+    65→    65→    return () => {
+    66→    66→      document.body.style.overflow = "";
+    67→    67→    };
+    68→    68→  }, [mobileOpen]);
+    69→    69→
+    70→    70→  // Global ⌘K / Ctrl+K shortcut to open the command palette
+    71→    71→  React.useEffect(() => {
+    72→    72→    function onKey(e: KeyboardEvent) {
+    73→    73→      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    74→    74→        e.preventDefault();
+    75→    75→        setCmdOpen((v) => !v);
+    76→    76→      }
+    77→    77→    }
+    78→    78→    window.addEventListener("keydown", onKey);
+    79→    79→    return () => window.removeEventListener("keydown", onKey);
+    80→    80→  }, []);
+    81→    81→
+    82→    82→  return (
+    83→    83→    <div className="flex min-h-screen">
+    84→    84→      {/* Sidebar desktop — sticky, fixed while scrolling */}
+    85→    85→      <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-border/60 rp-glass-strong sticky top-0 h-screen">
+    86→    86→        <div className="h-16 flex items-center px-5 border-b border-border/60">
+    87→    87→          <button onClick={() => setView("landing")} className="flex items-center gap-2.5" aria-label="Volver a landing">
+    88→    88→            <BrandMark className="h-8 w-8" />
+    89→    89→            <span className="font-display text-lg tracking-tight">RestoPanel</span>
+    90→    90→          </button>
+    91→    91→        </div>
+    92→    92→        <OrgSelector />
+    93→    93→        <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación principal">
+    94→    94→          {GROUPS.map((g) => (
+    95→    95→            <div key={g} className="mb-4">
+    96→    96→              <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+    97→    97→              <ul className="space-y-0.5">
+    98→    98→                {NAV.filter((n) => n.group === g).map((n) => (
+    99→    99→                  <li key={n.id}>
+   100→   100→                    <button
+   101→   101→                      onClick={() => go(n.id)}
+   102→   102→                      className={cn(
+   103→   103→                        "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+   104→   104→                        section === n.id
+   105→   105→                          ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]"
+   106→   106→                          : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   107→   107→                      )}
+   108→   108→                      aria-current={section === n.id ? "page" : undefined}
+   109→   109→                    >
+   110→   110→                      <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   111→   111→                      <span className="truncate">{n.label}</span>
+   112→   112→                    </button>
+   113→   113→                  </li>
+   114→   114→                ))}
+   115→   115→              </ul>
+   116→   116→            </div>
+   117→   117→          ))}
+   118→   118→        </nav>
+   119→   119→        <div className="border-t border-border/60 p-3">
+   120→   120→          <div className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-foreground/5 cursor-pointer">
+   121→   121→            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium">AM</div>
+   122→   122→            <div className="flex-1 min-w-0">
+   123→   123→              <div className="text-sm font-medium truncate">Ana Martínez</div>
+   124→   124→              <div className="text-[11px] text-muted-foreground truncate">Owner · Ramses Group</div>
+   125→   125→            </div>
+   126→   126→            <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden />
+   127→   127→          </div>
+   128→   128→        </div>
+   129→   129→      </aside>
+   130→   130→
+   131→   131→      {/* Mobile sidebar — drawer with all nav items, closes on click */}
+   132→   132→      {mobileOpen && (
+   133→   133→        <div className="lg:hidden fixed inset-0 z-50">
+   134→   134→          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileOpen(false)} />
+   135→   135→          <aside className="absolute left-0 top-0 h-full w-72 rp-glass-strong border-r border-border/60 flex flex-col">
+   136→   136→            <div className="h-16 flex items-center justify-between pl-5 pr-2 border-b border-border/60">
+   137→   137→              <Logo />
+   138→   138→              <button onClick={() => setMobileOpen(false)} aria-label="Cerrar menú" className="h-11 w-11 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors">
+   139→   139→                <X className="h-5 w-5" />
+   140→   140→              </button>
+   141→   141→            </div>
+   142→   142→            <OrgSelector />
+   143→   143→            <nav className="flex-1 overflow-y-auto rp-scroll-thin px-3 py-3" aria-label="Navegación móvil">
+   144→   144→              {GROUPS.map((g) => (
+   145→   145→                <div key={g} className="mb-4">
+   146→   146→                  <div className="px-2 mb-1.5 text-[10px] font-mono uppercase tracking-[0.2em] text-muted-foreground">{g}</div>
+   147→   147→                  <ul className="space-y-0.5">
+   148→   148→                    {NAV.filter((n) => n.group === g).map((n) => (
+   149→   149→                      <li key={n.id}>
+   150→   150→                        <button
+   151→   151→                          onClick={() => { go(n.id); setMobileOpen(false); }}
+   152→   152→                          className={cn(
+   153→   153→                            "w-full min-h-[44px] flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors",
+   154→   154→                            section === n.id ? "bg-[var(--gold)]/10 text-[var(--gold-soft)]" : "text-muted-foreground hover:text-foreground hover:bg-foreground/5"
+   155→   155→                          )}
+   156→   156→                          aria-current={section === n.id ? "page" : undefined}
+   157→   157→                        >
+   158→   158→                          <n.icon className="h-4 w-4 shrink-0" aria-hidden />
+   159→   159→                          <span className="truncate">{n.label}</span>
+   160→   160→                        </button>
+   161→   161→                      </li>
+   162→   162→                    ))}
+   163→   163→                  </ul>
+   164→   164→                </div>
+   165→   165→              ))}
+   166→   166→            </nav>
+   167→   167→          </aside>
+   168→   168→        </div>
+   169→   169→      )}
+   170→   170→
+   171→   171→      {/* Main */}
+   172→   172→      <div className="flex-1 min-w-0 flex flex-col">
+   173→   173→        <Topbar
+   174→   174→          onMenu={() => setMobileOpen(true)}
+   175→   175→          title={current?.label ?? "Dashboard"}
+   176→   176→          onOpenCmd={() => setCmdOpen(true)}
+   177→   177→        />
+   178→   178→        <main className="flex-1 p-4 sm:p-6 lg:p-8" id="app-main">
+   179→   179→          <SectionRenderer section={section} />
+   180→   180→        </main>
+   181→   181→      </div>
+   182→   182→
+   183→   183→      {/* Command palette (⌘K) */}
+   184→   184→      <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
+   185→   185→
+   186→   186→      {/* Global floating AI Copilot — available across all app sections */}
+   187→   187→      <AiCopilot />
+   188→   188→    </div>
+   189→   189→  );
+   190→   190→}
+   191→   191→
+   192→   192→const GROUPS = ["Operación", "Relación", "Growth", "Reputación", "Plataforma"];
+   193→   193→
+   194→   194→function OrgSelector() {
+   195→   195→  const org = useNav((s) => s.org);
+   196→   196→  const location = useNav((s) => s.location);
+   197→   197→  const [open, setOpen] = React.useState(false);
+   198→   198→  return (
+   199→   199→    <div className="px-3 py-3 border-b border-border/40 relative">
+   200→   200→      <button
+   201→   201→        onClick={() => setOpen((v) => !v)}
+   202→   202→        className="w-full min-h-[44px] flex items-center gap-2.5 rounded-md border border-border/60 px-3 py-2 text-left hover:border-[var(--gold)]/40 transition-colors"
+   203→   203→        aria-expanded={open}
+   204→   204→        aria-label="Seleccionar organización y local"
+   205→   205→      >
+   206→   206→        <div className="h-7 w-7 rounded-md bg-[var(--gold)]/15 flex items-center justify-center text-[var(--gold)] text-xs font-medium">R</div>
+   207→   207→        <div className="flex-1 min-w-0">
+   208→   208→          <div className="text-sm font-medium truncate">{org}</div>
+   209→   209→          <div className="text-[11px] text-muted-foreground truncate">{location}</div>
+   210→   210→        </div>
+   211→   211→        <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden />
+   212→   212→      </button>
+   213→   213→      {open && (
+   214→   214→        <div className="absolute left-3 right-3 top-full mt-1 rp-glass-strong rounded-md border border-border/60 py-1 z-10 max-h-[60vh] overflow-y-auto rp-scroll-thin">
+   215→   215→          {["Ramses Madrid", "Ramses Barcelona", "Ramses Valencia"].map((l) => (
+   216→   216→            <button
+   217→   217→              key={l}
+   218→   218→              onClick={() => { useNav.getState().setLocation(l); setOpen(false); }}
+   219→   219→              className="w-full min-h-[44px] text-left px-3 py-2 text-sm hover:bg-foreground/5"
+   220→   220→            >
+   221→   221→              {l}
+   222→   222→            </button>
+   223→   223→          ))}
+   224→   224→          <div className="border-t border-border/40 my-1" />
+   225→   225→          <button className="w-full min-h-[44px] text-left px-3 py-2 text-sm text-muted-foreground hover:bg-foreground/5">
+   226→   226→            + Añadir local
+   227→   227→          </button>
+   228→   228→        </div>
+   229→   229→      )}
+   230→   230→    </div>
+   231→   231→  );
+   232→   232→}
+   233→   233→
+   234→   234→function Topbar({ onMenu, title, onOpenCmd }: { onMenu: () => void; title: string; onOpenCmd: () => void }) {
+   235→   235→  const [period, setPeriod] = React.useState<"hoy" | "semana" | "mes">("hoy");
+   236→   236→  return (
+   237→   237→    <header className="sticky top-0 z-30 h-16 border-b border-border/60 rp-glass-strong flex items-center gap-2 sm:gap-3 px-3 sm:px-6">
+   238→   238→      <button onClick={onMenu} className="lg:hidden h-11 w-11 -ml-1 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors" aria-label="Abrir menú">
+   239→   239→        <Menu className="h-5 w-5" />
+   240→   240→      </button>
+   241→   241→      {/* Breadcrumb / title (left) */}
+   242→   242→      <div className="flex items-center gap-2 text-sm min-w-0 flex-1 md:flex-none">
+   243→   243→        <span className="text-muted-foreground hidden sm:inline shrink-0">RestoPanel /</span>
+   244→   244→        <span className="font-medium truncate">{title}</span>
+   245→   245→      </div>
+   246→   246→      {/* Global search (center, hidden on mobile) — clickable, opens command palette */}
+   247→   247→      <button
+   248→   248→        onClick={onOpenCmd}
+   249→   249→        className="flex-1 max-w-[180px] md:max-w-xs xl:max-w-md mx-auto hidden md:flex items-center gap-2 rounded-lg border border-border/60 px-3 py-1.5 text-sm text-muted-foreground hover:border-[var(--gold)]/40 hover:bg-foreground/[0.03] transition-colors text-left"
+   250→   250→        aria-label="Abrir paleta de comandos"
+   251→   251→      >
+   252→   252→        <Search className="h-4 w-4 shrink-0" aria-hidden />
+   253→   253→        <span className="flex-1 truncate">Buscar reservas, clientes, mesas…</span>
+   254→   254→        <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0 flex items-center gap-0.5">
+   255→   255→          <CommandIcon className="h-2.5 w-2.5" />K
+   256→   256→        </kbd>
+   257→   257→      </button>
+   258→   258→      {/* Right cluster: period selector, notifications, help, avatar */}
+   259→   259→      <div className="ml-auto flex items-center gap-1 sm:gap-1.5 lg:gap-2 shrink-0">
+   260→   260→        <div className="hidden 2xl:flex items-center rounded-md border border-border/60 p-0.5">
+   261→   261→          {(["hoy", "semana", "mes"] as const).map((p) => (
+   262→   262→            <button
+   263→   263→              key={p}
+   264→   264→              onClick={() => setPeriod(p)}
+   265→   265→              className={cn(
+   266→   266→                "min-h-[36px] rounded px-2.5 py-1 text-xs capitalize transition-colors",
+   267→   267→                period === p ? "bg-[var(--gold)] text-black" : "text-muted-foreground hover:text-foreground"
+   268→   268→              )}
+   269→   269→            >
+   270→   270→              {p}
+   271→   271→            </button>
+   272→   272→          ))}
+   273→   273→        </div>
+   274→   274→        <button
+   275→   275→          onClick={onOpenCmd}
+   276→   276→          className="md:hidden h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5"
+   277→   277→          aria-label="Buscar (paleta de comandos)"
+   278→   278→        >
+   279→   279→          <Search className="h-4 w-4" />
+   280→   280→        </button>
+   281→   281→        <button className="relative h-11 w-11 sm:h-9 sm:w-9 rounded-md border border-border/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Notificaciones">
+   282→   282→          <Bell className="h-4 w-4" />
+   283→   283→          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[var(--teal)] ring-2 ring-background" aria-hidden />
+   284→   284→        </button>
+   285→   285→        <button className="hidden sm:flex h-9 w-9 rounded-md border border-border/60 items-center justify-center text-muted-foreground hover:text-foreground transition-colors hover:bg-foreground/5" aria-label="Ayuda">
+   286→   286→          <HelpCircle className="h-4 w-4" />
+   287→   287→        </button>
+   288→   288→        <button
+   289→   289→          className="h-9 w-9 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-xs font-medium ring-2 ring-transparent hover:ring-[var(--gold)]/40 transition-shadow"
+   290→   290→          aria-label="Cuenta de Ana Martínez"
+   291→   291→        >
+   292→   292→          AM
+   293→   293→        </button>
+   294→   294→      </div>
+   295→   295→    </header>
+   296→   296→  );
+   297→   297→}
+   298→   298→
+   299→   299→/* =========================================================
+   300→   300→ * Command palette (⌘K)
+   301→   301→ * Quick actions modal with search and keyboard navigation.
+   302→   302→ * Navigates via useNav.getState().go(section).
+   303→   303→ * =======================================================*/
+   304→   304→interface CmdAction {
+   305→   305→  id: string;
+   306→   306→  label: string;
+   307→   307→  hint: string;
+   308→   308→  icon: React.ElementType;
+   309→   309→  group: "Navegación" | "Acciones";
+   310→   310→  run: () => void;
+   311→   311→}
+   312→   312→
+   313→   313→function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+   314→   314→  const [query, setQuery] = React.useState("");
+   315→   315→  const [active, setActive] = React.useState(0);
+   316→   316→  const inputRef = React.useRef<HTMLInputElement>(null);
+   317→   317→  const listRef = React.useRef<HTMLDivElement>(null);
+   318→   318→
+   319→   319→  const actions = React.useMemo<CmdAction[]>(() => {
+   320→   320→    const nav: CmdAction[] = NAV.map((n) => ({
+   321→   321→      id: `nav-${n.id}`,
+   322→   322→      label: n.label,
+   323→   323→      hint: "Ir a sección",
+   324→   324→      icon: n.icon,
+   325→   325→      group: "Navegación",
+   326→   326→      run: () => useNav.getState().go(n.id),
+   327→   327→    }));
+   328→   328→    const quick: CmdAction[] = [
+   329→   329→      { id: "qa-executive", label: "Abrir Centro Ejecutivo", hint: "IA + Alertas", icon: Crown, group: "Acciones", run: () => useNav.getState().go("executive") },
+   330→   330→      { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   331→   331→      { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
+   332→   332→      { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
+   333→   333→      { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
+   334→   334→      { id: "qa-growth-analytics", label: "Ver Growth Analytics", hint: "ROI e insights IA", icon: TrendingUp, group: "Acciones", run: () => useNav.getState().go("growth-analytics") },
+   335→   335→      { id: "qa-growth-reputation", label: "Gestionar reputación", hint: "Reseñas + NPS", icon: Award, group: "Acciones", run: () => useNav.getState().go("growth-reputation") },
+   336→   336→      { id: "qa-reviews", label: "Responder reviews", hint: "Google Reviews", icon: Star, group: "Acciones", run: () => useNav.getState().go("reviews") },
+   337→   337→      { id: "qa-analytics", label: "Ver analítica", hint: "Analytics", icon: BarChart3, group: "Acciones", run: () => useNav.getState().go("analytics") },
+   338→   338→      { id: "qa-settings", label: "Configuración", hint: "Ajustes del local", icon: Settings, group: "Acciones", run: () => useNav.getState().go("configuracion") },
+   339→   339→    ];
+   340→   340→    return [...quick, ...nav];
+   341→   341→  }, []);
+   342→   342→
+   343→   343→  const filtered = React.useMemo(() => {
+   344→   344→    const q = query.trim().toLowerCase();
+   345→   345→    if (!q) return actions;
+   346→   346→    return actions.filter((a) =>
+   347→   347→      a.label.toLowerCase().includes(q) || a.hint.toLowerCase().includes(q)
+   348→   348→    );
+   349→   349→  }, [actions, query]);
+   350→   350→
+   351→   351→  // Reset state on open
+   352→   352→  React.useEffect(() => {
+   353→   353→    if (open) {
+   354→   354→      setQuery("");
+   355→   355→      setActive(0);
+   356→   356→      // focus input after dialog mounts
+   357→   357→      requestAnimationFrame(() => inputRef.current?.focus());
+   358→   358→    }
+   359→   359→  }, [open]);
+   360→   360→
+   361→   361→  // Keep active index in range
+   362→   362→  React.useEffect(() => {
+   363→   363→    if (active >= filtered.length) setActive(0);
+   364→   364→  }, [filtered, active]);
+   365→   365→
+   366→   366→  // Scroll active item into view
+   367→   367→  React.useEffect(() => {
+   368→   368→    const el = listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`);
+   369→   369→    el?.scrollIntoView({ block: "nearest" });
+   370→   370→  }, [active]);
+   371→   371→
+   372→   372→  function execute(a: CmdAction) {
+   373→   373→    a.run();
+   374→   374→    onOpenChange(false);
+   375→   375→  }
+   376→   376→
+   377→   377→  function onKeyDown(e: React.KeyboardEvent) {
+   378→   378→    if (e.key === "ArrowDown") {
+   379→   379→      e.preventDefault();
+   380→   380→      setActive((i) => (i + 1) % Math.max(filtered.length, 1));
+   381→   381→    } else if (e.key === "ArrowUp") {
+   382→   382→      e.preventDefault();
+   383→   383→      setActive((i) => (i - 1 + filtered.length) % Math.max(filtered.length, 1));
+   384→   384→    } else if (e.key === "Enter") {
+   385→   385→      e.preventDefault();
+   386→   386→      const a = filtered[active];
+   387→   387→      if (a) execute(a);
+   388→   388→    } else if (e.key === "Escape") {
+   389→   389→      onOpenChange(false);
+   390→   390→    }
+   391→   391→  }
+   392→   392→
+   393→   393→  // Group filtered actions for rendering
+   394→   394→  const groups = React.useMemo(() => {
+   395→   395→    const map = new Map<string, CmdAction[]>();
+   396→   396→    for (const a of filtered) {
+   397→   397→      const arr = map.get(a.group) ?? [];
+   398→   398→      arr.push(a);
+   399→   399→      map.set(a.group, arr);
+   400→   400→    }
+   401→   401→    return Array.from(map.entries());
+   402→   402→  }, [filtered]);
+   403→   403→
+   404→   404→  // Flat index lookup for keyboard nav
+   405→   405→  let flatIdx = -1;
+   406→   406→
+   407→   407→  return (
+   408→   408→    <Dialog open={open} onOpenChange={onOpenChange}>
+   409→   409→      <DialogContent
+   410→   410→        showCloseButton={false}
+   411→   411→        className="p-0 gap-0 sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col"
+   412→   412→        onKeyDown={onKeyDown}
+   413→   413→      >
+   414→   414→        <DialogTitle className="sr-only">Paleta de comandos</DialogTitle>
+   415→   415→        <DialogDescription className="sr-only">
+   416→   416→          Busca acciones rápidas o secciones y navega con el teclado.
+   417→   417→        </DialogDescription>
+   418→   418→        {/* Search input */}
+   419→   419→        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-border/60">
+   420→   420→          <Search className="h-4 w-4 text-muted-foreground shrink-0" aria-hidden />
+   421→   421→          <input
+   422→   422→            ref={inputRef}
+   423→   423→            type="search"
+   424→   424→            value={query}
+   425→   425→            onChange={(e) => { setQuery(e.target.value); setActive(0); }}
+   426→   426→            placeholder="Busca una acción o sección…"
+   427→   427→            className="flex-1 bg-transparent outline-none text-sm placeholder:text-muted-foreground min-w-0"
+   428→   428→            aria-label="Buscar acción"
+   429→   429→            autoComplete="off"
+   430→   430→            spellCheck={false}
+   431→   431→          />
+   432→   432→          <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-border/60 shrink-0">ESC</kbd>
+   433→   433→        </div>
+   434→   434→        {/* Actions list */}
+   435→   435→        <div ref={listRef} className="flex-1 overflow-y-auto rp-scroll-thin p-2 max-h-[60vh]">
+   436→   436→          {filtered.length === 0 ? (
+   437→   437→            <div className="px-3 py-10 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+   438→   438→              <Sparkles className="h-5 w-5 opacity-50" />
+   439→   439→              Sin resultados para “{query}”.
+   440→   440→            </div>
+   441→   441→          ) : (
+   442→   442→            groups.map(([group, items]) => (
+   443→   443→              <div key={group} className="mb-1">
+   444→   444→                <div className="px-2 py-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   445→   445→                  {group}
+   446→   446→                </div>
+   447→   447→                <ul role="listbox" aria-label={group}>
+   448→   448→                  {items.map((a) => {
+   449→   449→                    flatIdx += 1;
+   450→   450→                    const idx = flatIdx;
+   451→   451→                    const isActive = idx === active;
+   452→   452→                    return (
+   453→   453→                      <li key={a.id} role="option" aria-selected={isActive}>
+   454→   454→                        <button
+   455→   455→                          data-idx={idx}
+   456→   456→                          onMouseMove={() => setActive(idx)}
+   457→   457→                          onClick={() => execute(a)}
+   458→   458→                          className={cn(
+   459→   459→                            "w-full flex items-center gap-3 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+   460→   460→                            isActive ? "bg-[var(--gold)]/12 text-[var(--gold-soft)]" : "hover:bg-foreground/5"
+   461→   461→                          )}
+   462→   462→                        >
+   463→   463→                          <a.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-[var(--gold)]" : "text-muted-foreground")} aria-hidden />
+   464→   464→                          <span className="flex-1 min-w-0 truncate font-medium">{a.label}</span>
+   465→   465→                          <span className="text-[11px] text-muted-foreground shrink-0 hidden sm:inline">{a.hint}</span>
+   466→   466→                          {isActive && (
+   467→   467→                            <CornerDownLeft className="h-3.5 w-3.5 text-[var(--gold)] shrink-0" aria-hidden />
+   468→   468→                          )}
+   469→   469→                        </button>
+   470→   470→                      </li>
+   471→   471→                    );
+   472→   472→                  })}
+   473→   473→                </ul>
+   474→   474→              </div>
+   475→   475→            ))
+   476→   476→          )}
+   477→   477→        </div>
+   478→   478→        {/* Footer hint */}
+   479→   479→        <div className="flex items-center justify-between gap-2 px-4 h-10 border-t border-border/60 text-[11px] text-muted-foreground">
+   480→   480→          <div className="flex items-center gap-3">
+   481→   481→            <span className="flex items-center gap-1">
+   482→   482→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↑↓</kbd> navegar
+   483→   483→            </span>
+   484→   484→            <span className="flex items-center gap-1">
+   485→   485→              <kbd className="font-mono px-1 py-0.5 rounded border border-border/60">↵</kbd> seleccionar
+   486→   486→            </span>
+   487→   487→          </div>
+   488→   488→          <span className="font-mono">RestoPanel · ⌘K</span>
+   489→   489→        </div>
+   490→   490→      </DialogContent>
+   491→   491→    </Dialog>
+   492→   492→  );
+   493→   493→}
+   494→   494→
+   495→   495→function SectionRenderer({ section }: { section: Section }) {
+   496→   496→  const Lazy = React.useMemo(() => {
+   497→   497→    const map: Record<Section, React.LazyExoticComponent<React.ComponentType>> = {
+   498→   498→      dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then((m) => ({ default: m.Home }))),
+   499→   499→      executive: React.lazy(() => import("@/components/rp/executive/executive-view").then((m) => ({ default: m.ExecutiveView }))),
+   500→   500→      reservas: React.lazy(() => import("@/components/rp/reservas/reservas-view").then((m) => ({ default: m.ReservasView }))),
+   501→   501→      crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
+   502→   502→      marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),
+   503→   503→      automatizaciones: React.lazy(() => import("@/components/rp/automations/automation-builder").then((m) => ({ default: m.AutomationBuilder }))),
+   504→   504→      "growth-analytics": React.lazy(() => import("@/components/rp/growth/growth-analytics").then((m) => ({ default: m.GrowthAnalytics }))),
+   505→   505→      "growth-reputation": React.lazy(() => import("@/components/rp/growth/growth-reputation").then((m) => ({ default: m.GrowthReputation }))),
+   506→   506→      campaigns: React.lazy(() => import("@/components/rp/growth/growth-campaigns").then((m) => ({ default: m.GrowthCampaigns }))),
+   507→   507→      promotions: React.lazy(() => import("@/components/rp/growth/growth-promotions").then((m) => ({ default: m.GrowthPromotions }))),
+   508→   508→      reviews: React.lazy(() => import("@/components/rp/reviews/reviews-view").then((m) => ({ default: m.ReviewsView }))),
+   509→   509→      analytics: React.lazy(() => import("@/components/rp/reviews/analytics-view").then((m) => ({ default: m.AnalyticsView }))),
+   510→   510→      integraciones: React.lazy(() => import("@/components/rp/superadmin/integrations-view").then((m) => ({ default: m.IntegrationsView }))),
+   511→   511→      billing: React.lazy(() => import("@/components/rp/superadmin/billing-view").then((m) => ({ default: m.BillingView }))),
+   512→   512→      equipo: React.lazy(() => import("@/components/rp/superadmin/team-view").then((m) => ({ default: m.TeamView }))),
+   513→   513→      configuracion: React.lazy(() => import("@/components/rp/superadmin/settings-view").then((m) => ({ default: m.SettingsView }))),
+   514→   514→      superadmin: React.lazy(() => import("@/components/rp/superadmin/super-admin-view").then((m) => ({ default: m.SuperAdminView }))),
+   515→   515→      "ai-center": React.lazy(() => import("@/components/rp/ai-center/ai-center").then((m) => ({ default: m.AiCenter }))),
+   516→   516→      "ai-knowledge": React.lazy(() => import("@/components/rp/ai-center/ai-knowledge").then((m) => ({ default: m.AiKnowledge }))),
+   517→   517→      "ai-menu": React.lazy(() => import("@/components/rp/ai-center/ai-menu").then((m) => ({ default: m.AiMenu }))),
+   518→   518→      "growth-engine": React.lazy(() => import("@/components/rp/growth/growth-engine").then((m) => ({ default: m.GrowthEngine }))),
+   519→   519→      "ai-os-actions": React.lazy(() => import("@/components/rp/ai-os/ai-os-actions").then((m) => ({ default: m.AiOsActions }))),
+   520→   520→      "ai-os-predictions": React.lazy(() => import("@/components/rp/ai-os/ai-os-predictions").then((m) => ({ default: m.AiOsPredictions }))),
+   521→   521→      "ai-os": React.lazy(() => import("@/components/rp/ai-os/ai-os-view").then((m) => ({ default: m.AiOsView }))),
+   522→   522→    };
+   523→   523→    return map[section];
+   524→   524→  }, [section]);
+   525→   525→
+   526→   526→  return (
+   527→   527→    <React.Suspense fallback={<SectionSkeleton />}>
+   528→   528→      <ErrorBoundary>
+   529→   529→        <Lazy />
+   530→   530→      </ErrorBoundary>
+   531→   531→    </React.Suspense>
+   532→   532→  );
+   533→   533→}
+   534→   534→
+   535→   535→class ErrorBoundary extends React.Component<
+   536→   536→  { children: React.ReactNode },
+   537→   537→  { hasError: boolean; error: Error | null }
+   538→   538→> {
+   539→   539→  constructor(props: { children: React.ReactNode }) {
+   540→   540→    super(props);
+   541→   541→    this.state = { hasError: false, error: null };
+   542→   542→  }
+   543→   543→  static getDerivedStateFromError(error: Error) {
+   544→   544→    return { hasError: true, error };
+   545→   545→  }
+   546→   546→  componentDidCatch(error: Error) {
+   547→   547→    console.error("SectionRenderer error:", error.message);
+   548→   548→  }
+   549→   549→  render() {
+   550→   550→    if (this.state.hasError) {
+   551→   551→      return (
+   552→   552→        <div className="rp-glass rounded-xl p-8 text-center max-w-2xl mx-auto">
+   553→   553→          <p className="text-sm text-destructive mb-3 font-medium">Error al cargar esta sección</p>
+   554→   554→          <p className="text-xs text-muted-foreground mb-4 font-mono break-all">{this.state.error?.message?.slice(0, 300)}</p>
+   555→   555→          <button
+   556→   556→            onClick={() => this.setState({ hasError: false, error: null })}
+   557→   557→            className="rounded-md border border-border/60 px-4 py-2 text-sm hover:bg-foreground/5"
+   558→   558→          >
+   559→   559→            Reintentar
+   560→   560→          </button>
+   561→   561→        </div>
+   562→   562→      );
+   563→   563→    }
+   564→   564→    return this.props.children;
+   565→   565→  }
+   566→   566→}
+   567→   567→
+   568→   568→function SectionSkeleton() {
+   569→   569→  return (
+   570→   570→    <div className="space-y-4" aria-busy="true" aria-label="Cargando sección">
+   571→   571→      <div className="h-8 w-48 rounded-md bg-foreground/10 animate-pulse" />
+   572→   572→      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+   573→   573→        {Array.from({ length: 4 }).map((_, i) => (
+   574→   574→          <div key={i} className="h-28 rounded-xl bg-foreground/5 animate-pulse" />
+   575→   575→        ))}
+   576→   576→      </div>
+   577→   577→      <div className="h-64 rounded-xl bg-foreground/5 animate-pulse" />
+   578→   578→    </div>
+   579→   579→  );
+   580→   580→}
+   581→   581→

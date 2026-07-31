@@ -1,0 +1,1438 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import {
+     9→  Tooltip,
+    10→  TooltipContent,
+    11→  TooltipProvider,
+    12→  TooltipTrigger,
+    13→} from "@/components/ui/tooltip";
+    14→import {
+    15→  Collapsible,
+    16→  CollapsibleContent,
+    17→  CollapsibleTrigger,
+    18→} from "@/components/ui/collapsible";
+    19→import {
+    20→  Dialog,
+    21→  DialogContent,
+    22→  DialogDescription,
+    23→  DialogFooter,
+    24→  DialogHeader,
+    25→  DialogTitle,
+    26→} from "@/components/ui/dialog";
+    27→import {
+    28→  DropdownMenu,
+    29→  DropdownMenuContent,
+    30→  DropdownMenuItem,
+    31→  DropdownMenuLabel,
+    32→  DropdownMenuSeparator,
+    33→  DropdownMenuTrigger,
+    34→} from "@/components/ui/dropdown-menu";
+    35→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+    36→import {
+    37→  Users,
+    38→  UserCog,
+    39→  Coffee,
+    40→  Activity,
+    41→  Star,
+    42→  Clock,
+    43→  Euro,
+    44→  TrendingUp,
+    45→  ChevronDown,
+    46→  ChevronRight,
+    47→  Info,
+    48→  BrainCircuit,
+    49→  Sparkles,
+    50→  MapPin,
+    51→  Armchair,
+    52→  Layers,
+    53→  AlertTriangle,
+    54→  CheckCircle2,
+    55→  XCircle,
+    56→  Zap,
+    57→  BarChart3,
+    58→  Pause,
+    59→  Play,
+    60→  ArrowRightLeft,
+    61→  Eye,
+    62→  Timer,
+    63→  Receipt,
+    64→  Award,
+    65→  CircleDot,
+    66→} from "lucide-react";
+    67→
+    68→/* =========================================================
+    69→ * Types
+    70→ * =======================================================*/
+    71→type StaffStatus = "active" | "break" | "off" | "training";
+    72→
+    73→interface FloorStaffMember {
+    74→  id: string;
+    75→  name: string;
+    76→  avatar?: string;
+    77→  role: string;
+    78→  zone: string;
+    79→  tablesAssigned: string[];
+    80→  openOrders: number;
+    81→  avgServiceTime: number;
+    82→  avgTicket: number;
+    83→  rating: number;
+    84→  totalSales: number;
+    85→  status: StaffStatus;
+    86→  loadScore: number;
+    87→  loadFactors: { factor: string; value: string; weight: number }[];
+    88→}
+    89→
+    90→interface ZoneSummary {
+    91→  zone: string;
+    92→  staffCount: number;
+    93→  tablesAssigned: number;
+    94→  avgLoad: number;
+    95→  capacity: number;
+    96→  demand: number;
+    97→  color: string;
+    98→}
+    99→
+   100→/* =========================================================
+   101→ * Status meta
+   102→ * =======================================================*/
+   103→const STATUS_META: Record<
+   104→  StaffStatus,
+   105→  { label: string; dot: string; text: string; border: string; bg: string }
+   106→> = {
+   107→  active: {
+   108→    label: "En servicio",
+   109→    dot: "bg-emerald-400",
+   110→    text: "text-emerald-300",
+   111→    border: "border-emerald-400/40",
+   112→    bg: "bg-emerald-400/10",
+   113→  },
+   114→  break: {
+   115→    label: "En pausa",
+   116→    dot: "bg-amber-400",
+   117→    text: "text-amber-300",
+   118→    border: "border-amber-400/40",
+   119→    bg: "bg-amber-400/10",
+   120→  },
+   121→  off: {
+   122→    label: "Fuera",
+   123→    dot: "bg-zinc-500",
+   124→    text: "text-zinc-400",
+   125→    border: "border-zinc-500/40",
+   126→    bg: "bg-zinc-500/10",
+   127→  },
+   128→  training: {
+   129→    label: "Formación",
+   130→    dot: "bg-[var(--teal)]",
+   131→    text: "rp-teal-text",
+   132→    border: "border-[var(--teal)]/40",
+   133→    bg: "bg-[var(--teal)]/10",
+   134→  },
+   135→};
+   136→
+   137→/* =========================================================
+   138→ * Zone meta
+   139→ * =======================================================*/
+   140→const ZONE_META: Record<
+   141→  string,
+   142→  { label: string; color: string; bg: string; border: string; text: string }
+   143→> = {
+   144→  Sala: {
+   145→    label: "Sala",
+   146→    color: "var(--gold)",
+   147→    bg: "bg-[var(--gold)]/10",
+   148→    border: "border-[var(--gold)]/40",
+   149→    text: "text-[var(--gold-soft)]",
+   150→  },
+   151→  Terraza: {
+   152→    label: "Terraza",
+   153→    color: "var(--teal)",
+   154→    bg: "bg-[var(--teal)]/10",
+   155→    border: "border-[var(--teal)]/40",
+   156→    text: "rp-teal-text",
+   157→  },
+   158→  VIP: {
+   159→    label: "VIP",
+   160→    color: "#C084FC",
+   161→    bg: "bg-purple-400/10",
+   162→    border: "border-purple-400/40",
+   163→    text: "text-purple-300",
+   164→  },
+   165→  Barra: {
+   166→    label: "Barra",
+   167→    color: "#F59E0B",
+   168→    bg: "bg-amber-400/10",
+   169→    border: "border-amber-400/40",
+   170→    text: "text-amber-300",
+   171→  },
+   172→  Todas: {
+   173→    label: "Todas",
+   174→    color: "var(--gold)",
+   175→    bg: "bg-foreground/[0.06]",
+   176→    border: "border-border/50",
+   177→    text: "text-muted-foreground",
+   178→  },
+   179→};
+   180→
+   181→/* =========================================================
+   182→ * Demo data — staff
+   183→ * =======================================================*/
+   184→const DEMO_STAFF: FloorStaffMember[] = [
+   185→  {
+   186→    id: "S1",
+   187→    name: "Carlos Mendoza",
+   188→    role: "Camarero",
+   189→    zone: "Terraza",
+   190→    tablesAssigned: ["M3", "M7", "M12", "T2"],
+   191→    openOrders: 3,
+   192→    avgServiceTime: 88,
+   193→    avgTicket: 42,
+   194→    rating: 4.6,
+   195→    totalSales: 420,
+   196→    status: "active",
+   197→    loadScore: 85,
+   198→    loadFactors: [
+   199→      { factor: "Mesas asignadas", value: "4", weight: 30 },
+   200→      { factor: "Personas totales", value: "18", weight: 25 },
+   201→      { factor: "Pedidos abiertos", value: "3", weight: 20 },
+   202→      { factor: "Complejidad servicio", value: "Alta", weight: 15 },
+   203→      { factor: "Incidencias", value: "1", weight: 10 },
+   204→    ],
+   205→  },
+   206→  {
+   207→    id: "S2",
+   208→    name: "María García",
+   209→    role: "Camarero",
+   210→    zone: "Sala",
+   211→    tablesAssigned: ["M1", "M5", "M9"],
+   212→    openOrders: 2,
+   213→    avgServiceTime: 76,
+   214→    avgTicket: 38,
+   215→    rating: 4.8,
+   216→    totalSales: 280,
+   217→    status: "active",
+   218→    loadScore: 45,
+   219→    loadFactors: [
+   220→      { factor: "Mesas asignadas", value: "3", weight: 30 },
+   221→      { factor: "Personas totales", value: "11", weight: 25 },
+   222→      { factor: "Pedidos abiertos", value: "2", weight: 20 },
+   223→      { factor: "Complejidad servicio", value: "Media", weight: 15 },
+   224→      { factor: "Incidencias", value: "0", weight: 10 },
+   225→    ],
+   226→  },
+   227→  {
+   228→    id: "S3",
+   229→    name: "Juan Ruiz",
+   230→    role: "Camarero",
+   231→    zone: "VIP",
+   232→    tablesAssigned: ["V1", "V2"],
+   233→    openOrders: 1,
+   234→    avgServiceTime: 102,
+   235→    avgTicket: 96,
+   236→    rating: 4.2,
+   237→    totalSales: 640,
+   238→    status: "active",
+   239→    loadScore: 52,
+   240→    loadFactors: [
+   241→      { factor: "Mesas asignadas", value: "2", weight: 30 },
+   242→      { factor: "Personas totales", value: "8", weight: 25 },
+   243→      { factor: "Pedidos abiertos", value: "1", weight: 20 },
+   244→      { factor: "Complejidad servicio", value: "Alta (VIP)", weight: 15 },
+   245→      { factor: "Incidencias", value: "0", weight: 10 },
+   246→    ],
+   247→  },
+   248→  {
+   249→    id: "S4",
+   250→    name: "Laura Torres",
+   251→    role: "Maître",
+   252→    zone: "Sala",
+   253→    tablesAssigned: [],
+   254→    openOrders: 0,
+   255→    avgServiceTime: 0,
+   256→    avgTicket: 0,
+   257→    rating: 4.9,
+   258→    totalSales: 0,
+   259→    status: "active",
+   260→    loadScore: 30,
+   261→    loadFactors: [
+   262→      { factor: "Mesas asignadas", value: "0 (supervisión)", weight: 30 },
+   263→      { factor: "Personas totales", value: "0", weight: 25 },
+   264→      { factor: "Pedidos abiertos", value: "0", weight: 20 },
+   265→      { factor: "Complejidad servicio", value: "Supervisión", weight: 15 },
+   266→      { factor: "Incidencias", value: "0", weight: 10 },
+   267→    ],
+   268→  },
+   269→  {
+   270→    id: "S5",
+   271→    name: "Pedro Sánchez",
+   272→    role: "Runner",
+   273→    zone: "Todas",
+   274→    tablesAssigned: [],
+   275→    openOrders: 5,
+   276→    avgServiceTime: 0,
+   277→    avgTicket: 0,
+   278→    rating: 4.0,
+   279→    totalSales: 0,
+   280→    status: "active",
+   281→    loadScore: 68,
+   282→    loadFactors: [
+   283→      { factor: "Mesas asignadas", value: "0 (runner)", weight: 30 },
+   284→      { factor: "Personas totales", value: "0", weight: 25 },
+   285→      { factor: "Pedidos abiertos", value: "5", weight: 20 },
+   286→      { factor: "Complejidad servicio", value: "Media (logística)", weight: 15 },
+   287→      { factor: "Incidencias", value: "1", weight: 10 },
+   288→    ],
+   289→  },
+   290→  {
+   291→    id: "S6",
+   292→    name: "Ana López",
+   293→    role: "Camarero",
+   294→    zone: "Barra",
+   295→    tablesAssigned: ["B1", "B3", "B5"],
+   296→    openOrders: 2,
+   297→    avgServiceTime: 64,
+   298→    avgTicket: 22,
+   299→    rating: 4.5,
+   300→    totalSales: 190,
+   301→    status: "break",
+   302→    loadScore: 58,
+   303→    loadFactors: [
+   304→      { factor: "Mesas asignadas", value: "3", weight: 30 },
+   305→      { factor: "Personas totales", value: "9", weight: 25 },
+   306→      { factor: "Pedidos abiertos", value: "2", weight: 20 },
+   307→      { factor: "Complejidad servicio", value: "Baja (barra)", weight: 15 },
+   308→      { factor: "Incidencias", value: "0", weight: 10 },
+   309→    ],
+   310→  },
+   311→];
+   312→
+   313→/* =========================================================
+   314→ * Zone summaries
+   315→ * =======================================================*/
+   316→const ZONE_SUMMARIES: ZoneSummary[] = [
+   317→  {
+   318→    zone: "Sala",
+   319→    staffCount: 2,
+   320→    tablesAssigned: 9,
+   321→    avgLoad: 42,
+   322→    capacity: 36,
+   323→    demand: 30,
+   324→    color: "var(--gold)",
+   325→  },
+   326→  {
+   327→    zone: "Terraza",
+   328→    staffCount: 1,
+   329→    tablesAssigned: 8,
+   330→    avgLoad: 85,
+   331→    capacity: 32,
+   332→    demand: 38,
+   333→    color: "var(--teal)",
+   334→  },
+   335→  {
+   336→    zone: "VIP",
+   337→    staffCount: 1,
+   338→    tablesAssigned: 2,
+   339→    avgLoad: 52,
+   340→    capacity: 12,
+   341→    demand: 8,
+   342→    color: "#C084FC",
+   343→  },
+   344→  {
+   345→    zone: "Barra",
+   346→    staffCount: 1,
+   347→    tablesAssigned: 3,
+   348→    avgLoad: 58,
+   349→    capacity: 12,
+   350→    demand: 8,
+   351→    color: "#F59E0B",
+   352→  },
+   353→];
+   354→
+   355→/* =========================================================
+   356→ * AI reassignment suggestions
+   357→ * =======================================================*/
+   358→interface ReassignSuggestion {
+   359→  id: string;
+   360→  fromStaff: string;
+   361→  toStaff: string;
+   362→  table: string;
+   363→  reason: string;
+   364→  fromLoad: number;
+   365→  toLoad: number;
+   366→  projectedFromLoad: number;
+   367→  projectedToLoad: number;
+   368→}
+   369→
+   370→const SUGGESTIONS: ReassignSuggestion[] = [
+   371→  {
+   372→    id: "R1",
+   373→    fromStaff: "Carlos Mendoza",
+   374→    toStaff: "María García",
+   375→    table: "M12",
+   376→    reason:
+   377→      "Carlos tiene 85% de carga. María tiene 45%. Reasignar M12 equilibra el servicio en Terraza/Sala.",
+   378→    fromLoad: 85,
+   379→    toLoad: 45,
+   380→    projectedFromLoad: 68,
+   381→    projectedToLoad: 62,
+   382→  },
+   383→];
+   384→
+   385→/* =========================================================
+   386→ * Helpers
+   387→ * =======================================================*/
+   388→function loadColor(score: number) {
+   389→  if (score >= 75) return { text: "text-destructive", bg: "bg-destructive", ring: "ring-destructive/40" };
+   390→  if (score >= 50) return { text: "rp-gold-text", bg: "bg-[var(--gold)]", ring: "ring-[var(--gold)]/40" };
+   391→  return { text: "text-emerald-300", bg: "bg-emerald-400", ring: "ring-emerald-400/40" };
+   392→}
+   393→
+   394→function loadLabel(score: number) {
+   395→  if (score >= 75) return "Alta";
+   396→  if (score >= 50) return "Media";
+   397→  return "Baja";
+   398→}
+   399→
+   400→function initials(name: string) {
+   401→  const parts = name.split(" ");
+   402→  return (parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "");
+   403→}
+   404→
+   405→function avatarGradient(name: string) {
+   406→  const grads = [
+   407→    "from-amber-400/80 to-[var(--gold-deep)]",
+   408→    "from-[var(--teal)]/80 to-[var(--teal-deep)]",
+   409→    "from-purple-400/80 to-purple-700",
+   410→    "from-rose-400/80 to-rose-700",
+   411→    "from-sky-400/80 to-sky-700",
+   412→    "from-emerald-400/80 to-emerald-700",
+   413→  ];
+   414→  const idx = name.charCodeAt(0) % grads.length;
+   415→  return grads[idx];
+   416→}
+   417→
+   418→/* =========================================================
+   419→ * Circular load meter
+   420→ * =======================================================*/
+   421→function LoadMeter({
+   422→  score,
+   423→  size = 92,
+   424→  reduce,
+   425→}: {
+   426→  score: number;
+   427→  size?: number;
+   428→  reduce: boolean;
+   429→}) {
+   430→  const stroke = 7;
+   431→  const r = (size - stroke * 2) / 2;
+   432→  const c = 2 * Math.PI * r;
+   433→  const offset = c - (score / 100) * c;
+   434→  const lc = loadColor(score);
+   435→
+   436→  return (
+   437→    <div className="relative grid place-items-center" style={{ width: size, height: size }}>
+   438→      <svg width={size} height={size} className="-rotate-90">
+   439→        <circle
+   440→          cx={size / 2}
+   441→          cy={size / 2}
+   442→          r={r}
+   443→          fill="none"
+   444→          stroke="currentColor"
+   445→          strokeWidth={stroke}
+   446→          className="text-foreground/10"
+   447→        />
+   448→        <motion.circle
+   449→          cx={size / 2}
+   450→          cy={size / 2}
+   451→          r={r}
+   452→          fill="none"
+   453→          stroke="currentColor"
+   454→          strokeWidth={stroke}
+   455→          strokeLinecap="round"
+   456→          strokeDasharray={c}
+   457→          initial={reduce ? false : { strokeDashoffset: c }}
+   458→          animate={{ strokeDashoffset: offset }}
+   459→          transition={{ duration: 0.8, ease: "easeOut" }}
+   460→          className={lc.text}
+   461→        />
+   462→      </svg>
+   463→      <div className="absolute inset-0 flex flex-col items-center justify-center">
+   464→        <span className={cn("font-display text-2xl font-light tabular-nums", lc.text)}>
+   465→          {score}
+   466→          <span className="text-xs text-muted-foreground">%</span>
+   467→        </span>
+   468→        <span className="mt-0.5 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
+   469→          {loadLabel(score)}
+   470→        </span>
+   471→      </div>
+   472→    </div>
+   473→  );
+   474→}
+   475→
+   476→/* =========================================================
+   477→ * Stars rating
+   478→ * =======================================================*/
+   479→function Stars({ rating }: { rating: number }) {
+   480→  return (
+   481→    <span className="inline-flex items-center gap-1">
+   482→      <Star className="h-3 w-3 fill-[var(--gold)] text-[var(--gold)]" />
+   483→      <span className="font-mono text-xs tabular-nums text-foreground">
+   484→        {rating.toFixed(1)}
+   485→      </span>
+   486→    </span>
+   487→  );
+   488→}
+   489→
+   490→/* =========================================================
+   491→ * Staff card
+   492→ * =======================================================*/
+   493→function StaffCard({
+   494→  member,
+   495→  index,
+   496→  onDetail,
+   497→  onToggleStatus,
+   498→  onReassign,
+   499→}: {
+   500→  member: FloorStaffMember;
+   501→  index: number;
+   502→  onDetail: () => void;
+   503→  onToggleStatus: () => void;
+   504→  onReassign: (zone: string) => void;
+   505→}) {
+   506→  const reduce = useReducedMotion();
+   507→  const [factorsOpen, setFactorsOpen] = React.useState(false);
+   508→  const status = STATUS_META[member.status];
+   509→  const zone = ZONE_META[member.zone] ?? ZONE_META.Todas;
+   510→  const lc = loadColor(member.loadScore);
+   511→
+   512→  return (
+   513→    <motion.article
+   514→      initial={reduce ? false : { opacity: 0, y: 12 }}
+   515→      animate={{ opacity: 1, y: 0 }}
+   516→      transition={{ duration: 0.3, delay: reduce ? 0 : index * 0.05 }}
+   517→      className={cn(
+   518→        "rp-glass flex flex-col rounded-2xl p-4 sm:p-5",
+   519→        member.loadScore >= 75 && "rp-glow-gold ring-1 ring-destructive/30",
+   520→        member.loadScore >= 50 && member.loadScore < 75 && "ring-1 ring-[var(--gold)]/30",
+   521→      )}
+   522→    >
+   523→      {/* Top: avatar + name + role + status */}
+   524→      <div className="flex items-start gap-3">
+   525→        <div
+   526→          className={cn(
+   527→            "grid h-12 w-12 shrink-0 place-items-center rounded-full bg-gradient-to-br font-display text-lg font-medium text-[#0a0a0a]",
+   528→            avatarGradient(member.name),
+   529→          )}
+   530→          aria-label={`Avatar de ${member.name}`}
+   531→        >
+   532→          {initials(member.name)}
+   533→        </div>
+   534→        <div className="min-w-0 flex-1">
+   535→          <div className="flex items-start justify-between gap-2">
+   536→            <div className="min-w-0">
+   537→              <div className="truncate text-sm font-medium text-foreground">
+   538→                {member.name}
+   539→              </div>
+   540→              <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+   541→                <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-foreground/[0.04] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   542→                  <UserCog className="h-2.5 w-2.5" />
+   543→                  {member.role}
+   544→                </span>
+   545→                <span
+   546→                  className={cn(
+   547→                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   548→                    zone.border,
+   549→                    zone.bg,
+   550→                    zone.text,
+   551→                  )}
+   552→                >
+   553→                  <MapPin className="h-2.5 w-2.5" />
+   554→                  {zone.label}
+   555→                </span>
+   556→              </div>
+   557→            </div>
+   558→            <Tooltip>
+   559→              <TooltipTrigger asChild>
+   560→                <span
+   561→                  className={cn(
+   562→                    "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider",
+   563→                    status.border,
+   564→                    status.bg,
+   565→                    status.text,
+   566→                  )}
+   567→                >
+   568→                  <span className={cn("h-1.5 w-1.5 rounded-full", status.dot, member.status === "active" && "animate-pulse")} />
+   569→                  {status.label}
+   570→                </span>
+   571→              </TooltipTrigger>
+   572→              <TooltipContent>Estado actual del empleado</TooltipContent>
+   573→            </Tooltip>
+   574→          </div>
+   575→        </div>
+   576→      </div>
+   577→
+   578→      {/* Load meter + quick metrics */}
+   579→      <div className="mt-4 flex items-center gap-4">
+   580→        <LoadMeter score={member.loadScore} reduce={reduce} />
+   581→        <div className="flex-1 space-y-1.5">
+   582→          <MetricLine
+   583→            icon={Timer}
+   584→            label="T. servicio"
+   585→            value={member.avgServiceTime > 0 ? `${member.avgServiceTime}min` : "—"}
+   586→          />
+   587→          <MetricLine
+   588→            icon={Receipt}
+   589→            label="Ticket medio"
+   590→            value={member.avgTicket > 0 ? `€${member.avgTicket}` : "—"}
+   591→          />
+   592→          <MetricLine
+   593→            icon={Euro}
+   594→            label="Ventas hoy"
+   595→            value={member.totalSales > 0 ? `€${member.totalSales}` : "—"}
+   596→          />
+   597→          <MetricLine
+   598→            icon={Activity}
+   599→            label="Pedidos abiertos"
+   600→            value={`${member.openOrders}`}
+   601→          />
+   602→        </div>
+   603→      </div>
+   604→
+   605→      {/* Rating */}
+   606→      <div className="mt-3 flex items-center justify-between border-t border-border/30 pt-3">
+   607→        <Stars rating={member.rating} />
+   608→        <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   609→          Valoración
+   610→        </span>
+   611→      </div>
+   612→
+   613→      {/* Tables assigned chips */}
+   614→      <div className="mt-3">
+   615→        <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   616→          Mesas asignadas
+   617→        </div>
+   618→        {member.tablesAssigned.length > 0 ? (
+   619→          <div className="mt-1.5 flex flex-wrap gap-1.5">
+   620→            {member.tablesAssigned.map((t) => (
+   621→              <span
+   622→                key={t}
+   623→                className={cn(
+   624→                  "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-mono",
+   625→                  zone.border,
+   626→                  zone.bg,
+   627→                  zone.text,
+   628→                )}
+   629→              >
+   630→                <Armchair className="h-2.5 w-2.5" />
+   631→                {t}
+   632→              </span>
+   633→            ))}
+   634→          </div>
+   635→        ) : (
+   636→          <div className="mt-1.5 text-xs text-muted-foreground">
+   637→            {member.role === "Maître"
+   638→              ? "Supervisión general"
+   639→              : member.role === "Runner"
+   640→              ? "Atención logística (todas las mesas)"
+   641→              : "Sin asignación"}
+   642→          </div>
+   643→        )}
+   644→      </div>
+   645→
+   646→      {/* Load factors collapsible */}
+   647→      <Collapsible open={factorsOpen} onOpenChange={setFactorsOpen} className="mt-3">
+   648→        <CollapsibleTrigger asChild>
+   649→          <button
+   650→            className="flex w-full items-center justify-between rounded-lg border border-border/40 bg-foreground/[0.03] px-3 py-2 text-left transition-colors hover:bg-foreground/[0.05] min-h-11"
+   651→            aria-expanded={factorsOpen}
+   652→          >
+   653→            <span className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   654→              <Layers className="h-3 w-3" />
+   655→              Desglose de carga
+   656→            </span>
+   657→            <ChevronDown
+   658→              className={cn(
+   659→                "h-3.5 w-3.5 text-muted-foreground transition-transform",
+   660→                factorsOpen && "rotate-180",
+   661→              )}
+   662→            />
+   663→          </button>
+   664→        </CollapsibleTrigger>
+   665→        <CollapsibleContent>
+   666→          <AnimatePresence initial={false}>
+   667→            {factorsOpen && (
+   668→              <motion.div
+   669→                initial={reduce ? false : { opacity: 0, height: 0 }}
+   670→                animate={{ opacity: 1, height: "auto" }}
+   671→                exit={reduce ? undefined : { opacity: 0, height: 0 }}
+   672→                transition={{ duration: 0.2 }}
+   673→                className="mt-2 space-y-2 overflow-hidden"
+   674→              >
+   675→                {member.loadFactors.map((f, i) => (
+   676→                  <div
+   677→                    key={i}
+   678→                    className="rp-glass flex items-center justify-between gap-2 rounded-lg px-3 py-2"
+   679→                  >
+   680→                    <div className="min-w-0">
+   681→                      <div className="truncate text-xs text-foreground">{f.factor}</div>
+   682→                      <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">
+   683→                        Peso {f.weight}%
+   684→                      </div>
+   685→                    </div>
+   686→                    <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
+   687→                      {f.value}
+   688→                    </span>
+   689→                  </div>
+   690→                ))}
+   691→              </motion.div>
+   692→            )}
+   693→          </AnimatePresence>
+   694→        </CollapsibleContent>
+   695→      </Collapsible>
+   696→
+   697→      {/* Actions */}
+   698→      <div className="mt-3 flex flex-wrap gap-2">
+   699→        <DropdownMenu>
+   700→          <DropdownMenuTrigger asChild>
+   701→            <Button variant="outline" size="sm" className="h-10 min-h-11 px-3 text-xs">
+   702→              <ArrowRightLeft className="h-3.5 w-3.5" />
+   703→              Reasignar
+   704→            </Button>
+   705→          </DropdownMenuTrigger>
+   706→          <DropdownMenuContent align="start" className="w-44">
+   707→            <DropdownMenuLabel className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   708→              Cambiar zona
+   709→            </DropdownMenuLabel>
+   710→            <DropdownMenuSeparator />
+   711→            {Object.entries(ZONE_META).map(([key, z]) => (
+   712→              <DropdownMenuItem
+   713→                key={key}
+   714→                onSelect={() => onReassign(key)}
+   715→                disabled={key === member.zone}
+   716→                className="gap-2 text-xs"
+   717→              >
+   718→                <span className={cn("h-2 w-2 rounded-full")} style={{ background: z.color }} />
+   719→                {z.label}
+   720→              </DropdownMenuItem>
+   721→            ))}
+   722→          </DropdownMenuContent>
+   723→        </DropdownMenu>
+   724→
+   725→        <Button
+   726→          variant="ghost"
+   727→          size="sm"
+   728→          className="h-10 min-h-11 px-3 text-xs"
+   729→          onClick={onToggleStatus}
+   730→        >
+   731→          {member.status === "active" ? (
+   732→            <>
+   733→              <Pause className="h-3.5 w-3.5" />
+   734→              Pausa
+   735→            </>
+   736→          ) : (
+   737→            <>
+   738→              <Play className="h-3.5 w-3.5" />
+   739→              Activar
+   740→            </>
+   741→          )}
+   742→        </Button>
+   743→
+   744→        <Button
+   745→          variant="ghost"
+   746→          size="sm"
+   747→          className="h-10 min-h-11 px-3 text-xs"
+   748→          onClick={onDetail}
+   749→        >
+   750→          <Eye className="h-3.5 w-3.5" />
+   751→          Detalle
+   752→        </Button>
+   753→      </div>
+   754→    </motion.article>
+   755→  );
+   756→}
+   757→
+   758→/* =========================================================
+   759→ * Metric line
+   760→ * =======================================================*/
+   761→function MetricLine({
+   762→  icon: Icon,
+   763→  label,
+   764→  value,
+   765→}: {
+   766→  icon: React.ElementType;
+   767→  label: string;
+   768→  value: string;
+   769→}) {
+   770→  return (
+   771→    <div className="flex items-center justify-between gap-2 text-xs">
+   772→      <span className="flex items-center gap-1.5 text-muted-foreground">
+   773→        <Icon className="h-3 w-3" />
+   774→        {label}
+   775→      </span>
+   776→      <span className="font-mono tabular-nums text-foreground">{value}</span>
+   777→    </div>
+   778→  );
+   779→}
+   780→
+   781→/* =========================================================
+   782→ * Zone summary card
+   783→ * =======================================================*/
+   784→function ZoneCard({ zone, index }: { zone: ZoneSummary; index: number }) {
+   785→  const reduce = useReducedMotion();
+   786→  const meta = ZONE_META[zone.zone] ?? ZONE_META.Todas;
+   787→  const loadCls = loadColor(zone.avgLoad);
+   788→  const utilization = Math.round((zone.demand / zone.capacity) * 100);
+   789→
+   790→  return (
+   791→    <motion.div
+   792→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   793→      animate={{ opacity: 1, y: 0 }}
+   794→      transition={{ duration: 0.25, delay: reduce ? 0 : index * 0.04 }}
+   795→      className="rp-glass rounded-xl p-4"
+   796→    >
+   797→      <div className="flex items-center justify-between">
+   798→        <span
+   799→          className={cn(
+   800→            "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider",
+   801→            meta.border,
+   802→            meta.bg,
+   803→            meta.text,
+   804→          )}
+   805→        >
+   806→          <MapPin className="h-3 w-3" />
+   807→          {meta.label}
+   808→        </span>
+   809→        <span className={cn("text-[10px] font-mono uppercase tracking-wider", loadCls.text)}>
+   810→          Carga {zone.avgLoad}%
+   811→        </span>
+   812→      </div>
+   813→
+   814→      <div className="mt-3 grid grid-cols-2 gap-2">
+   815→        <Stat label="Personal" value={`${zone.staffCount}`} icon={Users} />
+   816→        <Stat label="Mesas" value={`${zone.tablesAssigned}`} icon={Armchair} />
+   817→      </div>
+   818→
+   819→      <div className="mt-3">
+   820→        <div className="mb-1.5 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   821→          <span>Demanda vs capacidad</span>
+   822→          <span className="tabular-nums">{utilization}%</span>
+   823→        </div>
+   824→        <div className="relative h-2 w-full overflow-hidden rounded-full bg-foreground/[0.06]">
+   825→          <motion.div
+   826→            initial={reduce ? false : { width: 0 }}
+   827→            animate={{ width: `${utilization}%` }}
+   828→            transition={{ duration: 0.6, delay: reduce ? 0 : 0.1 + index * 0.04, ease: "easeOut" }}
+   829→            className={cn("h-full rounded-full", loadCls.bg)}
+   830→          />
+   831→        </div>
+   832→        <div className="mt-1.5 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
+   833→          <span>Demanda {zone.demand} pax</span>
+   834→          <span>Cap. {zone.capacity} pax</span>
+   835→        </div>
+   836→      </div>
+   837→    </motion.div>
+   838→  );
+   839→}
+   840→
+   841→function Stat({
+   842→  label,
+   843→  value,
+   844→  icon: Icon,
+   845→}: {
+   846→  label: string;
+   847→  value: string;
+   848→  icon: React.ElementType;
+   849→}) {
+   850→  return (
+   851→    <div className="rounded-lg border border-border/40 bg-foreground/[0.03] px-2.5 py-1.5">
+   852→      <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   853→        <Icon className="h-2.5 w-2.5" />
+   854→        {label}
+   855→      </div>
+   856→      <div className="mt-0.5 font-display text-lg font-light tabular-nums text-foreground">
+   857→        {value}
+   858→      </div>
+   859→    </div>
+   860→  );
+   861→}
+   862→
+   863→/* =========================================================
+   864→ * AI suggestion card
+   865→ * =======================================================*/
+   866→function SuggestionCard({
+   867→  suggestion,
+   868→  onApply,
+   869→  onReject,
+   870→  reduce,
+   871→}: {
+   872→  suggestion: ReassignSuggestion;
+   873→  onApply: () => void;
+   874→  onReject: () => void;
+   875→  reduce: boolean;
+   876→}) {
+   877→  return (
+   878→    <motion.div
+   879→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   880→      animate={{ opacity: 1, y: 0 }}
+   881→      transition={{ duration: 0.3 }}
+   882→      className="rp-glass-strong rp-glow-gold rounded-2xl p-4 sm:p-5"
+   883→    >
+   884→      <div className="flex flex-wrap items-start justify-between gap-3">
+   885→        <div className="flex items-center gap-2">
+   886→          <span className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--gold)]/40 bg-[var(--gold)]/10">
+   887→            <BrainCircuit className="h-4 w-4 text-[var(--gold-soft)]" />
+   888→          </span>
+   889→          <div>
+   890→            <div className="flex items-center gap-2">
+   891→              <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
+   892→                Sugerencia IA
+   893→              </span>
+   894→              <Badge
+   895→                variant="outline"
+   896→                className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[9px] font-mono uppercase tracking-wider"
+   897→              >
+   898→                <Sparkles className="mr-1 h-2.5 w-2.5" />
+   899→                Reasignación
+   900→              </Badge>
+   901→            </div>
+   902→            <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">
+   903→              glm-4-flash · confianza 87%
+   904→            </div>
+   905→          </div>
+   906→        </div>
+   907→      </div>
+   908→
+   909→      <p className="mt-3 text-sm leading-relaxed text-foreground">
+   910→        <span className="font-medium">{suggestion.fromStaff}</span> tiene{" "}
+   911→        <span className="font-mono text-destructive">{suggestion.fromLoad}%</span> de carga.{" "}
+   912→        <span className="font-medium">{suggestion.toStaff}</span> tiene{" "}
+   913→        <span className="font-mono text-emerald-300">{suggestion.toLoad}%</span>. Considera
+   914→        reasignar la mesa{" "}
+   915→        <span className="inline-flex items-center gap-0.5 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-1.5 py-0.5 font-mono text-xs text-[var(--gold-soft)]">
+   916→          <Armchair className="h-2.5 w-2.5" />
+   917→          {suggestion.table}
+   918→        </span>{" "}
+   919→        de <span className="font-medium">{suggestion.fromStaff}</span> a{" "}
+   920→        <span className="font-medium">{suggestion.toStaff}</span>.
+   921→      </p>
+   922→
+   923→      {/* Projection */}
+   924→      <div className="mt-4 grid grid-cols-2 gap-3">
+   925→        <div className="rp-glass rounded-lg p-3">
+   926→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   927→            {suggestion.fromStaff} (proyección)
+   928→          </div>
+   929→          <div className="mt-1.5 flex items-center gap-2">
+   930→            <span className="font-mono text-sm text-destructive">{suggestion.fromLoad}%</span>
+   931→            <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+   932→            <span className="font-mono text-sm text-emerald-300">{suggestion.projectedFromLoad}%</span>
+   933→          </div>
+   934→        </div>
+   935→        <div className="rp-glass rounded-lg p-3">
+   936→          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   937→            {suggestion.toStaff} (proyección)
+   938→          </div>
+   939→          <div className="mt-1.5 flex items-center gap-2">
+   940→            <span className="font-mono text-sm text-emerald-300">{suggestion.toLoad}%</span>
+   941→            <ArrowRightLeft className="h-3 w-3 text-muted-foreground" />
+   942→            <span className="font-mono text-sm text-amber-300">{suggestion.projectedToLoad}%</span>
+   943→          </div>
+   944→        </div>
+   945→      </div>
+   946→
+   947→      <div className="mt-4 flex flex-wrap gap-2">
+   948→        <Button
+   949→          size="sm"
+   950→          className="h-10 min-h-11 bg-[var(--gold)] px-4 text-[#0a0a0a] hover:bg-[var(--gold-soft)]"
+   951→          onClick={onApply}
+   952→        >
+   953→          <CheckCircle2 className="h-4 w-4" />
+   954→          Aplicar reasignación
+   955→        </Button>
+   956→        <Button variant="ghost" size="sm" className="h-10 min-h-11 px-4" onClick={onReject}>
+   957→          <XCircle className="h-4 w-4" />
+   958→          Rechazar
+   959→        </Button>
+   960→      </div>
+   961→    </motion.div>
+   962→  );
+   963→}
+   964→
+   965→/* =========================================================
+   966→ * Staff detail dialog
+   967→ * =======================================================*/
+   968→function StaffDetailDialog({
+   969→  member,
+   970→  open,
+   971→  onOpenChange,
+   972→}: {
+   973→  member: FloorStaffMember | null;
+   974→  open: boolean;
+   975→  onOpenChange: (v: boolean) => void;
+   976→}) {
+   977→  const reduce = useReducedMotion();
+   978→  if (!member) return null;
+   979→  const status = STATUS_META[member.status];
+   980→  const zone = ZONE_META[member.zone] ?? ZONE_META.Todas;
+   981→  const lc = loadColor(member.loadScore);
+   982→
+   983→  // Synthetic history
+   984→  const history = [
+   985→    { service: "Comida · 12:30", tables: 4, sales: 320, rating: 4.7, incidents: 0 },
+   986→    { service: "Cena · 20:30", tables: 5, sales: 480, rating: 4.5, incidents: 1 },
+   987→    { service: "Comida · 12:30 (ayer)", tables: 4, sales: 290, rating: 4.8, incidents: 0 },
+   988→    { service: "Cena · 20:30 (ayer)", tables: 5, sales: 510, rating: 4.4, incidents: 0 },
+   989→  ];
+   990→
+   991→  return (
+   992→    <Dialog open={open} onOpenChange={onOpenChange}>
+   993→      <DialogContent className="max-w-2xl overflow-hidden">
+   994→        <DialogHeader>
+   995→          <DialogTitle className="flex items-center gap-3">
+   996→            <div
+   997→              className={cn(
+   998→                "grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br font-display text-base font-medium text-[#0a0a0a]",
+   999→                avatarGradient(member.name),
+  1000→              )}
+  1001→            >
+  1002→              {initials(member.name)}
+  1003→            </div>
+  1004→            <div>
+  1005→              <div>{member.name}</div>
+  1006→              <div className="mt-0.5 flex items-center gap-2 text-xs font-normal text-muted-foreground">
+  1007→                <span>{member.role}</span>
+  1008→                <span>·</span>
+  1009→                <span className={zone.text}>{zone.label}</span>
+  1010→                <span>·</span>
+  1011→                <span className={status.text}>{status.label}</span>
+  1012→              </div>
+  1013→            </div>
+  1014→          </DialogTitle>
+  1015→          <DialogDescription className="sr-only">
+  1016→            Detalle completo del empleado {member.name}
+  1017→          </DialogDescription>
+  1018→        </DialogHeader>
+  1019→
+  1020→        <div className="max-h-[60vh] overflow-y-auto rp-scroll-thin pr-1">
+  1021→          {/* Load + metrics summary */}
+  1022→          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+  1023→            <LoadMeter score={member.loadScore} size={120} reduce={reduce} />
+  1024→            <div className="grid flex-1 grid-cols-2 gap-2">
+  1025→              <DetailStat label="T. servicio medio" value={member.avgServiceTime > 0 ? `${member.avgServiceTime}min` : "—"} icon={Timer} />
+  1026→              <DetailStat label="Ticket medio" value={member.avgTicket > 0 ? `€${member.avgTicket}` : "—"} icon={Receipt} />
+  1027→              <DetailStat label="Pedidos abiertos" value={`${member.openOrders}`} icon={Activity} />
+  1028→              <DetailStat label="Ventas hoy" value={member.totalSales > 0 ? `€${member.totalSales}` : "—"} icon={Euro} />
+  1029→              <DetailStat label="Valoración" value={`${member.rating.toFixed(1)} / 5`} icon={Star} />
+  1030→              <DetailStat label="Mesas activas" value={`${member.tablesAssigned.length}`} icon={Armchair} />
+  1031→            </div>
+  1032→          </div>
+  1033→
+  1034→          {/* Load factors */}
+  1035→          <div className="mt-5">
+  1036→            <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1037→              Factores de carga (con pesos)
+  1038→            </div>
+  1039→            <div className="mt-2 space-y-1.5">
+  1040→              {member.loadFactors.map((f, i) => (
+  1041→                <div key={i} className="rp-glass flex items-center gap-3 rounded-lg px-3 py-2">
+  1042→                  <div className="min-w-0 flex-1">
+  1043→                    <div className="text-xs text-foreground">{f.factor}</div>
+  1044→                    <div className="mt-0.5 text-[10px] font-mono text-muted-foreground">
+  1045→                      Peso {f.weight}%
+  1046→                    </div>
+  1047→                  </div>
+  1048→                  <span className="font-mono text-sm tabular-nums text-foreground">{f.value}</span>
+  1049→                  <div className="h-1.5 w-16 overflow-hidden rounded-full bg-foreground/[0.06]">
+  1050→                    <div
+  1051→                      className={cn("h-full rounded-full", lc.bg)}
+  1052→                      style={{ width: `${f.weight}%` }}
+  1053→                    />
+  1054→                  </div>
+  1055→                </div>
+  1056→              ))}
+  1057→            </div>
+  1058→          </div>
+  1059→
+  1060→          {/* Recent service history */}
+  1061→          <div className="mt-5">
+  1062→            <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+  1063→              Historial reciente
+  1064→            </div>
+  1065→            <div className="mt-2 overflow-hidden rounded-xl border border-border/40">
+  1066→              <table className="w-full text-xs">
+  1067→                <thead>
+  1068→                  <tr className="bg-foreground/[0.04] text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1069→                    <th className="px-3 py-2 text-left">Servicio</th>
+  1070→                    <th className="px-3 py-2 text-right">Mesas</th>
+  1071→                    <th className="px-3 py-2 text-right">Ventas</th>
+  1072→                    <th className="px-3 py-2 text-right">Rating</th>
+  1073→                    <th className="px-3 py-2 text-right">Incid.</th>
+  1074→                  </tr>
+  1075→                </thead>
+  1076→                <tbody>
+  1077→                  {history.map((h, i) => (
+  1078→                    <tr key={i} className="border-t border-border/30">
+  1079→                      <td className="px-3 py-2 text-foreground">{h.service}</td>
+  1080→                      <td className="px-3 py-2 text-right font-mono tabular-nums text-muted-foreground">{h.tables}</td>
+  1081→                      <td className="px-3 py-2 text-right font-mono tabular-nums text-foreground">€{h.sales}</td>
+  1082→                      <td className="px-3 py-2 text-right font-mono tabular-nums">
+  1083→                        <span className="inline-flex items-center gap-1">
+  1084→                          <Star className="h-2.5 w-2.5 fill-[var(--gold)] text-[var(--gold)]" />
+  1085→                          {h.rating.toFixed(1)}
+  1086→                        </span>
+  1087→                      </td>
+  1088→                      <td className="px-3 py-2 text-right font-mono tabular-nums">
+  1089→                        {h.incidents > 0 ? (
+  1090→                          <span className="text-destructive">{h.incidents}</span>
+  1091→                        ) : (
+  1092→                          <span className="text-muted-foreground">0</span>
+  1093→                        )}
+  1094→                      </td>
+  1095→                    </tr>
+  1096→                  ))}
+  1097→                </tbody>
+  1098→              </table>
+  1099→            </div>
+  1100→          </div>
+  1101→        </div>
+  1102→
+  1103→        <DialogFooter>
+  1104→          <Button variant="outline" onClick={() => onOpenChange(false)}>
+  1105→            Cerrar
+  1106→          </Button>
+  1107→        </DialogFooter>
+  1108→      </DialogContent>
+  1109→    </Dialog>
+  1110→  );
+  1111→}
+  1112→
+  1113→function DetailStat({
+  1114→  label,
+  1115→  value,
+  1116→  icon: Icon,
+  1117→}: {
+  1118→  label: string;
+  1119→  value: string;
+  1120→  icon: React.ElementType;
+  1121→}) {
+  1122→  return (
+  1123→    <div className="rp-glass rounded-lg px-3 py-2">
+  1124→      <div className="flex items-center gap-1 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1125→        <Icon className="h-2.5 w-2.5" />
+  1126→        {label}
+  1127→      </div>
+  1128→      <div className="mt-0.5 font-display text-base font-light tabular-nums text-foreground">
+  1129→        {value}
+  1130→      </div>
+  1131→    </div>
+  1132→  );
+  1133→}
+  1134→
+  1135→/* =========================================================
+  1136→ * Summary bar
+  1137→ * =======================================================*/
+  1138→function SummaryBar({ staff }: { staff: FloorStaffMember[] }) {
+  1139→  const reduce = useReducedMotion();
+  1140→  const active = staff.filter((s) => s.status === "active").length;
+  1141→  const onBreak = staff.filter((s) => s.status === "break").length;
+  1142→  const tablesAssigned = staff.reduce((a, s) => a + s.tablesAssigned.length, 0);
+  1143→  const avgLoad = Math.round(
+  1144→    staff.filter((s) => s.role !== "Maître").reduce((a, s) => a + s.loadScore, 0) /
+  1145→      Math.max(1, staff.filter((s) => s.role !== "Maître").length),
+  1146→  );
+  1147→
+  1148→  const items = [
+  1149→    { label: "Camareros activos", value: `${active}`, icon: Users, accent: "text-emerald-300" },
+  1150→    { label: "En pausa", value: `${onBreak}`, icon: Coffee, accent: "text-amber-300" },
+  1151→    { label: "Mesas asignadas", value: `${tablesAssigned}`, icon: Armchair, accent: "rp-gold-text" },
+  1152→    { label: "Carga media", value: `${avgLoad}%`, icon: BarChart3, accent: loadColor(avgLoad).text },
+  1153→  ];
+  1154→
+  1155→  return (
+  1156→    <div className="rp-glass grid grid-cols-2 gap-2 rounded-2xl p-3 sm:grid-cols-4 sm:gap-3 sm:p-4">
+  1157→      {items.map((it, i) => {
+  1158→        const Icon = it.icon;
+  1159→        return (
+  1160→          <motion.div
+  1161→            key={it.label}
+  1162→            initial={reduce ? false : { opacity: 0, y: 6 }}
+  1163→            animate={{ opacity: 1, y: 0 }}
+  1164→            transition={{ duration: 0.25, delay: reduce ? 0 : i * 0.04 }}
+  1165→            className="flex items-center gap-2.5 rounded-xl bg-foreground/[0.03] px-3 py-2"
+  1166→          >
+  1167→            <Icon className={cn("h-4 w-4 shrink-0", it.accent)} />
+  1168→            <div className="min-w-0">
+  1169→              <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground truncate">
+  1170→                {it.label}
+  1171→              </div>
+  1172→              <div className={cn("font-display text-lg font-light tabular-nums sm:text-xl", it.accent)}>
+  1173→                {it.value}
+  1174→              </div>
+  1175→            </div>
+  1176→          </motion.div>
+  1177→        );
+  1178→      })}
+  1179→    </div>
+  1180→  );
+  1181→}
+  1182→
+  1183→/* =========================================================
+  1184→ * Main component
+  1185→ * =======================================================*/
+  1186→export function FloorStaff() {
+  1187→  const { toast } = useToast();
+  1188→  const reduce = useReducedMotion();
+  1189→  const [staff, setStaff] = React.useState<FloorStaffMember[]>(DEMO_STAFF);
+  1190→  const [suggestions, setSuggestions] = React.useState<ReassignSuggestion[]>(SUGGESTIONS);
+  1191→  const [loadExplainOpen, setLoadExplainOpen] = React.useState(false);
+  1192→  const [detail, setDetail] = React.useState<FloorStaffMember | null>(null);
+  1193→  const [detailOpen, setDetailOpen] = React.useState(false);
+  1194→
+  1195→  const handleToggleStatus = (id: string) => {
+  1196→    setStaff((prev) =>
+  1197→      prev.map((s) =>
+  1198→        s.id === id
+  1199→          ? { ...s, status: s.status === "active" ? "break" : "active" }
+  1200→          : s,
+  1201→      ),
+  1202→    );
+  1203→    const m = staff.find((s) => s.id === id);
+  1204→    toast({
+  1205→      title: m?.status === "active" ? "Pausa iniciada" : "Vuelta al servicio",
+  1206→      description: `${m?.name} · estado actualizado (demo)`,
+  1207→    });
+  1208→  };
+  1209→
+  1210→  const handleReassign = (id: string, zone: string) => {
+  1211→    setStaff((prev) =>
+  1212→      prev.map((s) => (s.id === id ? { ...s, zone } : s)),
+  1213→    );
+  1214→    const m = staff.find((s) => s.id === id);
+  1215→    toast({
+  1216→      title: "Zona reasignada",
+  1217→      description: `${m?.name} ahora en ${zone} (demo)`,
+  1218→    });
+  1219→  };
+  1220→
+  1221→  const handleDetail = (m: FloorStaffMember) => {
+  1222→    setDetail(m);
+  1223→    setDetailOpen(true);
+  1224→  };
+  1225→
+  1226→  const handleApplySuggestion = (id: string) => {
+  1227→    const sg = suggestions.find((s) => s.id === id);
+  1228→    if (!sg) return;
+  1229→    setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  1230→    toast({
+  1231→      title: "Reasignación aplicada",
+  1232→      description: `${sg.table}: ${sg.fromStaff} → ${sg.toStaff} (demo)`,
+  1233→    });
+  1234→  };
+  1235→
+  1236→  const handleRejectSuggestion = (id: string) => {
+  1237→    setSuggestions((prev) => prev.filter((s) => s.id !== id));
+  1238→    toast({
+  1239→      title: "Sugerencia rechazada",
+  1240→      description: "La sugerencia IA se ha descartado (demo)",
+  1241→    });
+  1242→  };
+  1243→
+  1244→  return (
+  1245→    <TooltipProvider delayDuration={150}>
+  1246→      <section aria-labelledby="floor-staff-title" className="flex flex-col gap-5">
+  1247→        {/* Header */}
+  1248→        <header className="flex flex-wrap items-start justify-between gap-3">
+  1249→          <div>
+  1250→            <div className="flex items-center gap-2.5">
+  1251→              <h2
+  1252→                id="floor-staff-title"
+  1253→                className="font-display text-2xl font-light tracking-tight text-foreground sm:text-3xl"
+  1254→              >
+  1255→                Personal de sala
+  1256→              </h2>
+  1257→              <Badge
+  1258→                variant="outline"
+  1259→                className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px] font-mono uppercase tracking-wider"
+  1260→              >
+  1261→                demo
+  1262→              </Badge>
+  1263→            </div>
+  1264→            <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+  1265→              Gestión de personal con cálculo real de carga (no solo número de mesas).
+  1266→            </p>
+  1267→          </div>
+  1268→          <div className="flex items-center gap-2 rounded-lg border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5">
+  1269→            <span className="relative flex h-2 w-2">
+  1270→              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+  1271→              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+  1272→            </span>
+  1273→            <span className="text-[11px] font-mono uppercase tracking-wider text-emerald-300">
+  1274→              En servicio
+  1275→            </span>
+  1276→          </div>
+  1277→        </header>
+  1278→
+  1279→        {/* Summary bar */}
+  1280→        <SummaryBar staff={staff} />
+  1281→
+  1282→        {/* Staff grid */}
+  1283→        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+  1284→          {staff.map((m, i) => (
+  1285→            <StaffCard
+  1286→              key={m.id}
+  1287→              member={m}
+  1288→              index={i}
+  1289→              onDetail={() => handleDetail(m)}
+  1290→              onToggleStatus={() => handleToggleStatus(m.id)}
+  1291→              onReassign={(zone) => handleReassign(m.id, zone)}
+  1292→            />
+  1293→          ))}
+  1294→        </div>
+  1295→
+  1296→        {/* Load calculation explanation */}
+  1297→        <Collapsible open={loadExplainOpen} onOpenChange={setLoadExplainOpen}>
+  1298→          <div className="rp-glass rounded-2xl p-4 sm:p-5">
+  1299→            <CollapsibleTrigger asChild>
+  1300→              <button
+  1301→                className="flex w-full items-center justify-between gap-2 text-left"
+  1302→                aria-expanded={loadExplainOpen}
+  1303→              >
+  1304→                <span className="flex items-center gap-2">
+  1305→                  <span className="grid h-8 w-8 place-items-center rounded-lg border border-[var(--teal)]/40 bg-[var(--teal)]/10">
+  1306→                    <Info className="h-4 w-4 rp-teal-text" />
+  1307→                  </span>
+  1308→                  <span className="text-sm font-medium text-foreground">
+  1309→                    Cómo se calcula la carga
+  1310→                  </span>
+  1311→                </span>
+  1312→                <ChevronRight
+  1313→                  className={cn(
+  1314→                    "h-4 w-4 text-muted-foreground transition-transform",
+  1315→                    loadExplainOpen && "rotate-90",
+  1316→                  )}
+  1317→                />
+  1318→              </button>
+  1319→            </CollapsibleTrigger>
+  1320→            <CollapsibleContent>
+  1321→              <AnimatePresence initial={false}>
+  1322→                {loadExplainOpen && (
+  1323→                  <motion.div
+  1324→                    initial={reduce ? false : { opacity: 0, height: 0 }}
+  1325→                    animate={{ opacity: 1, height: "auto" }}
+  1326→                    exit={reduce ? undefined : { opacity: 0, height: 0 }}
+  1327→                    transition={{ duration: 0.25 }}
+  1328→                    className="overflow-hidden"
+  1329→                  >
+  1330→                    <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+  1331→                      La carga se calcula usando:{" "}
+  1332→                      <span className="text-foreground">número de mesas (30%)</span>,{" "}
+  1333→                      <span className="text-foreground">personas totales (25%)</span>,{" "}
+  1334→                      <span className="text-foreground">pedidos abiertos (20%)</span>,{" "}
+  1335→                      <span className="text-foreground">complejidad del servicio (15%)</span>,{" "}
+  1336→                      <span className="text-foreground">incidencias activas (10%)</span>. No se
+  1337→                      usa únicamente el número de mesas.
+  1338→                    </p>
+  1339→                    <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
+  1340→                      {[
+  1341→                        { f: "Mesas", w: 30 },
+  1342→                        { f: "Personas", w: 25 },
+  1343→                        { f: "Pedidos", w: 20 },
+  1344→                        { f: "Complejidad", w: 15 },
+  1345→                        { f: "Incidencias", w: 10 },
+  1346→                      ].map((x) => (
+  1347→                        <div
+  1348→                          key={x.f}
+  1349→                          className="rp-glass rounded-lg px-3 py-2 text-center"
+  1350→                        >
+  1351→                          <div className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1352→                            {x.f}
+  1353→                          </div>
+  1354→                          <div className="mt-0.5 font-display text-lg font-light tabular-nums rp-gold-text">
+  1355→                            {x.w}%
+  1356→                          </div>
+  1357→                        </div>
+  1358→                      ))}
+  1359→                    </div>
+  1360→                  </motion.div>
+  1361→                )}
+  1362→              </AnimatePresence>
+  1363→            </CollapsibleContent>
+  1364→          </div>
+  1365→        </Collapsible>
+  1366→
+  1367→        {/* Zone load summary */}
+  1368→        <div>
+  1369→          <div className="mb-3 flex items-center gap-2">
+  1370→            <Layers className="h-4 w-4 text-muted-foreground" />
+  1371→            <h3 className="text-sm font-medium text-foreground sm:text-base">
+  1372→              Carga por zona
+  1373→            </h3>
+  1374→          </div>
+  1375→          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+  1376→            {ZONE_SUMMARIES.map((z, i) => (
+  1377→              <ZoneCard key={z.zone} zone={z} index={i} />
+  1378→            ))}
+  1379→          </div>
+  1380→        </div>
+  1381→
+  1382→        {/* AI reassignment suggestions */}
+  1383→        <div>
+  1384→          <div className="mb-3 flex items-center gap-2">
+  1385→            <Zap className="h-4 w-4 text-[var(--gold-soft)]" />
+  1386→            <h3 className="text-sm font-medium text-foreground sm:text-base">
+  1387→              Sugerencias IA
+  1388→            </h3>
+  1389→            <Badge
+  1390→              variant="outline"
+  1391→              className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[10px] font-mono uppercase tracking-wider"
+  1392→            >
+  1393→              {suggestions.length} activa{suggestions.length !== 1 ? "s" : ""}
+  1394→            </Badge>
+  1395→          </div>
+  1396→          {suggestions.length > 0 ? (
+  1397→            <div className="grid grid-cols-1 gap-4">
+  1398→              <AnimatePresence mode="popLayout">
+  1399→                {suggestions.map((sg) => (
+  1400→                  <motion.div
+  1401→                    key={sg.id}
+  1402→                    layout
+  1403→                    initial={reduce ? false : { opacity: 0, scale: 0.98 }}
+  1404→                    animate={{ opacity: 1, scale: 1 }}
+  1405→                    exit={reduce ? undefined : { opacity: 0, scale: 0.98 }}
+  1406→                    transition={{ duration: 0.2 }}
+  1407→                  >
+  1408→                    <SuggestionCard
+  1409→                      suggestion={sg}
+  1410→                      reduce={reduce}
+  1411→                      onApply={() => handleApplySuggestion(sg.id)}
+  1412→                      onReject={() => handleRejectSuggestion(sg.id)}
+  1413→                    />
+  1414→                  </motion.div>
+  1415→                ))}
+  1416→              </AnimatePresence>
+  1417→            </div>
+  1418→          ) : (
+  1419→            <div className="rp-glass rounded-2xl p-6 text-center">
+  1420→              <CheckCircle2 className="mx-auto h-8 w-8 text-emerald-300" />
+  1421→              <p className="mt-2 text-sm text-muted-foreground">
+  1422→                Sin sugerencias pendientes. La carga está equilibrada.
+  1423→              </p>
+  1424→            </div>
+  1425→          )}
+  1426→        </div>
+  1427→
+  1428→        {/* Staff detail dialog */}
+  1429→        <StaffDetailDialog
+  1430→          member={detail}
+  1431→          open={detailOpen}
+  1432→          onOpenChange={setDetailOpen}
+  1433→        />
+  1434→      </section>
+  1435→    </TooltipProvider>
+  1436→  );
+  1437→}
+  1438→

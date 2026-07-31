@@ -1,0 +1,841 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+     6→import {
+     7→  Sparkles, Send, Mic, Minus, X, ShieldCheck, ArrowRight,
+     8→  AlertTriangle, Lock, ChevronRight, Cpu, MessageSquare,
+     9→} from "lucide-react";
+    10→import { useNav, type Section } from "@/components/rp/app/nav-store";
+    11→
+    12→/* ============================================================
+    13→   Types
+    14→============================================================ */
+    15→
+    16→type Role = "owner" | "manager" | "staff";
+    17→type Confidence = "alta" | "media" | "baja";
+    18→
+    19→interface SourceChip { label: string }
+    20→interface Msg {
+    21→  id: string;
+    22→  role: "user" | "ai";
+    23→  content: string;
+    24→  ts: string;
+    25→  // AI extras
+    26→  sources?: SourceChip[];
+    27→  confidence?: Confidence;
+    28→  viewIn?: Section;
+    29→  viewInLabel?: string;
+    30→  noData?: boolean;
+    31→  denied?: boolean;
+    32→  streaming?: boolean;
+    33→}
+    34→
+    35→/* ============================================================
+    36→   Demo responses — keyed by normalized query
+    37→============================================================ */
+    38→
+    39→interface DemoResp {
+    40→  text: string;
+    41→  sources: string[];
+    42→  confidence: Confidence;
+    43→  viewIn?: { section: Section; label: string };
+    44→  restricted?: boolean; // requires role >= manager
+    45→}
+    46→
+    47→const DEMO_RESPONSES: Record<string, DemoResp> = {
+    48→  "¿cuántas reservas tengo hoy?": {
+    49→    text: "Tienes 47 reservas hoy (+12% vs ayer). 38 confirmadas, 5 pendientes, 4 en lista de espera. La franja 21:30–22:30 está al 95%.",
+    50→    sources: ["D1 Reservations"],
+    51→    confidence: "alta",
+    52→    viewIn: { section: "reservas", label: "Ver reservas" },
+    53→  },
+    54→  "¿qué clientes vip llegan hoy?": {
+    55→    text: "8 clientes VIP con reserva hoy: Elena Marín (21:30, M12), Familia Ruiz (14:00, T3), Andrés Vidal (22:00, V1) y 5 más. Recomiendo greeting personalizado del maitre.",
+    56→    sources: ["CRM", "D1 Reservations"],
+    57→    confidence: "alta",
+    58→    viewIn: { section: "crm", label: "Ver CRM" },
+    59→  },
+    60→  "¿cuál es mi ocupación?": {
+    61→    text: "Ocupación actual: 78% (18/24 mesas). Terraza al 92%, Sala al 65%. Pico previsto en 25 minutos — sugiero abrir zona auxiliar.",
+    62→    sources: ["Durable Objects"],
+    63→    confidence: "alta",
+    64→    viewIn: { section: "reservas", label: "Ver en plano" },
+    65→  },
+    66→  "¿qué mesa genera más ingresos?": {
+    67→    text: "La Mesa 12 (terraza, capacidad 6) genera €4.820/mes, +22% sobre la media. Factores: vista, ubicación cercana a la entrada y tiempo medio de estancia más corto (rotación 3.2×).",
+    68→    sources: ["Billing", "Reservations"],
+    69→    confidence: "alta",
+    70→    viewIn: { section: "analytics", label: "Ver analítica" },
+    71→  },
+    72→  "¿qué campaña funcionó mejor?": {
+    73→    text: "La campaña 'Cumpleaños Marzo' generó €1.840 con €0 coste (ROI ∞). Es tu mejor campaña. Segunda: 'Menú Mediodía' con €1.620 (ROI 800%). Recomiendo escalar a abril.",
+    74→    sources: ["Campaign Attribution"],
+    75→    confidence: "alta",
+    76→    viewIn: { section: "campaigns", label: "Ver campañas" },
+    77→    restricted: true,
+    78→  },
+    79→  "¿cuánto facturaré mañana?": {
+    80→    text: "Facturación prevista mañana: €10.250 (confianza 78%, margen ±€1.200). Basado en: 186 reservas previstas, ticket medio €55 y factor de estacionalidad 1.08.",
+    81→    sources: ["Forecast v2.1"],
+    82→    confidence: "media",
+    83→    viewIn: { section: "analytics", label: "Ver forecast" },
+    84→    restricted: true,
+    85→  },
+    86→  "¿qué clientes recuperar?": {
+    87→    text: "23 clientes dormidos (+90 días) con ticket histórico > €50. De ellos 3 son VIP. El mejor canal para reactivación es WhatsApp (85% apertura). Estimo +€1.180 si lanzas esta semana.",
+    88→    sources: ["CRM"],
+    89→    confidence: "alta",
+    90→    viewIn: { section: "crm", label: "Ver CRM" },
+    91→  },
+    92→  "¿qué promoción funcionó mejor?": {
+    93→    text: "La promo 'Menú para dos entre semana' tuvo CTR 22% y convirtió 38 reservas en 7 días. La peor fue 'Promo Terraza': €460 ingresos con €140 coste. Recomiendo repetir la primera.",
+    94→    sources: ["Campaign Attribution"],
+    95→    confidence: "alta",
+    96→    viewIn: { section: "promotions", label: "Ver promociones" },
+    97→  },
+    98→  "¿por qué bajaron las reservas?": {
+    99→    text: "Las reservas cayeron 18% vs mismo martes del mes anterior. Causa principal: pausa de la campaña de Instagram el 8 de marzo (−31% en ese canal). Web y WhatsApp subieron +2% y +8% respectivamente.",
+   100→    sources: ["D1", "Campaign Attribution"],
+   101→    confidence: "alta",
+   102→    viewIn: { section: "reservas", label: "Ver reservas" },
+   103→  },
+   104→  "¿qué reseña responder primero?": {
+   105→    text: "Prioriza la reseña 2★ de 'Carlos M.' recibida hace 12 min: menciona tiempo de espera. La IA puede redactar una respuesta empática en español y ofrecer 10% descuento en próxima visita. Hay 4 reseñas más pendientes.",
+   106→    sources: ["Google Reviews"],
+   107→    confidence: "alta",
+   108→    viewIn: { section: "reviews", label: "Ver reseñas" },
+   109→  },
+   110→  "¿qué automatización debo activar?": {
+   111→    text: "Recomiendo activar 'Confirmación automática WhatsApp 2h antes'. Reduciría no-shows un 31% según histórico de 8 semanas. Impacto estimado: +€620/mes. Ya está creada, solo falta activar.",
+   112→    sources: ["Automations", "Reservations"],
+   113→    confidence: "media",
+   114→    viewIn: { section: "automatizaciones", label: "Ver automatizaciones" },
+   115→  },
+   116→  "¿cómo va el growth este mes?": {
+   117→    text: "Growth score: 78/100 (+6 vs mes anterior). Subidas: NPS 72 (+4), ROI campañas 340% (+45pp). Bajadas: ticket medio −4%. Top driver: la campaña 'Cumpleaños Marzo' generó €1.840 con coste cero.",
+   118→    sources: ["Growth Analytics"],
+   119→    confidence: "alta",
+   120→    viewIn: { section: "growth-analytics", label: "Ver Growth" },
+   121→  },
+   122→};
+   123→
+   124→/* ============================================================
+   125→   Context-aware quick actions
+   126→============================================================ */
+   127→
+   128→const SECTION_QUESTIONS: Partial<Record<Section, string[]>> = {
+   129→  dashboard: [
+   130→    "¿Qué está pasando hoy?",
+   131→    "¿Cuántas reservas tengo hoy?",
+   132→    "¿Cuál es mi ocupación?",
+   133→  ],
+   134→  executive: [
+   135→    "¿Qué acción tendría mayor impacto esta semana?",
+   136→    "¿Cuánto facturaré mañana?",
+   137→    "¿Por qué bajaron las reservas?",
+   138→  ],
+   139→  reservas: [
+   140→    "¿Cuántas reservas tengo hoy?",
+   141→    "¿Cuál es mi ocupación?",
+   142→    "¿Qué mesa genera más ingresos?",
+   143→  ],
+   144→  crm: [
+   145→    "¿Qué clientes VIP llegan hoy?",
+   146→    "¿Qué clientes recuperar?",
+   147→    "¿Cuántos clientes nuevos este mes?",
+   148→  ],
+   149→  marketing: [
+   150→    "¿Qué campaña funcionó mejor?",
+   151→    "¿Qué promoción funcionó mejor?",
+   152→    "¿Qué canal tiene mejor retorno?",
+   153→  ],
+   154→  automatizaciones: [
+   155→    "¿Qué automatización debo activar?",
+   156→    "¿Cuánto ahorro con automatizaciones?",
+   157→    "¿Qué automatización falló hoy?",
+   158→  ],
+   159→  "growth-analytics": [
+   160→    "¿Cómo va el growth este mes?",
+   161→    "¿Qué campaña funcionó mejor?",
+   162→    "¿Por qué bajó el ticket medio?",
+   163→  ],
+   164→  "growth-reputation": [
+   165→    "¿Qué reseña responder primero?",
+   166→    "¿Cuál es mi NPS?",
+   167→    "¿Cómo subió mi valoración en Google?",
+   168→  ],
+   169→  campaigns: [
+   170→    "¿Qué campaña funcionó mejor?",
+   171→    "¿Qué canal tiene mejor retorno?",
+   172→    "¿Qué segmento convierte más?",
+   173→  ],
+   174→  promotions: [
+   175→    "¿Qué promoción funcionó mejor?",
+   176→    "¿Qué promo canibalizó ventas?",
+   177→    "¿Qué promo repetir esta semana?",
+   178→  ],
+   179→  reviews: [
+   180→    "¿Qué reseña responder primero?",
+   181→    "¿Cuál es mi valoración media?",
+   182→    "¿Cuántas reseñas pendientes?",
+   183→  ],
+   184→  analytics: [
+   185→    "¿Qué mesa genera más ingresos?",
+   186→    "¿Cuánto facturaré mañana?",
+   187→    "¿Por qué bajó el ticket medio?",
+   188→  ],
+   189→  integraciones: [
+   190→    "¿Qué integración falla más?",
+   191→    "¿Qué webhook se retrasó?",
+   192→    "¿Qué API consume más cuota?",
+   193→  ],
+   194→  billing: [
+   195→    "¿Cuánto facturaré mañana?",
+   196→    "¿Cuál es mi margen bruto?",
+   197→    "¿Qué campaña generó más ingresos?",
+   198→  ],
+   199→  equipo: [
+   200→    "¿Quién vende más postres?",
+   201→    "¿Quién tiene peor rendimiento?",
+   202→    "¿Qué turno es más productivo?",
+   203→  ],
+   204→  configuracion: [
+   205→    "¿Qué ajuste mejoraría la ocupación?",
+   206→    "¿Qué permisos debo revisar?",
+   207→    "¿Cuál es mi configuración de IA?",
+   208→  ],
+   209→  superadmin: [
+   210→    "¿Qué local rinde peor?",
+   211→    "¿Cuál es el coste IA por local?",
+   212→    "¿Qué organización consume más?",
+   213→  ],
+   214→};
+   215→
+   216→const DEFAULT_QUESTIONS = [
+   217→  "¿Cuántas reservas tengo hoy?",
+   218→  "¿Qué clientes VIP llegan hoy?",
+   219→  "¿Cuál es mi ocupación?",
+   220→  "¿Qué campaña funcionó mejor?",
+   221→  "¿Cuánto facturaré mañana?",
+   222→];
+   223→
+   224→const SECTION_LABELS: Partial<Record<Section, string>> = {
+   225→  dashboard: "Dashboard",
+   226→  executive: "Centro Ejecutivo",
+   227→  reservas: "Reservas",
+   228→  crm: "Clientes",
+   229→  marketing: "Marketing",
+   230→  automatizaciones: "Automatizaciones",
+   231→  "growth-analytics": "Growth Analytics",
+   232→  "growth-reputation": "Centro Reputación",
+   233→  campaigns: "Campañas",
+   234→  promotions: "Promociones",
+   235→  reviews: "Google Reviews",
+   236→  analytics: "Analytics",
+   237→  integraciones: "Integraciones",
+   238→  billing: "Facturación",
+   239→  equipo: "Equipo",
+   240→  configuracion: "Configuración",
+   241→  superadmin: "Super Admin",
+   242→};
+   243→
+   244→/* ============================================================
+   245→   Helpers
+   246→============================================================ */
+   247→
+   248→function normalize(s: string): string {
+   249→  return s
+   250→    .toLowerCase()
+   251→    .trim()
+   252→    .replace(/\s+/g, " ")
+   253→    .replace(/[¿?¡!.,;:]/g, "")
+   254→    .trim();
+   255→}
+   256→
+   257→function nowTime(): string {
+   258→  return new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+   259→}
+   260→
+   261→function hasPermission(role: Role, resp: DemoResp | undefined): boolean {
+   262→  if (!resp?.restricted) return true;
+   263→  return role === "owner" || role === "manager";
+   264→}
+   265→
+   266→function confidenceTone(c: Confidence): { cls: string; label: string; pct: string } {
+   267→  if (c === "alta") return { cls: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300", label: "Confianza: Alta", pct: "92%" };
+   268→  if (c === "media") return { cls: "border-amber-400/40 bg-amber-400/10 text-amber-300", label: "Confianza: Media", pct: "78%" };
+   269→  return { cls: "border-rose-400/40 bg-rose-400/10 text-rose-300", label: "Confianza: Baja", pct: "45%" };
+   270→}
+   271→
+   272→/* ============================================================
+   273→   Floating button
+   274→============================================================ */
+   275→
+   276→function FloatingButton({ open, onToggle, hasInsight }: { open: boolean; onToggle: () => void; hasInsight: boolean }) {
+   277→  const reduce = useReducedMotion();
+   278→  return (
+   279→    <motion.button
+   280→      onClick={onToggle}
+   281→      aria-label={open ? "Cerrar Copilot IA" : "Abrir Copilot IA"}
+   282→      aria-expanded={open}
+   283→      initial={reduce ? false : { scale: 0, opacity: 0 }}
+   284→      animate={{ scale: 1, opacity: 1 }}
+   285→      transition={{ type: "spring", stiffness: 280, damping: 22, delay: 0.2 }}
+   286→      whileHover={reduce ? undefined : { scale: 1.06 }}
+   287→      whileTap={reduce ? undefined : { scale: 0.95 }}
+   288→      className={cn(
+   289→        "fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 h-14 w-14 sm:h-16 sm:w-16 rounded-full flex items-center justify-center text-black shadow-2xl",
+   290→        "bg-gradient-to-br from-[var(--gold-soft)] via-[var(--gold)] to-[var(--gold-deep)]",
+   291→        "ring-2 ring-[var(--gold)]/40 ring-offset-2 ring-offset-background"
+   292→      )}
+   293→    >
+   294→      {/* Glow ring */}
+   295→      <span
+   296→        aria-hidden
+   297→        className="absolute inset-0 rounded-full opacity-60 animate-ping"
+   298→        style={{ background: "radial-gradient(circle, color-mix(in oklab, var(--gold) 35%, transparent) 0%, transparent 70%)" }}
+   299→      />
+   300→      <AnimatePresence mode="wait" initial={false}>
+   301→        {open ? (
+   302→          <motion.span
+   303→            key="x"
+   304→            initial={reduce ? false : { rotate: -90, opacity: 0 }}
+   305→            animate={{ rotate: 0, opacity: 1 }}
+   306→            exit={reduce ? undefined : { rotate: 90, opacity: 0 }}
+   307→            transition={{ duration: 0.15 }}
+   308→            className="relative"
+   309→          >
+   310→            <X className="h-6 w-6" />
+   311→          </motion.span>
+   312→        ) : (
+   313→          <motion.span
+   314→            key="sp"
+   315→            initial={reduce ? false : { rotate: 90, opacity: 0 }}
+   316→            animate={{ rotate: 0, opacity: 1 }}
+   317→            exit={reduce ? undefined : { rotate: -90, opacity: 0 }}
+   318→            transition={{ duration: 0.15 }}
+   319→            className="relative"
+   320→          >
+   321→            <Sparkles className="h-6 w-6" />
+   322→          </motion.span>
+   323→        )}
+   324→      </AnimatePresence>
+   325→      {/* Notification dot */}
+   326→      {hasInsight && !open && (
+   327→        <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-[var(--teal)] ring-2 ring-background flex items-center justify-center">
+   328→          <span className="h-1.5 w-1.5 rounded-full bg-black/60" />
+   329→        </span>
+   330→      )}
+   331→    </motion.button>
+   332→  );
+   333→}
+   334→
+   335→/* ============================================================
+   336→   Typing indicator
+   337→============================================================ */
+   338→
+   339→function TypingDots() {
+   340→  const reduce = useReducedMotion();
+   341→  return (
+   342→    <div className="flex items-center gap-1 px-1 py-0.5" aria-label="Copilot está escribiendo">
+   343→      {[0, 1, 2].map((i) => (
+   344→        <motion.span
+   345→          key={i}
+   346→          className="h-1.5 w-1.5 rounded-full bg-[var(--gold-soft)]"
+   347→          animate={reduce ? undefined : { opacity: [0.3, 1, 0.3], y: [0, -2, 0] }}
+   348→          transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }}
+   349→        />
+   350→      ))}
+   351→    </div>
+   352→  );
+   353→}
+   354→
+   355→/* ============================================================
+   356→   AI message bubble
+   357→============================================================ */
+   358→
+   359→function AiMessage({ msg }: { msg: Msg }) {
+   360→  const reduce = useReducedMotion();
+   361→  const go = useNav((s) => s.go);
+   362→  const conf = msg.confidence ? confidenceTone(msg.confidence) : null;
+   363→
+   364→  return (
+   365→    <motion.div
+   366→      initial={reduce ? false : { opacity: 0, y: 6 }}
+   367→      animate={{ opacity: 1, y: 0 }}
+   368→      transition={{ duration: 0.25 }}
+   369→      className="flex gap-2.5"
+   370→    >
+   371→      <div className="h-7 w-7 rounded-md bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black shrink-0">
+   372→        <Sparkles className="h-3.5 w-3.5" />
+   373→      </div>
+   374→      <div className="min-w-0 flex-1 space-y-2">
+   375→        <div className="rp-glass rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm leading-relaxed text-foreground/90">
+   376→          {msg.content}
+   377→          {msg.streaming && <span className="inline-block w-1 h-3.5 ml-0.5 bg-[var(--gold-soft)] animate-pulse align-middle" aria-hidden />}
+   378→        </div>
+   379→
+   380→        {/* Sources + confidence row */}
+   381→        {!msg.streaming && !msg.denied && !msg.noData && (
+   382→          <div className="flex flex-wrap items-center gap-1.5">
+   383→            {msg.sources?.map((s) => (
+   384→              <span
+   385→                key={s.label}
+   386→                className="inline-flex items-center gap-1 rounded-md border border-[var(--teal)]/30 bg-[var(--teal)]/[0.08] px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]"
+   387→              >
+   388→                <span className="h-1 w-1 rounded-full bg-[var(--teal)]" />
+   389→                {s.label}
+   390→              </span>
+   391→            ))}
+   392→            {conf && (
+   393→              <span className={cn("inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider", conf.cls)}>
+   394→                {conf.label}
+   395→              </span>
+   396→            )}
+   397→          </div>
+   398→        )}
+   399→
+   400→        {/* Ver en módulo */}
+   401→        {!msg.streaming && msg.viewIn && !msg.denied && !msg.noData && (
+   402→          <button
+   403→            onClick={() => go(msg.viewIn!)}
+   404→            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--gold)]/40 bg-[var(--gold)]/[0.08] px-2.5 py-1.5 text-[11px] font-medium text-[var(--gold-soft)] hover:bg-[var(--gold)]/[0.16] transition-colors min-h-[36px]"
+   405→          >
+   406→            <ArrowRight className="h-3 w-3" />
+   407→            {msg.viewInLabel}
+   408→            <ChevronRight className="h-3 w-3 opacity-60" />
+   409→          </button>
+   410→        )}
+   411→
+   412→        {/* No data notice */}
+   413→        {!msg.streaming && msg.noData && (
+   414→          <div className="flex items-center gap-1.5 text-[11px] text-amber-300">
+   415→            <AlertTriangle className="h-3 w-3" />
+   416→            <span>No tengo datos suficientes</span>
+   417→          </div>
+   418→        )}
+   419→
+   420→        {/* Denied notice */}
+   421→        {!msg.streaming && msg.denied && (
+   422→          <div className="flex items-center gap-1.5 text-[11px] text-rose-300">
+   423→            <Lock className="h-3 w-3" />
+   424→            <span>Permiso requerido</span>
+   425→          </div>
+   426→        )}
+   427→      </div>
+   428→    </motion.div>
+   429→  );
+   430→}
+   431→
+   432→/* ============================================================
+   433→   User message bubble
+   434→============================================================ */
+   435→
+   436→function UserMessage({ msg }: { msg: Msg }) {
+   437→  const reduce = useReducedMotion();
+   438→  return (
+   439→    <motion.div
+   440→      initial={reduce ? false : { opacity: 0, y: 6 }}
+   441→      animate={{ opacity: 1, y: 0 }}
+   442→      transition={{ duration: 0.2 }}
+   443→      className="flex justify-end gap-2.5"
+   444→    >
+   445→      <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] px-3.5 py-2.5 text-sm text-black font-medium">
+   446→        {msg.content}
+   447→      </div>
+   448→    </motion.div>
+   449→  );
+   450→}
+   451→
+   452→/* ============================================================
+   453→   Role pill
+   454→============================================================ */
+   455→
+   456→function RoleSelector({ role, onChange }: { role: Role; onChange: (r: Role) => void }) {
+   457→  const roles: { id: Role; label: string }[] = [
+   458→    { id: "owner", label: "Owner" },
+   459→    { id: "manager", label: "Manager" },
+   460→    { id: "staff", label: "Staff" },
+   461→  ];
+   462→  return (
+   463→    <div className="flex items-center gap-1 rounded-md border border-border/60 bg-foreground/[0.03] p-0.5">
+   464→      {roles.map((r) => (
+   465→        <button
+   466→          key={r.id}
+   467→          onClick={() => onChange(r.id)}
+   468→          className={cn(
+   469→            "h-6 rounded px-2 text-[10px] font-mono uppercase tracking-wider transition-colors",
+   470→            role === r.id
+   471→              ? "bg-[var(--gold)]/20 text-[var(--gold-soft)]"
+   472→              : "text-muted-foreground hover:text-foreground"
+   473→          )}
+   474→          aria-pressed={role === r.id}
+   475→        >
+   476→          {r.label}
+   477→        </button>
+   478→      ))}
+   479→    </div>
+   480→  );
+   481→}
+   482→
+   483→/* ============================================================
+   484→   Copilot panel
+   485→============================================================ */
+   486→
+   487→function CopilotPanel({
+   488→  onClose,
+   489→  onMinimize,
+   490→  role,
+   491→  onRoleChange,
+   492→}: {
+   493→  onClose: () => void;
+   494→  onMinimize: () => void;
+   495→  role: Role;
+   496→  onRoleChange: (r: Role) => void;
+   497→}) {
+   498→  const reduce = useReducedMotion();
+   499→  const section = useNav((s) => s.section);
+   500→  const org = useNav((s) => s.org);
+   501→  const location = useNav((s) => s.location);
+   502→
+   503→  const [messages, setMessages] = React.useState<Msg[]>([
+   504→    {
+   505→      id: "welcome",
+   506→      role: "ai",
+   507→      content: "Hola Ana. Soy tu Copilot IA conectado a Cloudflare Workers AI (Llama 3.1 8B). Pregúntame sobre reservas, clientes, ocupación, campañas o facturación. Estoy aislado por organización.",
+   508→      ts: nowTime(),
+   509→      sources: [{ label: "Workers AI" }],
+   510→      confidence: "alta",
+   511→    },
+   512→  ]);
+   513→  const [input, setInput] = React.useState("");
+   514→  const [isTyping, setIsTyping] = React.useState(false);
+   515→  const [streamingId, setStreamingId] = React.useState<string | null>(null);
+   516→
+   517→  const scrollRef = React.useRef<HTMLDivElement>(null);
+   518→  const inputRef = React.useRef<HTMLInputElement>(null);
+   519→  const streamTimer = React.useRef<ReturnType<typeof setInterval> | null>(null);
+   520→
+   521→  // Auto-scroll to bottom on new messages
+   522→  React.useEffect(() => {
+   523→    const el = scrollRef.current;
+   524→    if (el) el.scrollTop = el.scrollHeight;
+   525→  }, [messages, isTyping]);
+   526→
+   527→  // Cleanup any active stream timer
+   528→  React.useEffect(() => {
+   529→    return () => {
+   530→      if (streamTimer.current) clearInterval(streamTimer.current);
+   531→    };
+   532→  }, []);
+   533→
+   534→  // Context-aware quick actions
+   535→  const quickActions = React.useMemo(() => {
+   536→    const list = SECTION_QUESTIONS[section] ?? DEFAULT_QUESTIONS;
+   537→    return list.slice(0, 4);
+   538→  }, [section]);
+   539→
+   540→  const sectionLabel = SECTION_LABELS[section] ?? "Dashboard";
+   541→
+   542→  function findResponse(query: string): DemoResp | undefined {
+   543→    const norm = normalize(query);
+   544→    // Exact match
+   545→    if (DEMO_RESPONSES[norm]) return DEMO_RESPONSES[norm];
+   546→    // Fuzzy: keyword match
+   547→    for (const key of Object.keys(DEMO_RESPONSES)) {
+   548→      const keyTokens = key.split(" ").filter((t) => t.length > 3);
+   549→      const matches = keyTokens.filter((t) => norm.includes(t));
+   550→      if (matches.length >= Math.ceil(keyTokens.length * 0.6)) {
+   551→        return DEMO_RESPONSES[key];
+   552→      }
+   553→    }
+   554→    return undefined;
+   555→  }
+   556→
+   557→  function streamResponse(id: string, fullText: string) {
+   558→    setStreamingId(id);
+   559→    let i = 0;
+   560→    const chunkSize = Math.max(2, Math.ceil(fullText.length / 50));
+   561→    streamTimer.current = setInterval(() => {
+   562→      i += chunkSize;
+   563→      const partial = fullText.slice(0, i);
+   564→      setMessages((prev) =>
+   565→        prev.map((m) => (m.id === id ? { ...m, content: partial } : m))
+   566→      );
+   567→      if (i >= fullText.length) {
+   568→        if (streamTimer.current) clearInterval(streamTimer.current);
+   569→        streamTimer.current = null;
+   570→        setStreamingId(null);
+   571→        setMessages((prev) =>
+   572→          prev.map((m) => (m.id === id ? { ...m, streaming: false } : m))
+   573→        );
+   574→      }
+   575→    }, 20);
+   576→  }
+   577→
+   578→  function send(text: string) {
+   579→    const trimmed = text.trim();
+   580→    if (!trimmed || isTyping || streamingId) return;
+   581→
+   582→    const userMsg: Msg = {
+   583→      id: `u-${Date.now()}`,
+   584→      role: "user",
+   585→      content: trimmed,
+   586→      ts: nowTime(),
+   587→    };
+   588→    setMessages((prev) => [...prev, userMsg]);
+   589→    setInput("");
+   590→    setIsTyping(true);
+   591→
+   592→    // Find response
+   593→    const resp = findResponse(trimmed);
+   594→
+   595→    // Simulate thinking delay then stream
+   596→    setTimeout(() => {
+   597→      setIsTyping(false);
+   598→
+   599→      // Permission check
+   600→      if (resp && !hasPermission(role, resp)) {
+   601→        const deniedMsg: Msg = {
+   602→          id: `a-${Date.now()}`,
+   603→          role: "ai",
+   604→          content: "Tu rol no permite consultar esta información. Esta consulta requiere permiso de Manager o superior. Contacta con un administrador de la organización si necesitas acceso.",
+   605→          ts: nowTime(),
+   606→          denied: true,
+   607→        };
+   608→        setMessages((prev) => [...prev, deniedMsg]);
+   609→        return;
+   610→      }
+   611→
+   612→      if (!resp) {
+   613→        // No data
+   614→        const noDataMsg: Msg = {
+   615→          id: `a-${Date.now()}`,
+   616→          role: "ai",
+   617→          content: "No tengo datos suficientes para responder a esa consulta. (demo) Prueba con una de las acciones sugeridas o reformula tu pregunta sobre reservas, clientes, ocupación, campañas o facturación.",
+   618→          ts: nowTime(),
+   619→          noData: true,
+   620→        };
+   621→        setMessages((prev) => [...prev, noDataMsg]);
+   622→        return;
+   623→      }
+   624→
+   625→      const aiMsg: Msg = {
+   626→        id: `a-${Date.now()}`,
+   627→        role: "ai",
+   628→        content: "",
+   629→        ts: nowTime(),
+   630→        streaming: true,
+   631→        sources: resp.sources.map((s) => ({ label: s })),
+   632→        confidence: resp.confidence,
+   633→        viewIn: resp.viewIn?.section,
+   634→        viewInLabel: resp.viewIn?.label,
+   635→      };
+   636→      setMessages((prev) => [...prev, aiMsg]);
+   637→      // Begin streaming
+   638→      streamResponse(aiMsg.id, resp.text);
+   639→    }, 650);
+   640→  }
+   641→
+   642→  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+   643→    if (e.key === "Enter" && !e.shiftKey) {
+   644→      e.preventDefault();
+   645→      send(input);
+   646→    }
+   647→  }
+   648→
+   649→  return (
+   650→    <motion.div
+   651→      initial={reduce ? false : { opacity: 0, y: 24, scale: 0.96 }}
+   652→      animate={{ opacity: 1, y: 0, scale: 1 }}
+   653→      exit={reduce ? undefined : { opacity: 0, y: 24, scale: 0.96 }}
+   654→      transition={{ type: "spring", stiffness: 320, damping: 30 }}
+   655→      role="dialog"
+   656→      aria-label="Copilot IA"
+   657→      className={cn(
+   658→        "fixed z-50 flex flex-col rp-glass-strong rounded-t-2xl sm:rounded-2xl overflow-hidden",
+   659→        "left-0 right-0 bottom-0 sm:left-auto sm:right-4 sm:bottom-24 sm:w-[400px]",
+   660→        "h-[min(560px,85vh)] sm:h-[min(560px,calc(100vh-8rem))]",
+   661→        "ring-1 ring-[var(--gold)]/30 shadow-2xl"
+   662→      )}
+   663→    >
+   664→      {/* Header */}
+   665→      <header className="flex items-center gap-2 px-3 sm:px-4 h-14 border-b border-border/60 bg-gradient-to-r from-[var(--gold)]/[0.08] to-transparent shrink-0">
+   666→        <div className="h-8 w-8 rounded-md bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black shrink-0">
+   667→          <Sparkles className="h-4 w-4" />
+   668→        </div>
+   669→        <div className="flex-1 min-w-0">
+   670→          <div className="flex items-center gap-2">
+   671→            <span className="font-display text-sm font-medium truncate">Copilot IA</span>
+   672→            <span className="inline-flex items-center gap-1 rounded border border-[var(--gold)]/30 bg-[var(--gold)]/[0.08] px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wider text-[var(--gold-soft)] shrink-0">
+   673→              <Cpu className="h-2.5 w-2.5" />
+   674→              Llama 3.1 8B
+   675→            </span>
+   676→          </div>
+   677→          <div className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+   678→            <span className="relative flex h-1.5 w-1.5">
+   679→              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+   680→              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+   681→            </span>
+   682→            Workers AI · en línea
+   683→          </div>
+   684→        </div>
+   685→        <RoleSelector role={role} onChange={onRoleChange} />
+   686→        <button
+   687→          onClick={onMinimize}
+   688→          aria-label="Minimizar Copilot"
+   689→          className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors shrink-0"
+   690→        >
+   691→          <Minus className="h-4 w-4" />
+   692→        </button>
+   693→        <button
+   694→          onClick={onClose}
+   695→          aria-label="Cerrar Copilot"
+   696→          className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/5 transition-colors shrink-0"
+   697→        >
+   698→          <X className="h-4 w-4" />
+   699→        </button>
+   700→      </header>
+   701→
+   702→      {/* Context indicator */}
+   703→      <div className="flex items-center gap-2 px-3 sm:px-4 py-2 border-b border-border/40 bg-foreground/[0.02] shrink-0">
+   704→        <MessageSquare className="h-3 w-3 text-[var(--teal)] shrink-0" aria-hidden />
+   705→        <span className="text-[11px] text-muted-foreground">
+   706→          Contexto: <span className="text-foreground/85 font-medium">{sectionLabel}</span>
+   707→          <span className="mx-1 text-muted-foreground/60">·</span>
+   708→          <span className="text-foreground/85">{location ?? org}</span>
+   709→        </span>
+   710→      </div>
+   711→
+   712→      {/* Messages */}
+   713→      <div
+   714→        ref={scrollRef}
+   715→        className="flex-1 overflow-y-auto rp-scroll-thin px-3 sm:px-4 py-4 space-y-4"
+   716→        aria-live="polite"
+   717→      >
+   718→        {messages.map((m) =>
+   719→          m.role === "user" ? (
+   720→            <UserMessage key={m.id} msg={m} />
+   721→          ) : (
+   722→            <AiMessage key={m.id} msg={m} />
+   723→          )
+   724→        )}
+   725→        {isTyping && (
+   726→          <motion.div
+   727→            initial={reduce ? false : { opacity: 0 }}
+   728→            animate={{ opacity: 1 }}
+   729→            className="flex gap-2.5"
+   730→          >
+   731→            <div className="h-7 w-7 rounded-md bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black shrink-0">
+   732→              <Sparkles className="h-3.5 w-3.5" />
+   733→            </div>
+   734→            <div className="rp-glass rounded-2xl rounded-tl-sm px-3 py-2.5">
+   735→              <TypingDots />
+   736→            </div>
+   737→          </motion.div>
+   738→        )}
+   739→      </div>
+   740→
+   741→      {/* Quick actions */}
+   742→      <div className="px-3 sm:px-4 pt-2 pb-2 border-t border-border/40 shrink-0">
+   743→        <div className="flex items-center gap-1.5 mb-2 overflow-x-auto rp-scroll-thin -mx-1 px-1">
+   744→          {quickActions.map((q) => (
+   745→            <button
+   746→              key={q}
+   747→              onClick={() => send(q)}
+   748→              disabled={isTyping || !!streamingId}
+   749→              className="shrink-0 min-h-[36px] rounded-full border border-border/60 bg-foreground/[0.03] px-3 py-1.5 text-[11px] text-foreground/80 hover:border-[var(--gold)]/40 hover:bg-[var(--gold)]/[0.08] hover:text-[var(--gold-soft)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+   750→            >
+   751→              {q}
+   752→            </button>
+   753→          ))}
+   754→        </div>
+   755→
+   756→        {/* Input */}
+   757→        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-foreground/[0.04] px-2 py-1.5 focus-within:border-[var(--gold)]/50 transition-colors">
+   758→          <input
+   759→            ref={inputRef}
+   760→            value={input}
+   761→            onChange={(e) => setInput(e.target.value)}
+   762→            onKeyDown={onKeyDown}
+   763→            placeholder="Pregunta a la IA…"
+   764→            aria-label="Mensaje al Copilot IA"
+   765→            className="flex-1 min-w-0 bg-transparent outline-none text-sm placeholder:text-muted-foreground text-foreground"
+   766→            disabled={isTyping || !!streamingId}
+   767→          />
+   768→          <button
+   769→            aria-label="Entrada de voz (demo)"
+   770→            disabled
+   771→            className="h-9 w-9 flex items-center justify-center rounded-md text-muted-foreground hover:text-[var(--teal)] transition-colors shrink-0"
+   772→            title="Voz (demo · no disponible)"
+   773→          >
+   774→            <Mic className="h-4 w-4" />
+   775→          </button>
+   776→          <button
+   777→            onClick={() => send(input)}
+   778→            disabled={!input.trim() || isTyping || !!streamingId}
+   779→            aria-label="Enviar mensaje"
+   780→            className="h-9 w-9 flex items-center justify-center rounded-md bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] text-black hover:brightness-110 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+   781→          >
+   782→            <Send className="h-4 w-4" />
+   783→          </button>
+   784→        </div>
+   785→
+   786→        {/* Security notice */}
+   787→        <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[9px] text-muted-foreground/80">
+   788→          <ShieldCheck className="h-2.5 w-2.5 text-emerald-400/80" aria-hidden />
+   789→          <span>IA aislada por organización · Permiso validado · Sin acceso a otros restaurantes</span>
+   790→        </div>
+   791→      </div>
+   792→    </motion.div>
+   793→  );
+   794→}
+   795→
+   796→/* ============================================================
+   797→   Main AiCopilot
+   798→============================================================ */
+   799→
+   800→export function AiCopilot() {
+   801→  const [open, setOpen] = React.useState(false);
+   802→  const [minimized, setMinimized] = React.useState(false);
+   803→  const [role, setRole] = React.useState<Role>("owner");
+   804→  const [hasInsight] = React.useState(true);
+   805→
+   806→  // Open panel (un-minimizes if was minimized)
+   807→  function handleToggle() {
+   808→    if (open && !minimized) {
+   809→      setOpen(false);
+   810→    } else {
+   811→      setOpen(true);
+   812→      setMinimized(false);
+   813→    }
+   814→  }
+   815→
+   816→  function handleClose() {
+   817→    setOpen(false);
+   818→    setMinimized(false);
+   819→  }
+   820→
+   821→  function handleMinimize() {
+   822→    setMinimized(true);
+   823→  }
+   824→
+   825→  return (
+   826→    <>
+   827→      <FloatingButton open={open && !minimized} onToggle={handleToggle} hasInsight={hasInsight} />
+   828→      <AnimatePresence>
+   829→        {open && !minimized && (
+   830→          <CopilotPanel
+   831→            onClose={handleClose}
+   832→            onMinimize={handleMinimize}
+   833→            role={role}
+   834→            onRoleChange={setRole}
+   835→          />
+   836→        )}
+   837→      </AnimatePresence>
+   838→    </>
+   839→  );
+   840→}
+   841→

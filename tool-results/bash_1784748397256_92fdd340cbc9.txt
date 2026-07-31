@@ -1,0 +1,300 @@
+- Lint: 0 errores en los 4 archivos nuevos. Dev server estable GET / 200.
+
+---
+Task ID: FASE5-FLOOR-EDITOR
+Agent: full-stack-developer
+Task: Construir editor de plano de mesas interactivo completo para RestoPanel (SaaS restaurantes) — característica clave: traspasar mesas entre zonas, añadir mesas, fusionar/separar, undo/redo, multi-selección, 8 estados visuales, 4 zonas, premium dark theme con dorado/turquesa/glassmorphism.
+
+Work Log:
+- Leí worklog previo: SPA multi-agente, AppShell con useNav zustand, sección "reservas" renderiza ReservasView. Tokens de marca en globals.css (--gold #D4AF37, --teal #3DD6C9, rp-glass*). shadcn/ui completo.
+- Revisé app-shell.tsx: sidebar 64 sticky + main con padding, topbar h-16 sticky top-0 z-30 → mi toolbar usa sticky top-16 z-20.
+- Revisé reservas-view.tsx (2834 líneas): tiene su propio plano simple, sin FloorEditor. Integración mínima vía botón "Editor avanzado".
+- Creé `src/components/rp/reservas/floor-editor.tsx` (2600 líneas):
+  - Tipos exportados: TableState (8), TableShape (4), Zone, FloorTable (todos los campos del spec), FloorState (zones/tables/selectedIds/history/future/editMode).
+  - Constantes: DEFAULT_ZONES (4 zonas: Sala principal gold, Terraza teal, VIP fuchsia, Barra amber), STATE_META (8 estados con label/short/bg/border/text/dot/icon/hex), OP_CYCLE (libre→reservada→ocupada→limpieza→bloqueada→libre), STATE_ORDER, SHAPE_OPTIONS.
+  - Helpers: shapeClass, zoneBgClass, zoneAccentClass, uid, clamp, nextTableName (auto M/T/V/B+n), findFreePosition (grid anti-overlap), formatElapsed, makeInitialFloor.
+  - DEMO_TABLES: 15 mesas en 4 zonas con mix de estados y formas.
+- Componente FloorEditor:
+  - useState<FloorState> + refs transient (dragRef, resizeRef, boxRef, historyPushedRef).
+  - Selección: click (reemplaza), shift/ctrl+click (toggle), box-select en zona vacía (intersecta).
+  - Historial: commit(updater) empuja snapshot (max 50), undo/redo con future stack. Snapshot único al inicio de drag.
+  - Mutaciones: addTable, deleteSelected (confirmación), moveSelectedToZone (KEY FEATURE — dropdown toolbar), mergeSelected (suma seats, centroid, mergedFrom), splitSelected (divide en 2), rotateSelected(90), updateTable, cycleState.
+  - Drag pointer events (touch-action none, setPointerCapture): multi-mesa, clamp a zona, delta desde último evento.
+  - Resize handle dorado en esquina (clamp 56-280 w / 56-200 h).
+  - Box-select: pointerdown en zona vacía, preview rect dorado, selecciona intersectados.
+  - Teclado: Ctrl+Z/Y undo/redo, Delete elimina (con confirm), arrows mueven (4px, 10px shift), Escape limpia.
+- Sub-componentes:
+  - Toolbar sticky top-16 z-20: toggle edit/operation, añadir (gold), eliminar, mover-a-zona (dropdown gold, KEY), fusionar, separar, rotar, undo/redo (con kbd hint), zone filter, connection indicator (wifi/offline toggle), selection count badge, fila 2 con hint contextual.
+  - ZoneCanvas: section con header (icono+nombre+stats mesas/ocup/pers) + canvas relative rp-grid-bg min-h-[300px] con pointer events para box-select.
+  - TableCard (motion.button): position absolute, rotate transform, clases por shape (rounded-full/lg), bg/border/text por estado, contenido (nombre font-display, seats mono, cliente, tiempo ocupación), badges (próxima reserva amber, bill_requested turquesa €, VIP crown), ring gold si selected, resize handle, aria-label rico, tabIndex 0, focus-visible gold, layout animation (disabled si prefers-reduced-motion).
+  - PropertiesPanel: sidebar desktop w-80 xl:w-96 sticky top-32 + Sheet bottom mobile. Empty/multi/single states. Single: form completo (nombre, seats, zona select, forma 4 botones, estado grid 4×2 clickeable, rotación slider 0-359°, cliente, party size, hora reserva, asignada a, VIP level slider condicional, notas textarea, próxima reserva callout, info ocupación KV, posición/tamaño KV).
+  - AddTableDialog: form con nombre auto-sugerido por zona, seats, zona select, forma con preview live.
+  - Legend: grid 8 estados (dot+icon+label).
+  - MiniStat: stats header con tono por color.
+- Responsive: 2xl grid-cols-4 → lg grid-cols-2 → mobile Tabs (una zona, scroll horizontal) → bottom Sheet para panel → FAB dorado para editar en mobile.
+- Accesibilidad: mesas button con aria-label descriptivo, aria-pressed, tabIndex 0, focus-visible gold ring; toolbar buttons con aria-label/aria-pressed; estados con icono+texto+color (no solo color); keyboard completo.
+- Animaciones: useReducedMotion() respeta prefers-reduced-motion; solo transform+opacity animados; pulse CSS en connection dot.
+- Integración en reservas-view.tsx: import FloorEditor + iconos ArrowLeft/LayoutGrid; state advancedEditor; early return renderizando FloorEditor con botón "Volver a Reservas" + badge "Editor avanzado"; botón "Editor avanzado" (outline gold) añadido en header junto a "Nueva reserva". No rompe funcionalidad existente.
+- Lint: `bun run lint` → 0 errores, 0 warnings (tras limpiar 4 directivas eslint-disable innecesarias y corregir effect con deps incompletos). Dev log: compila limpio.
+
+Stage Summary:
+- Archivo: `src/components/rp/reservas/floor-editor.tsx` (2600 líneas), exporta `FloorEditor`.
+- 12 features del spec implementadas y funcionales: añadir mesa, eliminar, drag dentro de zona, **mover entre zonas (traspasar)**, fusionar, separar, undo/redo con keyboard, multi-selección + box-select, panel de propiedades, rotar, redimensionar, toggle edit/operation mode.
+- 8 estados visuales (libre, reservada, ocupada, próxima reserva, VIP, bloqueada, limpieza, cuenta solicitada) con colores Tailwind + var(--teal) para bill_requested.
+- 4 zonas (Sala principal, Terraza, VIP, Barra) con tinte de color propio.
+- 15 mesas demo con mix de estados y formas.
+- Responsive completo: 4 cols (2xl) → 2 cols (lg) → tabs (mobile) → bottom sheet (mobile panel) → FAB (mobile edición).
+- Touch-friendly: pointer events + touch-action none, drag funcional en móvil, targets ≥44px.
+- Lint limpio. Integración accesible vía botón "Editor avanzado" en header de Reservas.
+- Tema dark premium con dorado #D4AF37, turquesa #3DD6C9, glassmorphism (rp-glass/rp-glass-strong), grid bg.
+
+---
+Task ID: FASE5-VERIFY
+Agent: main
+Task: Verificación end-to-end de Fase 5 — Motor de Reservas Inteligente, Plano de Mesas e IA Predictiva.
+
+Work Log:
+- Lint global: 0 errores.
+- Dev server: PID 19249; responde 200 sin errores.
+- 5 tabs integrados en reservas-view: Reservas (vista principal), Predicción IA, Yield, Alertas, Lista de espera.
+- Floor editor (botón "Editor avanzado"): 4 zonas (Sala/Terraza/VIP/Barra), añadir mesa, eliminar, mover entre zonas, fusionar, separar, undo/redo, multi-selección, rotar, redimensionar, 8 estados visuales, drag&drop touch.
+- Predicción no-show: gauge SVG con score 0-100, 4 rangos de color (verde/amarillo/naranja/rojo), factores con impacto +/-, confianza, calidad de datos, acción recomendada, fallback INSUFFICIENT_DATA, 3 perfiles demo (low/medium/critical).
+- Yield Management: 9 tipos de recomendaciones, impacto estimado, confianza, aplicar/descartar, dialog de detalle.
+- Alertas: 10 alertas demo (VIP, mesa ocupada 2h+, sin confirmar, no-show crítico, limpieza, cumpleaños, aniversario, ocupación anormal, error integración, cancelaciones), filtros por severidad.
+- Lista de espera: queue priorizada (antigüedad, grupo, VIP, historial, LTV, probabilidad), ofertas con countdown 5min, auto-expiración, añadir/quitar.
+- Responsive multi-viewport sin overflow:
+  * Móvil 390: ✓ (tabs scrollables, panels stacked)
+  * Tablet 768: ✓
+  * Tablet 1024: ✓ (topbar ajustado: search max-w-xs en md, period selector hidden lg:flex)
+  * Laptop 1280: ✓
+  * Desktop 1440: ✓
+- Bug corregido: topbar desbordaba en tablet 1024px (search max-w-md + period selector + right cluster). Fix: search `max-w-[180px] md:max-w-xs xl:max-w-md`, period selector `hidden lg:flex`, gap reducido.
+- VLM: "enterprise-quality, polished, no glitches, professional dark-mode UI".
+
+Stage Summary:
+- Fase 5 completa: motor de reservas inteligente con 5 vistas integradas (reservas + predicción IA + yield + alertas + lista de espera) + editor de plano avanzado (crear mesas, mover entre zonas, fusionar/separar, undo/redo, 8 estados).
+- Todas las funcionalidades solicitadas implementadas: traspasar mesa entre zonas ✓, añadir mesas ✓, fusionar/separar ✓, undo/redo ✓, predicción no-show explicable ✓, yield management ✓, alertas operativas ✓, lista de espera priorizada ✓.
+- Responsive real mobile-first sin overflow en 5 breakpoints.
+- Animaciones funcionales (transform+opacity, prefers-reduced-motion).
+
+---
+Task ID: FASE6-START
+Agent: main
+Task: Implementar Fase 6 — CRM 360° Inteligente, IA Comercial y Fidelización.
+
+Work Log:
+- Estado: dev server activo, crm-view.tsx 2666 líneas, marketing-view.tsx existe.
+- Estrategia: crear 6 componentes nuevos que se integren como tabs en crm-view.
+- Subagent A: crm-intelligence.tsx (predicciones), crm-segments.tsx (segmentación), crm-vip.tsx (clasificación VIP)
+- Subagent B: crm-next-action.tsx (Next Best Action), crm-calendar.tsx (calendario comercial), crm-loyalty.tsx (fidelización + wallet)
+
+---
+Task ID: FASE6-NBA-CAL-LOYAL
+Agent: full-stack-developer
+Task: Construir 3 componentes para CRM Fase 6 — Next Best Action engine (crm-next-action), Calendario comercial con IA (crm-calendar), Fidelización + wallet con ledger inmutable (crm-loyalty). Next.js 16 + TS + Tailwind v4 + Framer Motion, dark theme premium con glassmorphism, gold #D4AF37, turquoise #3DD6C9.
+
+Work Log:
+- Leí worklog.md y revisé el estado: tokens --gold/--teal definidos en globals.css, utilidades rp-glass/rp-glow-gold/rp-glow-teal/rp-scroll-thin/rp-gold-gradient disponibles, useToast desde @/hooks/use-toast, framer-motion con useReducedMotion, shadcn/ui completo (Dialog, Select, Collapsible, Tooltip, Progress, Input, Label, Badge, Button).
+- Lint config: react-hooks/static-components activo — NO se puede asignar un componente vía function call (const Icon = someFunc(name)) durante render. Se debe usar lookup directo (const Icon = MAP[name] ?? Default).
+- Dev server PID activo respondiendo 200, turbopack compila en ~250ms.
+- Otro agente trabajando en paralelo en crm-intelligence.tsx, crm-segments.tsx, crm-vip.tsx (subagent A). Mis 3 archivos son ortogonales.
+
+File 1 — crm-next-action.tsx (~580 líneas):
+  * Export CrmNextAction. Motor de recomendaciones accionables (NBA).
+  * Tipos: ActionStatus (pending/accepted/rejected/postponed/irrelevant), Priority (high/medium/low), NextBestAction (id, action, reason, estimatedImpact, confidence, dataUsed[], priority, expiresAt, status, ruleOrModel).
+  * PRIORITY_META: high=destructive (rojo, left border 2px), medium=gold (left border 2px), low=muted-foreground (left border 2px). Cada uno con dot, badge classes.
+  * STATUS_META: pending=Clock4 muted, accepted=CheckCircle2 emerald, rejected=XCircle muted, postponed=Clock muted, irrelevant=Ban muted.
+  * 8 acciones demo (especificadas): "Recuperar cliente inactivo" (Elena Marín, +€180, high, 82%), "Enviar oferta a VIP" (Andrés Vidal, cumpleaños, +€220, high, 90%), "Solicitar reseña" (Familia Ruiz, +reputación, medium, 75%), "Cambiar canal de contacto" (Marta Iborra, +34% respuesta, medium, 68%), "Reducir frecuencia" (Javier Soler, fatiga, low, 60%), "Invitar a evento" (Lucía Ferrer VIP Gold, medium, 72%), "Revisar segmento en riesgo" (19 clientes, +€4.200 LTV, medium, 70%), "Atender local baja conversión" (Ramses Barcelona, -15%, high, 85%).
+  * ACTION_ICON: icono lucide por id (Users, Gift, Star, MessageSquare, Mail, Plus, AlertTriangle, Store).
+  * Header "Próxima mejor acción" + icono Target en box gold + badge demo + botón "Recalcular" (outline gold, loading 1.4s con spin).
+  * Summary bar rp-glass: pendientes · alta prioridad · expiran hoy (font-mono destacados). Footer hidden md con icono Brain teal "Motor NBA · reglas + modelos".
+  * Filter tabs (role="tablist"/"tab" aria-selected): Todas / Alta / Media / Baja con count badges. Active: bg-foreground/5 + accent bar izquierda coloreada por prioridad.
+  * ActionCard (motion.article, layout animado, initial opacity+y escalonado por index): left border 2px coloreada por prioridad. Top row: icono en box coloreado (10×10), title font-display lg/xl, priority pill + status pill si !pending. Reason muted. Impact row: TrendingUp gold + estimatedImpact con rp-gold-gradient. Confidence badge (tooltip explicativo: ≥85 alta, 70-84 media-alta, 60-69 media, <60 baja) coloreado por rango. Expiry badge con CalendarClock, urgent (destructive) si ≤2 días o "Expira hoy". Data used chips con dot teal. Rule/model reference en font-mono con icono Sparkles teal. Actions (solo si pending): Aceptar (gold primary, min-h-9), Posponer (outline), Rechazar (ghost hover destructive), Irrelevante (ghost). onStatusChange actualiza state + toast con mensaje contextual por estado.
+  * Empty state si filtered.length === 0.
+  * Disclaimer final: Info teal "Las recomendaciones son sugerencias explicables. No ejecutan acciones automáticamente."
+
+File 2 — crm-calendar.tsx (~920 líneas):
+  * Export CrmCalendar. Calendario comercial con sugerencias IA.
+  * Tipos: CampaignStatus (suggested/draft/approved/scheduled/sent), Channel (Email/WhatsApp/SMS), AISuggestion (campaign, audience, channel, offer, confidence), CalendarCampaign (id, name, occasion, date ISO, channel, audience, status, estimatedBudget, expectedResult, aiSuggestion?).
+  * STATUS_META: suggested=Sparkles dashed gold, draft=FileEdit muted, approved=CheckCircle2 teal, scheduled=CalendarClock gold, sent=Send emerald.
+  * CHANNEL_META: Email=Mail, WhatsApp=MessageSquare teal, SMS=Smartphone.
+  * OCCASION_ICON: Reyes Magos=Crown, San Valentín=Heart, Día de la Madre=Flower2, Black Friday=ShoppingBag, Carnaval=PartyPopper, Candelaria=Flame, Cumpleaños=Gift, Navidad=TreePine, default=CalendarDays.
+  * 5 campañas demo (especificadas): Menú Reyes (6 ene, scheduled, Email, €200), Cena San Valentín (14 feb, approved, WhatsApp, €350), Carnaval tapas (13 feb, suggested IA 78%), Candelaria (2 feb, suggested IA 65%), Black Friday 2x1 (28 nov 2024, sent, €500).
+  * UPCOMING_OCCASIONS: San Valentín, Carnaval, Día del Padre, Semana Santa, Día de la Madre (con date ES + daysAway).
+  * Helpers: sameDay, buildMonthGrid (lunes primer día de semana), formatCampaignDate (es-ES día mes año), formatCampaignDateShort, isUpcoming (±1 día a +30 días).
+  * State: cursor (Date, default Ene 2025), selectedDay (Date|null), generating (bool).
+  * Header "Calendario comercial" + icono CalendarDays gold + badge demo + botón "Generar sugerencias IA" (gold primary, Wand2, loading 1.5s, añade 2 campañas IA nuevas: Día del Padre menú grill 81% + Semana Santa menú vigilia 73%).
+  * Grid lg:grid-cols-[1.5fr_1fr]: calendar card + sidebar upcoming occasions.
+  * Calendar card rp-glass: month selector (prev/next icon buttons + label center + "Hoy" ghost button), weekday header Lun-Dom, grid 7 cols aspect-square min-h-[44px] sm:min-h-[52px], cada día button con aria-label completo. Día con campañas: dots coloreados por status (max 3 + "+N"). Día con IA: Sparkles teal top-right. Hoy: dot teal top-left + ring teal. Selected: border gold + bg gold/10 + rp-glow-gold. Legend inferior: dots por status + IA.
+  * Sidebar rp-glass "Próximas ocasiones": list ul scrollable max-h-[360px] con icono en box gold, name + date ES + daysAway, botón "Crear" (outline gold) por ocasión → toast.
+  * SelectedDay panel (AnimatePresence motion.div opacity+y): muestra campañas del día seleccionado en grid md:grid-cols-2 con CampaignCard compact. Botón "Cerrar" para deselect.
+  * Próximas campañas list (filter isUpcoming 30d, sort asc): grid md:grid-cols-2 con AnimatePresence mode="popLayout" + layout, motion.div wrapper con staggered entrance.
+  * CampaignCard (article rp-glass): top row icono occasion box gold + name + occasion + IA badge teal si aiSuggestion (tooltip confianza). Date prominent font-mono con CalendarDays gold. Tags row: channel badge (icon+label), status badge (icon+label), audience pill. Budget + result grid 2 cols en cajas muted. AI suggestion Collapsible: trigger "Ver sugerencia IA" teal con ChevronDown rotate, content: rows Campaña/Audiencia/Canal/Oferta + confianza. Actions: si suggested → "Crear campaña" (gold primary, mueve a draft + toast); siempre "Editar" (outline, toast); si approved/draft → "Programar" (outline gold, mueve a scheduled + toast).
+  * Disclaimer: Brain teal "Las sugerencias de IA son propuestas iniciales. Revisar copy, audiencia y oferta antes de programar."
+
+File 3 — crm-loyalty.tsx (~840 líneas):
+  * Export CrmLoyalty. Fidelización + wallet con ledger inmutable.
+  * Tipos: WalletType (earned/spent/expired/bonus/refund/cashback), WalletEntry (id, type, description, points +/-, balance running, date ISO, source, idempotencyKey), CouponType (percentage/fixed/gift/experience), Coupon (id, code, description, type, value, expiresAt, used, usedAt?).
+  * WALLET_META: earned=Plus emerald, spent=Minus destructive, expired=Clock amber, bonus=Gift gold, refund=Undo2 sky, cashback=Percent teal. Cada uno con iconBg + pointColor.
+  * COUPON_TYPE_META: percentage=Percent gold, fixed=TrendingUp teal, gift=Gift fuchsia, experience=Star amber.
+  * 10 transacciones wallet demo con running balance calculado terminando en 1840: earned +120 (Reserva #1234), bonus +100 (Cumpleaños), spent -200 (Botella vino), earned +500 (Cena familia), earned +340 (Almuerzo empresa), expired -50 (Expiración enero), earned +1200 (Evento gala), cashback +250 (Cashback diciembre), spent -200 (Botella vino), spent -220 (Menú degustación 2). Cada una con source y idempotencyKey mono (txn_xxxx).
+  * 4 cupones demo: WELCOME10 (percentage 10%, "Bienvenida"), BDAY25 (fixed €25, "Cumpleaños"), TASTING2 (experience "2 pax", "Menú degustación"), WINEBOTTLE (gift "1 botella", usado 12 ene).
+  * TIER_BENEFITS: Prioridad en reservas, Descuento 10%, Mesa preferente, Acceso anticipado a eventos.
+  * Helpers: formatWalletDate (es-ES), formatExpiryShort (relativo: Expirado/Expira hoy/Expira mañana/Expira en N días/date), generateCouponCode (prefijo random + número), formatPoints (signed con separador miles es-ES).
+  * Header "Fidelización y wallet" + icono Wallet gold + badge demo + subtitle.
+  * Grid lg:grid-cols-[1.1fr_1fr]: tier status card + wallet ledger.
+  * Tier status card (motion.div rp-glass, glow radial gold -top-12 -right-12 blur-3xl): top row Crown gold en box gold/15 rp-glow-gold + "Cliente demo · Elena Marín" + Tier Oro pill gold. Points balance: "1.840" font-display 5xl/6xl rp-gold-gradient + "puntos". Progress: label "Progreso hacia Black" + counter "1.840 / 2.500" + bar h-2.5 con gradient gold-deep→gold→gold-soft animada (motion width 0→74% en 0.8s easeOut, respeta reduced-motion) + "Faltan 660 puntos para Black" + "74%" mono. Grid 2 cols: "Miembro desde 12 sep 2023" + "Próximo tier Black · 2.500+ pts". Benefits list 2 cols con CheckCircle2 emerald por item.
+  * Wallet ledger card rp-glass flex flex-col: header con icono Lock teal + "Ledger de wallet · 10 movimientos" + pill emerald "Idempotente" con ShieldCheck. Header row desktop (hidden md) grid-cols-[auto_1fr_auto_auto_auto] con labels Tipo/Descripción/Puntos/Saldo/Fecha. Body max-h-[400px] overflow-y-auto rp-scroll-thin con AnimatePresence. Footer note: Lock teal "Ledger inmutable · Cada movimiento es trazable e idempotente. Las claves idempotentes evitan duplicados por reintentos."
+  * WalletRow (motion.div opacity staggered): desktop table row (hidden md:grid) con type icon en Tooltip, description + source mono + idempotencyKey mono, points font-mono coloreado por tipo (+/-), balance mono, date muted. Mobile card (md:hidden): icono + description + points + source/date row + saldo + idempotencyKey.
+  * Active coupons section: header "Cupones activos" + count disponibles + botón "Generar cupón" (gold primary). Grid responsive 1/2/3/4 cols. AnimatePresence mode="popLayout".
+  * CouponCard (motion.article rp-glass): top accent bar h-1 por color de tipo (gold/teal/fuchsia/amber, muted si used/expired). Code font-mono lg + botón Copy icon. Description line-clamp-2. Type badge + value gold font-display. Footer border-top: si used → "Usado · {date}" con CheckCircle2 + pill "Bloqueado" con Lock; sino → expiry relativo con Clock (destructive si expirado).
+  * Fraud prevention note rp-glass: icono ShieldCheck teal en box teal/10 + "Prevención de fraude" + "Detección de uso anómalo · Límites por organización · Reembolsos auditables. Cada canje se valida contra el ledger inmutable y los límites de tasa configurados."
+  * Generate coupon Dialog (sm:max-w-[460px]): form con Code (auto-gen, Input mono + botón Sparkles refresh), Type Select (4 opciones), Value Input con placeholder contextual por tipo, Description Input, Expiry date Input. Validación: error si value/desc/expiry vacíos (role="alert" con AlertTriangle destructive). Submit "Generar" (gold primary) → añade cupón al state + toast. Cancelar cierra y resetea.
+
+Animaciones (todos los 3 archivos): framer-motion con useReducedMotion. Solo transform+opacity. Aplicadas funcionalmente: card entrance (opacity+y staggered por index, delay max 0.24s), layout animations en listas con AnimatePresence mode="popLayout" (exit opacity+y), progress bar width 0→74% (loyalty tier), collapsible chevron rotate, button spin/pulse en loading states (RefreshCw spin, Wand2 pulse). Respeta prefers-reduced-motion: initial=false, exit solo opacity, delays a 0.
+
+Accesibilidad: aria-labelledby en sections, role="tablist"/"tab" con aria-selected en priority filters (nba), role="alert" en errores de form (loyalty), aria-label rico en icon buttons (Copiar, Refresh code, Copiar código {code}, Mes anterior/siguiente, día {date} con campañas), TooltipProvider envolviendo confidence badges y type icons con cursor-help, alt implícito via aria-label en buttons icon-only. Keyboard: tabIndex implícito en buttons, focus-visible heredado de shadcn/ui.
+
+Responsive (mobile-first):
+  - NBA: filter tabs flex-wrap, summary flex-wrap con dividers hidden sm, action buttons flex-wrap, grid sm:grid-cols-[1fr_auto] en impact+confidence row, oculta layout overflow.
+  - Calendar: grid lg:grid-cols-[1.5fr_1fr] en desktop, stack mobile. Day cells min-h-[44px] mobile / [52px] desktop (touch-friendly). Selected day grid md:grid-cols-2 (1 col mobile). Upcoming campaigns grid md:grid-cols-2 (1 col mobile). Sidebar scrollable max-h-[360px].
+  - Loyalty: tier+ledger grid lg:grid-cols-[1.1fr_1fr] en desktop, stack mobile. Wallet ledger: table en md+ (grid-cols-[auto_1fr_auto_auto_auto]), cards stacked en mobile (md:hidden). Coupons grid 1/2/3/4 cols responsive.
+  - Touch targets ≥44px en acciones principales (min-h-11 buttons, h-10 inputs, h-10 w-10 icon buttons, day cells min-h-[44px]). Sin horizontal overflow en ningún breakpoint.
+
+Lint status: `bun run lint` → 0 errores, 0 warnings. Fix aplicado: en crm-calendar.tsx cambié `const Icon = occasionIcon(name)` (function call) por `const Icon = OCCASION_ICON[name] ?? CalendarDays` (lookup directo) en 2 call sites para satisfacer react-hooks/static-components. Dev log: compila limpio, GET / 200.
+
+Stage Summary:
+- 3 componentes Fase 6 entregados en /home/z/my-project/src/components/rp/crm/:
+  * crm-next-action.tsx (~580 líneas) — Motor NBA con 8 recomendaciones demo, filtros por prioridad, summary bar (pendientes/alta/expiran hoy), cards con priority border, confidence badge con tooltip, data chips, rule/model mono reference, 4 actions (Aceptar/Posponer/Rechazar/Irrelevante) con status badges y toasts contextuales, disclaimer explicabilidad.
+  * crm-calendar.tsx (~920 líneas) — Calendario mensual navegable (Ene 2025 default) con grid 7 cols Lun-Dom, dots por status en días con campañas, IA sparkles, click día → panel con campañas del día. Sidebar "Próximas ocasiones" con 5 festividades + botón Crear. Lista próximas campañas 30d con CampaignCard (icono occasion, status badge, channel badge, budget+result, AI Collapsible con campaign/audience/channel/offer/confianza, actions Crear/Editar/Programar). Botón "Generar sugerencias IA" añade 2 campañas IA nuevas.
+  * crm-loyalty.tsx (~840 líneas) — Tier status card (Oro, 1840 pts, progress bar 74% animada a Black 2500, benefits list con checkmarks, member since). Wallet ledger inmutable con 10 transacciones (earned/bonus/spent/expired/cashback/refund) con running balance, table desktop + cards mobile, source + idempotencyKey mono, scroll max-h-[400px]. Active coupons 4 cards con code mono + copy button + type/value + expiry/used. Generate coupon Dialog con form validado (code auto-gen + refresh, type select, value, desc, expiry). Fraud prevention note.
+- Todos los archivos empiezan con "use client"; usan shadcn/ui (Button, Badge, Tooltip, Dialog, Select, Input, Label, Progress, Collapsible, TooltipProvider), lucide-react, framer-motion con useReducedMotion, rp-glass/rp-gold-text/rp-gold-gradient/rp-glow-gold/rp-scroll-thin.
+- Dark theme premium con gold #D4AF37 + turquoise #3DD6C9 + glassmorphism aplicado consistentemente.
+- Sin horizontal overflow, mobile-first con touch targets ≥44px en acciones principales (min-h-11 buttons, day cells min-h-[44px]).
+- Lint: 0 errores, 0 warnings. Dev server estable GET / 200.
+
+---
+Task ID: FASE6-CRM-INTEL
+Agent: full-stack-developer
+Task: Crear 3 componentes para Fase 6 (CRM 360° Intelligence, Segmentation, VIP Classification) — crm-intelligence.tsx, crm-segments.tsx, crm-vip.tsx. Next.js 16 + TS + Tailwind v4 + Framer Motion, dark theme premium con glassmorphism, gold #D4AF37, turquoise #3DD6C9.
+
+Work Log:
+- Leí worklog.md: proyecto SPA multi-agente, AppShell con useNav zustand, sección "crm" renderiza CrmView. Tokens --gold #D4AF37 / --teal #3DD6C9 definidos en globals.css, utilidades rp-glass / rp-glass-strong / rp-glow-gold / rp-glow-teal / rp-scroll-thin / rp-gold-text / rp-teal-text disponibles, dark theme por defecto.
+- Revisé primitives.tsx (Section, GlassCard, Stat, Pill, GoldList, KV, Callout) y prediction-panel.tsx como referencia de patrones (DataQuality meta, gauge SVG animado, confidence bars, useReducedMotion).
+- Revisé shadcn/ui disponibles: Dialog, AlertDialog, Collapsible, Select, Tooltip, Badge, Button, Input, Label, Switch, useToast (API toast({title, description})).
+- Lint config: react-hooks/static-components ACTIVO (Cannot create components during render — prohíbe `const Icon = map[name]` en render). no-explicit-any / no-unused-vars / exhaustive-deps OFF.
+
+- 3 archivos creados en /home/z/my-project/src/components/rp/crm/:
+
+File 1 — crm-intelligence.tsx (~600 líneas):
+  * Export CrmIntelligence. Motor de predicciones IA explicables por cliente.
+  * Tipos: DataQuality (HIGH/MEDIUM/LOW/INSUFFICIENT), Prediction (label, value, confidence, factors[], dataQuality, modelVersion, calculatedAt, expiresAt), DemoCustomer (id, name, email, tier, visits, ltv, lastVisit, predictions[]).
+  * DQ_META con label/className/dot/tooltip por nivel (HIGH emerald, MEDIUM gold, LOW amber, INSUFFICIENT destructive). Confidence tone: green ≥75, gold ≥50, amber <50.
+  * 3 clientes demo con perfiles distintos: Elena Marín (Oro, 15v, LTV €2.840, predicciones sólidas HIGH), Marco Bellini (Black, 42v, LTV €8.450, predicciones muy altas HIGH), Paula Nieva (Nuevo, 2v, LTV €84, predicciones bajas con 3 INSUFFICIENT — channel/timing/campaign muestran warning "Datos insuficientes — usando reglas deterministas" y modelVersion rules-det-v1.0).
+  * 6 prediction cards en grid responsive (1 col mobile / 2 cols tablet md / 3 cols desktop xl):
+    1. Lifetime Value — Wallet icon, value "€2.840" (varía por cliente), trend icon TrendingUp.
+    2. Probabilidad de volver — RotateCcw, "78%".
+    3. Riesgo de abandono — ShieldCheck, "Bajo (12%)", color emerald + TrendingDown icon.
+    4. Canal recomendado — MessageCircle, "WhatsApp".
+    5. Mejor momento de contacto — Clock, "Martes 11:00".
+    6. Respuesta a campaña — Megaphone, "64%".
+  * Cada card: label mono uppercase muted + icono en caja; data quality badge con tooltip (cursor-help); big value font-display 3xl/4xl con color por tono; confidence bar animada (width 0→X%, delay escalonado, progressbar role + aria-valuenow/min/max); INSUFFICIENT warning box con AlertTriangle; factors chips con bullet gold; footer con modelVersion (Cpu icon) + calculatedAt relativo (CalendarClock) + expiresAt (Clock).
+  * Header: icono Brain en caja gold + título "Inteligencia de cliente" + badge demo + Select de cliente (3 opciones con tier y visitas) + botón "Recalcular predicciones" (gold, RefreshCw spin 1s, toast al completar, refreshKey para re-montar cards).
+  * CustomerHeader strip: avatar inicial + nombre + email + grid de 4 stats (Tier, Visitas, LTV, Última visita).
+  * Disclaimer footer: Sparkles teal + "Las predicciones son estimaciones basadas en datos históricos. No son garantías. La IA recomienda, el humano decide."
+  * Animaciones: AnimatePresence mode="wait" en grid (opacity al cambiar cliente/recalcular), cards initial opacity+y staggered (delay index*0.05 max 0.35), confidence bar width animada. Todo respeta useReducedMotion.
+  * Responsive: grid 1/2/3 cols, header flex-col → lg:flex-row, customer stats grid-cols-2 sm:4.
+
+File 2 — crm-segments.tsx (~700 líneas):
+  * Export CrmSegments. Motor de segmentación dinámica y predictiva con constructor de reglas.
+  * Tipos: SegmentType (static/dynamic/predictive), SegmentStatus (active/paused/draft), Condition (field/operator/value), Segment (id, name, description, type, size, conditions[], updatedAt, consentRequired, status).
+  * TYPE_META: Estático=gray (Layers), Dinámico=teal (Filter), Predictivo=gold (Sparkles). STATUS_META: Activa=emerald, Pausada=amber, Borrador=muted.
+  * FIELD_OPTIONS (8: última visita, ticket medio, visitas totales, LTV, canal, zona, cumpleaños, riesgo abandono). OPERATOR_OPTIONS dinámicos por tipo de campo (numeric >/< =, time older_than/newer_than, text contains, other is). opsForField() resuelve operadores válidos; al cambiar campo se resetea operador al primero válido.
+  * 10 segmentos demo: Inactivos 60 días (dinámico, 127), Alto ticket (estático, 43, consent), Cumpleaños este mes (dinámico, 28, consent), Riesgo de abandono (predictivo, 19), Viernes habituales (dinámico, 62), Prefieren terraza (estático, 89), Alta cancelación (predictivo, 12, paused), VIP potencial (predictivo, 7, consent), Responden por WhatsApp (dinámico, 156, consent), Nuevos con potencial (predictivo, 34, 2 condiciones, draft).
+  * Header: icono Layers teal + título "Segmentación inteligente" + badge demo + botón "Nuevo segmento" (gold).
+  * Stats row (4 cells grid 2/4): Segmentos totales (gold), Clientes segmentados (teal), Segmentos activos (emerald), Predictivos IA (gold).
+  * Filter tabs (role tablist/tab, aria-selected): Todos / Estáticos / Dinámicos / Predictivos con count badge cada uno. Active = gold bg+border.
+  * RuleBuilderDialog (max-w-2xl, scrollable): nombre input + tipo select (Estático/Dinámico/Predictivo); lista de condiciones (campo select + operador select dinámico + valor input + botón X quitar, disabled si solo 1); botón "Añadir condición" (outline dashed); consent toggle con Switch (excluye clientes sin consentimiento marketing); live preview "Este segmento tendría ~X clientes" (mockEstimate determinista basado en condiciones+consent); validación (nombre obligatorio, al menos 1 condición con valor); error alert con role="alert"; on save → toast + añade a lista en estado draft.
+  * SegmentCard: icono por tipo + nombre + type badge (con dot); description line-clamp-2; big size number gold + "clientes"; conditions chips (fieldLabel operatorLabel value); status badge + consent icon (con tooltip) + updatedAt relativo; actions "Ver clientes" (toast), "Pausar/Activar" (toggle status + toast), Editar (toast), Eliminar (abre AlertDialog).
+  * AlertDialog delete: título con Trash2 destructive, descripción con nombre, action destructive "Eliminar definitivamente".
+  * Empty state: mensaje cuando filtro no tiene segmentos.
+  * Disclaimer footer: Settings2 teal + "Los segmentos dinámicos se recalculan automáticamente. Los predictivos usan modelos ML con calidad de datos visible. El consentimiento de marketing siempre se respeta."
+  * Animaciones: AnimatePresence mode="popLayout" + layout en grid; cards initial opacity+y staggered, exit opacity+y+scale. Respeta useReducedMotion.
+  * Responsive: grid 1/2/3 cols, filter tabs scroll horizontal rp-scroll-thin, conditions flex-wrap, stats grid 2/4.
+
+File 3 — crm-vip.tsx (~620 líneas):
+  * Export CrmVip. Clasificación VIP configurable + sugerencias IA + explicación de reglas.
+  * Tipos: VipTier (id, name, color, icon, minLtv, minVisits, benefits[], clients, isSystem, category "tier"|"frequency"), VipSuggestion (id, customerId, customerName, currentTier, suggestedTier, reason, confidence, factors[]).
+  * TierIcon component (resuelve icono por nombre desde ICON_MAP: Medal/Award/Crown/Gem/Diamond/Star/Coffee/Moon) — declarado FUERA del render para cumplir react-hooks/static-components.
+  * 5 tiers VIP con colores especificados: Bronce (#CD7F32, Medal, LTV 0, 421 clientes), Plata (#C0C0C0, Award, LTV 800, 198), Oro (#D4AF37, Crown, LTV 2500, 87), Black (#1a1a1a con ring gold + glow, Gem, LTV 5000, 23), Diamond (#B9F2FF, Diamond, LTV 10000, 8).
+  * 3 categorías frecuencia: Frecuente (#3DD6C9 teal, Coffee, 142), Ocasional (#E8C766, Star, 388), Dormido (#9CA3AF, Moon, 124).
+  * Header: Crown gold + título "Clasificación VIP y fidelización" + badge demo.
+  * Tier overview: sección "Niveles VIP" + scroll horizontal rp-scroll-thin snap-x con 5 TierCards (cada una w-[260px] sm:w-[280px] shrink-0 snap-start); debajo sección "Categorías de frecuencia" con grid sm:grid-cols-3.
+  * TierCard: accent stripe top con gradiente del color del tier; icono en caja coloreada; nombre font-display en color del tier; thresholds LTV/visitas (si category=tier) en 2 cells; big client count en color del tier; benefits list con bullet coloreado; botón "Configurar" + badge "sistema" si isSystem; Black tier tiene ring-1 gold + boxShadow glow.
+  * ConfigureTierDialog (max-w-lg): nombre input; LTV mínimo + Visitas mínimas inputs numéricos (si tier); textarea beneficios (uno por línea); on save actualiza tier + toast "Tier actualizado".
+  * AI Suggestions section: header "Sugerencias de reclasificación (IA)" con Sparkles gold + badge "X pendientes"; grid lg:grid-cols-2 de SuggestionRow; 5 sugerencias demo (Vera Mendoza Oro→Black 88%, Javier Puente Plata→Oro 92%, Lola Ríos Black→Diamond 74%, Tomás Castro Oro→Plata 68% downgrade, Marta Núñez Bronce→Plata 81%).
+  * SuggestionRow: avatar inicial + nombre; tier badges con colores reales del tier (tierColorMap) + ArrowRight (gold si upgrade, amber si downgrade); reason text; confidence badge con tooltip (emerald ≥80, gold ≥60, amber <60); factors chips teal; actions "Aplicar" (gold), "Rechazar" (ghost destructive), "Posponer" (outline). Empty state con ShieldCheck teal.
+  * Note bajo sugerencias: Info icon + "La IA sugiere. La decisión es tuya y siempre reversible desde el panel de auditoría."
+  * Collapsible "Cómo se calcula la clasificación": 8 factores ponderados (Gasto total LTV 30%, Frecuencia 20%, Recencia 10%, Ticket medio 10%, Interacción 8%, Antigüedad 7%, Rentabilidad 8%, Reseñas 7%) cada uno con weight badge gold + descripción. ChevronDown rota 180° al abrir. Heart gold footer sobre umbrales + IA.
+  * Disclaimer footer: ShieldCheck teal + "La clasificación VIP es configurable por organización. La IA puede sugerir, pero la decisión final es auditable y reversible."
+  * Animaciones: AnimatePresence en tier scroll y suggestions (opacity+y staggered, exit). Collapsible con ChevronDown rotate. Respeta useReducedMotion.
+  * Responsive: tiers scroll horizontal mobile (snap), grid sm:3 en categorías, suggestions grid 1/2, rules grid 1/2.
+
+Accesibilidad (3 archivos): aria-labelledby en sections principales; role="tablist"/"tab" aria-selected en filter tabs segments; role="progressbar" aria-valuenow/min/max en confidence bars; role="alert" en errores de form; aria-label en icon buttons (quitar condición, editar, eliminar, posponer); TooltipProvider con cursor-help en data quality badges y confidence badges; sr-only text en icon-only buttons; tabIndex implícito en buttons; aria-expanded en Collapsible trigger.
+
+Responsive (3 archivos, mobile-first sin overflow horizontal):
+  - Intelligence: grid predicciones 1/2/3 cols; header flex-col→lg:flex-row; customer stats grid-cols-2 sm:4; touch targets h-8/h-10/h-9.
+  - Segments: stats grid 2/4; filter tabs scroll horizontal rp-scroll-thin; conditions flex-wrap; segment cards grid 1/2/3; dialog max-w-2xl con max-h-[90vh] overflow-y-auto.
+  - VIP: tiers scroll horizontal con snap en mobile; categorías grid sm:3; suggestions grid lg:2; rules grid sm:2; dialogs scrollables.
+
+Todos los copy en español (es-ES): "Inteligencia de cliente", "Recalcular predicciones", "Datos insuficientes — usando reglas deterministas", "La IA recomienda, el humano decide", "Segmentación inteligente", "Nuevo segmento", "Añadir condición", "Requiere consentimiento marketing", "Este segmento tendría ~X clientes", "Ver clientes", "Pausar/Activar", "Editar", "Eliminar", "Clasificación VIP y fidelización", "Niveles VIP", "Categorías de frecuencia", "Sugerencias de reclasificación (IA)", "Aplicar/Rechazar/Posponer", "Cómo se calcula la clasificación", "Configurar", "Guardar cambios". Badge "demo" en los 3 headers.
+
+Lint status: `bun run lint` → EXIT CODE 0, 0 errores, 0 warnings. Dev log: ✓ Compiled limpio sin errores.
+
+Stage Summary:
+- 3 componentes Fase 6 entregados en /home/z/my-project/src/components/rp/crm/:
+  * crm-intelligence.tsx — Motor de 6 predicciones IA explicables (LTV, retorno, churn, canal, timing, campaña) con 3 clientes demo (Oro/Black/Nuevo), confidence bars animadas, data quality badges con tooltip, fallback INSUFFICIENT con reglas deterministas, recalcular con loading 1s, modelVersion/calculatedAt/expiresAt en cada card.
+  * crm-segments.tsx — 10 segmentos demo (estáticos/dinámicos/predictivos), stats row 4 KPIs, filter tabs por tipo, constructor de reglas completo (campo+operador dinámico+valor, añadir/quitar condiciones, consent toggle, live preview), actions ver/pausar/activar/editar/eliminar con confirmación, consent icon con tooltip.
+  * crm-vip.tsx — 5 tiers VIP (Bronce→Plata→Oro→Black→Diamond con colores hex) + 3 categorías frecuencia (Frecuente/Ocasional/Dormido), scroll horizontal con snap, dialog configurar tier (umbrales+beneficios), 5 sugerencias IA de reclasificación (aplicar/rechazar/posponer), Collapsible "Cómo se calcula" con 8 factores ponderados, disclaimers de auditabilidad.
+- Todos los archivos empiezan con "use client"; usan shadcn/ui, lucide-react, framer-motion con useReducedMotion, rp-glass/rp-gold-text/rp-teal-text/rp-glow-gold/rp-scroll-thin.
+- Dark theme premium con gold #D4AF37 + turquoise #3DD6C9 + glassmorphism aplicado consistentemente.
+- Animaciones transform+opacity only, prefers-reduced-motion respetado.
+- Sin horizontal overflow, mobile-first con touch targets ≥36-44px.
+- Lint: 0 errores. Dev server estable ✓ Compiled.
+
+---
+Task ID: FASE6-VERIFY
+Agent: main
+Task: Verificación end-to-end de Fase 6 — CRM 360° Inteligente, IA Comercial y Fidelización.
+
+Work Log:
+- Lint global: 0 errores.
+- Dev server: PID 1027; responde 200 sin errores.
+- Bug corregido: imports duplicados de lucide-react (Crown, CalendarDays, Gift ya existían) → eliminados los duplicados, solo añadidos BrainCircuit, Users2, Lightbulb.
+- Bug corregido: header del CRM desbordaba en 1024px (label "Rol simulado" + select 150px) → label hidden xl:inline, select w-[130px] xl:w-[150px], shrink-0 añadido.
+- 7 tabs integrados en crm-view: Perfil 360° (vista existente), Inteligencia IA, Segmentos, VIP, Próximas acciones, Calendario, Fidelización.
+- Todos los tabs verificados con contenido y sin overflow en móvil 390px (7/7) y desktop 1440 (7/7).
+- Responsive multi-viewport sin overflow: 390 ✓, 768 ✓, 1024 ✓, 1280 ✓, 1440 ✓.
+- VLM: "enterprise quality, no glitches, professional dark-mode UI with AI predictions".
+
+Stage Summary:
+- Fase 6 completa: CRM 360° inteligente con 7 vistas integradas.
+- 6 componentes nuevos: CrmIntelligence (6 predicciones IA explicables), CrmSegments (10 segmentos + rule builder), CrmVip (5 tiers + sugerencias IA reclasificación), CrmNextAction (8 recomendaciones accionables), CrmCalendar (calendario mensual + sugerencias IA), CrmLoyalty (wallet + ledger inmutable + cupones).
+- Todas las predicciones muestran confidence, factores, dataQuality, modelVersion, expiresAt.
+- Fallbacks INSUFFICIENT_DATA con reglas deterministas.
+- Consentimiento requerido en segmentos para campañas.
+- Acciones aceptar/rechazar/posponer en Next Best Action.
+- Ledger inmutable con idempotencyKey en wallet.
+- Calendario con IA suggestions (campaign/audience/channel/offer/confidence).
+
+---
+Task ID: FASE7-START
+Agent: main
+Task: Implementar Fase 7 — Command Center Enterprise Global (BI + IA Ejecutiva + Super Admin).
+
+Work Log:
+- Estado: dev server activo, super-admin-view.tsx 775 líneas.
+- Estrategia: crear 9 componentes nuevos que se integren como tabs en super-admin-view.
+- Subagent A: cc-executive.tsx (dashboard ejecutivo con KPIs trazables + forecast) + cc-org-detail.tsx (ficha organización con drill-down)
+- Subagent B: cc-executive-ai.tsx (asistente conversacional con evidencias) + cc-search.tsx (búsqueda global semántica) + cc-incidents.tsx (centro de incidencias)
+- Subagent C: cc-platform-health.tsx (12 servicios con uptime/SLO) + cc-feature-flags.tsx (gestor de flags) + cc-world-map.tsx (mapa SVG interactivo)

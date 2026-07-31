@@ -1,0 +1,2002 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { Button } from "@/components/ui/button";
+     6→import { Input } from "@/components/ui/input";
+     7→import { Textarea } from "@/components/ui/textarea";
+     8→import { Switch } from "@/components/ui/switch";
+     9→import { Badge } from "@/components/ui/badge";
+    10→import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+    11→import {
+    12→  Tooltip,
+    13→  TooltipContent,
+    14→  TooltipProvider,
+    15→  TooltipTrigger,
+    16→} from "@/components/ui/tooltip";
+    17→import {
+    18→  Dialog,
+    19→  DialogContent,
+    20→  DialogDescription,
+    21→  DialogFooter,
+    22→  DialogHeader,
+    23→  DialogTitle,
+    24→} from "@/components/ui/dialog";
+    25→import {
+    26→  AlertDialog,
+    27→  AlertDialogAction,
+    28→  AlertDialogCancel,
+    29→  AlertDialogContent,
+    30→  AlertDialogDescription,
+    31→  AlertDialogFooter,
+    32→  AlertDialogHeader,
+    33→  AlertDialogTitle,
+    34→} from "@/components/ui/alert-dialog";
+    35→import {
+    36→  Select,
+    37→  SelectContent,
+    38→  SelectItem,
+    39→  SelectTrigger,
+    40→  SelectValue,
+    41→} from "@/components/ui/select";
+    42→import { useToast } from "@/hooks/use-toast";
+    43→import {
+    44→  Search,
+    45→  Users,
+    46→  Mail,
+    47→  Phone,
+    48→  CalendarPlus,
+    49→  Send,
+    50→  Download,
+    51→  X,
+    52→  Plus,
+    53→  Crown,
+    54→  Gift,
+    55→  AlertTriangle,
+    56→  ShieldCheck,
+    57→  ShieldOff,
+    58→  Lock,
+    59→  Sparkles,
+    60→  MapPin,
+    61→  Utensils,
+    62→  Soup,
+    63→  History,
+    64→  StickyNote,
+    65→  Megaphone,
+    66→  CircleUserRound,
+    67→  Inbox,
+    68→  Star,
+    69→  Clock,
+    70→  TrendingUp,
+    71→  Building2,
+    72→  Wine,
+    73→  Baby,
+    74→  TreePalm,
+    75→  UserCheck,
+    76→  ArrowLeft,
+    77→  Pencil,
+    78→  Tag as TagIcon,
+    79→  Trash2,
+    80→  Globe,
+    81→  MessageCircle,
+    82→  Smartphone,
+    83→  CalendarDays,
+    84→  Euro,
+    85→  Timer,
+    86→  Store,
+    87→  CheckCircle2,
+    88→  XCircle,
+    89→  CalendarX2,
+    90→  Languages,
+    91→  BrainCircuit, Users2, Lightbulb,
+    92→} from "lucide-react";
+    93→import { CrmIntelligence } from "@/components/rp/crm/crm-intelligence";
+    94→import { CrmSegments } from "@/components/rp/crm/crm-segments";
+    95→import { CrmVip } from "@/components/rp/crm/crm-vip";
+    96→import { CrmNextAction } from "@/components/rp/crm/crm-next-action";
+    97→import { CrmCalendar } from "@/components/rp/crm/crm-calendar";
+    98→import { CrmLoyalty } from "@/components/rp/crm/crm-loyalty";
+    99→
+   100→/* ------------------------------------------------------------------ */
+   101→/* Types                                                              */
+   102→/* ------------------------------------------------------------------ */
+   103→
+   104→type TagId =
+   105→  | "VIP"
+   106→  | "familiar"
+   107→  | "vino-blanco"
+   108→  | "terraza"
+   109→  | "cumpleaños"
+   110→  | "frecuente"
+   111→  | "empresa"
+   112→  | "alto-valor"
+   113→  | "recurrente"
+   114→  | "riesgo"
+   115→  | "nuevo"
+   116→  | "inactivo";
+   117→
+   118→type ConsentChannel = "email" | "whatsapp" | "sms";
+   119→
+   120→type AcquisitionChannel = "web" | "google" | "referido" | "walk-in";
+   121→
+   122→type CustomerStatus = "active" | "inactive" | "vip" | "risk";
+   123→
+   124→type ReservationStatus = "finalizada" | "confirmada" | "cancelada" | "no-show";
+   125→
+   126→type ReservationChannel = "web" | "google" | "whatsapp" | "phone";
+   127→
+   128→interface NoteEntry {
+   129→  id: string;
+   130→  text: string;
+   131→  author: string;
+   132→  date: string;
+   133→}
+   134→
+   135→interface VisitEntry {
+   136→  id: string;
+   137→  date: string; // ISO yyyy-mm-dd
+   138→  time: string; // HH:mm
+   139→  partySize: number;
+   140→  table: string;
+   141→  zone: string;
+   142→  duration: string; // "1h 45m"
+   143→  status: ReservationStatus;
+   144→  ticket: number | null;
+   145→  rating: number | null; // 0-5
+   146→  channel: ReservationChannel;
+   147→  notes: string;
+   148→}
+   149→
+   150→interface Customer {
+   151→  id: string;
+   152→  name: string;
+   153→  email: string;
+   154→  phone: string;
+   155→  language: string;
+   156→  photo?: string;
+   157→  visits: number;
+   158→  ltv: number;
+   159→  totalSpend: number;
+   160→  avgTicket: number;
+   161→  avgRating: number;
+   162→  cancellations: number;
+   163→  noShows: number;
+   164→  frequency: string;
+   165→  locationsVisited: string[];
+   166→  channelsUsed: ReservationChannel[];
+   167→  tags: TagId[];
+   168→  status: CustomerStatus;
+   169→  lastVisit: string; // pretty text
+   170→  lastVisitDate: string; // ISO date
+   171→  birthday: string;
+   172→  favoriteTable: string;
+   173→  allergens: string[];
+   174→  dietary: string;
+   175→  acquisition: string; // pretty text
+   176→  acquisitionChannel: AcquisitionChannel;
+   177→  consents: Record<ConsentChannel, boolean>;
+   178→  notes: string; // free-text general notes
+   179→  noteList: NoteEntry[]; // timestamped internal notes
+   180→  history: VisitEntry[];
+   181→}
+   182→
+   183→type FilterTab = "todos" | "VIP" | "riesgo" | "cumpleaños";
+   184→
+   185→type Role = "owner" | "manager" | "hostess";
+   186→
+   187→interface Permissions {
+   188→  "crm.export": boolean;
+   189→  "crm.message": boolean;
+   190→  "crm.reservation.create": boolean;
+   191→  "crm.consent.edit": boolean;
+   192→  "crm.tag.edit": boolean;
+   193→  "crm.note.edit": boolean;
+   194→  "crm.customer.edit": boolean;
+   195→  "crm.customer.delete": boolean;
+   196→}
+   197→
+   198→const ROLE_PERMISSIONS: Record<Role, Permissions> = {
+   199→  owner: {
+   200→    "crm.export": true,
+   201→    "crm.message": true,
+   202→    "crm.reservation.create": true,
+   203→    "crm.consent.edit": true,
+   204→    "crm.tag.edit": true,
+   205→    "crm.note.edit": true,
+   206→    "crm.customer.edit": true,
+   207→    "crm.customer.delete": true,
+   208→  },
+   209→  manager: {
+   210→    "crm.export": true,
+   211→    "crm.message": true,
+   212→    "crm.reservation.create": true,
+   213→    "crm.consent.edit": true,
+   214→    "crm.tag.edit": true,
+   215→    "crm.note.edit": true,
+   216→    "crm.customer.edit": true,
+   217→    "crm.customer.delete": false,
+   218→  },
+   219→  hostess: {
+   220→    "crm.export": false,
+   221→    "crm.message": true,
+   222→    "crm.reservation.create": true,
+   223→    "crm.consent.edit": false,
+   224→    "crm.tag.edit": false,
+   225→    "crm.note.edit": true,
+   226→    "crm.customer.edit": false,
+   227→    "crm.customer.delete": false,
+   228→  },
+   229→};
+   230→
+   231→/* ------------------------------------------------------------------ */
+   232→/* Tag catalog                                                        */
+   233→/* ------------------------------------------------------------------ */
+   234→
+   235→type TagTone =
+   236→  | "gold"
+   237→  | "teal"
+   238→  | "purple"
+   239→  | "red"
+   240→  | "blue"
+   241→  | "muted"
+   242→  | "green"
+   243→  | "slate"
+   244→  | "wine"
+   245→  | "fuchsia";
+   246→
+   247→const TAG_TONE_CLASS: Record<TagTone, string> = {
+   248→  gold: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   249→  teal: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]",
+   250→  purple: "border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300",
+   251→  red: "border-destructive/45 bg-destructive/10 text-destructive",
+   252→  blue: "border-sky-400/40 bg-sky-400/10 text-sky-300",
+   253→  muted: "border-foreground/20 bg-foreground/5 text-muted-foreground",
+   254→  green: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   255→  slate: "border-slate-400/40 bg-slate-400/10 text-slate-300",
+   256→  wine: "border-amber-200/40 bg-amber-200/10 text-amber-200",
+   257→  fuchsia: "border-fuchsia-400/40 bg-fuchsia-400/10 text-fuchsia-300",
+   258→};
+   259→
+   260→const ALL_TAGS: {
+   261→  id: TagId;
+   262→  label: string;
+   263→  tone: TagTone;
+   264→  icon?: React.ElementType;
+   265→}[] = [
+   266→  { id: "VIP", label: "VIP", tone: "gold", icon: Crown },
+   267→  { id: "familiar", label: "Familiar", tone: "teal", icon: Baby },
+   268→  { id: "vino-blanco", label: "Vino blanco", tone: "wine", icon: Wine },
+   269→  { id: "terraza", label: "Terraza", tone: "green", icon: TreePalm },
+   270→  { id: "cumpleaños", label: "Cumpleaños", tone: "fuchsia", icon: Gift },
+   271→  { id: "frecuente", label: "Cliente frecuente", tone: "blue", icon: UserCheck },
+   272→  { id: "empresa", label: "Empresa", tone: "slate", icon: Building2 },
+   273→  { id: "alto-valor", label: "Alto valor", tone: "gold", icon: TrendingUp },
+   274→  { id: "recurrente", label: "Recurrente", tone: "teal" },
+   275→  { id: "riesgo", label: "Riesgo", tone: "red", icon: AlertTriangle },
+   276→  { id: "nuevo", label: "Nuevo", tone: "blue" },
+   277→  { id: "inactivo", label: "Inactivo", tone: "muted" },
+   278→];
+   279→
+   280→/* ------------------------------------------------------------------ */
+   281→/* Channel / status meta                                              */
+   282→/* ------------------------------------------------------------------ */
+   283→
+   284→const ACQUISITION_META: Record<
+   285→  AcquisitionChannel,
+   286→  { label: string; icon: React.ElementType }
+   287→> = {
+   288→  web: { label: "Web", icon: Globe },
+   289→  google: { label: "Google", icon: Search },
+   290→  referido: { label: "Referido", icon: Users },
+   291→  "walk-in": { label: "Walk-in", icon: Store },
+   292→};
+   293→
+   294→const CHANNEL_META: Record<
+   295→  ReservationChannel,
+   296→  { label: string; icon: React.ElementType }
+   297→> = {
+   298→  web: { label: "Web", icon: Globe },
+   299→  google: { label: "Google", icon: Search },
+   300→  whatsapp: { label: "WhatsApp", icon: MessageCircle },
+   301→  phone: { label: "Teléfono", icon: Phone },
+   302→};
+   303→
+   304→const STATUS_META: Record<
+   305→  ReservationStatus,
+   306→  {
+   307→    label: string;
+   308→    icon: React.ElementType;
+   309→    badge: string;
+   310→    dot: string;
+   311→  }
+   312→> = {
+   313→  finalizada: {
+   314→    label: "Finalizada",
+   315→    icon: CheckCircle2,
+   316→    badge: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   317→    dot: "bg-emerald-400",
+   318→  },
+   319→  confirmada: {
+   320→    label: "Confirmada",
+   321→    icon: CalendarDays,
+   322→    badge: "border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)]",
+   323→    dot: "bg-[var(--gold)]",
+   324→  },
+   325→  cancelada: {
+   326→    label: "Cancelada",
+   327→    icon: XCircle,
+   328→    badge: "border-destructive/45 bg-destructive/10 text-destructive",
+   329→    dot: "bg-destructive",
+   330→  },
+   331→  "no-show": {
+   332→    label: "No-show",
+   333→    icon: CalendarX2,
+   334→    badge: "border-amber-400/45 bg-amber-400/10 text-amber-300",
+   335→    dot: "bg-amber-400",
+   336→  },
+   337→};
+   338→
+   339→const CUSTOMER_STATUS_META: Record<
+   340→  CustomerStatus,
+   341→  { label: string; badge: string }
+   342→> = {
+   343→  active: {
+   344→    label: "Activo",
+   345→    badge: "border-emerald-400/40 bg-emerald-400/10 text-emerald-300",
+   346→  },
+   347→  vip: {
+   348→    label: "VIP",
+   349→    badge: "border-[var(--gold)]/50 bg-[var(--gold)]/15 text-[var(--gold-soft)]",
+   350→  },
+   351→  risk: {
+   352→    label: "En riesgo",
+   353→    badge: "border-amber-400/45 bg-amber-400/10 text-amber-300",
+   354→  },
+   355→  inactive: {
+   356→    label: "Inactivo",
+   357→    badge: "border-foreground/20 bg-foreground/5 text-muted-foreground",
+   358→  },
+   359→};
+   360→
+   361→/* ------------------------------------------------------------------ */
+   362→/* Helpers                                                            */
+   363→/* ------------------------------------------------------------------ */
+   364→
+   365→function initials(name: string): string {
+   366→  return name
+   367→    .split(" ")
+   368→    .slice(0, 2)
+   369→    .map((p) => p[0])
+   370→    .join("")
+   371→    .toUpperCase();
+   372→}
+   373→
+   374→function formatEur(n: number): string {
+   375→  return n.toLocaleString("es-ES", {
+   376→    style: "currency",
+   377→    currency: "EUR",
+   378→    maximumFractionDigits: 0,
+   379→  });
+   380→}
+   381→
+   382→function formatDate(iso: string): string {
+   383→  // iso "2025-03-12" → "12 mar 2025"
+   384→  const d = new Date(iso + "T00:00:00");
+   385→  return d.toLocaleDateString("es-ES", {
+   386→    day: "2-digit",
+   387→    month: "short",
+   388→    year: "numeric",
+   389→  });
+   390→}
+   391→
+   392→/* ------------------------------------------------------------------ */
+   393→/* Demo data                                                          */
+   394→/* ------------------------------------------------------------------ */
+   395→
+   396→const DEMO_CUSTOMERS: Customer[] = [
+   397→  {
+   398→    id: "c1",
+   399→    name: "Elena Marín",
+   400→    email: "elena.marin@example.com",
+   401→    phone: "+34 612 884 102",
+   402→    language: "Español",
+   403→    visits: 18,
+   404→    ltv: 4820,
+   405→    totalSpend: 4820,
+   406→    avgTicket: 268,
+   407→    avgRating: 4.7,
+   408→    cancellations: 1,
+   409→    noShows: 0,
+   410→    frequency: "2.1 visitas/mes",
+   411→    locationsVisited: ["Madrid", "Barcelona"],
+   412→    channelsUsed: ["web", "whatsapp", "phone"],
+   413→    tags: ["VIP", "alto-valor", "vino-blanco", "recurrente"],
+   414→    status: "vip",
+   415→    lastVisit: "Hace 6 días",
+   416→    lastVisitDate: "2025-03-12",
+   417→    birthday: "23 de marzo",
+   418→    favoriteTable: "Mesa 12 · Ventana",
+   419→    allergens: ["Frutos secos"],
+   420→    dietary: "Sin gluten opcional",
+   421→    acquisition: "Referido por Javier Soler",
+   422→    acquisitionChannel: "referido",
+   423→    consents: { email: true, whatsapp: true, sms: false },
+   424→    notes: "Prefiere agua con gas. Siempre pregunta por la carta de vinos Ribera.",
+   425→    noteList: [
+   426→      { id: "n1", text: "Solicita maridaje largo en cada visita. Valorar upgrade a mesa privada en próxima reserva.", author: "Ana M.", date: "2025-03-12" },
+   427→      { id: "n2", text: "Alergia a frutos secos confirmada verbalmente. Cocina avisada.", author: "Marc R.", date: "2025-02-28" },
+   428→    ],
+   429→    history: [
+   430→      { id: "v1", date: "2025-03-12", time: "21:30", partySize: 2, table: "Mesa 12", zone: "Ventana", duration: "1h 45m", status: "finalizada", ticket: 168, rating: 5, channel: "web", notes: "Cena romántica, pidieron maridaje." },
+   431→      { id: "v2", date: "2025-02-28", time: "20:30", partySize: 4, table: "Mesa 7", zone: "Salón principal", duration: "2h 10m", status: "finalizada", ticket: 312, rating: 5, channel: "phone", notes: "Aniversario, postres de cortesía." },
+   432→      { id: "v3", date: "2025-02-09", time: "14:15", partySize: 2, table: "Mesa 12", zone: "Ventana", duration: "1h 00m", status: "finalizada", ticket: 142, rating: 4, channel: "web", notes: "Visita exprés. Excelente feedback." },
+   433→      { id: "v4", date: "2025-01-21", time: "21:00", partySize: 6, table: "Mesa 3", zone: "Privado", duration: "2h 30m", status: "finalizada", ticket: 528, rating: 5, channel: "whatsapp", notes: "Cena de equipo. Factura empresa." },
+   434→      { id: "v5", date: "2025-04-18", time: "21:30", partySize: 2, table: "Mesa 12", zone: "Ventana", duration: "—", status: "confirmada", ticket: null, rating: null, channel: "web", notes: "Próxima reserva confirmada." },
+   435→    ],
+   436→  },
+   437→  {
+   438→    id: "c2",
+   439→    name: "Javier Soler",
+   440→    email: "javier.soler@example.com",
+   441→    phone: "+34 670 221 994",
+   442→    language: "Español",
+   443→    visits: 12,
+   444→    ltv: 2980,
+   445→    totalSpend: 2980,
+   446→    avgTicket: 248,
+   447→    avgRating: 4.3,
+   448→    cancellations: 0,
+   449→    noShows: 0,
+   450→    frequency: "1.4 visitas/mes",
+   451→    locationsVisited: ["Madrid"],
+   452→    channelsUsed: ["web", "google"],
+   453→    tags: ["frecuente", "terraza", "recurrente"],
+   454→    status: "active",
+   455→    lastVisit: "Hace 2 semanas",
+   456→    lastVisitDate: "2025-03-06",
+   457→    birthday: "9 de julio",
+   458→    favoriteTable: "Mesa 5 · Barra",
+   459→    allergens: [],
+   460→    dietary: "Omnívoro",
+   461→    acquisition: "Instagram Ads",
+   462→    acquisitionChannel: "google",
+   463→    consents: { email: true, whatsapp: false, sms: false },
+   464→    notes: "Suele venir los jueves. Le gustan los platos de temporada.",
+   465→    noteList: [
+   466→      { id: "n1", text: "Prefiere barra para cenas rápidas. Maridaje por copas bien recibido.", author: "Lucía P.", date: "2025-03-06" },
+   467→    ],
+   468→    history: [
+   469→      { id: "v1", date: "2025-03-06", time: "20:00", partySize: 2, table: "Mesa 5", zone: "Barra", duration: "1h 15m", status: "finalizada", ticket: 96, rating: 4, channel: "web", notes: "Barra, maridaje por copas." },
+   470→      { id: "v2", date: "2025-02-20", time: "21:30", partySize: 3, table: "Mesa 5", zone: "Barra", duration: "1h 30m", status: "finalizada", ticket: 138, rating: 4, channel: "google", notes: "Cumpleaños amigo, postre sorpresa." },
+   471→      { id: "v3", date: "2025-01-30", time: "20:45", partySize: 2, table: "Mesa 5", zone: "Barra", duration: "0h 55m", status: "finalizada", ticket: 88, rating: 4, channel: "web", notes: "Cena rápida pre-cine." },
+   472→      { id: "v4", date: "2025-01-12", time: "21:00", partySize: 4, table: "Mesa 9", zone: "Salón principal", duration: "1h 50m", status: "finalizada", ticket: 214, rating: 5, channel: "google", notes: "Trajo a Elena Marín." },
+   473→    ],
+   474→  },
+   475→  {
+   476→    id: "c3",
+   477→    name: "Marta Iborra",
+   478→    email: "marta.iborra@example.com",
+   479→    phone: "+34 699 010 558",
+   480→    language: "Español",
+   481→    visits: 5,
+   482→    ltv: 690,
+   483→    totalSpend: 690,
+   484→    avgTicket: 138,
+   485→    avgRating: 3.4,
+   486→    cancellations: 1,
+   487→    noShows: 2,
+   488→    frequency: "0.6 visitas/mes",
+   489→    locationsVisited: ["Madrid"],
+   490→    channelsUsed: ["google", "whatsapp"],
+   491→    tags: ["riesgo"],
+   492→    status: "risk",
+   493→    lastVisit: "Hace 3 semanas (no-show)",
+   494→    lastVisitDate: "2025-02-22",
+   495→    birthday: "17 de noviembre",
+   496→    favoriteTable: "—",
+   497→    allergens: ["Marisco"],
+   498→    dietary: "Pescatariana",
+   499→    acquisition: "Google Maps",
+   500→    acquisitionChannel: "google",
+   501→    consents: { email: true, whatsapp: true, sms: false },
+   502→    notes: "Dos no-shows en 3 meses. Considerar overbooking controlado o confirmación doble.",
+   503→    noteList: [
+   504→      { id: "n1", text: "Dos no-shows registrados. Activar regla de confirmación doble para próximas reservas.", author: "Ana M.", date: "2025-02-22" },
+   505→    ],
+   506→    history: [
+   507→      { id: "v1", date: "2025-02-22", time: "21:00", partySize: 2, table: "—", zone: "—", duration: "—", status: "no-show", ticket: null, rating: null, channel: "google", notes: "No-show sin previo aviso." },
+   508→      { id: "v2", date: "2025-01-11", time: "20:30", partySize: 4, table: "Mesa 4", zone: "Salón principal", duration: "1h 40m", status: "finalizada", ticket: 198, rating: 4, channel: "whatsapp", notes: "Cena normal." },
+   509→      { id: "v3", date: "2024-12-05", time: "21:30", partySize: 2, table: "—", zone: "—", duration: "—", status: "no-show", ticket: null, rating: null, channel: "google", notes: "No-show. Reagendado luego." },
+   510→      { id: "v4", date: "2024-10-18", time: "14:00", partySize: 2, table: "Mesa 8", zone: "Terraza", duration: "0h 50m", status: "finalizada", ticket: 78, rating: 3, channel: "google", notes: "Almuerzo de trabajo." },
+   511→    ],
+   512→  },
+   513→  {
+   514→    id: "c4",
+   515→    name: "David Puig",
+   516→    email: "david.puig@example.com",
+   517→    phone: "+34 655 778 220",
+   518→    language: "Inglés",
+   519→    visits: 22,
+   520→    ltv: 6340,
+   521→    totalSpend: 6340,
+   522→    avgTicket: 288,
+   523→    avgRating: 4.9,
+   524→    cancellations: 0,
+   525→    noShows: 0,
+   526→    frequency: "2.6 visitas/mes",
+   527→    locationsVisited: ["Madrid", "Barcelona", "Valencia"],
+   528→    channelsUsed: ["web", "whatsapp", "phone"],
+   529→    tags: ["VIP", "cumpleaños", "empresa", "alto-valor", "frecuente"],
+   530→    status: "vip",
+   531→    lastVisit: "Hace 4 días",
+   532→    lastVisitDate: "2025-03-14",
+   533→    birthday: "26 de marzo",
+   534→    favoriteTable: "Mesa 1 · Privado",
+   535→    allergens: ["Apio"],
+   536→    dietary: "Omnívoro",
+   537→    acquisition: "Walk-in recurrente",
+   538→    acquisitionChannel: "walk-in",
+   539→    consents: { email: true, whatsapp: true, sms: true },
+   540→    notes: "Cliente top. Cumpleaños este mes — preparar detalle y upgrade de mesa.",
+   541→    noteList: [
+   542→      { id: "n1", text: "Cumpleaños el 26/03. Preparar postre sorpresa y upgrade a mesa privada.", author: "Ana M.", date: "2025-03-14" },
+   543→      { id: "n2", text: "Factura a nombre de empresa. Solicitar CIF en cada reserva corporativa.", author: "Marc R.", date: "2025-03-01" },
+   544→      { id: "n3", text: "Alergia apio confirmada. Cocina avisada permanentemente.", author: "Lucía P.", date: "2025-02-15" },
+   545→    ],
+   546→    history: [
+   547→      { id: "v1", date: "2025-03-14", time: "21:30", partySize: 6, table: "Mesa 1", zone: "Privado", duration: "2h 40m", status: "finalizada", ticket: 642, rating: 5, channel: "phone", notes: "Cena de celebración." },
+   548→      { id: "v2", date: "2025-03-01", time: "20:30", partySize: 4, table: "Mesa 1", zone: "Privado", duration: "2h 15m", status: "finalizada", ticket: 388, rating: 5, channel: "whatsapp", notes: "Maridaje largo." },
+   549→      { id: "v3", date: "2025-02-15", time: "21:00", partySize: 2, table: "Mesa 1", zone: "Privado", duration: "1h 30m", status: "finalizada", ticket: 196, rating: 5, channel: "web", notes: "Cena íntima." },
+   550→      { id: "v4", date: "2025-01-29", time: "21:00", partySize: 8, table: "Mesa 1", zone: "Privado", duration: "3h 00m", status: "finalizada", ticket: 920, rating: 5, channel: "phone", notes: "Mesa redonda empresa." },
+   551→      { id: "v5", date: "2025-03-26", time: "21:30", partySize: 8, table: "Mesa 1", zone: "Privado", duration: "—", status: "confirmada", ticket: null, rating: null, channel: "phone", notes: "Cena de cumpleaños — detalle preparado." },
+   552→    ],
+   553→  },
+   554→  {
+   555→    id: "c5",
+   556→    name: "Lucía Ferrer",
+   557→    email: "lucia.ferrer@example.com",
+   558→    phone: "+34 622 449 770",
+   559→    language: "Español",
+   560→    visits: 1,
+   561→    ltv: 64,
+   562→    totalSpend: 64,
+   563→    avgTicket: 64,
+   564→    avgRating: 4.5,
+   565→    cancellations: 0,
+   566→    noShows: 0,
+   567→    frequency: "Primera visita",
+   568→    locationsVisited: ["Madrid"],
+   569→    channelsUsed: ["web"],
+   570→    tags: ["nuevo", "familiar", "terraza"],
+   571→    status: "active",
+   572→    lastVisit: "Hace 3 días",
+   573→    lastVisitDate: "2025-03-15",
+   574→    birthday: "2 de junio",
+   575→    favoriteTable: "Mesa 9 · Centro",
+   576→    allergens: ["Lactosa"],
+   577→    dietary: "Vegetariana",
+   578→    acquisition: "Reserva online (web)",
+   579→    acquisitionChannel: "web",
+   580→    consents: { email: true, whatsapp: false, sms: false },
+   581→    notes: "Primera visita. Pidió info sobre menú degustación vegetariano.",
+   582→    noteList: [
+   583→      { id: "n1", text: "Interesada en menú degustación vegetariano. Enviar info cuando esté disponible.", author: "Lucía P.", date: "2025-03-15" },
+   584→    ],
+   585→    history: [
+   586→      { id: "v1", date: "2025-03-15", time: "14:30", partySize: 2, table: "Mesa 9", zone: "Centro", duration: "1h 10m", status: "finalizada", ticket: 64, rating: 5, channel: "web", notes: "Primera visita, encantada con el servicio." },
+   587→      { id: "v2", date: "2025-04-05", time: "14:30", partySize: 4, table: "Mesa 9", zone: "Centro", duration: "—", status: "confirmada", ticket: null, rating: null, channel: "web", notes: "Vuelve con familia — mesa para 4." },
+   588→    ],
+   589→  },
+   590→  {
+   591→    id: "c6",
+   592→    name: "Andrés Vidal",
+   593→    email: "andres.vidal@example.com",
+   594→    phone: "+34 688 220 113",
+   595→    language: "Español",
+   596→    visits: 4,
+   597→    ltv: 412,
+   598→    totalSpend: 412,
+   599→    avgTicket: 103,
+   600→    avgRating: 3.8,
+   601→    cancellations: 0,
+   602→    noShows: 0,
+   603→    frequency: "0.4 visitas/mes",
+   604→    locationsVisited: ["Madrid"],
+   605→    channelsUsed: ["phone"],
+   606→    tags: ["riesgo", "inactivo"],
+   607→    status: "inactive",
+   608→    lastVisit: "Hace 95 días",
+   609→    lastVisitDate: "2024-12-09",
+   610→    birthday: "30 de septiembre",
+   611→    favoriteTable: "Mesa 6 · Centro",
+   612→    allergens: [],
+   613→    dietary: "Omnívoro",
+   614→    acquisition: "Referido",
+   615→    acquisitionChannel: "referido",
+   616→    consents: { email: true, whatsapp: false, sms: false },
+   617→    notes: "Sin actividad >90 días. Candidato a campaña de recuperación.",
+   618→    noteList: [
+   619→      { id: "n1", text: "Inactivo >90 días. Añadir a campaña de reactivación Q2.", author: "Ana M.", date: "2025-03-10" },
+   620→    ],
+   621→    history: [
+   622→      { id: "v1", date: "2024-12-09", time: "21:00", partySize: 3, table: "Mesa 6", zone: "Centro", duration: "1h 20m", status: "finalizada", ticket: 138, rating: 4, channel: "phone", notes: "Cena normal." },
+   623→      { id: "v2", date: "2024-11-20", time: "20:30", partySize: 2, table: "Mesa 6", zone: "Centro", duration: "1h 00m", status: "finalizada", ticket: 92, rating: 4, channel: "phone", notes: "Cena rápida." },
+   624→      { id: "v3", date: "2024-11-05", time: "21:30", partySize: 4, table: "Mesa 6", zone: "Centro", duration: "1h 45m", status: "finalizada", ticket: 184, rating: 4, channel: "phone", notes: "Aniversario." },
+   625→      { id: "v4", date: "2024-10-18", time: "21:00", partySize: 2, table: "Mesa 6", zone: "Centro", duration: "1h 10m", status: "finalizada", ticket: 88, rating: 3, channel: "phone", notes: "Cena de pareja." },
+   626→    ],
+   627→  },
+   628→  {
+   629→    id: "c7",
+   630→    name: "Carmen Ruiz",
+   631→    email: "carmen.ruiz@example.com",
+   632→    phone: "+34 644 998 030",
+   633→    language: "Español",
+   634→    visits: 31,
+   635→    ltv: 9120,
+   636→    totalSpend: 9120,
+   637→    avgTicket: 294,
+   638→    avgRating: 4.8,
+   639→    cancellations: 0,
+   640→    noShows: 0,
+   641→    frequency: "3.4 visitas/mes",
+   642→    locationsVisited: ["Madrid", "Barcelona"],
+   643→    channelsUsed: ["web", "whatsapp", "phone"],
+   644→    tags: ["VIP", "cumpleaños", "recurrente", "alto-valor", "vino-blanco"],
+   645→    status: "vip",
+   646→    lastVisit: "Ayer",
+   647→    lastVisitDate: "2025-03-16",
+   648→    birthday: "21 de marzo",
+   649→    favoriteTable: "Mesa 12 · Ventana",
+   650→    allergens: ["Gluten"],
+   651→    dietary: "Celíaca",
+   652→    acquisition: "Walk-in recurrente",
+   653→    acquisitionChannel: "walk-in",
+   654→    consents: { email: true, whatsapp: true, sms: true },
+   655→    notes: "Cliente histórico. Siempre recibe bienvenida personalizada del encargado.",
+   656→    noteList: [
+   657→      { id: "n1", text: "Cliente histórico. Bienvenida personalizada del encargado en cada visita.", author: "Ana M.", date: "2025-03-16" },
+   658→      { id: "n2", text: "Cumpleaños 21/03. Preparar detalle sin gluten.", author: "Marc R.", date: "2025-03-10" },
+   659→      { id: "n3", text: "Prefiere vinos blancos. Recomendación automática de carta blancos al sentarse.", author: "Lucía P.", date: "2025-02-14" },
+   660→    ],
+   661→    history: [
+   662→      { id: "v1", date: "2025-03-16", time: "21:00", partySize: 2, table: "Mesa 12", zone: "Ventana", duration: "1h 30m", status: "finalizada", ticket: 184, rating: 5, channel: "web", notes: "Cena habitual." },
+   663→      { id: "v2", date: "2025-03-02", time: "20:30", partySize: 4, table: "Mesa 12", zone: "Ventana", duration: "2h 00m", status: "finalizada", ticket: 356, rating: 5, channel: "whatsapp", notes: "Trajo invitados." },
+   664→      { id: "v3", date: "2025-02-14", time: "21:30", partySize: 2, table: "Mesa 12", zone: "Ventana", duration: "1h 45m", status: "finalizada", ticket: 198, rating: 5, channel: "phone", notes: "San Valentín." },
+   665→      { id: "v4", date: "2025-01-28", time: "20:00", partySize: 6, table: "Mesa 12", zone: "Ventana", duration: "2h 30m", status: "finalizada", ticket: 542, rating: 5, channel: "whatsapp", notes: "Cumpleaños familiar." },
+   666→      { id: "v5", date: "2025-03-21", time: "21:00", partySize: 4, table: "Mesa 12", zone: "Ventana", duration: "—", status: "confirmada", ticket: null, rating: null, channel: "phone", notes: "Cena de cumpleaños." },
+   667→    ],
+   668→  },
+   669→  {
+   670→    id: "c8",
+   671→    name: "Pablo Navarro",
+   672→    email: "pablo.navarro@example.com",
+   673→    phone: "+34 611 220 445",
+   674→    language: "Español",
+   675→    visits: 9,
+   676→    ltv: 1248,
+   677→    totalSpend: 1248,
+   678→    avgTicket: 139,
+   679→    avgRating: 4.1,
+   680→    cancellations: 1,
+   681→    noShows: 0,
+   682→    frequency: "1.0 visitas/mes",
+   683→    locationsVisited: ["Madrid"],
+   684→    channelsUsed: ["web", "google"],
+   685→    tags: ["frecuente", "recurrente", "terraza"],
+   686→    status: "active",
+   687→    lastVisit: "Hace 10 días",
+   688→    lastVisitDate: "2025-03-07",
+   689→    birthday: "5 de agosto",
+   690→    favoriteTable: "Barra · 3",
+   691→    allergens: [],
+   692→    dietary: "Omnívoro",
+   693→    acquisition: "Reserva online",
+   694→    acquisitionChannel: "web",
+   695→    consents: { email: true, whatsapp: false, sms: false },
+   696→    notes: "Suele tomar algo en barra antes de mesa.",
+   697→    noteList: [
+   698→      { id: "n1", text: "Patrón habitual: vermut en barra + cena ligera. Reservar mesa cercana a barra.", author: "Lucía P.", date: "2025-03-07" },
+   699→    ],
+   700→    history: [
+   701→      { id: "v1", date: "2025-03-07", time: "20:00", partySize: 2, table: "Barra · 3", zone: "Barra", duration: "1h 00m", status: "finalizada", ticket: 96, rating: 4, channel: "web", notes: "Vermut + cena ligera." },
+   702→      { id: "v2", date: "2025-02-22", time: "21:00", partySize: 2, table: "Mesa 8", zone: "Salón principal", duration: "1h 20m", status: "finalizada", ticket: 118, rating: 4, channel: "google", notes: "Cena estándar." },
+   703→      { id: "v3", date: "2025-02-08", time: "21:30", partySize: 3, table: "Mesa 8", zone: "Salón principal", duration: "1h 40m", status: "finalizada", ticket: 162, rating: 5, channel: "web", notes: "Cumpleaños." },
+   704→      { id: "v4", date: "2025-01-19", time: "13:30", partySize: 2, table: "Barra · 3", zone: "Barra", duration: "0h 45m", status: "finalizada", ticket: 78, rating: 3, channel: "google", notes: "Tarde tapeo." },
+   705→    ],
+   706→  },
+   707→  {
+   708→    id: "c9",
+   709→    name: "Sofía Castro",
+   710→    email: "sofia.castro@example.com",
+   711→    phone: "+34 677 332 118",
+   712→    language: "Inglés",
+   713→    visits: 2,
+   714→    ltv: 128,
+   715→    totalSpend: 128,
+   716→    avgTicket: 64,
+   717→    avgRating: 4.0,
+   718→    cancellations: 0,
+   719→    noShows: 0,
+   720→    frequency: "0.5 visitas/mes",
+   721→    locationsVisited: ["Madrid"],
+   722→    channelsUsed: ["google", "whatsapp"],
+   723→    tags: ["nuevo", "familiar", "terraza"],
+   724→    status: "active",
+   725→    lastVisit: "Hace 1 semana",
+   726→    lastVisitDate: "2025-03-10",
+   727→    birthday: "12 de diciembre",
+   728→    favoriteTable: "Mesa 10 · Terraza",
+   729→    allergens: ["Huevo"],
+   730→    dietary: "Omnívoro",
+   731→    acquisition: "Google Maps",
+   732→    acquisitionChannel: "google",
+   733→    consents: { email: true, whatsapp: true, sms: false },
+   734→    notes: "Prefiere terraza. Interesada en eventos privados.",
+   735→    noteList: [
+   736→      { id: "n1", text: "Interesada en eventos privados. Enviar dossier de salas y disponibilidad.", author: "Marc R.", date: "2025-03-10" },
+   737→    ],
+   738→    history: [
+   739→      { id: "v1", date: "2025-03-10", time: "14:00", partySize: 4, table: "Mesa 10", zone: "Terraza", duration: "1h 15m", status: "finalizada", ticket: 88, rating: 4, channel: "google", notes: "Almuerzo, pidió info eventos." },
+   740→      { id: "v2", date: "2025-02-22", time: "17:00", partySize: 2, table: "Mesa 10", zone: "Terraza", duration: "0h 30m", status: "finalizada", ticket: 40, rating: 4, channel: "whatsapp", notes: "Café y postre." },
+   741→    ],
+   742→  },
+   743→  {
+   744→    id: "c10",
+   745→    name: "Marcos Llopis",
+   746→    email: "marcos.llopis@example.com",
+   747→    phone: "+34 656 887 002",
+   748→    language: "Español",
+   749→    visits: 6,
+   750→    ltv: 540,
+   751→    totalSpend: 540,
+   752→    avgTicket: 90,
+   753→    avgRating: 3.6,
+   754→    cancellations: 2,
+   755→    noShows: 1,
+   756→    frequency: "0.7 visitas/mes",
+   757→    locationsVisited: ["Madrid"],
+   758→    channelsUsed: ["google"],
+   759→    tags: ["riesgo", "inactivo"],
+   760→    status: "risk",
+   761→    lastVisit: "Hace 5 semanas",
+   762→    lastVisitDate: "2025-02-09",
+   763→    birthday: "3 de mayo",
+   764→    favoriteTable: "Mesa 2 · Centro",
+   765→    allergens: ["Soja"],
+   766→    dietary: "Omnívoro",
+   767→    acquisition: "Instagram Ads",
+   768→    acquisitionChannel: "google",
+   769→    consents: { email: false, whatsapp: false, sms: false },
+   770→    notes: "Revocó todos los consentimientos. No contactar por canales digitales.",
+   771→    noteList: [
+   772→      { id: "n1", text: "Revocó todos los consentimientos (email, whatsapp, sms). NO contactar por canales digitales.", author: "Ana M.", date: "2025-02-09" },
+   773→    ],
+   774→    history: [
+   775→      { id: "v1", date: "2025-02-09", time: "21:00", partySize: 2, table: "Mesa 2", zone: "Centro", duration: "1h 10m", status: "finalizada", ticket: 72, rating: 4, channel: "google", notes: "Cena normal." },
+   776→      { id: "v2", date: "2025-01-21", time: "21:30", partySize: 3, table: "Mesa 2", zone: "Centro", duration: "1h 30m", status: "finalizada", ticket: 118, rating: 4, channel: "google", notes: "Cena con amigos." },
+   777→      { id: "v3", date: "2025-01-07", time: "21:00", partySize: 2, table: "—", zone: "—", duration: "—", status: "no-show", ticket: null, rating: null, channel: "google", notes: "No-show." },
+   778→      { id: "v4", date: "2024-12-20", time: "21:30", partySize: 4, table: "Mesa 2", zone: "Centro", duration: "2h 00m", status: "finalizada", ticket: 168, rating: 3, channel: "google", notes: "Cena navideña." },
+   779→    ],
+   780→  },
+   781→];
+   782→
+   783→/* ------------------------------------------------------------------ */
+   784→/* Demo badge                                                         */
+   785→/* ------------------------------------------------------------------ */
+   786→
+   787→function DemoBadge({ className }: { className?: string }) {
+   788→  return (
+   789→    <span
+   790→      className={cn(
+   791→        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
+   792→        className
+   793→      )}
+   794→    >
+   795→      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
+   796→      demo
+   797→    </span>
+   798→  );
+   799→}
+   800→
+   801→/* ------------------------------------------------------------------ */
+   802→/* Section header                                                     */
+   803→/* ------------------------------------------------------------------ */
+   804→
+   805→function SectionLabel({
+   806→  icon: Icon,
+   807→  children,
+   808→  right,
+   809→}: {
+   810→  icon: React.ElementType;
+   811→  children: React.ReactNode;
+   812→  right?: React.ReactNode;
+   813→}) {
+   814→  return (
+   815→    <div className="flex items-center justify-between">
+   816→      <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-[0.18em] text-muted-foreground">
+   817→        <Icon className="h-3.5 w-3.5 text-[var(--gold)]" aria-hidden />
+   818→        {children}
+   819→      </div>
+   820→      {right}
+   821→    </div>
+   822→  );
+   823→}
+   824→
+   825→/* ------------------------------------------------------------------ */
+   826→/* Stars                                                              */
+   827→/* ------------------------------------------------------------------ */
+   828→
+   829→function Stars({ value, size = "sm" }: { value: number; size?: "sm" | "md" }) {
+   830→  const dim = size === "md" ? "h-4 w-4" : "h-3 w-3";
+   831→  const full = Math.floor(value);
+   832→  const half = value - full >= 0.5;
+   833→  return (
+   834→    <span
+   835→      className="inline-flex items-center gap-0.5"
+   836→      role="img"
+   837→      aria-label={`${value.toFixed(1)} de 5 estrellas`}
+   838→    >
+   839→      {Array.from({ length: 5 }).map((_, i) => {
+   840→        const filled = i < full;
+   841→        const isHalf = !filled && half && i === full;
+   842→        return (
+   843→          <Star
+   844→            key={i}
+   845→            className={cn(
+   846→              dim,
+   847→              filled || isHalf
+   848→                ? "fill-[var(--gold)] text-[var(--gold)]"
+   849→                : "fill-transparent text-muted-foreground/40"
+   850→            )}
+   851→            aria-hidden
+   852→          />
+   853→        );
+   854→      })}
+   855→    </span>
+   856→  );
+   857→}
+   858→
+   859→/* ------------------------------------------------------------------ */
+   860→/* Tag chip                                                           */
+   861→/* ------------------------------------------------------------------ */
+   862→
+   863→function TagChip({
+   864→  tag,
+   865→  onRemove,
+   866→  removable = false,
+   867→  disabled = false,
+   868→}: {
+   869→  tag: TagId;
+   870→  onRemove?: () => void;
+   871→  removable?: boolean;
+   872→  disabled?: boolean;
+   873→}) {
+   874→  const def = ALL_TAGS.find((t) => t.id === tag)!;
+   875→  const Icon = def.icon;
+   876→  return (
+   877→    <span
+   878→      className={cn(
+   879→        "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-mono uppercase tracking-wider transition-all animate-in fade-in zoom-in-50 duration-200",
+   880→        TAG_TONE_CLASS[def.tone]
+   881→      )}
+   882→    >
+   883→      {Icon && <Icon className="h-3 w-3" aria-hidden />}
+   884→      {def.label}
+   885→      {removable && !disabled && (
+   886→        <button
+   887→          type="button"
+   888→          onClick={onRemove}
+   889→          className="ml-0.5 rounded-sm hover:bg-foreground/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
+   890→          aria-label={`Quitar etiqueta ${def.label}`}
+   891→        >
+   892→          <X className="h-3 w-3" />
+   893→        </button>
+   894→      )}
+   895→    </span>
+   896→  );
+   897→}
+   898→
+   899→/* ------------------------------------------------------------------ */
+   900→/* Consent row                                                        */
+   901→/* ------------------------------------------------------------------ */
+   902→
+   903→function ConsentRow({
+   904→  channel,
+   905→  granted,
+   906→  canEdit,
+   907→  onToggle,
+   908→}: {
+   909→  channel: ConsentChannel;
+   910→  granted: boolean;
+   911→  canEdit: boolean;
+   912→  onToggle: (next: boolean) => void;
+   913→}) {
+   914→  const channelLabel: Record<ConsentChannel, string> = {
+   915→    email: "Email",
+   916→    whatsapp: "WhatsApp",
+   917→    sms: "SMS",
+   918→  };
+   919→  const channelDesc: Record<ConsentChannel, string> = {
+   920→    email: "Boletines, ofertas y confirmaciones por correo.",
+   921→    whatsapp: "Mensajes transaccionales y promociones por WhatsApp.",
+   922→    sms: "Recordatorios cortos por SMS (coste por envío).",
+   923→  };
+   924→
+   925→  const tooltipText = canEdit
+   926→    ? `${channelDesc[channel]} Estado: ${granted ? "otorgado" : "revocado"}.`
+   927→    : `Sin permiso para modificar consentimientos (${channelLabel[channel]}). Solicita al Owner o Manager.`;
+   928→
+   929→  return (
+   930→    <TooltipProvider delayDuration={150}>
+   931→      <div className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-foreground/[0.02] px-3 py-2.5">
+   932→        <div className="min-w-0 flex-1">
+   933→          <div className="flex items-center gap-2">
+   934→            <span className="text-sm font-medium">{channelLabel[channel]}</span>
+   935→            {granted ? (
+   936→              <Badge variant="outline" className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px] uppercase">
+   937→                <ShieldCheck className="h-3 w-3" aria-hidden /> Otorgado
+   938→              </Badge>
+   939→            ) : (
+   940→              <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive text-[10px] uppercase">
+   941→                <ShieldOff className="h-3 w-3" aria-hidden /> Revocado
+   942→              </Badge>
+   943→            )}
+   944→          </div>
+   945→          <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug">
+   946→            {channelDesc[channel]}
+   947→          </p>
+   948→        </div>
+   949→        <Tooltip>
+   950→          <TooltipTrigger asChild>
+   951→            <span tabIndex={0} className="inline-flex">
+   952→              <Switch
+   953→                checked={granted}
+   954→                disabled={!canEdit}
+   955→                onCheckedChange={onToggle}
+   956→                aria-label={`${granted ? "Revocar" : "Otorgar"} consentimiento ${channelLabel[channel]}`}
+   957→                aria-describedby={`consent-${channel}-desc`}
+   958→              />
+   959→            </span>
+   960→          </TooltipTrigger>
+   961→          <TooltipContent side="left" className="max-w-[220px]">
+   962→            <span id={`consent-${channel}-desc`}>{tooltipText}</span>
+   963→          </TooltipContent>
+   964→        </Tooltip>
+   965→      </div>
+   966→    </TooltipProvider>
+   967→  );
+   968→}
+   969→
+   970→/* ------------------------------------------------------------------ */
+   971→/* Consent mini icons (header)                                        */
+   972→/* ------------------------------------------------------------------ */
+   973→
+   974→function ConsentMini({ consents }: { consents: Record<ConsentChannel, boolean> }) {
+   975→  const items: { ch: ConsentChannel; icon: React.ElementType; label: string }[] = [
+   976→    { ch: "email", icon: Mail, label: "Email" },
+   977→    { ch: "whatsapp", icon: MessageCircle, label: "WhatsApp" },
+   978→    { ch: "sms", icon: Smartphone, label: "SMS" },
+   979→  ];
+   980→  return (
+   981→    <div className="flex items-center gap-1.5">
+   982→      {items.map(({ ch, icon: Icon, label }) => {
+   983→        const granted = consents[ch];
+   984→        return (
+   985→          <Tooltip key={ch}>
+   986→            <TooltipTrigger asChild>
+   987→              <span
+   988→                tabIndex={0}
+   989→                className={cn(
+   990→                  "inline-flex h-6 w-6 items-center justify-center rounded-md border",
+   991→                  granted
+   992→                    ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300"
+   993→                    : "border-destructive/40 bg-destructive/10 text-destructive"
+   994→                )}
+   995→                aria-label={`Consentimiento ${label}: ${granted ? "otorgado" : "revocado"}`}
+   996→              >
+   997→                <Icon className="h-3 w-3" aria-hidden />
+   998→              </span>
+   999→            </TooltipTrigger>
+  1000→            <TooltipContent side="bottom">
+  1001→              {label}: {granted ? "otorgado" : "revocado"}
+  1002→            </TooltipContent>
+  1003→          </Tooltip>
+  1004→        );
+  1005→      })}
+  1006→      <span className="ml-1 text-[11px] text-muted-foreground">Consentimientos</span>
+  1007→    </div>
+  1008→  );
+  1009→}
+  1010→
+  1011→/* ------------------------------------------------------------------ */
+  1012→/* Customer list item                                                 */
+  1013→/* ------------------------------------------------------------------ */
+  1014→
+  1015→function CustomerListItem({
+  1016→  customer,
+  1017→  selected,
+  1018→  onSelect,
+  1019→}: {
+  1020→  customer: Customer;
+  1021→  selected: boolean;
+  1022→  onSelect: () => void;
+  1023→}) {
+  1024→  return (
+  1025→    <li>
+  1026→      <button
+  1027→        type="button"
+  1028→        onClick={onSelect}
+  1029→        aria-current={selected ? "true" : undefined}
+  1030→        aria-label={`Seleccionar cliente ${customer.name}, ${customer.visits} visitas`}
+  1031→        className={cn(
+  1032→          "group w-full text-left rounded-xl border p-3 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+  1033→          selected
+  1034→            ? "border-[var(--gold)]/60 bg-[var(--gold)]/[0.07] rp-glow-gold"
+  1035→            : "border-border/50 bg-foreground/[0.02] hover:border-[var(--gold)]/30 hover:bg-foreground/[0.04]"
+  1036→        )}
+  1037→      >
+  1038→        <div className="flex items-center gap-3">
+  1039→          <Avatar className="h-10 w-10 border border-border/60">
+  1040→            <AvatarFallback
+  1041→              className={cn(
+  1042→                "text-xs font-medium",
+  1043→                selected
+  1044→                  ? "bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] text-black"
+  1045→                  : "bg-foreground/10 text-foreground/80"
+  1046→              )}
+  1047→            >
+  1048→              {initials(customer.name)}
+  1049→            </AvatarFallback>
+  1050→          </Avatar>
+  1051→          <div className="min-w-0 flex-1">
+  1052→            <div className="flex items-center gap-2">
+  1053→              <span className="truncate text-sm font-medium">{customer.name}</span>
+  1054→            </div>
+  1055→            <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
+  1056→              <span>{customer.visits} visitas</span>
+  1057→              <span className="h-1 w-1 rounded-full bg-muted-foreground/50" aria-hidden />
+  1058→              <span className="truncate">{customer.lastVisit}</span>
+  1059→            </div>
+  1060→          </div>
+  1061→          <span
+  1062→            className={cn(
+  1063→              "text-[10px] font-mono uppercase tracking-wider",
+  1064→              customer.status === "vip" && "text-[var(--gold-soft)]",
+  1065→              customer.status === "risk" && "text-amber-300",
+  1066→              customer.status === "inactive" && "text-muted-foreground",
+  1067→              customer.status === "active" && "text-emerald-300"
+  1068→            )}
+  1069→          >
+  1070→            {CUSTOMER_STATUS_META[customer.status].label}
+  1071→          </span>
+  1072→        </div>
+  1073→        {customer.tags.length > 0 && (
+  1074→          <div className="mt-2.5 flex flex-wrap gap-1">
+  1075→            {customer.tags.slice(0, 4).map((t) => (
+  1076→              <TagChip key={t} tag={t} />
+  1077→            ))}
+  1078→            {customer.tags.length > 4 && (
+  1079→              <span className="text-[10px] text-muted-foreground">+{customer.tags.length - 4}</span>
+  1080→            )}
+  1081→          </div>
+  1082→        )}
+  1083→      </button>
+  1084→    </li>
+  1085→  );
+  1086→}
+  1087→
+  1088→/* ------------------------------------------------------------------ */
+  1089→/* Empty states                                                       */
+  1090→/* ------------------------------------------------------------------ */
+  1091→
+  1092→function EmptySelection() {
+  1093→  return (
+  1094→    <div className="rp-glass flex h-full min-h-[420px] flex-col items-center justify-center rounded-2xl p-8 text-center">
+  1095→      <div className="flex h-16 w-16 items-center justify-center rounded-full border border-border/60 bg-foreground/[0.03]">
+  1096→        <CircleUserRound className="h-8 w-8 text-muted-foreground" aria-hidden />
+  1097→      </div>
+  1098→      <h3 className="mt-5 font-display text-xl font-medium tracking-tight">
+  1099→        Ningún cliente seleccionado
+  1100→      </h3>
+  1101→      <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+  1102→        Selecciona un cliente de la lista para ver su perfil 360°: historial,
+  1103→        métricas de comportamiento, preferencias, consentimientos y notas internas.
+  1104→      </p>
+  1105→      <Button className="mt-5" variant="outline" disabled>
+  1106→        <Inbox className="h-4 w-4" aria-hidden />
+  1107→        Selecciona un cliente
+  1108→      </Button>
+  1109→      <p className="mt-3 text-[11px] text-muted-foreground">
+  1110→        Tip: usa la búsqueda o los filtros para encontrar clientes por etiqueta.
+  1111→      </p>
+  1112→    </div>
+  1113→  );
+  1114→}
+  1115→
+  1116→function EmptyResults({ query }: { query: string }) {
+  1117→  return (
+  1118→    <li className="rounded-xl border border-dashed border-border/60 bg-foreground/[0.02] p-6 text-center">
+  1119→      <Search className="mx-auto h-5 w-5 text-muted-foreground" aria-hidden />
+  1120→      <p className="mt-2 text-sm text-muted-foreground">
+  1121→        {query
+  1122→          ? `Sin resultados para "${query}".`
+  1123→          : "No hay clientes que coincidan con el filtro seleccionado."}
+  1124→      </p>
+  1125→    </li>
+  1126→  );
+  1127→}
+  1128→
+  1129→/* ------------------------------------------------------------------ */
+  1130→/* Add tag dialog                                                     */
+  1131→/* ------------------------------------------------------------------ */
+  1132→
+  1133→function AddTagDialog({
+  1134→  open,
+  1135→  onOpenChange,
+  1136→  existingTags,
+  1137→  onAdd,
+  1138→}: {
+  1139→  open: boolean;
+  1140→  onOpenChange: (v: boolean) => void;
+  1141→  existingTags: TagId[];
+  1142→  onAdd: (t: TagId) => void;
+  1143→}) {
+  1144→  const available = ALL_TAGS.filter((t) => !existingTags.includes(t.id));
+  1145→  return (
+  1146→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1147→      <DialogContent className="sm:max-w-md">
+  1148→        <DialogHeader>
+  1149→          <DialogTitle>Añadir etiqueta</DialogTitle>
+  1150→          <DialogDescription>
+  1151→            Selecciona una etiqueta de la lista para añadirla al cliente.
+  1152→          </DialogDescription>
+  1153→        </DialogHeader>
+  1154→        {available.length === 0 ? (
+  1155→          <p className="text-sm text-muted-foreground">
+  1156→            El cliente ya tiene todas las etiquetas disponibles.
+  1157→          </p>
+  1158→        ) : (
+  1159→          <ul className="flex flex-wrap gap-2">
+  1160→            {available.map((t) => {
+  1161→              const Icon = t.icon;
+  1162→              return (
+  1163→                <li key={t.id}>
+  1164→                  <button
+  1165→                    type="button"
+  1166→                    onClick={() => {
+  1167→                      onAdd(t.id);
+  1168→                      onOpenChange(false);
+  1169→                    }}
+  1170→                    className={cn(
+  1171→                      "inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-mono uppercase tracking-wider transition-colors hover:bg-foreground/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring",
+  1172→                      TAG_TONE_CLASS[t.tone]
+  1173→                    )}
+  1174→                  >
+  1175→                    {Icon && <Icon className="h-3 w-3" aria-hidden />}
+  1176→                    {t.label}
+  1177→                    <Plus className="h-3 w-3" aria-hidden />
+  1178→                  </button>
+  1179→                </li>
+  1180→              );
+  1181→            })}
+  1182→          </ul>
+  1183→        )}
+  1184→        <DialogFooter>
+  1185→          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+  1186→            Cancelar
+  1187→          </Button>
+  1188→        </DialogFooter>
+  1189→      </DialogContent>
+  1190→    </Dialog>
+  1191→  );
+  1192→}
+  1193→
+  1194→/* ------------------------------------------------------------------ */
+  1195→/* Edit customer dialog                                               */
+  1196→/* ------------------------------------------------------------------ */
+  1197→
+  1198→function EditCustomerDialog({
+  1199→  open,
+  1200→  onOpenChange,
+  1201→  customer,
+  1202→  canEdit,
+  1203→  onSave,
+  1204→}: {
+  1205→  open: boolean;
+  1206→  onOpenChange: (v: boolean) => void;
+  1207→  customer: Customer;
+  1208→  canEdit: boolean;
+  1209→  onSave: (patch: { name: string; email: string; phone: string; language: string; notes: string }) => void;
+  1210→}) {
+  1211→  const [name, setName] = React.useState(customer.name);
+  1212→  const [email, setEmail] = React.useState(customer.email);
+  1213→  const [phone, setPhone] = React.useState(customer.phone);
+  1214→  const [language, setLanguage] = React.useState(customer.language);
+  1215→  const [notes, setNotes] = React.useState(customer.notes);
+  1216→  const [errors, setErrors] = React.useState<{ name?: string; email?: string; phone?: string }>({});
+  1217→
+  1218→  React.useEffect(() => {
+  1219→    if (open) {
+  1220→      setName(customer.name);
+  1221→      setEmail(customer.email);
+  1222→      setPhone(customer.phone);
+  1223→      setLanguage(customer.language);
+  1224→      setNotes(customer.notes);
+  1225→      setErrors({});
+  1226→    }
+  1227→  }, [open, customer.id, customer.name, customer.email, customer.phone, customer.language, customer.notes]);
+  1228→
+  1229→  function validate(): boolean {
+  1230→    const e: typeof errors = {};
+  1231→    if (!name.trim()) e.name = "El nombre es obligatorio.";
+  1232→    if (!email.trim()) e.email = "El email es obligatorio.";
+  1233→    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = "Email no válido.";
+  1234→    if (!phone.trim()) e.phone = "El teléfono es obligatorio.";
+  1235→    setErrors(e);
+  1236→    return Object.keys(e).length === 0;
+  1237→  }
+  1238→
+  1239→  function handleSubmit(ev: React.FormEvent) {
+  1240→    ev.preventDefault();
+  1241→    if (!canEdit || !validate()) return;
+  1242→    onSave({ name: name.trim(), email: email.trim(), phone: phone.trim(), language, notes });
+  1243→    onOpenChange(false);
+  1244→  }
+  1245→
+  1246→  return (
+  1247→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1248→      <DialogContent className="sm:max-w-lg">
+  1249→        <DialogHeader>
+  1250→          <DialogTitle>Editar cliente</DialogTitle>
+  1251→          <DialogDescription>
+  1252→            Modifica los datos de contacto, idioma y notas generales del cliente.
+  1253→          </DialogDescription>
+  1254→        </DialogHeader>
+  1255→        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+  1256→          <div className="space-y-2">
+  1257→            <label htmlFor="edit-name" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1258→              Nombre <span className="text-destructive">*</span>
+  1259→            </label>
+  1260→            <Input
+  1261→              id="edit-name"
+  1262→              value={name}
+  1263→              onChange={(e) => setName(e.target.value)}
+  1264→              disabled={!canEdit}
+  1265→              aria-invalid={!!errors.name}
+  1266→              aria-describedby={errors.name ? "edit-name-err" : undefined}
+  1267→            />
+  1268→            {errors.name && (
+  1269→              <p id="edit-name-err" className="text-[11px] text-destructive" role="alert">{errors.name}</p>
+  1270→            )}
+  1271→          </div>
+  1272→          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  1273→            <div className="space-y-2">
+  1274→              <label htmlFor="edit-email" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1275→                Email <span className="text-destructive">*</span>
+  1276→              </label>
+  1277→              <Input
+  1278→                id="edit-email"
+  1279→                type="email"
+  1280→                value={email}
+  1281→                onChange={(e) => setEmail(e.target.value)}
+  1282→                disabled={!canEdit}
+  1283→                aria-invalid={!!errors.email}
+  1284→                aria-describedby={errors.email ? "edit-email-err" : undefined}
+  1285→              />
+  1286→              {errors.email && (
+  1287→                <p id="edit-email-err" className="text-[11px] text-destructive" role="alert">{errors.email}</p>
+  1288→              )}
+  1289→            </div>
+  1290→            <div className="space-y-2">
+  1291→              <label htmlFor="edit-phone" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1292→                Teléfono <span className="text-destructive">*</span>
+  1293→              </label>
+  1294→              <Input
+  1295→                id="edit-phone"
+  1296→                value={phone}
+  1297→                onChange={(e) => setPhone(e.target.value)}
+  1298→                disabled={!canEdit}
+  1299→                aria-invalid={!!errors.phone}
+  1300→                aria-describedby={errors.phone ? "edit-phone-err" : undefined}
+  1301→              />
+  1302→              {errors.phone && (
+  1303→                <p id="edit-phone-err" className="text-[11px] text-destructive" role="alert">{errors.phone}</p>
+  1304→              )}
+  1305→            </div>
+  1306→          </div>
+  1307→          <div className="space-y-2">
+  1308→            <label htmlFor="edit-lang" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1309→              Idioma
+  1310→            </label>
+  1311→            <Select value={language} onValueChange={setLanguage} disabled={!canEdit}>
+  1312→              <SelectTrigger id="edit-lang" aria-label="Idioma del cliente">
+  1313→                <SelectValue />
+  1314→              </SelectTrigger>
+  1315→              <SelectContent>
+  1316→                <SelectItem value="Español">Español</SelectItem>
+  1317→                <SelectItem value="Inglés">Inglés</SelectItem>
+  1318→                <SelectItem value="Francés">Francés</SelectItem>
+  1319→                <SelectItem value="Alemán">Alemán</SelectItem>
+  1320→                <SelectItem value="Italiano">Italiano</SelectItem>
+  1321→              </SelectContent>
+  1322→            </Select>
+  1323→          </div>
+  1324→          <div className="space-y-2">
+  1325→            <label htmlFor="edit-notes" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1326→              Notas generales
+  1327→            </label>
+  1328→            <Textarea
+  1329→              id="edit-notes"
+  1330→              value={notes}
+  1331→              onChange={(e) => setNotes(e.target.value)}
+  1332→              disabled={!canEdit}
+  1333→              rows={4}
+  1334→              placeholder="Notas generales del cliente…"
+  1335→              className="resize-none"
+  1336→            />
+  1337→          </div>
+  1338→          <DialogFooter>
+  1339→            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+  1340→              Cancelar
+  1341→            </Button>
+  1342→            <Button type="submit" disabled={!canEdit}>
+  1343→              <ShieldCheck className="h-4 w-4" aria-hidden />
+  1344→              Guardar cambios
+  1345→            </Button>
+  1346→          </DialogFooter>
+  1347→        </form>
+  1348→      </DialogContent>
+  1349→    </Dialog>
+  1350→  );
+  1351→}
+  1352→
+  1353→/* ------------------------------------------------------------------ */
+  1354→/* Add note dialog                                                    */
+  1355→/* ------------------------------------------------------------------ */
+  1356→
+  1357→function AddNoteDialog({
+  1358→  open,
+  1359→  onOpenChange,
+  1360→  customer,
+  1361→  canEdit,
+  1362→  onAdd,
+  1363→}: {
+  1364→  open: boolean;
+  1365→  onOpenChange: (v: boolean) => void;
+  1366→  customer: Customer;
+  1367→  canEdit: boolean;
+  1368→  onAdd: (text: string) => void;
+  1369→}) {
+  1370→  const [text, setText] = React.useState("");
+  1371→  const [error, setError] = React.useState<string | undefined>();
+  1372→
+  1373→  React.useEffect(() => {
+  1374→    if (open) {
+  1375→      setText("");
+  1376→      setError(undefined);
+  1377→    }
+  1378→  }, [open, customer.id]);
+  1379→
+  1380→  function handleSubmit(ev: React.FormEvent) {
+  1381→    ev.preventDefault();
+  1382→    if (!canEdit) return;
+  1383→    if (!text.trim()) {
+  1384→      setError("La nota no puede estar vacía.");
+  1385→      return;
+  1386→    }
+  1387→    onAdd(text.trim());
+  1388→    onOpenChange(false);
+  1389→  }
+  1390→
+  1391→  return (
+  1392→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1393→      <DialogContent className="sm:max-w-md">
+  1394→        <DialogHeader>
+  1395→          <DialogTitle>Añadir nota interna · {customer.name}</DialogTitle>
+  1396→          <DialogDescription>
+  1397→            La nota se añadirá al historial interno del cliente con tu usuario y fecha.
+  1398→            No es visible para el cliente.
+  1399→          </DialogDescription>
+  1400→        </DialogHeader>
+  1401→        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+  1402→          <div className="space-y-2">
+  1403→            <label htmlFor="note-text" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1404→              Nota <span className="text-destructive">*</span>
+  1405→            </label>
+  1406→            <Textarea
+  1407→              id="note-text"
+  1408→              value={text}
+  1409→              onChange={(e) => {
+  1410→                setText(e.target.value);
+  1411→                setError(undefined);
+  1412→              }}
+  1413→              rows={5}
+  1414→              placeholder="Ej. Solicita mesa alejada de la barra. Cliente alérgico a marisco."
+  1415→              className="resize-none"
+  1416→              aria-invalid={!!error}
+  1417→              aria-describedby={error ? "note-text-err" : undefined}
+  1418→            />
+  1419→            {error && (
+  1420→              <p id="note-text-err" className="text-[11px] text-destructive" role="alert">{error}</p>
+  1421→            )}
+  1422→          </div>
+  1423→          <DialogFooter>
+  1424→            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+  1425→              Cancelar
+  1426→            </Button>
+  1427→            <Button type="submit" disabled={!canEdit}>
+  1428→              <Plus className="h-4 w-4" aria-hidden />
+  1429→              Añadir nota
+  1430→            </Button>
+  1431→          </DialogFooter>
+  1432→        </form>
+  1433→      </DialogContent>
+  1434→    </Dialog>
+  1435→  );
+  1436→}
+  1437→
+  1438→/* ------------------------------------------------------------------ */
+  1439→/* Comunicar (send message) dialog                                    */
+  1440→/* ------------------------------------------------------------------ */
+  1441→
+  1442→const MESSAGE_TEMPLATES: Record<ConsentChannel, string> = {
+  1443→  email: "Hola {nombre},\n\nGracias por tu visita. Te recordamos que puedes reservar tu próxima mesa en cualquier momento.\n\nEl equipo de RestoPanel",
+  1444→  whatsapp: "¡Hola {nombre}! 👋 Gracias por visitarnos. ¿Reservamos tu próxima mesa?",
+  1445→  sms: "Hola {nombre}, gracias por tu visita. Reserva tu próxima mesa en restopanel.com",
+  1446→};
+  1447→
+  1448→function ComunicarDialog({
+  1449→  open,
+  1450→  onOpenChange,
+  1451→  customer,
+  1452→  canSend,
+  1453→}: {
+  1454→  open: boolean;
+  1455→  onOpenChange: (v: boolean) => void;
+  1456→  customer: Customer;
+  1457→  canSend: boolean;
+  1458→}) {
+  1459→  const { toast } = useToast();
+  1460→  const [channel, setChannel] = React.useState<ConsentChannel>("email");
+  1461→  const [body, setBody] = React.useState("");
+  1462→  const [subject, setSubject] = React.useState("");
+  1463→  const [errors, setErrors] = React.useState<{ subject?: string; body?: string }>({});
+  1464→  const [sent, setSent] = React.useState(false);
+  1465→
+  1466→  React.useEffect(() => {
+  1467→    if (open) {
+  1468→      setChannel("email");
+  1469→      setSubject("");
+  1470→      setBody(MESSAGE_TEMPLATES.email.replace("{nombre}", customer.name.split(" ")[0]));
+  1471→      setErrors({});
+  1472→      setSent(false);
+  1473→    }
+  1474→  }, [open, customer.id, customer.name]);
+  1475→
+  1476→  const channelConsented = customer.consents[channel];
+  1477→  const consentedChannel = (["email", "whatsapp", "sms"] as ConsentChannel[]).find(
+  1478→    (c) => customer.consents[c]
+  1479→  );
+  1480→
+  1481→  function onChannelChange(v: ConsentChannel) {
+  1482→    setChannel(v);
+  1483→    setBody(MESSAGE_TEMPLATES[v].replace("{nombre}", customer.name.split(" ")[0]));
+  1484→  }
+  1485→
+  1486→  function validate(): boolean {
+  1487→    const e: typeof errors = {};
+  1488→    if (channel === "email" && !subject.trim()) e.subject = "El asunto es obligatorio para email.";
+  1489→    if (!body.trim()) e.body = "El cuerpo del mensaje no puede estar vacío.";
+  1490→    setErrors(e);
+  1491→    return Object.keys(e).length === 0;
+  1492→  }
+  1493→
+  1494→  function handleSubmit(ev: React.FormEvent) {
+  1495→    ev.preventDefault();
+  1496→    if (!canSend) return;
+  1497→    if (!channelConsented) return;
+  1498→    if (!validate()) return;
+  1499→    setSent(true);
+  1500→    toast({
+  1501→      title: "Mensaje encolado (demo)",
+  1502→      description: `Canal ${channel} · ${customer.name} · auditoría registrada.`,
+  1503→    });
+  1504→    setTimeout(() => onOpenChange(false), 1200);
+  1505→  }
+  1506→
+  1507→  return (
+  1508→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1509→      <DialogContent className="sm:max-w-lg">
+  1510→        <DialogHeader>
+  1511→          <DialogTitle>Comunicar con {customer.name}</DialogTitle>
+  1512→          <DialogDescription>
+  1513→            Selecciona un canal con consentimiento. Si no hay consentimiento, el envío se bloquea.
+  1514→          </DialogDescription>
+  1515→        </DialogHeader>
+  1516→        {sent ? (
+  1517→          <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm text-emerald-300">
+  1518→            <ShieldCheck className="mr-1.5 inline h-4 w-4" aria-hidden />
+  1519→            Mensaje encolado para envío (demo). Auditoría registrada.
+  1520→          </div>
+  1521→        ) : (
+  1522→          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+  1523→            {!channelConsented && (
+  1524→              <div className="rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-[12px] text-amber-300 flex items-start gap-2">
+  1525→                <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden />
+  1526→                <div>
+  1527→                  <p className="font-medium">Consentimiento revocado para {channel}.</p>
+  1528→                  <p className="mt-0.5 text-amber-200/80">
+  1529→                    {consentedChannel
+  1530→                      ? `Cambia al canal ${consentedChannel} (consentimiento otorgado) o solicita consentimiento al cliente.`
+  1531→                      : "El cliente ha revocado todos los canales digitales. No se puede enviar."}
+  1532→                  </p>
+  1533→                </div>
+  1534→              </div>
+  1535→            )}
+  1536→            <div className="space-y-2">
+  1537→              <label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1538→                Canal
+  1539→              </label>
+  1540→              <Select value={channel} onValueChange={(v) => onChannelChange(v as ConsentChannel)} disabled={!canSend}>
+  1541→                <SelectTrigger aria-label="Canal de mensaje">
+  1542→                  <SelectValue />
+  1543→                </SelectTrigger>
+  1544→                <SelectContent>
+  1545→                  <SelectItem value="email">Email {customer.consents.email ? "✓" : "· revocado"}</SelectItem>
+  1546→                  <SelectItem value="whatsapp">WhatsApp {customer.consents.whatsapp ? "✓" : "· revocado"}</SelectItem>
+  1547→                  <SelectItem value="sms">SMS {customer.consents.sms ? "✓" : "· revocado"}</SelectItem>
+  1548→                </SelectContent>
+  1549→              </Select>
+  1550→            </div>
+  1551→            {channel === "email" && (
+  1552→              <div className="space-y-2">
+  1553→                <label htmlFor="com-subject" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1554→                  Asunto <span className="text-destructive">*</span>
+  1555→                </label>
+  1556→                <Input
+  1557→                  id="com-subject"
+  1558→                  value={subject}
+  1559→                  onChange={(e) => setSubject(e.target.value)}
+  1560→                  placeholder="Ej. Detalle de tu próxima reserva"
+  1561→                  disabled={!canSend || !channelConsented}
+  1562→                  aria-invalid={!!errors.subject}
+  1563→                />
+  1564→                {errors.subject && (
+  1565→                  <p className="text-[11px] text-destructive" role="alert">{errors.subject}</p>
+  1566→                )}
+  1567→              </div>
+  1568→            )}
+  1569→            <div className="space-y-2">
+  1570→              <label htmlFor="com-body" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1571→                Mensaje <span className="text-destructive">*</span>
+  1572→              </label>
+  1573→              <Textarea
+  1574→                id="com-body"
+  1575→                value={body}
+  1576→                onChange={(e) => setBody(e.target.value)}
+  1577→                rows={5}
+  1578→                disabled={!canSend || !channelConsented}
+  1579→                aria-invalid={!!errors.body}
+  1580→              />
+  1581→              {errors.body && (
+  1582→                <p className="text-[11px] text-destructive" role="alert">{errors.body}</p>
+  1583→              )}
+  1584→            </div>
+  1585→            <DialogFooter>
+  1586→              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+  1587→                Cancelar
+  1588→              </Button>
+  1589→              <Button type="submit" disabled={!canSend || !channelConsented}>
+  1590→                <Send className="h-4 w-4" aria-hidden />
+  1591→                Enviar
+  1592→              </Button>
+  1593→            </DialogFooter>
+  1594→          </form>
+  1595→        )}
+  1596→      </DialogContent>
+  1597→    </Dialog>
+  1598→  );
+  1599→}
+  1600→
+  1601→/* ------------------------------------------------------------------ */
+  1602→/* New reservation dialog                                             */
+  1603→/* ------------------------------------------------------------------ */
+  1604→
+  1605→function NewReservationDialog({
+  1606→  open,
+  1607→  onOpenChange,
+  1608→  customer,
+  1609→  canCreate,
+  1610→}: {
+  1611→  open: boolean;
+  1612→  onOpenChange: (v: boolean) => void;
+  1613→  customer: Customer;
+  1614→  canCreate: boolean;
+  1615→}) {
+  1616→  const { toast } = useToast();
+  1617→  const [date, setDate] = React.useState("");
+  1618→  const [time, setTime] = React.useState("");
+  1619→  const [party, setParty] = React.useState("2");
+  1620→  const [errors, setErrors] = React.useState<{ date?: string; time?: string; party?: string }>({});
+  1621→  const [created, setCreated] = React.useState(false);
+  1622→
+  1623→  React.useEffect(() => {
+  1624→    if (open) {
+  1625→      setDate("");
+  1626→      setTime("");
+  1627→      setParty("2");
+  1628→      setErrors({});
+  1629→      setCreated(false);
+  1630→    }
+  1631→  }, [open, customer.id]);
+  1632→
+  1633→  function validate(): boolean {
+  1634→    const e: typeof errors = {};
+  1635→    if (!date) e.date = "La fecha es obligatoria.";
+  1636→    if (!time) e.time = "La hora es obligatoria.";
+  1637→    const p = Number(party);
+  1638→    if (!party || Number.isNaN(p) || p < 1 || p > 20) {
+  1639→      e.party = "Entre 1 y 20 comensales.";
+  1640→    }
+  1641→    setErrors(e);
+  1642→    return Object.keys(e).length === 0;
+  1643→  }
+  1644→
+  1645→  function handleSubmit(ev: React.FormEvent) {
+  1646→    ev.preventDefault();
+  1647→    if (!canCreate) return;
+  1648→    if (!validate()) return;
+  1649→    setCreated(true);
+  1650→    toast({
+  1651→      title: "Reserva creada (demo)",
+  1652→      description: `${customer.name} · ${party} pax · ${date} ${time}`,
+  1653→    });
+  1654→    setTimeout(() => onOpenChange(false), 1200);
+  1655→  }
+  1656→
+  1657→  return (
+  1658→    <Dialog open={open} onOpenChange={onOpenChange}>
+  1659→      <DialogContent className="sm:max-w-md">
+  1660→        <DialogHeader>
+  1661→          <DialogTitle>Crear reserva · {customer.name}</DialogTitle>
+  1662→          <DialogDescription>
+  1663→            Reserva pre-rellenada con los datos del cliente. La mesa se asignará desde el plano.
+  1664→          </DialogDescription>
+  1665→        </DialogHeader>
+  1666→        {created ? (
+  1667→          <div className="rounded-lg border border-emerald-400/40 bg-emerald-400/10 p-4 text-sm text-emerald-300">
+  1668→            <ShieldCheck className="mr-1.5 inline h-4 w-4" aria-hidden />
+  1669→            Reserva creada (demo) para {party} comensales el {date} a las {time}.
+  1670→          </div>
+  1671→        ) : (
+  1672→          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+  1673→            <div className="grid grid-cols-2 gap-3">
+  1674→              <div className="space-y-2">
+  1675→                <label htmlFor="res-date" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1676→                  Fecha <span className="text-destructive">*</span>
+  1677→                </label>
+  1678→                <Input
+  1679→                  id="res-date"
+  1680→                  type="date"
+  1681→                  value={date}
+  1682→                  onChange={(e) => setDate(e.target.value)}
+  1683→                  disabled={!canCreate}
+  1684→                  aria-invalid={!!errors.date}
+  1685→                />
+  1686→                {errors.date && (
+  1687→                  <p className="text-[11px] text-destructive" role="alert">{errors.date}</p>
+  1688→                )}
+  1689→              </div>
+  1690→              <div className="space-y-2">
+  1691→                <label htmlFor="res-time" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1692→                  Hora <span className="text-destructive">*</span>
+  1693→                </label>
+  1694→                <Input
+  1695→                  id="res-time"
+  1696→                  type="time"
+  1697→                  value={time}
+  1698→                  onChange={(e) => setTime(e.target.value)}
+  1699→                  disabled={!canCreate}
+  1700→                  aria-invalid={!!errors.time}
+  1701→                />
+  1702→                {errors.time && (
+  1703→                  <p className="text-[11px] text-destructive" role="alert">{errors.time}</p>
+  1704→                )}
+  1705→              </div>
+  1706→            </div>
+  1707→            <div className="space-y-2">
+  1708→              <label htmlFor="res-party" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
+  1709→                Comensales <span className="text-destructive">*</span>
+  1710→              </label>
+  1711→              <Input
+  1712→                id="res-party"
+  1713→                type="number"
+  1714→                min={1}
+  1715→                max={20}
+  1716→                value={party}
+  1717→                onChange={(e) => setParty(e.target.value)}
+  1718→                disabled={!canCreate}
+  1719→                aria-invalid={!!errors.party}
+  1720→              />
+  1721→              {errors.party && (
+  1722→                <p className="text-[11px] text-destructive" role="alert">{errors.party}</p>
+  1723→              )}
+  1724→            </div>
+  1725→            <DialogFooter>
+  1726→              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+  1727→                Cancelar
+  1728→              </Button>
+  1729→              <Button type="submit" disabled={!canCreate}>
+  1730→                <CalendarPlus className="h-4 w-4" aria-hidden />
+  1731→                Crear reserva
+  1732→              </Button>
+  1733→            </DialogFooter>
+  1734→          </form>
+  1735→        )}
+  1736→      </DialogContent>
+  1737→    </Dialog>
+  1738→  );
+  1739→}
+  1740→
+  1741→/* ------------------------------------------------------------------ */
+  1742→/* Delete customer alert dialog                                       */
+  1743→/* ------------------------------------------------------------------ */
+  1744→
+  1745→function DeleteCustomerDialog({
+  1746→  open,
+  1747→  onOpenChange,
+  1748→  customer,
+  1749→  onConfirm,
+  1750→}: {
+  1751→  open: boolean;
+  1752→  onOpenChange: (v: boolean) => void;
+  1753→  customer: Customer;
+  1754→  onConfirm: () => void;
+  1755→}) {
+  1756→  return (
+  1757→    <AlertDialog open={open} onOpenChange={onOpenChange}>
+  1758→      <AlertDialogContent className="sm:max-w-md">
+  1759→        <AlertDialogHeader>
+  1760→          <AlertDialogTitle className="flex items-center gap-2">
+  1761→            <Trash2 className="h-5 w-5 text-destructive" aria-hidden />
+  1762→            Eliminar cliente
+  1763→          </AlertDialogTitle>
+  1764→          <AlertDialogDescription>
+  1765→            Se eliminarán el perfil, el historial y las notas de{" "}
+  1766→            <span className="font-medium text-foreground">{customer.name}</span>. Esta acción no se puede deshacer.
+  1767→          </AlertDialogDescription>
+  1768→        </AlertDialogHeader>
+  1769→        <AlertDialogFooter>
+  1770→          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+  1771→          <AlertDialogAction
+  1772→            onClick={onConfirm}
+  1773→            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+  1774→          >
+  1775→            <Trash2 className="h-4 w-4" aria-hidden />
+  1776→            Eliminar definitivamente
+  1777→          </AlertDialogAction>
+  1778→        </AlertDialogFooter>
+  1779→      </AlertDialogContent>
+  1780→    </AlertDialog>
+  1781→  );
+  1782→}
+  1783→
+  1784→/* ------------------------------------------------------------------ */
+  1785→/* Metric tile                                                        */
+  1786→/* ------------------------------------------------------------------ */
+  1787→
+  1788→function MetricTile({
+  1789→  icon: Icon,
+  1790→  label,
+  1791→  value,
+  1792→  sub,
+  1793→  accent = "gold",
+  1794→  className,
+  1795→}: {
+  1796→  icon: React.ElementType;
+  1797→  label: string;
+  1798→  value: React.ReactNode;
+  1799→  sub?: React.ReactNode;
+  1800→  accent?: "gold" | "teal";
+  1801→  className?: string;
+  1802→}) {
+  1803→  return (
+  1804→    <div
+  1805→      className={cn(
+  1806→        "rp-glass rounded-xl p-3 sm:p-4 flex flex-col gap-1 min-w-0",
+  1807→        className
+  1808→      )}
+  1809→    >
+  1810→      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+  1811→        <Icon
+  1812→          className={cn("h-3 w-3", accent === "gold" ? "text-[var(--gold)]" : "text-[var(--teal)]")}
+  1813→          aria-hidden
+  1814→        />
+  1815→        {label}
+  1816→      </div>
+  1817→      <div
+  1818→        className={cn(
+  1819→          "font-display text-xl sm:text-2xl font-light leading-tight truncate",
+  1820→          accent === "gold" ? "rp-gold-text" : "rp-teal-text"
+  1821→        )}
+  1822→      >
+  1823→        {value}
+  1824→      </div>
+  1825→      {sub && <div className="text-[11px] text-muted-foreground truncate">{sub}</div>}
+  1826→    </div>
+  1827→  );
+  1828→}
+  1829→
+  1830→/* ------------------------------------------------------------------ */
+  1831→/* Timeline entry                                                     */
+  1832→/* ------------------------------------------------------------------ */
+  1833→
+  1834→function TimelineEntry({ entry }: { entry: VisitEntry }) {
+  1835→  const meta = STATUS_META[entry.status];
+  1836→  const StatusIcon = meta.icon;
+  1837→  const chMeta = CHANNEL_META[entry.channel];
+  1838→  const ChIcon = chMeta.icon;
+  1839→
+  1840→  return (
+  1841→    <li className="relative pl-7 pb-4 last:pb-0">
+  1842→      {/* vertical line */}
+  1843→      <span
+  1844→        className="absolute left-[8px] top-3 bottom-0 w-px bg-border/60"
+  1845→        aria-hidden
+  1846→      />
+  1847→      {/* dot */}
+  1848→      <span
+  1849→        className={cn(
+  1850→          "absolute left-[2px] top-1.5 h-3.5 w-3.5 rounded-full ring-2 ring-background",
+  1851→          meta.dot
+  1852→        )}
+  1853→        aria-hidden
+  1854→      />
+  1855→      <div className="rounded-lg border border-border/50 bg-foreground/[0.02] p-3">
+  1856→        {/* Row 1: date/time + status */}
+  1857→        <div className="flex flex-wrap items-center justify-between gap-2">
+  1858→          <div className="flex items-center gap-2 text-sm">
+  1859→            <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+  1860→            <span className="font-medium">{formatDate(entry.date)}</span>
+  1861→            <span className="text-muted-foreground">·</span>
+  1862→            <span className="font-mono text-muted-foreground">{entry.time}</span>
+  1863→          </div>
+  1864→          <Badge variant="outline" className={cn("gap-1 text-[10px] uppercase", meta.badge)}>
+  1865→            <StatusIcon className="h-3 w-3" aria-hidden />
+  1866→            {meta.label}
+  1867→          </Badge>
+  1868→        </div>
+  1869→        {/* Row 2: details grid */}
+  1870→        <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-x-3 gap-y-1.5 text-[11px]">
+  1871→          <div>
+  1872→            <span className="text-muted-foreground">Comensales</span>
+  1873→            <div className="font-medium text-foreground/90">{entry.partySize} pax</div>
+  1874→          </div>
+  1875→          <div>
+  1876→            <span className="text-muted-foreground">Mesa</span>
+  1877→            <div className="font-medium text-foreground/90 truncate">{entry.table}</div>
+  1878→          </div>
+  1879→          <div>
+  1880→            <span className="text-muted-foreground">Zona</span>
+  1881→            <div className="font-medium text-foreground/90 truncate">{entry.zone}</div>
+  1882→          </div>
+  1883→          <div>
+  1884→            <span className="text-muted-foreground">Duración</span>
+  1885→            <div className="font-medium text-foreground/90 inline-flex items-center gap-1">
+  1886→              <Timer className="h-3 w-3 text-muted-foreground" aria-hidden />
+  1887→              {entry.duration}
+  1888→            </div>
+  1889→          </div>
+  1890→        </div>
+  1891→        {/* Row 3: spend + rating + channel */}
+  1892→        <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-border/40 pt-2.5">
+  1893→          {entry.status === "finalizada" && (
+  1894→            <>
+  1895→              <div className="inline-flex items-center gap-1.5">
+  1896→                <Euro className="h-3.5 w-3.5 text-[var(--gold)]" aria-hidden />
+  1897→                <span className="font-mono text-sm rp-gold-text">
+  1898→                  {entry.ticket !== null ? formatEur(entry.ticket) : "—"}
+  1899→                </span>
+  1900→              </div>
+  1901→              {entry.rating !== null && (
+  1902→                <div className="inline-flex items-center gap-1.5">
+  1903→                  <Stars value={entry.rating} />
+  1904→                  <span className="text-[11px] text-muted-foreground">{entry.rating.toFixed(1)}</span>
+  1905→                </div>
+  1906→              )}
+  1907→            </>
+  1908→          )}
+  1909→          <div className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+  1910→            <ChIcon className="h-3 w-3" aria-hidden />
+  1911→            {chMeta.label}
+  1912→          </div>
+  1913→        </div>
+  1914→        {entry.notes && (
+  1915→          <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{entry.notes}</p>
+  1916→        )}
+  1917→      </div>
+  1918→    </li>
+  1919→  );
+  1920→}
+  1921→
+  1922→/* ------------------------------------------------------------------ */
+  1923→/* Customer profile 360°                                              */
+  1924→/* ------------------------------------------------------------------ */
+  1925→
+  1926→function CustomerProfile({
+  1927→  customer,
+  1928→  perms,
+  1929→  onTagsChange,
+  1930→  onConsentChange,
+  1931→  onNotesChange,
+  1932→  onNoteListChange,
+  1933→  onEditCustomer,
+  1934→  onDelete,
+  1935→  onBack,
+  1936→}: {
+  1937→  customer: Customer;
+  1938→  perms: Permissions;
+  1939→  onTagsChange: (tags: TagId[]) => void;
+  1940→  onConsentChange: (channel: ConsentChannel, granted: boolean) => void;
+  1941→  onNotesChange: (notes: string) => void;
+  1942→  onNoteListChange: (notes: NoteEntry[]) => void;
+  1943→  onEditCustomer: (patch: {
+  1944→    name: string;
+  1945→    email: string;
+  1946→    phone: string;
+  1947→    language: string;
+  1948→    notes: string;
+  1949→  }) => void;
+  1950→  onDelete: () => void;
+  1951→  onBack: () => void;
+  1952→}) {
+  1953→  const { toast } = useToast();
+  1954→  const [addTagOpen, setAddTagOpen] = React.useState(false);
+  1955→  const [editOpen, setEditOpen] = React.useState(false);
+  1956→  const [addNoteOpen, setAddNoteOpen] = React.useState(false);
+  1957→  const [reservationOpen, setReservationOpen] = React.useState(false);
+  1958→  const [comunicarOpen, setComunicarOpen] = React.useState(false);
+  1959→  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  1960→
+  1961→  const canExport = perms["crm.export"];
+  1962→  const canMessage = perms["crm.message"];
+  1963→  const canReserve = perms["crm.reservation.create"];
+  1964→  const canEditTags = perms["crm.tag.edit"];
+  1965→  const canEditConsents = perms["crm.consent.edit"];
+  1966→  const canEditNotes = perms["crm.note.edit"];
+  1967→  const canEditCustomer = perms["crm.customer.edit"];
+  1968→  const canDelete = perms["crm.customer.delete"];
+  1969→
+  1970→  const acqMeta = ACQUISITION_META[customer.acquisitionChannel];
+  1971→  const AcqIcon = acqMeta.icon;
+  1972→  const statusMeta = CUSTOMER_STATUS_META[customer.status];
+  1973→
+  1974→  // Sorted history: most recent first (by date desc, then time desc)
+  1975→  const sortedHistory = React.useMemo(() => {
+  1976→    return [...customer.history].sort((a, b) => {
+  1977→      const da = a.date + " " + a.time;
+  1978→      const db = b.date + " " + b.time;
+  1979→      return db.localeCompare(da);
+  1980→    });
+  1981→  }, [customer.history]);
+  1982→
+  1983→  function handleAddNote(text: string) {
+  1984→    const newNote: NoteEntry = {
+  1985→      id: `n${Date.now()}`,
+  1986→      text,
+  1987→      author: "Tú",
+  1988→      date: new Date().toISOString().slice(0, 10),
+  1989→    };
+  1990→    onNoteListChange([newNote, ...customer.noteList]);
+  1991→    toast({
+  1992→      title: "Nota añadida (demo)",
+  1993→      description: `Nota interna registrada para ${customer.name}.`,
+  1994→    });
+  1995→  }
+  1996→
+  1997→  function handleExport() {
+  1998→    if (!canExport) return;
+  1999→    toast({
+  2000→      title: "Exportando datos (demo)",
+
+[showing lines 1-2000 of 2713; use offset=2001 with limit to continue reading]

@@ -13,6 +13,7 @@ import {
   Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, ArrowRight, KeyRound,
   MessageSquare, CalendarX, TrendingDown, UserPlus,
   ShoppingCart, Smartphone, ChefHat, Bike,
+  Package, ClipboardList, Rocket, Globe, Zap, Calculator, HeartPulse, Network, Store,
 } from "lucide-react";
 import {
   Dialog,

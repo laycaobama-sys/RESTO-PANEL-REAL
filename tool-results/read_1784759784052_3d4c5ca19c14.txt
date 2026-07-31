@@ -1,0 +1,947 @@
+     1→"use client";
+     2→
+     3→import * as React from "react";
+     4→import { cn } from "@/lib/utils";
+     5→import { useToast } from "@/hooks/use-toast";
+     6→import { Button } from "@/components/ui/button";
+     7→import { Badge } from "@/components/ui/badge";
+     8→import { Switch } from "@/components/ui/switch";
+     9→import {
+    10→  Tooltip,
+    11→  TooltipContent,
+    12→  TooltipProvider,
+    13→  TooltipTrigger,
+    14→} from "@/components/ui/tooltip";
+    15→import {
+    16→  Collapsible,
+    17→  CollapsibleContent,
+    18→  CollapsibleTrigger,
+    19→} from "@/components/ui/collapsible";
+    20→import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+    21→import {
+    22→  BrainCircuit,
+    23→  Sparkles,
+    24→  Crown,
+    25→  Users,
+    26→  Clock,
+    27→  MapPin,
+    28→  Star,
+    29→  Volume2,
+    30→  RefreshCw,
+    31→  ShieldAlert,
+    32→  ChevronDown,
+    33→  Info,
+    34→  Armchair,
+    35→  Baby,
+    36→  Accessibility,
+    37→  Sun,
+    38→  CalendarClock,
+    39→  UserCog,
+    40→  Layers,
+    41→  TrendingUp,
+    42→  CircleDot,
+    43→  AlertTriangle,
+    44→  CheckCircle2,
+    45→  Cpu,
+    46→  Zap,
+    47→} from "lucide-react";
+    48→
+    49→/* =========================================================
+    50→ * Types
+    51→ * =======================================================*/
+    52→interface TableCandidate {
+    53→  tableId: string;
+    54→  tableName: string;
+    55→  zone: string;
+    56→  seats: number;
+    57→  score: number; // 0-100
+    58→  reasons: { factor: string; impact: number; detail: string }[];
+    59→  confidence: number;
+    60→  isRecommended: boolean;
+    61→  isFallback: boolean;
+    62→}
+    63→
+    64→interface AssignmentRequest {
+    65→  reservationId: string;
+    66→  customerName: string;
+    67→  partySize: number;
+    68→  vip: boolean;
+    69→  preferences: { zone?: string; table?: string; accessibility?: boolean; children?: boolean };
+    70→  history: { visitCount: number; favoriteTable?: string; favoriteZone?: string };
+    71→}
+    72→
+    73→/* =========================================================
+    74→ * Demo data — reservation
+    75→ * =======================================================*/
+    76→const DEMO_RESERVATION: AssignmentRequest = {
+    77→  reservationId: "RES-2025-0142",
+    78→  customerName: "Elena Marín",
+    79→  partySize: 4,
+    80→  vip: true,
+    81→  preferences: { zone: "Terraza", table: "T3", accessibility: false, children: false },
+    82→  history: { visitCount: 15, favoriteTable: "T3", favoriteZone: "Terraza" },
+    83→};
+    84→
+    85→/* =========================================================
+    86→ * Demo data — AI candidates
+    87→ * =======================================================*/
+    88→const AI_CANDIDATES: TableCandidate[] = [
+    89→  {
+    90→    tableId: "T3",
+    91→    tableName: "T3",
+    92→    zone: "Terraza",
+    93→    seats: 4,
+    94→    score: 92,
+    95→    confidence: 88,
+    96→    isRecommended: true,
+    97→    isFallback: false,
+    98→    reasons: [
+    99→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   100→      { factor: "Zona preferida", impact: 15, detail: "Cliente prefiere Terraza (historial: 8 visitas)" },
+   101→      { factor: "Mesa favorita", impact: 25, detail: "Mesa T3 es la favorita del cliente (5 visitas)" },
+   102→      { factor: "Bajo ruido", impact: 10, detail: "Zona tranquila, adecuada para conversación" },
+   103→      { factor: "Rotación óptima", impact: 12, detail: "Duración estimada 90min encaja con próxima reserva 22:30" },
+   104→      { factor: "Camarero asignado", impact: 10, detail: "Carlos conoce al cliente (3 servicios previos)" },
+   105→    ],
+   106→  },
+   107→  {
+   108→    tableId: "T7",
+   109→    tableName: "T7",
+   110→    zone: "Terraza",
+   111→    seats: 4,
+   112→    score: 78,
+   113→    confidence: 74,
+   114→    isRecommended: false,
+   115→    isFallback: false,
+   116→    reasons: [
+   117→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   118→      { factor: "Zona preferida", impact: 15, detail: "Cliente prefiere Terraza" },
+   119→      { factor: "Rotación óptima", impact: 8, detail: "Libre a las 21:45, encaja con duración 90min" },
+   120→      { factor: "Bajo ruido", impact: 8, detail: "Zona tranquila" },
+   121→    ],
+   122→  },
+   123→  {
+   124→    tableId: "V1",
+   125→    tableName: "V1",
+   126→    zone: "VIP",
+   127→    seats: 4,
+   128→    score: 71,
+   129→    confidence: 68,
+   130→    isRecommended: false,
+   131→    isFallback: false,
+   132→    reasons: [
+   133→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   134→      { factor: "Cliente VIP", impact: 18, detail: "Sala VIP reservada a clientes VIP" },
+   135→      { factor: "Rotación subóptima", impact: -8, detail: "Mesa VIP ocupada hasta 22:15 (posible conflicto)" },
+   136→      { factor: "Sin preferencia explícita", impact: -3, detail: "Cliente no marcó VIP como preferencia" },
+   137→    ],
+   138→  },
+   139→  {
+   140→    tableId: "T12",
+   141→    tableName: "T12",
+   142→    zone: "Sala",
+   143→    seats: 4,
+   144→    score: 65,
+   145→    confidence: 62,
+   146→    isRecommended: false,
+   147→    isFallback: false,
+   148→    reasons: [
+   149→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   150→      { factor: "Zona no preferida", impact: -10, detail: "Cliente prefiere Terraza (no Sala)" },
+   151→      { factor: "Ruido medio", impact: -5, detail: "Sala principal, ruido moderado en hora pico" },
+   152→      { factor: "Rotación óptima", impact: 10, detail: "Disponible todo el turno" },
+   153→    ],
+   154→  },
+   155→  {
+   156→    tableId: "T5",
+   157→    tableName: "T5",
+   158→    zone: "Terraza",
+   159→    seats: 6,
+   160→    score: 58,
+   161→    confidence: 54,
+   162→    isRecommended: false,
+   163→    isFallback: false,
+   164→    reasons: [
+   165→      { factor: "Sobrecapacidad", impact: -8, detail: "Mesa de 6 para 4 comensales (capacidad desperdiciada)" },
+   166→      { factor: "Zona preferida", impact: 15, detail: "Cliente prefiere Terraza" },
+   167→      { factor: "Rotación subóptima", impact: -4, detail: "Mesa de 6 alta demanda: podría usarse para grupos" },
+   168→      { factor: "Bajo ruido", impact: 10, detail: "Zona tranquila" },
+   169→    ],
+   170→  },
+   171→];
+   172→
+   173→/* =========================================================
+   174→ * Demo data — fallback candidates (sorted deterministically)
+   175→ * =======================================================*/
+   176→const FALLBACK_CANDIDATES: TableCandidate[] = [
+   177→  {
+   178→    tableId: "T3",
+   179→    tableName: "T3",
+   180→    zone: "Terraza",
+   181→    seats: 4,
+   182→    score: 70,
+   183→    confidence: 100,
+   184→    isRecommended: true,
+   185→    isFallback: true,
+   186→    reasons: [
+   187→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales (filtro determinista)" },
+   188→      { factor: "Mesa favorita", impact: 25, detail: "T3 es la mesa favorita del cliente (paso 3 del algoritmo)" },
+   189→      { factor: "Zona preferida", impact: 15, detail: "Terraza coincide con preferencia (paso 2)" },
+   190→      { factor: "Rotación óptima", impact: 10, detail: "Primera disponible sin impacto en próxima reserva" },
+   191→    ],
+   192→  },
+   193→  {
+   194→    tableId: "T7",
+   195→    tableName: "T7",
+   196→    zone: "Terraza",
+   197→    seats: 4,
+   198→    score: 58,
+   199→    confidence: 100,
+   200→    isRecommended: false,
+   201→    isFallback: true,
+   202→    reasons: [
+   203→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   204→      { factor: "Zona preferida", impact: 15, detail: "Terraza coincide con preferencia" },
+   205→      { factor: "Rotación óptima", impact: 8, detail: "Disponible sin impacto" },
+   206→    ],
+   207→  },
+   208→  {
+   209→    tableId: "T12",
+   210→    tableName: "T12",
+   211→    zone: "Sala",
+   212→    seats: 4,
+   213→    score: 42,
+   214→    confidence: 100,
+   215→    isRecommended: false,
+   216→    isFallback: true,
+   217→    reasons: [
+   218→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   219→      { factor: "Zona no preferida", impact: -10, detail: "Sala no coincide con Terraza" },
+   220→      { factor: "Rotación óptima", impact: 10, detail: "Disponible" },
+   221→    ],
+   222→  },
+   223→  {
+   224→    tableId: "V1",
+   225→    tableName: "V1",
+   226→    zone: "VIP",
+   227→    seats: 4,
+   228→    score: 35,
+   229→    confidence: 100,
+   230→    isRecommended: false,
+   231→    isFallback: true,
+   232→    reasons: [
+   233→      { factor: "Capacidad compatible", impact: 20, detail: "Mesa de 4 para 4 comensales" },
+   234→      { factor: "Zona no preferida", impact: -10, detail: "VIP no coincide con Terraza" },
+   235→      { factor: "Rotación subóptima", impact: -8, detail: "Conflicto con reserva posterior" },
+   236→    ],
+   237→  },
+   238→  {
+   239→    tableId: "T5",
+   240→    tableName: "T5",
+   241→    zone: "Terraza",
+   242→    seats: 6,
+   243→    score: 28,
+   244→    confidence: 100,
+   245→    isRecommended: false,
+   246→    isFallback: true,
+   247→    reasons: [
+   248→      { factor: "Sobrecapacidad", impact: -8, detail: "Mesa de 6 para 4 comensales" },
+   249→      { factor: "Zona preferida", impact: 15, detail: "Terraza coincide" },
+   250→      { factor: "Rotación subóptima", impact: -4, detail: "Mesa alta demanda para grupos" },
+   251→    ],
+   252→  },
+   253→];
+   254→
+   255→/* =========================================================
+   256→ * All factors (for explanation collapsible)
+   257→ * =======================================================*/
+   258→const ALL_FACTORS: { name: string; icon: React.ElementType; description: string }[] = [
+   259→  { name: "Capacidad", icon: Users, description: "Número de asientos vs tamaño del grupo" },
+   260→  { name: "Zona", icon: MapPin, description: "Preferencia explícita de zona del cliente" },
+   261→  { name: "Disponibilidad", icon: Clock, description: "Mesa libre durante la franja estimada" },
+   262→  { name: "Rotación", icon: RefreshCw, description: "Impacto en reservas posteriores" },
+   263→  { name: "Mesa favorita", icon: Star, description: "Mesa recurrente del cliente en historial" },
+   264→  { name: "Historial", icon: TrendingUp, description: "Visitas previas, preferencias inferidas" },
+   265→  { name: "VIP", icon: Crown, description: "Acceso a zonas VIP para clientes VIP" },
+   266→  { name: "Niños", icon: Baby, description: "Zonas aptas para familias con niños" },
+   267→  { name: "Accesibilidad", icon: Accessibility, description: "Mesas accesibles (sin barreras)" },
+   268→  { name: "Terraza/Interior", icon: MapPin, description: "Preferencia meteorológica o estacional" },
+   269→  { name: "Sombra/Sol", icon: Sun, description: "Posición de la mesa en terraza" },
+   270→  { name: "Ruido", icon: Volume2, description: "Nivel de ruido ambiente por zona" },
+   271→  { name: "Camarero", icon: UserCog, description: "Camarero con relación previa al cliente" },
+   272→  { name: "Carga camarero", icon: Layers, description: "Carga actual del camarero asignado" },
+   273→  { name: "Eventos", icon: CalendarClock, description: "Compatibilidad con eventos activos" },
+   274→  { name: "Rentabilidad", icon: TrendingUp, description: "Ticket medio esperado por mesa" },
+   275→  { name: "Compatibilidad posterior", icon: CalendarClock, description: "Encaje con la próxima reserva en esa mesa" },
+   276→  { name: "Unión mesas", icon: Layers, description: "Posibilidad de unir mesas adyacentes" },
+   277→];
+   278→
+   279→/* =========================================================
+   280→ * Helpers
+   281→ * =======================================================*/
+   282→function confidenceClass(c: number) {
+   283→  if (c >= 85) return "bg-emerald-400/10 text-emerald-300 border-emerald-400/30";
+   284→  if (c >= 65) return "bg-amber-400/10 text-amber-300 border-amber-400/30";
+   285→  return "bg-destructive/10 text-destructive border-destructive/30";
+   286→}
+   287→
+   288→function scoreColor(score: number) {
+   289→  if (score >= 85) return "text-emerald-300";
+   290→  if (score >= 70) return "rp-gold-text";
+   291→  if (score >= 50) return "text-amber-300";
+   292→  return "text-destructive";
+   293→}
+   294→
+   295→/* =========================================================
+   296→ * Recommended table card
+   297→ * =======================================================*/
+   298→function RecommendedCard({
+   299→  candidate,
+   300→  onAssign,
+   301→  onAlternatives,
+   302→  index,
+   303→}: {
+   304→  candidate: TableCandidate;
+   305→  onAssign: () => void;
+   306→  onAlternatives: () => void;
+   307→  index: number;
+   308→}) {
+   309→  const reduce = useReducedMotion();
+   310→
+   311→  return (
+   312→    <motion.article
+   313→      initial={reduce ? false : { opacity: 0, y: 12 }}
+   314→      animate={{ opacity: 1, y: 0 }}
+   315→      transition={{ duration: 0.3, delay: reduce ? 0 : index * 0.05 }}
+   316→      className={cn(
+   317→        "rp-glass-strong rounded-2xl p-5 sm:p-6",
+   318→        candidate.isFallback
+   319→          ? "rp-glow-gold ring-1 ring-amber-400/40"
+   320→          : "rp-glow-gold ring-1 ring-[var(--gold)]/40"
+   321→      )}
+   322→    >
+   323→      {/* Top: badges */}
+   324→      <div className="flex flex-wrap items-center gap-2">
+   325→        {candidate.isFallback ? (
+   326→          <Badge
+   327→            variant="outline"
+   328→            className="border-amber-400/50 bg-amber-400/10 text-amber-300 font-mono text-[10px] uppercase tracking-wider"
+   329→          >
+   330→            <AlertTriangle className="mr-1 h-3 w-3" />
+   331→            Fallback
+   332→          </Badge>
+   333→        ) : (
+   334→          <Badge
+   335→            variant="outline"
+   336→            className="border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--gold-soft)] font-mono text-[10px] uppercase tracking-wider"
+   337→          >
+   338→            <Sparkles className="mr-1 h-3 w-3" />
+   339→            Recomendada
+   340→          </Badge>
+   341→        )}
+   342→        <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-foreground/[0.04] px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+   343→          <Armchair className="h-3 w-3" />
+   344→          {candidate.zone}
+   345→        </span>
+   346→        <span className="inline-flex items-center gap-1 rounded-md border border-border/40 bg-foreground/[0.04] px-2 py-0.5 text-[11px] font-mono text-muted-foreground">
+   347→          <Users className="h-3 w-3" />
+   348→          {candidate.seats} pax
+   349→        </span>
+   350→      </div>
+   351→
+   352→      {/* Main */}
+   353→      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+   354→        <div className="min-w-0">
+   355→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   356→            Mesa
+   357→          </div>
+   358→          <div className="mt-1 font-display text-4xl font-light tracking-tight sm:text-5xl">
+   359→            {candidate.tableName}
+   360→          </div>
+   361→          <div className="mt-3 flex items-center gap-2">
+   362→            <Tooltip>
+   363→              <TooltipTrigger asChild>
+   364→                <span
+   365→                  className={cn(
+   366→                    "inline-flex cursor-help items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] font-mono",
+   367→                    confidenceClass(candidate.confidence)
+   368→                  )}
+   369→                >
+   370→                  <ShieldAlert className="h-3 w-3" />
+   371→                  Confianza {candidate.confidence}%
+   372→                </span>
+   373→              </TooltipTrigger>
+   374→              <TooltipContent className="max-w-[220px]">
+   375→                Confianza del modelo en la recomendación. En fallback, confianza = 100% (algoritmo determinista).
+   376→              </TooltipContent>
+   377→            </Tooltip>
+   378→            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+   379→              <Cpu className="h-3 w-3" />
+   380→              <code className="font-mono">
+   381→                {candidate.isFallback ? "fallback-v1.0" : "glm-4-flash"}
+   382→              </code>
+   383→            </span>
+   384→          </div>
+   385→        </div>
+   386→
+   387→        {/* Score */}
+   388→        <div className="text-right">
+   389→          <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   390→            Score
+   391→          </div>
+   392→          <div
+   393→            className={cn(
+   394→              "mt-1 font-display text-5xl font-light tabular-nums sm:text-6xl",
+   395→              scoreColor(candidate.score)
+   396→            )}
+   397→          >
+   398→            {candidate.score}
+   399→            <span className="text-2xl text-muted-foreground">/100</span>
+   400→          </div>
+   401→        </div>
+   402→      </div>
+   403→
+   404→      {/* Reasons */}
+   405→      <div className="mt-5">
+   406→        <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   407→          Factores que justifican el score
+   408→        </div>
+   409→        <ul className="mt-3 space-y-2.5">
+   410→          {candidate.reasons.map((r, i) => (
+   411→            <ReasonRow key={i} reason={r} index={i} reduce={!!reduce} />
+   412→          ))}
+   413→        </ul>
+   414→      </div>
+   415→
+   416→      {/* Actions */}
+   417→      <div className="mt-5 flex flex-wrap gap-2.5">
+   418→        <Button
+   419→          size="default"
+   420→          className="h-11 bg-[var(--gold)] text-[#0a0a0a] px-5 hover:bg-[var(--gold-soft)]"
+   421→          onClick={onAssign}
+   422→        >
+   423→          <CheckCircle2 className="h-4 w-4" />
+   424→          Asignar mesa {candidate.tableName}
+   425→        </Button>
+   426→        <Button
+   427→          variant="ghost"
+   428→          size="default"
+   429→          className="h-11 px-4"
+   430→          onClick={onAlternatives}
+   431→        >
+   432→          <Layers className="h-4 w-4" />
+   433→          Ver alternativas
+   434→        </Button>
+   435→      </div>
+   436→    </motion.article>
+   437→  );
+   438→}
+   439→
+   440→/* =========================================================
+   441→ * Reason row — single factor with impact bar
+   442→ * =======================================================*/
+   443→function ReasonRow({
+   444→  reason,
+   445→  index,
+   446→  reduce,
+   447→}: {
+   448→  reason: { factor: string; impact: number; detail: string };
+   449→  index: number;
+   450→  reduce: boolean;
+   451→}) {
+   452→  const positive = reason.impact >= 0;
+   453→  const maxAbs = 25;
+   454→  const width = Math.min(Math.abs(reason.impact) / maxAbs, 1) * 100;
+   455→
+   456→  return (
+   457→    <motion.li
+   458→      initial={reduce ? false : { opacity: 0, x: -8 }}
+   459→      animate={{ opacity: 1, x: 0 }}
+   460→      transition={{ duration: 0.25, delay: reduce ? 0 : index * 0.04 }}
+   461→      className="rp-glass rounded-xl p-3 sm:p-3.5"
+   462→    >
+   463→      <div className="flex items-start justify-between gap-3">
+   464→        <div className="min-w-0">
+   465→          <div className="flex items-center gap-2">
+   466→            <span className="text-sm font-medium text-foreground">{reason.factor}</span>
+   467→            <span
+   468→              className={cn(
+   469→                "inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 text-[10px] font-mono tabular-nums",
+   470→                positive
+   471→                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+   472→                  : "border-destructive/30 bg-destructive/10 text-destructive"
+   473→              )}
+   474→            >
+   475→              {positive ? "+" : ""}
+   476→              {reason.impact}
+   477→            </span>
+   478→          </div>
+   479→          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+   480→            {reason.detail}
+   481→          </p>
+   482→        </div>
+   483→      </div>
+   484→      {/* Impact bar */}
+   485→      <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-foreground/[0.08]">
+   486→        <motion.div
+   487→          initial={reduce ? false : { width: 0 }}
+   488→          animate={{ width: `${width}%` }}
+   489→          transition={{ duration: 0.5, delay: reduce ? 0 : 0.1 + index * 0.04, ease: "easeOut" }}
+   490→          className={cn(
+   491→            "h-full rounded-full",
+   492→            positive
+   493→              ? "bg-gradient-to-r from-emerald-400/60 to-emerald-400"
+   494→              : "bg-gradient-to-r from-destructive/60 to-destructive"
+   495→          )}
+   496→        />
+   497→      </div>
+   498→    </motion.li>
+   499→  );
+   500→}
+   501→
+   502→/* =========================================================
+   503→ * Alternative table card
+   504→ * =======================================================*/
+   505→function AlternativeCard({
+   506→  candidate,
+   507→  index,
+   508→  onSelect,
+   509→}: {
+   510→  candidate: TableCandidate;
+   511→  index: number;
+   512→  onSelect: () => void;
+   513→}) {
+   514→  const reduce = useReducedMotion();
+   515→  return (
+   516→    <motion.article
+   517→      initial={reduce ? false : { opacity: 0, y: 8 }}
+   518→      animate={{ opacity: 1, y: 0 }}
+   519→      transition={{ duration: 0.25, delay: reduce ? 0 : index * 0.04 }}
+   520→      className="rp-glass flex flex-col rounded-xl p-4 transition-colors hover:bg-foreground/[0.04]"
+   521→    >
+   522→      <div className="flex items-center justify-between gap-2">
+   523→        <div className="font-display text-2xl font-light tracking-tight">
+   524→          {candidate.tableName}
+   525→        </div>
+   526→        <div className={cn("font-mono text-lg font-medium tabular-nums", scoreColor(candidate.score))}>
+   527→          {candidate.score}
+   528→        </div>
+   529→      </div>
+   530→      <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   531→        <MapPin className="h-3 w-3" />
+   532→        {candidate.zone}
+   533→        <span className="text-foreground/30">·</span>
+   534→        <Users className="h-3 w-3" />
+   535→        {candidate.seats} pax
+   536→      </div>
+   537→      <div className="mt-2">
+   538→        <span
+   539→          className={cn(
+   540→            "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-mono",
+   541→            confidenceClass(candidate.confidence)
+   542→          )}
+   543→        >
+   544→          <ShieldAlert className="h-2.5 w-2.5" />
+   545→          {candidate.confidence}%
+   546→        </span>
+   547→      </div>
+   548→      <Button
+   549→        variant="outline"
+   550→        size="sm"
+   551→        className="mt-3 h-9 min-h-11 w-full text-xs"
+   552→        onClick={onSelect}
+   553→      >
+   554→        Seleccionar
+   555→      </Button>
+   556→    </motion.article>
+   557→  );
+   558→}
+   559→
+   560→/* =========================================================
+   561→ * Main component
+   562→ * =======================================================*/
+   563→export function SmartAssignment() {
+   564→  const { toast } = useToast();
+   565→  const reduce = useReducedMotion();
+   566→  const [iaDown, setIaDown] = React.useState(false);
+   567→  const [showAlternatives, setShowAlternatives] = React.useState(false);
+   568→  const [factorsOpen, setFactorsOpen] = React.useState(false);
+   569→  const [selectedAlt, setSelectedAlt] = React.useState<string | null>(null);
+   570→  const [assigning, setAssigning] = React.useState(false);
+   571→
+   572→  const candidates = iaDown ? FALLBACK_CANDIDATES : AI_CANDIDATES;
+   573→  const recommended = candidates[0];
+   574→  const alternatives = candidates.slice(1);
+   575→
+   576→  const handleAssign = (candidate: TableCandidate) => {
+   577→    setAssigning(true);
+   578→    window.setTimeout(() => {
+   579→      setAssigning(false);
+   580→      toast({
+   581→        title: "Mesa asignada",
+   582→        description: `Mesa ${candidate.tableName} asignada a ${DEMO_RESERVATION.customerName} (demo)`,
+   583→      });
+   584→    }, 600);
+   585→  };
+   586→
+   587→  const handleSelectAlt = (c: TableCandidate) => {
+   588→    setSelectedAlt(c.tableId);
+   589→    toast({
+   590→      title: "Mesa seleccionada",
+   591→      description: `Mesa ${c.tableName} (${c.zone}) · Score ${c.score}/100 (demo)`,
+   592→    });
+   593→  };
+   594→
+   595→  return (
+   596→    <TooltipProvider delayDuration={150}>
+   597→      <section aria-labelledby="smart-assign-title" className="flex flex-col gap-5">
+   598→        {/* Header */}
+   599→        <header className="flex flex-wrap items-start justify-between gap-3">
+   600→          <div className="min-w-0">
+   601→            <div className="flex items-center gap-2.5">
+   602→              <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--gold)]/10 text-[var(--gold)]">
+   603→                <BrainCircuit className="h-5 w-5" />
+   604→              </span>
+   605→              <h2
+   606→                id="smart-assign-title"
+   607→                className="font-display text-xl sm:text-2xl font-medium tracking-tight"
+   608→              >
+   609→                Asignación inteligente
+   610→              </h2>
+   611→              <Badge
+   612→                variant="outline"
+   613→                className="border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)] font-mono text-[10px] uppercase tracking-wider"
+   614→              >
+   615→                demo
+   616→              </Badge>
+   617→            </div>
+   618→            <p className="mt-1.5 text-sm text-muted-foreground">
+   619→              Scoring IA con fallback determinista explicable. Nunca impide reservar.
+   620→            </p>
+   621→          </div>
+   622→        </header>
+   623→
+   624→        {/* Reservation context card */}
+   625→        <motion.div
+   626→          initial={reduce ? false : { opacity: 0, y: 6 }}
+   627→          animate={{ opacity: 1, y: 0 }}
+   628→          transition={{ duration: 0.3 }}
+   629→          className="rp-glass rounded-2xl p-5"
+   630→        >
+   631→          <div className="flex items-start justify-between gap-3">
+   632→            <div className="flex items-center gap-3">
+   633→              <span className="grid h-10 w-10 place-items-center rounded-xl bg-foreground/[0.05] text-foreground">
+   634→                <Users className="h-5 w-5" />
+   635→              </span>
+   636→              <div>
+   637→                <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   638→                  Reserva {DEMO_RESERVATION.reservationId}
+   639→                </div>
+   640→                <div className="mt-0.5 font-display text-lg font-medium">
+   641→                  {DEMO_RESERVATION.customerName}
+   642→                </div>
+   643→              </div>
+   644→            </div>
+   645→            {DEMO_RESERVATION.vip && (
+   646→              <Badge
+   647→                variant="outline"
+   648→                className="border-[var(--gold)]/50 bg-[var(--gold)]/10 text-[var(--gold-soft)] font-mono text-[10px] uppercase tracking-wider"
+   649→              >
+   650→                <Crown className="mr-1 h-3 w-3" />
+   651→                VIP
+   652→              </Badge>
+   653→            )}
+   654→          </div>
+   655→
+   656→          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+   657→            <ContextCell
+   658→              icon={Users}
+   659→              label="Comensales"
+   660→              value={`${DEMO_RESERVATION.partySize} pax`}
+   661→            />
+   662→            <ContextCell
+   663→              icon={MapPin}
+   664→              label="Zona preferida"
+   665→              value={DEMO_RESERVATION.preferences.zone || "—"}
+   666→            />
+   667→            <ContextCell
+   668→              icon={Star}
+   669→              label="Mesa favorita"
+   670→              value={DEMO_RESERVATION.preferences.table || "—"}
+   671→            />
+   672→            <ContextCell
+   673→              icon={TrendingUp}
+   674→              label="Visitas previas"
+   675→              value={`${DEMO_RESERVATION.history.visitCount}`}
+   676→            />
+   677→          </div>
+   678→        </motion.div>
+   679→
+   680→        {/* AI vs Fallback indicator */}
+   681→        <motion.div
+   682→          initial={reduce ? false : { opacity: 0, y: 6 }}
+   683→          animate={{ opacity: 1, y: 0 }}
+   684→          transition={{ duration: 0.3, delay: reduce ? 0 : 0.05 }}
+   685→          className={cn(
+   686→            "rp-glass flex flex-col gap-3 rounded-xl border-l-2 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4",
+   687→            iaDown ? "border-l-amber-400/60" : "border-l-[var(--teal)]/60"
+   688→          )}
+   689→        >
+   690→          <div className="flex items-center gap-3">
+   691→            <span
+   692→              className={cn(
+   693→                "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+   694→                iaDown ? "bg-amber-400/12 text-amber-300" : "bg-[var(--teal)]/12 text-[var(--teal)]"
+   695→              )}
+   696→            >
+   697→              {iaDown ? <AlertTriangle className="h-4.5 w-4.5" /> : <BrainCircuit className="h-4.5 w-4.5" />}
+   698→            </span>
+   699→            <div className="min-w-0">
+   700→              <div className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   701→                Motor de asignación
+   702→              </div>
+   703→              <div
+   704→                className={cn(
+   705→                  "mt-0.5 text-sm font-medium",
+   706→                  iaDown ? "text-amber-300" : "rp-teal-text"
+   707→                )}
+   708→              >
+   709→                {iaDown
+   710→                  ? "IA no disponible — usando algoritmo determinista (fallback)"
+   711→                  : "IA activa · Modelo: glm-4-flash"}
+   712→              </div>
+   713→            </div>
+   714→          </div>
+   715→          <div className="flex items-center gap-3 self-start sm:self-auto">
+   716→            <Label>Simular caída de IA</Label>
+   717→            <Switch
+   718→              checked={iaDown}
+   719→              onCheckedChange={setIaDown}
+   720→              aria-label="Simular caída de IA"
+   721→            />
+   722→          </div>
+   723→        </motion.div>
+   724→
+   725→        {/* Recommended + alternatives */}
+   726→        <div className="grid gap-5 lg:grid-cols-5">
+   727→          {/* Recommended */}
+   728→          <div className="lg:col-span-3">
+   729→            <AnimatePresence mode="wait">
+   730→              <motion.div
+   731→                key={recommended.tableId + (iaDown ? "-fb" : "-ia")}
+   732→                initial={reduce ? false : { opacity: 0 }}
+   733→                animate={{ opacity: 1 }}
+   734→                exit={reduce ? undefined : { opacity: 0 }}
+   735→                transition={{ duration: 0.2 }}
+   736→              >
+   737→                <RecommendedCard
+   738→                  candidate={recommended}
+   739→                  index={0}
+   740→                  onAssign={() => handleAssign(recommended)}
+   741→                  onAlternatives={() => {
+   742→                    setShowAlternatives(true);
+   743→                    toast({
+   744→                      title: "Alternativas cargadas",
+   745→                      description: `${alternatives.length} mesas candidatas ordenadas por score (demo)`,
+   746→                    });
+   747→                  }}
+   748→                />
+   749→              </motion.div>
+   750→            </AnimatePresence>
+   751→
+   752→            {assigning && (
+   753→              <motion.div
+   754→                initial={reduce ? false : { opacity: 0 }}
+   755→                animate={{ opacity: 1 }}
+   756→                className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"
+   757→              >
+   758→                <RefreshCw className="h-3 w-3 animate-spin" />
+   759→                Asignando mesa…
+   760→              </motion.div>
+   761→            )}
+   762→          </div>
+   763→
+   764→          {/* Alternatives column */}
+   765→          <div className="lg:col-span-2">
+   766→            <div className="flex items-center justify-between">
+   767→              <div className="flex items-center gap-2">
+   768→                <Layers className="h-4 w-4 text-muted-foreground" />
+   769→                <h3 className="text-sm font-medium text-foreground">Mesas alternativas</h3>
+   770→              </div>
+   771→              <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   772→                {alternatives.length} candidatas
+   773→              </span>
+   774→            </div>
+   775→
+   776→            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+   777→              <AnimatePresence mode="popLayout">
+   778→                {alternatives.map((c, i) => (
+   779→                  <AlternativeCard
+   780→                    key={c.tableId + (iaDown ? "-fb" : "-ia")}
+   781→                    candidate={c}
+   782→                    index={i}
+   783→                    onSelect={() => handleSelectAlt(c)}
+   784→                  />
+   785→                ))}
+   786→              </AnimatePresence>
+   787→            </div>
+   788→
+   789→            {selectedAlt && (
+   790→              <motion.div
+   791→                initial={reduce ? false : { opacity: 0, y: 4 }}
+   792→                animate={{ opacity: 1, y: 0 }}
+   793→                className="mt-3 rp-glass rounded-xl border-l-2 border-[var(--teal)]/60 p-3"
+   794→              >
+   795→                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   796→                  <CircleDot className="h-3.5 w-3.5 rp-teal-text" />
+   797→                  Mesa <span className="font-mono text-foreground">{selectedAlt}</span> marcada como preferencia alternativa.
+   798→                </div>
+   799→              </motion.div>
+   800→            )}
+   801→          </div>
+   802→        </div>
+   803→
+   804→        {/* Collapsible: all factors */}
+   805→        <Collapsible open={factorsOpen} onOpenChange={setFactorsOpen}>
+   806→          <CollapsibleTrigger asChild>
+   807→            <button
+   808→              className="rp-glass flex w-full items-center justify-between gap-3 rounded-xl p-4 text-left transition-colors hover:bg-foreground/[0.04] min-h-11"
+   809→              aria-expanded={factorsOpen}
+   810→            >
+   811→              <div className="flex items-center gap-2.5">
+   812→                <Info className="h-4 w-4 rp-gold-text" />
+   813→                <span className="text-sm font-medium text-foreground">
+   814→                  Factores considerados por el motor
+   815→                </span>
+   816→                <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   817→                  {ALL_FACTORS.length} factores
+   818→                </span>
+   819→              </div>
+   820→              <ChevronDown
+   821→                className={cn(
+   822→                  "h-4 w-4 text-muted-foreground transition-transform",
+   823→                  factorsOpen && "rotate-180"
+   824→                )}
+   825→              />
+   826→            </button>
+   827→          </CollapsibleTrigger>
+   828→          <CollapsibleContent>
+   829→            <motion.div
+   830→              initial={reduce ? false : { opacity: 0, height: 0 }}
+   831→              animate={{ opacity: 1, height: "auto" }}
+   832→              transition={{ duration: 0.3 }}
+   833→              className="mt-3 rp-glass rounded-xl p-4"
+   834→            >
+   835→              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+   836→                {ALL_FACTORS.map((f, i) => {
+   837→                  const Icon = f.icon;
+   838→                  return (
+   839→                    <div
+   840→                      key={f.name}
+   841→                      className="flex items-start gap-2.5 rounded-lg border border-border/40 bg-foreground/[0.025] p-3"
+   842→                    >
+   843→                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-[var(--gold)]/10 text-[var(--gold)]">
+   844→                        <Icon className="h-3.5 w-3.5" />
+   845→                      </span>
+   846→                      <div className="min-w-0">
+   847→                        <div className="text-xs font-medium text-foreground">{f.name}</div>
+   848→                        <div className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+   849→                          {f.description}
+   850→                        </div>
+   851→                      </div>
+   852→                    </div>
+   853→                  );
+   854→                })}
+   855→              </div>
+   856→            </motion.div>
+   857→          </CollapsibleContent>
+   858→        </Collapsible>
+   859→
+   860→        {/* Fallback explanation (only when IA is down) */}
+   861→        <AnimatePresence>
+   862→          {iaDown && (
+   863→            <motion.div
+   864→              initial={reduce ? false : { opacity: 0, y: 8 }}
+   865→              animate={{ opacity: 1, y: 0 }}
+   866→              exit={reduce ? undefined : { opacity: 0, y: -8 }}
+   867→              transition={{ duration: 0.3 }}
+   868→              className="rp-glass rounded-xl border-l-2 border-amber-400/60 p-5"
+   869→            >
+   870→              <div className="flex items-center gap-2">
+   871→                <AlertTriangle className="h-4 w-4 text-amber-300" />
+   872→                <h3 className="text-sm font-medium text-foreground">
+   873→                  Algoritmo determinista aplicado
+   874→                </h3>
+   875→              </div>
+   876→              <ol className="mt-3 space-y-2">
+   877→                {[
+   878→                  "Filtrar por capacidad ≥ party_size",
+   879→                  "Ordenar por preferencia de zona",
+   880→                  "Priorizar mesa favorita",
+   881→                  "Minimizar impacto en rotación",
+   882→                  "Asignar primera disponible",
+   883→                ].map((step, i) => (
+   884→                  <li
+   885→                    key={i}
+   886→                    className="flex items-start gap-2.5 text-sm text-foreground/85"
+   887→                  >
+   888→                    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-amber-400/15 font-mono text-[10px] text-amber-300">
+   889→                      {i + 1}
+   890→                    </span>
+   891→                    {step}
+   892→                  </li>
+   893→                ))}
+   894→              </ol>
+   895→              <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-400/[0.06] p-3 text-xs leading-relaxed text-amber-200/90">
+   896→                <Zap className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+   897→                Una caída de la IA nunca impide reservar. El fallback garantiza operación.
+   898→              </div>
+   899→            </motion.div>
+   900→          )}
+   901→        </AnimatePresence>
+   902→
+   903→        {/* Disclaimer */}
+   904→        <div className="rp-glass flex items-start gap-3 rounded-xl border-l-2 border-[var(--gold)]/60 p-4">
+   905→          <Info className="mt-0.5 h-4 w-4 shrink-0 rp-gold-text" />
+   906→          <p className="text-xs leading-relaxed text-muted-foreground">
+   907→            El score combina <span className="text-foreground">capacidad, preferencias, historial, rotación y contexto operativo</span>.
+   908→            Las razones se muestran para auditoría. La asignación final requiere confirmación del maitre.
+   909→            Datos demo — no se modifica ninguna reserva real.
+   910→          </p>
+   911→        </div>
+   912→      </section>
+   913→    </TooltipProvider>
+   914→  );
+   915→}
+   916→
+   917→/* =========================================================
+   918→ * Context cell
+   919→ * =======================================================*/
+   920→function ContextCell({
+   921→  icon: Icon,
+   922→  label,
+   923→  value,
+   924→}: {
+   925→  icon: React.ElementType;
+   926→  label: string;
+   927→  value: string;
+   928→}) {
+   929→  return (
+   930→    <div className="min-w-0">
+   931→      <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
+   932→        <Icon className="h-3 w-3" />
+   933→        {label}
+   934→      </div>
+   935→      <div className="mt-1 text-sm font-medium text-foreground truncate">{value}</div>
+   936→    </div>
+   937→  );
+   938→}
+   939→
+   940→function Label({ children }: { children: React.ReactNode }) {
+   941→  return (
+   942→    <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
+   943→      {children}
+   944→    </span>
+   945→  );
+   946→}
+   947→
