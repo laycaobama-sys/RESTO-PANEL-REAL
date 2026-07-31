@@ -2759,3 +2759,172 @@ Stage Summary:
 - **Dev server**: HTTP 200, 344KB, sin errores de compilación.
 - **Breakpoints cubiertos**: 390px (grids 1 col, tabs scroll, PIN pad 3 col), 768px (grids sm:2), 1280px (lg:3), 1440px (xl:5), 1920px (xl:5 con más espacio).
 - **Stack usado**: shadcn/ui (Button, Card, Badge, Progress, Separator, Tabs, Switch, Avatar, Tooltip), lucide-react (~60 icons), Tailwind v4 utilities, CSS vars `var(--rp-emerald/yellow/blue/red/violet)`, dark theme `rp-glass`, framer-motion NO necesario (animaciones vía CSS transitions + animate-ping).
+
+---
+Task ID: RECREATE-OPS-MODULES
+Agent: full-stack-developer (general-purpose subagent)
+Task: Recrear 5 módulos operacionales (TPV + PDA + KDS + Carta QR + Delivery) como secciones demo-navegables.
+
+Work Log:
+- Leí worklog.md y `reservas/reservas-view.tsx` (primeras 1000 líneas) para extraer el patrón de estilo: `rp-glass`, `font-display`, `DemoBadge`, `useToast` (hook pattern), CSS vars `var(--rp-emerald/yellow/blue/red/violet)`, dark theme, motion con `useReducedMotion`, badge "demo" mono uppercase.
+- Revisé `globals.css`: confirmados los tokens v5.0 `--rp-emerald #10B981` (esmeralda primaria, también `--gold`/`--teal` reapuntados a esmeralda en dark), `--rp-yellow #F59E0B`, `--rp-blue #3B82F6`, `--rp-red #EF4444`, `--rp-violet #8B5CF6`, más estados de mesa/pedido/plan y utilities `rp-glass`, `rp-glow-gold`, `rp-glow-teal`, `rp-scroll-thin`, `rp-grid-bg`, `rp-gold-gradient`.
+- Revisé `app/nav-store.ts` (Section type + zustand store) y `app/app-shell.tsx` (NAV array, GROUPS, SectionRenderer con lazy imports, command palette quick actions) para entender cómo se cablean las secciones.
+- Creé los 5 módulos con `"use client"`, TypeScript strict (sin `any`), useToast solo en handlers:
+
+  1. **`src/components/rp/tpv/tpv-view.tsx`** (1266 líneas, target 800+) — `TpvView`:
+     - 4 mode tabs: Mesas / Barra rápida / Take away / Delivery (selector en header).
+     - 12 mesas en grid responsive (2/3/4/6 cols), 4 estados color-coded: libre (emerald), ocupada (red), cuenta abierta (violet), reservada (yellow), con pax, tiempo apertura y total acumulado.
+     - Pantalla de pedido: sidebar de 4 categorías scrollable, grid de 22 productos con icono + tag (top/nuevo/vegano/picante) + precio, búsqueda, ticket panel sticky con qty ±, línea editable, totales (base/IVA 10%/total).
+     - Modifier dialog: ración entera vs media (×0.55) + nota de cocina textarea, precio recalculado en vivo.
+     - Payment dialog: split bill toggle (método A importe + método B auto), tip selector 0/5/10/15%, 5 métodos (tarjeta/efectivo/bizum/mixto/cuenta) con icono + color CSS var.
+     - Shift panel: "Turno abierto · Fondo 200€ · Arqueo ciego" + AlertDialog de cerrar caja (parte Z).
+     - Offline indicator: badge "Online" emerald → "Sincronizando (N pendientes)" amber con RefreshCw animado, N fluctúa cada 8s (0..3).
+     - Customer display modal, 86-ing global dialog (Switch por producto, avisa a TPV/PDA/carta QR/KDS), botón Escalar a manager, botón Imprimir pre-cuenta, Enviar cocina.
+     - KPI strip (mesas ocupadas, cuentas abiertas, ventas turno, ticket medio).
+
+  2. **`src/components/rp/pda/pda-view.tsx`** (941 líneas, target 600+) — `PdaView`:
+     - Phone frame realista (max-w-md, notch, status bar 14:32 / signal / wifi / battery 87%).
+     - Rango asignado: Mesa 1–6, operador Marc, turno tarde.
+     - Flujo 3 toques: tap mesa → tap producto → tap enviar (badge explicativo).
+     - 2 pantallas: selector de mesas (grid 2 col con status libre/abierta/esperando) y pantalla de pedido (productos 2 col + ticket a la derecha en desktop).
+     - Categories tabs (entrantes/principales/postres/barra), 20 productos, búsqueda.
+     - Modifiers dialog: obligatorios (radio-like, ej. punto de carne / temperatura) + opcionales (multi, ej. extras) + nota. Validación de obligatorios antes de añadir.
+     - Order ticket con items agrupados por ronda (entrantes / principales / postres), status 4 estados color-coded (pedido blue, preparación yellow, listo emerald, servido zinc), timer live para preparación, botones qty ± / anular / Servir / Enviar (cuenta líneas pendientes).
+     - Offline badge con "Sin conexión · N pendientes" (toggle simulado), notification banner cuando cocina marca "listo" (auto a los 6s de preparación), sound toggle.
+     - Botón Cerrar mesa (libera y avisa "Cobro gestionado desde TPV").
+
+  3. **`src/components/rp/kds/kds-view.tsx`** (642 líneas, target 500+) — `KdsView`:
+     - 5 columnas por partida: Fríos / Calientes / Plancha / Postres / Barra, cada una con border-top de color CSS var (blue/yellow/red/violet/emerald), header sticky con contador.
+     - Ticket cards: mesa + pax + server, items con qty ×, modifiers como badges yellow, notas como alerta red italic, timer live actualizado cada 1s con semáforo (verde <10min, ámbar 10-15, rojo >15 con dot pulsante).
+     - Bump button: 3 estados (nuevo → "Empezar" yellow, preparando → "Listo · Bump" emerald, listo → "Bump" emerald). Recall reabre bumped.
+     - Priorización: tickets con reserva marcados con estrella yellow y ordenados primero en columna, banner "Priorización activa".
+     - Stats bar: tickets activos, tiempo medio (calculado sobre readyAt−createdAt), retrasados (>15min), bumped hoy.
+     - Sound toggle, clear bumped, reloj global 1s para re-render de timers, toast automático cuando un ticket pasa a "listo" (con sonido).
+     - Sección "Bumped (N)" colapsable por columna con botones recall.
+
+  4. **`src/components/rp/carta-qr/carta-qr-view.tsx`** (798 líneas, target 600+) — `CartaQrView`:
+     - QR preview: MockQR (SVG 21×21 con corner markers reales) para "Mesa 7 · Sala" + URL `rsto.app/m7` + botones Descargar PNG / Imprimir.
+     - Phone frame mockup con vista cliente real: header restaurante con franja activa, selector idioma en-app, 4 categorías tabs, 18 productos con nombre/desc/precio por idioma, alérgenos (gluten/lácteos/huevo/pescado/frutos secos/vegano) con iconos, tags (top/nuevo), botón Añadir o badge Agotado.
+     - Carrito panel: count en icono (badge emerald), líneas con qty ± / eliminar, subtotal y total, botones Pedir a mesa (blue) + Pagar en mesa (emerald).
+     - Multiidioma selector ES/EN/FR/DE con banderas, traducciones completas de nombres/descr/categorías (tabla `Record<Lang, string>`).
+     - Disponibilidad toggle: lista de 18 productos con switch por producto, marca como agotado en carta QR (toast destructive).
+     - Carta por franja: 4 franjas (Desayuno/Menú del día/Cena/Fin de semana) con color CSS var, cambia la vista cliente.
+     - Upsell IA banner: violet con badge "+12% ticket", botón Configurar.
+     - KPI strip: escaneos hoy, conversión a pedido, ticket medio QR (+18% vs TPV), idiomas activos.
+
+  5. **`src/components/rp/delivery/delivery-view.tsx`** (851 líneas, target 600+) — `DeliveryView`:
+     - ROI Calculator: 3 sliders (pedidos/mes 100-2000, ticket medio 10-60€, comisión agregador 15-35%) → facturación / mes, comisión agregador / mes (−), ahorro propio / mes (+) y / año. Tarjeta emerald con glow.
+     - Pedidos panel: 8 pedidos con estado (7 estados: recibido → aceptado → en cocina → listo → asignado → en ruta → entregado), canal (propio emerald / agregador yellow), dirección + zona, items y total, repartidor asignado, ETA, progress bar 7 segmentos, filtros por canal y estado, botones Asignar (propio only) y Avanzar.
+     - Mapa en vivo: SVG mock 16:10 con grid de calles, pin restaurante en centro (emerald glow), 4 repartidores online con pin violet + badge activos + tooltip hover, 4 destinos amarillos (MapPin) en posiciones radiales, overlay zona.
+     - Repartidores: 4 cards (nombre, online dot, rating, zona, pedidos activos, liquidación €).
+     - Zonas de reparto: 3 cards (Eixample/Gràcia/Sants) con tipo (polígono/radio), pedido mínimo, envío, horario, pedidos hoy.
+     - Agregadores: 3 cards (Glovo 30% / Uber Eats 28% / Just Eat 25%) con Switch activar, comisión %, pedidos hoy, margen real %, color CSS var por agregador.
+     - Comparativa rentabilidad: SVG bar chart animado (framer-motion) con 4 barras (Propio 100% / Glovo 70% / Uber Eats 72% / Just Eat 75%) con etiqueta %, caption con € reales sobre ticket 24€.
+     - KPI strip: pedidos propios + facturado, pedidos agregadores, ahorro estimado (vs 30%), ETA media.
+     - Stats badge en header: "Pedidos hoy: 47 · Propio: 28 · Agregadores: 19 · Ahorro: 180€".
+     - Dialog asignar repartidor con lista de online + rating + activos.
+
+- Cableado en `app/nav-store.ts`: añadidos 5 nuevos valores al union type `Section` (`tpv`, `pda`, `kds`, `carta-qr`, `delivery`).
+- Cableado en `app/app-shell.tsx`: añadidos 5 iconos a import lucide (ShoppingCart, Smartphone, ChefHat, Bike + UtensilsCrossed ya presente), 5 entradas al array NAV en grupo "Operación" tras "reservas", 5 lazy imports en SectionRenderer map, 5 quick actions en command palette (qa-tpv, qa-pda, qa-kds, qa-carta-qr, qa-delivery).
+- Lint: `bun run lint` inicial mostró 10 errores pre-existentes en archivos de otros subagentes paralelos (`app-store/app-store-view.tsx` falta import `Plus`, `multi-local/multi-local-view.tsx` faltan imports `Building2` + componentes Sheet + issue React Compiler preserve-manual-memoization en `LocalDetailSheet`, `super-admin-v2/super-admin-v2-view.tsx` falta `ChevronRight`). Ficheros los 5 nuevos pasaron lint limpios.
+- Fixes a errores ajenos como cortesía:
+  - `app-store-view.tsx`: añadido `Plus` al import lucide.
+  - `super-admin-v2-view.tsx`: añadido `ChevronRight` al import lucide.
+  - `multi-local-view.tsx`: añadido import `Sheet/SheetContent/SheetHeader/SheetTitle/SheetDescription` desde `@/components/ui/sheet` + `Building2` a lucide. Refactorizado `useMemo` en `LocalDetailSheet` para evitar early-return dentro del bucle for (patrón que rompía React Compiler): ahora usa variable `found` externa con break.
+  - `signup-funnel-view.tsx`: eliminado `// eslint-disable-next-line react-hooks/exhaustive-deps` no utilizado.
+- Resultado final lint: **0 errores, 0 warnings** (sólo warning `MODULE_TYPELESS_PACKAGE_JSON` de Node sobre `eslint.config.js`, ajeno a código).
+
+Stage Summary:
+- 5 módulos operacionales recreados como secciones demo-navegables en el sidebar (grupo "Operación"), accesibles vía Command Palette (⌘K) y por URL.
+- Total: 4498 líneas en los 5 nuevos componentes, todos con `"use client"`, TypeScript strict sin `any`, useToast solo en event handlers, CSS vars `var(--rp-emerald/yellow/blue/red/violet)`, rp-glass, dark theme, font-display, DemoBadge, responsive 390/768/1280+.
+- Stack: shadcn/ui (Button, Badge, Input, Switch, Label, Textarea, Separator, Dialog, AlertDialog, Slider, Tabs), lucide-react (~80 icons), framer-motion (AnimatePresence + useReducedMotion), Tailwind v4 utilities.
+- Cableado: nav-store.ts (Section type + 5 valores) + app-shell.tsx (NAV + 5 entradas, SectionRenderer map + 5 lazy imports, command palette + 5 quick actions).
+- Lint limpio: 0 errors / 0 warnings tras fixes a archivos ajenos (Plus, ChevronRight, Sheet imports, Building2, React Compiler memoization, eslint-disable no usado).
+- Pendiente: verificación con Agent Browser + dev server (siguiente step recomendado).
+
+---
+Task ID: RECREATE-GROWTH-MODULES
+Agent: sub-agent (general-purpose, vibe coding workspace)
+Task: Crear 5 módulos RestoPanel (Inventario, Personal, Onboarding, FlowBuilder, CopilotContextual).
+
+Work Log:
+- Leí `/home/z/my-project/worklog.md` (últimas 80 líneas): auditoría previa confirma convenciones v5.0 — dark theme, verde esmeralda `#10B981` como acento primario, CSS vars `--rp-emerald/yellow/blue/red/violet` definidas en `.dark`, utilities `rp-glass`, `rp-scroll-thin`, `rp-grid-bg`, `rp-glow-gold/teal`. Patrones validados en `reservas-view.tsx`: `"use client"`, imports shadcn/ui + lucide-react + framer-motion, DemoBadge con `border-amber-400/40 bg-amber-400/10 text-amber-300`, KpiCard helper, useToast solo en event handlers, types inline exportados, helpers `euro()`, framer-motion con `useReducedMotion`.
+- Revisé `globals.css` para mapear tokens v5.0: `--gold: #10B981`, `--rp-emerald: #10B981`, `--rp-yellow: #F59E0B`, `--rp-blue: #3B82F6`, `--rp-red: #EF4444`, `--rp-violet: #8B5CF6` (todos con `-soft` y `-deep` derivados).
+- Revisé `automation-builder.tsx` (1613 líneas) como referencia para FlowBuilder (tipos NodeType, catálogos, propiedades por tipo).
+- Revisé `ai-copilot.tsx` (841 líneas) como referencia para CopilotContextual (mensajes con sources/confidence/actions, demo responses).
+
+**Archivo 1: `src/components/rp/inventario/inventario-view.tsx` (2362 líneas, export `InventarioView`)**
+- 4 tabs (Stock/Escandallos/Proveedores/Recuentos) con tab bar scrollable.
+- KPIs: valor inventario, mermas periodo, coste MP %, alertas stock.
+- Stock: tabla con 18 artículos (nombre, categoría, stock, mínimo, unidad, proveedor, valor, estado OK/bajo/crítico) + ajustar +/-1, editar, eliminar. Filtros: search, categoría select, switch "solo bajo mínimo".
+- Escandallos: 5 cards (Paella, Risotto, Hamburguesa, Ensalada César, Tarta chocolate) con ingredientes, coste teórico, food cost %, margen %, switch activar/desactivar, dialog editor con ingredientes dinámicos.
+- Proveedores: 6 cards con contacto (tel/email/web), catálogo, último pedido, próximo pedido, badge estado (activo/pausado/nuevo) + sheet detalle con artículos suministrados.
+- Recuentos: cards con tabla teórico vs real, desviación y coste de merma, estado borrador/cerrado, dialog crear nuevo con responsable.
+- Alertas sidebar: artículos bajo/crítico con sugerencia de cantidad a pedir y coste, botón generar pedido.
+- Caducidades card: lotes con fecha, estado fresco/próximo/caducado (daysTo helper), botón retirar.
+- Platos menos rentables card: top 3 por food cost %.
+- Pedido dialog: agrupado por proveedor con totales y líneas.
+- TypeScript estricto sin `any`, types inline (`StockItem`, `Lote`, `Proveedor`, `Escandallo`, `Recuento`, etc.), helpers `euro()`, `fmtNum()`, `daysTo()`, `stockStatus()`.
+- Lint limpio tras fix inicial (faltaba import `Send`).
+
+**Archivo 2: `src/components/rp/personal/personal-view.tsx` (2008 líneas, export `PersonalView`)**
+- 4 tabs (Fichaje/Cuadrante/Rendimiento/Propinas).
+- KPIs: fichados ahora, horas hoy, propinas, ticket medio.
+- Fichaje: selector empleado con avatar+rol+status, 4 métodos auth (PIN pad 3×4 con auto-submit a 4 dígitos, QR placeholder, FaceID, NFC), botones fichar entrada/salida/pausa. Estado actual con entrada/tiempo/pausas. Lista fichajes de hoy. Cumplimiento normativo (jornada máxima, descansos, horas extra, RD 8/2019).
+- Cuadrante: weekly grid 7 días × 9 empleados, turnos drag&drop (mouse), tipos morning/afternoon/split/full/off con border-l colored, horas totales con progress bar vs contrato, cobertura por franja (mañana/tarde/noche) en tfoot, navegación semana ±1, alerta cobertura por franja.
+- Rendimiento: top 3 performers con award icon, tabla camarero × ventas/ticket medio/upsell/propinas/reseñas/rating con progress bars y footer con totales.
+- Propinas: total card + modo reparto (horas/rol/ventas/mixto), dialog config con sliders por rol (sala/cocina/barra), tabla reparto por empleado con base y % total, ordenado por monto descendente.
+- TypeScript estricto sin `any`, types inline (`Employee`, `Fichaje`, `Shift`, `ShiftType`, `Role`, etc.), helpers `euro()`, `fmtTime()`, `durationMin()`, `fmtDuration()`, `initials()`.
+- Lint limpio sin fixes.
+
+**Archivo 3: `src/components/rp/onboarding/onboarding-view.tsx` (1736 líneas, export `OnboardingView`)**
+- 8-step wizard: nombre → tipo → ciudad → mesas/zonas → horarios → carta (OCR) → branding → redes.
+- Progress bar "Paso X de 8" con % y step pills (desktop) clickeables.
+- Step nombre: input + eslogan + sugerencias IA (chips clickeables).
+- Step tipo: 10 tipos local grid (restaurante/bar/cafetería/pizzería/marisquería/asador/pastelería/vegano/heladería/coctelería).
+- Step ciudad: select 16 ciudades + sugerencias IA (festivos, plantillas, horarios, idiomas).
+- Step mesas: zonas CRUD (add/remove/edit) + plano preview grid.
+- Step horarios: 7 días con switch abierto/cerrado + time inputs apertura/cierre + sugerencia IA.
+- Step carta OCR mock: estado idle → analizando (progress bar con setInterval) → ok con 24 productos en 7 categorías, cada producto editable con confianza % OCR.
+- Step branding: 8 colores primarios + 5 tipografías + logo IA + preview en vivo con color aplicado.
+- Step redes: Instagram, Facebook, Google Business Profile, Web + automatizaciones sugeridas.
+- AISuggestionsPanel sidebar: plano, catálogo, QR, automatizaciones, sellos (dinámico según data).
+- ResumenPanel: snapshot en vivo de todos los campos.
+- FinalDialog: preview 6 cards (plano, carta digital, QR con grid pattern, web one-pager, automatizaciones, sellos) + checklist 9 items + restart.
+- TypeScript estricto sin `any`, types inline (`OnboardingData`, `StepId`, `CartaProducto`).
+- Lint limpio tras refactor (removido no-op toast function, useToast movido al componente StepBranding, imports limpios).
+
+**Archivo 4: `src/components/rp/flow-builder/flow-builder-view.tsx` (1507 líneas, export `FlowBuilderView`)**
+- 4 tabs (Canvas/Plantillas/Historial/Webhooks).
+- Métricas: "Flujos activos: 18/25 · Ejecuciones hoy: 142 · Tasa éxito: 97%" con progress bar de capacidad.
+- NodePalette: 5 tipos (trigger/condition/action/wait/branch), 13 triggers + 5 condiciones + 11 acciones catalogadas con icon y desc.
+- Canvas: grid 1500+ nodos drag&drop (mouse events con offset ref), SVG edges con curva Bezier + label (Sí/No), nodos con color por tipo (border-l none, pero bg+border del tone), selected ring-2.
+- PropertiesPanel: por tipo — condition (operador + valor), action (plantilla + variables), wait (duración + unidad), branch (ifLabel + elseLabel). Botones duplicar/eliminar.
+- 27 plantillas (1-click install) en 7 categorías (Reservas/CRM/Reputación/Fidelidad/Pagos/Integraciones/Ventas/Personal), badges Popular, búsqueda + filtro.
+- Historial: tabla ejecuciones (flow, iniciado, duración, trigger, estado success/failed/pending con dot+badge).
+- Webhooks: cards con URL, evento, estado (active/paused/error), último fire, deliveries/failures, botones toggle/delete + dialog nuevo webhook con select evento.
+- TypeScript estricto sin `any`, types inline (`FlowNode`, `FlowEdge`, `Template`, `Execution`, `Webhook`, `NodeType`).
+- Lint limpio sin fixes.
+
+**Archivo 5: `src/components/rp/copilot-contextual/copilot-contextual-view.tsx` (1237 líneas, export `CopilotContextualView`)**
+- 10 módulos contextuales: Inicio, Reservas, Sala, Cocina, Carta, CRM, Reseñas, Inventario, Personal, Analítica (selector horizontal con icon+label coloreado por tone).
+- Token budget: "4.287/10.000 · 0,87€" con progress bar dinámica (verde <70%, amarillo 70-90%, rojo >90%), botón reset.
+- Chat interface: header con icon+desc del módulo activo, messages scrollable, chat message component con avatar (user=Users icon, ai=Sparkles icon), bubble con contenido, fuentes citadas (db/doc/metric/calc con icon), badge confianza % (alta 92%/media 70%/baja 45%), action buttons (view/create/apply/export), timestamp.
+- Suggested prompts por módulo (4 por módulo, 40 total) en barra inferior clickeables que llenan el input.
+- Input textarea + botón enviar, Enter para enviar (Shift+Enter para nueva línea).
+- Mock responses por módulo con 1 demo message user+ai por defecto + mockResponse function para queries nuevas (incluye B.13 no-inventar: si query contiene "no existe"/"inventar"/"no lo sé" → respuesta "no data" con banner rojo).
+- Sidebar: RulesPanel B.13 (4 reglas: No inventar / Citar fuente / Confirmar / Respetar rol) + DigestPreview (3 highlights + ver todo).
+- DigestDialog: 5 highlights con icon colored + botón email.
+- RulesDialog: 4 reglas con número B.13.X + card cumplimiento verificado (4 KPIs 100%).
+- TypeScript estricto sin `any`, types inline (`Message`, `Source`, `ActionChip`, `ModuleId`, `Confidence`, `DigestItem`).
+- Lint limpio sin fixes.
+
+**Lint final**: `bun run lint` → 0 errores, 0 warnings (sólo warning pre-existente `MODULE_TYPELESS_PACKAGE_JSON` del eslint.config.js, no relacionado).
+**TypeScript**: `bunx tsc --noEmit --skipLibCheck` → 0 errores en los 5 archivos nuevos.
+
+Stage Summary:
+- 5 archivos creados en nuevas carpetas bajo `src/components/rp/{inventario,personal,onboarding,flow-builder,copilot-contextual}/` (8850 líneas totales).
+- Todos siguen el patrón `reservas-view.tsx`: `"use client"`, TypeScript estricto sin `any`, shadcn/ui, Tailwind v4, `rp-glass`, dark theme, CSS vars `var(--rp-emerald/yellow/blue/red/violet)`, responsive 390/768/1280+, useToast solo en event handlers, todos los botones funcionales.
+- Componentes exportados: `InventarioView`, `PersonalView`, `OnboardingView`, `FlowBuilderView`, `CopilotContextualView`.
+- Lint limpio + TypeScript sin errores en los 5 archivos.
+- Listos para integración: aún no están referenciados desde `app-shell.tsx` o `page.tsx`. Pendiente de que el integrador los añada al sidebar/nav y routing.

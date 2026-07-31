@@ -12,6 +12,7 @@ import {
   Crown, BrainCircuit, BookOpen, UtensilsCrossed, Pin, PinOff, Check, CheckCheck,
   Mail, Lock, User, Eye, EyeOff, AlertCircle, Loader2, ArrowRight, KeyRound,
   MessageSquare, CalendarX, TrendingDown, UserPlus,
+  ShoppingCart, Smartphone, ChefHat, Bike,
 } from "lucide-react";
 import {
   Dialog,
@@ -24,6 +25,11 @@ const NAV: { id: Section; label: string; icon: React.ElementType; group: string 
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, group: "Operación" },
   { id: "executive", label: "Centro Ejecutivo", icon: Crown, group: "Operación" },
   { id: "reservas", label: "Reservas", icon: CalendarDays, group: "Operación" },
+  { id: "tpv", label: "TPV", icon: UtensilsCrossed, group: "Operación" },
+  { id: "pda", label: "PDA Comandero", icon: Smartphone, group: "Operación" },
+  { id: "kds", label: "KDS Cocina", icon: ChefHat, group: "Operación" },
+  { id: "carta-qr", label: "Carta QR", icon: ShoppingCart, group: "Operación" },
+  { id: "delivery", label: "Delivery", icon: Bike, group: "Operación" },
   { id: "crm", label: "Clientes", icon: Users, group: "Relación" },
   { id: "marketing", label: "Marketing", icon: Megaphone, group: "Relación" },
   { id: "automatizaciones", label: "Automatizaciones", icon: Workflow, group: "Relación" },
@@ -875,6 +881,11 @@ function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (
     const quick: CmdAction[] = [
       { id: "qa-executive", label: "Abrir Centro Ejecutivo", hint: "IA + Alertas", icon: Crown, group: "Acciones", run: () => useNav.getState().go("executive") },
       { id: "qa-new-reserva", label: "Nueva reserva", hint: "Crear reserva", icon: CalendarPlus, group: "Acciones", run: () => useNav.getState().go("reservas") },
+      { id: "qa-tpv", label: "Abrir TPV", hint: "Punto de venta", icon: UtensilsCrossed, group: "Acciones", run: () => useNav.getState().go("tpv") },
+      { id: "qa-pda", label: "Tomar comanda PDA", hint: "Comandero en sala", icon: Smartphone, group: "Acciones", run: () => useNav.getState().go("pda") },
+      { id: "qa-kds", label: "Ver KDS cocina", hint: "Display de cocina", icon: ChefHat, group: "Acciones", run: () => useNav.getState().go("kds") },
+      { id: "qa-carta-qr", label: "Carta QR", hint: "Order & Pay móvil", icon: ShoppingCart, group: "Acciones", run: () => useNav.getState().go("carta-qr") },
+      { id: "qa-delivery", label: "Delivery propio", hint: "0% comisión", icon: Bike, group: "Acciones", run: () => useNav.getState().go("delivery") },
       { id: "qa-search-client", label: "Buscar cliente", hint: "Abrir CRM", icon: UserSearch, group: "Acciones", run: () => useNav.getState().go("crm") },
       { id: "qa-floor-plan", label: "Ver plano de mesas", hint: "Abrir reservas", icon: MapIcon, group: "Acciones", run: () => useNav.getState().go("reservas") },
       { id: "qa-marketing", label: "Lanzar campaña", hint: "Marketing", icon: Megaphone, group: "Acciones", run: () => useNav.getState().go("marketing") },
@@ -1478,6 +1489,11 @@ function SectionRenderer({ section }: { section: Section }) {
       dashboard: React.lazy(() => import("@/components/rp/dashboard/home").then((m) => ({ default: m.Home }))),
       executive: React.lazy(() => import("@/components/rp/executive/executive-view").then((m) => ({ default: m.ExecutiveView }))),
       reservas: React.lazy(() => import("@/components/rp/reservas/reservas-view").then((m) => ({ default: m.ReservasView }))),
+      tpv: React.lazy(() => import("@/components/rp/tpv/tpv-view").then((m) => ({ default: m.TpvView }))),
+      pda: React.lazy(() => import("@/components/rp/pda/pda-view").then((m) => ({ default: m.PdaView }))),
+      kds: React.lazy(() => import("@/components/rp/kds/kds-view").then((m) => ({ default: m.KdsView }))),
+      "carta-qr": React.lazy(() => import("@/components/rp/carta-qr/carta-qr-view").then((m) => ({ default: m.CartaQrView }))),
+      delivery: React.lazy(() => import("@/components/rp/delivery/delivery-view").then((m) => ({ default: m.DeliveryView }))),
       crm: React.lazy(() => import("@/components/rp/crm/crm-view").then((m) => ({ default: m.CrmView }))),
       marketing: React.lazy(() => import("@/components/rp/crm/marketing-view").then((m) => ({ default: m.MarketingView }))),
       automatizaciones: React.lazy(() => import("@/components/rp/automations/automation-builder").then((m) => ({ default: m.AutomationBuilder }))),
@@ -1495,9 +1511,31 @@ function SectionRenderer({ section }: { section: Section }) {
       "ai-center": React.lazy(() => import("@/components/rp/ai-center/ai-center").then((m) => ({ default: m.AiCenter }))),
       "ai-knowledge": React.lazy(() => import("@/components/rp/ai-center/ai-knowledge").then((m) => ({ default: m.AiKnowledge }))),
       "ai-menu": React.lazy(() => import("@/components/rp/ai-center/ai-menu").then((m) => ({ default: m.AiMenu }))),
+      inventario: React.lazy(() => import("@/components/rp/inventario/inventario-view").then((m) => ({ default: m.InventarioView }))),
+      personal: React.lazy(() => import("@/components/rp/personal/personal-view").then((m) => ({ default: m.PersonalView }))),
+      onboarding: React.lazy(() => import("@/components/rp/onboarding/onboarding-view").then((m) => ({ default: m.OnboardingView }))),
+      "flow-builder": React.lazy(() => import("@/components/rp/flow-builder/flow-builder-view").then((m) => ({ default: m.FlowBuilderView }))),
+      "copilot-contextual": React.lazy(() => import("@/components/rp/copilot-contextual/copilot-contextual-view").then((m) => ({ default: m.CopilotContextualView }))),
+      "multi-local": React.lazy(() => import("@/components/rp/multi-local/multi-local-view").then((m) => ({ default: m.MultiLocalView }))),
+      "app-store": React.lazy(() => import("@/components/rp/app-store/app-store-view").then((m) => ({ default: m.AppStoreView }))),
+      "super-admin-v2": React.lazy(() => import("@/components/rp/super-admin-v2/super-admin-v2-view").then((m) => ({ default: m.SuperAdminV2View }))),
+      "signup-funnel": React.lazy(() => import("@/components/rp/signup-funnel/signup-funnel-view").then((m) => ({ default: m.SignupFunnelView }))),
+      entitlements: React.lazy(() => import("@/components/rp/entitlements/entitlements-view").then((m) => ({ default: m.EntitlementsView }))),
+      "saas-metrics": React.lazy(() => import("@/components/rp/saas-metrics/saas-metrics-view").then((m) => ({ default: m.SaasMetricsView }))),
+      "health-score": React.lazy(() => import("@/components/rp/health-score/health-score-view").then((m) => ({ default: m.HealthScoreView }))),
+      "upgrade-engine": React.lazy(() => import("@/components/rp/upgrade-engine/upgrade-engine-view").then((m) => ({ default: m.UpgradeEngineView }))),
     };
-    return map[section];
+    return map[section] ?? null;
   }, [section]);
+
+  if (!Lazy) {
+    return (
+      <div className="space-y-4">
+        <div className="h-8 w-48 rounded-md bg-foreground/10" />
+        <p className="text-sm text-muted-foreground">Cargando sección…</p>
+      </div>
+    );
+  }
 
   return (
     <React.Suspense fallback={<SectionSkeleton />}>

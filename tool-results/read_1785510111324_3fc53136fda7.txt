@@ -1,0 +1,477 @@
+   800→1.10 Carta digital v1: QR por mesa, imágenes optimizadas, alérgenos,
+   801→etiquetas, buscador, filtros, multiidioma, disponibilidad en vivo,
+   802→branding, WCAG 2.2 AA, carga < 1,5 s en 4G.
+   803→
+   804→GATE DE SALIDA
+   805→- 4 horas sin internet, 200 tickets: 0 pérdidas, 0 duplicados, todo
+   806→sincronizado y cuadrado al volver.
+   807→- Pedido en PDA visible en KDS en < 3 s p95.
+   808→- Agotar un producto desaparece de carta, PDA y TPV en < 3 s.
+   809→- Cierre de caja completo en < 2 min con descuadre explicado.
+   810→- Auditoría fiscal simulada superada (cadena de hashes verificable).
+   811→- Un servicio real de 100+ comensales sin intervención de ingeniería.
+   812→
+   813→=================================================================
+   814→FASE 2 — CLIENTE, DATO Y ONBOARDING IA
+   815→Aquí nace el dato propio y la rotación.
+   816→=================================================================
+   817→OBJETIVO
+   818→Conectar comensal, reserva, mesa, comanda, pago y fidelización en una
+   819→sola ficha, y que un restaurante pueda arrancar solo en 5 minutos.
+   820→
+   821→ENTREGABLES
+   822→2.1 Order & Pay: pedido del comensal → KDS y TPV sin intervención,
+   823→ronda de grupo, pedido por rondas, pago en mesa con división y
+   824→propina, factura por email/WhatsApp, canje de sellos y cupones.
+   825→2.2 Llamar al camarero: llamada contextual, push al camarero del rango,
+   826→escalado automático a encargado y pantalla de sala, cooldown
+   827→anti-abuso, métrica de tiempo de respuesta.
+   828→2.3 Carta digital premium: VÍDEO en ficha de producto (autoplay, muted,
+   829→bucle, 3-8 s, transcodificación automática, poster, < 2 MB),
+   830→vista inmersiva tipo stories, valoraciones verificadas de quien pidió
+   831→el plato, tiempo estimado de preparación, cartas por franja/zona/canal
+   832→con programación.
+   833→2.4 Recomendador de productos: motor único servido a carta, checkout y
+   834→PDA. Señales: historial del comensal, carrito, hora, día, clima,
+   835→ocupación, estado de cocina, margen real, stock y rotación,
+   836→popularidad por franja. Reglas: nunca recomendar agotado o fuera de
+   837→horario, tope de sesgo por margen, exclusiones manuales del gerente,
+   838→medición de tasa de aceptación y aprendizaje por local.
+   839→2.5 Reservas completas: widget propio, Reservar con Google, redes,
+   840→WhatsApp, TheFork; motor de turnos con duración APRENDIDA de los
+   841→datos del propio local, doble turno con buffer, pacing por franjas de
+   842→15 min, asignación inteligente con combinación de mesas, bloqueos
+   843→para walk-in, sobreventa controlada, recolocación automática.
+   844→2.6 Anti no-show: confirmación inmediata, recordatorios T-24h y T-3h,
+   845→cancelación fácil, prepago y tarjeta en garantía, scoring de riesgo
+   846→por historial, reconfirmación reforzada solo para alto riesgo.
+   847→2.7 Waitlist y walk-ins: alta desde la puerta, espera estimada dinámica,
+   848→aviso por WhatsApp al liberarse mesa, aceptación en 1 clic,
+   849→cola de huecos por cancelación, métrica de mesas y euros recuperados.
+   850→2.8 Reservas ↔ PDA: al sentar, el camarero ve nombre, comensales, VIP,
+   851→alergias, preferencias, última visita, plato favorito, cumpleaños y
+   852→notas internas. Sin buscar nada.
+   853→2.9 CRM unificado: ficha alimentada por reserva, QR, PDA, delivery, wifi,
+   854→pago y reseña; deduplicación por teléfono/email con fusión asistida;
+   855→timeline completo; ticket medio, frecuencia, LTV, estado del ciclo de
+   856→vida; consentimientos RGPD por canal con origen y baja en 1 clic.
+   857→2.10 Fidelización por sellos: motor de reglas (importe mínimo, producto,
+   858→visita, canal, franja), sello automático al pagar en cualquier canal,
+   859→canje en TPV/PDA/carta/tienda, Apple y Google Wallet sin app,
+   860→aviso "te falta 1 sello", caducidades, y ROI del programa en euros.
+   861→2.11 Analítica v1 + BASELINE AUTOMÁTICO: durante los primeros 30 días el
+   862→sistema calcula el punto de partida del cliente (ciclo de mesa,
+   863→rotaciones, ticket medio por canal, no-shows, retorno) para poder
+   864→demostrar el antes/después con SUS datos. Alimenta `impact_benchmarks`.
+   865→2.12 ONBOARDING IA (5 minutos, sin intervención humana):
+   866→Entrevista conversacional: nombre, tipo de local, ciudad, nº de mesas
+   867→y zonas, horarios, carta (subida de PDF/Excel o FOTO de la carta con
+   868→OCR+IA), logo, colores, web, Instagram, Google Business, WhatsApp.
+   869→Genera automáticamente: plano de mesas inicial, catálogo con
+   870→categorías/precios/alérgenos sugeridos, carta digital con branding,
+   871→QR por mesa listos para imprimir, configuración de reservas y turnos,
+   872→web del restaurante, plantillas de mensajes, 5 automatizaciones base,
+   873→programa de sellos inicial, roles y usuarios, impresoras detectadas,
+   874→y un checklist de lo que queda por revisar.
+   875→Todo revisable y reversible. Nada se publica sin confirmación.
+   876→2.13 Modo formación y datos demo precargados para probar sin configurar.
+   877→2.14 Importador y migración: carta, comensales, reservas históricas, stock,
+   878→saldos de fidelización. Conectores desde competidores. Validación,
+   879→previsualización y rollback.
+   880→
+   881→GATE DE SALIDA
+   882→- Un comensal que reserva, pide por QR, paga, gana un sello y deja una
+   883→reseña genera UNA sola ficha, sin duplicados.
+   884→- Un restaurante nuevo pasa de registro a "listo para cobrar" en < 30 min
+   885→sin ayuda humana, y en < 10 min con el onboarding IA.
+   886→- El baseline de KPIs se calcula solo y es visible al cliente.
+   887→- Ninguna ficha de comensal vive fuera del CRM (auditoría de esquema).
+   888→
+   889→=================================================================
+   890→FASE 3 — COMERCIALIZACIÓN (listo para vender)
+   891→A partir de aquí RestoPanel se puede facturar.
+   892→=================================================================
+   893→OBJETIVO
+   894→Que un desconocido pueda descubrir, probar, comprar, usar exactamente
+   895→lo que compró y ampliar, sin que nadie del equipo intervenga.
+   896→
+   897→ENTREGABLES
+   898→3.1 Billing Engine completo (PARTE E) con adaptador Stripe, ledger propio,
+   899→idempotencia, reconciliación diaria, impuestos, facturación propia,
+   900→dunning y portal de cliente.
+   901→3.2 Trial autoservicio 14 días con Professional, sin tarjeta, con
+   902→degradación suave a Starter al terminar.
+   903→3.3 Upgrade Engine (D.7) completo, con medición de conversión por señal.
+   904→4.4 Medición de consumo y facturación de excesos (emails, WhatsApp, SMS,
+   905→tokens de IA, llamadas API, almacenamiento).
+   906→3.5 LANDING DINÁMICA POR PLAN: al seleccionar Starter / Professional /
+   907→Enterprise cambia todo (color de acento, hero, vídeo, dashboard
+   908→mostrado, funciones, precio, testimonios, CTA y copy). Sensación de
+   909→tres productos dentro de una marca. Estado en la URL para compartir.
+   910→3.6 Web pública completa: hero cinematográfico con demo real en autoplay,
+   911→contadores animados desde `impact_benchmarks`, problema→solución,
+   912→dashboard interactivo navegable, DEMO SANDBOX sin registro
+   913→(mover mesa, crear reserva, editar comensal, abrir CRM, lanzar
+   914→automatización; datos que se reinician), plano de mesas, CRM, IA,
+   915→reseñas, automatizaciones, waitlist, BI, App Store, comparador
+   916→competitivo con slider, CALCULADORA DE ROI (reservas/mes, ticket medio,
+   917→% no-show, personal, nº locales, % de recuperación estimado → ingresos
+   918→recuperables, no-shows evitados, tiempo ahorrado, ahorro en comisiones
+   919→de delivery, ROI y PLAN RECOMENDADO), precios interactivos, comparador
+   920→de 70+ funciones con buscador y filtros, tour interactivo de 4 pasos,
+   921→testimonios en vídeo, casos de éxito con gráficas, FAQ con Schema,
+   922→blog, centro de recursos, páginas SEO "RestoPanel vs X", integraciones,
+   923→seguridad, API, status y footer premium.
+   924→3.7 SEO/AEO/LLMO: Schema (Organization, SoftwareApplication, Product,
+   925→FAQPage, BreadcrumbList, Review), OpenGraph, sitemaps, hreflang,
+   926→Core Web Vitals verdes, contenido estructurado y citable por modelos
+   927→de IA, llms.txt, feeds de documentación indexables.
+   928→3.8 Página de status pública alimentada desde Super Admin.
+   929→3.9 Centro de ayuda y documentación de producto.
+   930→
+   931→GATE DE SALIDA
+   932→- Compra end-to-end con tarjeta real: pago → entitlements activos en < 10 s
+   933→→ el panel muestra exactamente ese plan y nada más.
+   934→- Downgrade y upgrade con prorrateo correcto, verificado contra el ledger.
+   935→- Impago: el restaurante SIGUE pudiendo cobrar y comandar (B.5).
+   936→- E2E por plan: cero rutas, endpoints, eventos o strings de features
+   937→superiores alcanzables.
+   938→- Lighthouse ≥ 95 en la web pública. LCP < 2 s en el panel.
+   939→
+   940→=================================================================
+   941→FASE 4 — CRECIMIENTO
+   942→Lo que hace que el cliente facture más y no se vaya.
+   943→=================================================================
+   944→4.1 Delivery propio 0% comisión: tienda con dominio del restaurante,
+   945→zonas por polígono/radio/CP, mínimos, envíos, horarios y tiempos
+   946→dinámicos según carga de cocina, programación, recogida en local.
+   947→4.2 Gestión de reparto: estados, asignación, agrupación por proximidad,
+   948→app del repartidor, mapa en vivo, seguimiento público, liquidación.
+   949→4.3 Optimización de rutas (Enterprise).
+   950→4.4 Agregadores (Glovo, Uber Eats, Just Eat): todos los pedidos al MISMO
+   951→KDS, sincronización bidireccional de carta y disponibilidad,
+   952→rentabilidad real por canal después de comisiones.
+   953→4.5 Reputación: Google Business Profile, TripAdvisor, TheFork; solicitud
+   954→automática en el momento óptimo; encuesta previa que desvía lo negativo
+   955→a atención privada; panel de sentimiento y temas; respuesta sugerida
+   956→por IA con aprobación humana; alerta inmediata al gerente;
+   957→cruce reseña ↔ turno ↔ camarero ↔ pedido para hallar la causa raíz.
+   958→4.6 Marketing: campañas email, WhatsApp Business API y SMS, editor visual,
+   959→plantillas, segmentos dinámicos, A/B, atribución de ingresos real.
+   960→4.7 Automatizaciones + Flow Builder visual: disparador → condición →
+   961→acción → espera → ramificación; 25+ plantillas de un clic; historial,
+   962→errores, reintentos e impacto medido en euros; webhooks.
+   963→4.8 Campañas de horas valle con detección automática del hueco.
+   964→4.9 Motor de configuración centralizada (exigencia cumplida):
+   965→TODO desde RestoPanel, sin salir nunca a Cloudflare, Stripe, GitHub,
+   966→Resend ni ningún proveedor. Incluye: dominio personalizado con
+   967→verificación DNS guiada y SSL automático, remitentes de email con
+   968→SPF/DKIM/DMARC verificados en el propio panel, WhatsApp Business
+   969→(registro, plantillas y estado de aprobación), plantillas de mensajes,
+   970→horarios, reservas, TPV, impresoras, QR, carta, integraciones, IA,
+   971→automatizaciones, empleados, roles, pagos, facturación y branding.
+   972→Tú configuras la infraestructura una vez; el cliente nunca ve un
+   973→panel de terceros.
+   974→
+   975→GATE DE SALIDA
+   976→- Un pedido de agregador y uno de la tienda propia entran al mismo KDS y
+   977→a la misma analítica, indistinguibles operativamente.
+   978→- Una campaña reporta ingresos atribuidos verificables.
+   979→- Un cliente conecta dominio propio, email y WhatsApp sin salir del panel.
+   980→
+   981→=================================================================
+   982→FASE 5 — CONTROL Y COPILOT
+   983→Rentabilidad, no solo actividad.
+   984→=================================================================
+   985→5.1 Inventario y escandallos: artículos, conversiones, proveedores,
+   986→recetas y subrecetas, coste teórico, food cost %, descuento automático
+   987→al vender, compras, recepción, albaranes, inventarios con desviación
+   988→y mermas en euros, alertas de stock mínimo, caducidades y lotes.
+   989→5.2 Menu engineering: matriz estrella / vaca / puzzle / perro, conectada
+   990→al recomendador de la carta y a la sugerencia de la PDA.
+   991→5.3 Personal: fichaje desde TPV/PDA/móvil/quiosco (PIN, QR, biometría),
+   992→registro horario conservable 4 años y exportable a inspección,
+   993→geolocalización opcional, cuadrante drag & drop, plantillas,
+   994→ausencias y aprobaciones, horas extra y descansos, coste de personal
+   995→en vivo, ratio coste/ventas por franja, rendimiento por camarero,
+   996→reparto de propinas, resumen diario personal.
+   997→5.4 Previsión de plantilla por IA (reservas + histórico + clima + eventos).
+   998→5.5 Sugerencia de compras por IA según consumo previsto.
+   999→5.6 BI avanzado: rentabilidad por plato/categoría/canal/zona/camarero,
+  1000→heatmap día×hora, embudo completo (carta → pedido → ticket → reseña →
+  1001→retorno), comparativas entre locales, informes programados.
+  1002→5.7 Forecast de ventas y demanda con intervalos de confianza.
+  1003→5.8 Detección de anomalías: descuentos excesivos, anulaciones sospechosas,
+  1004→descuadres, mermas fuera de rango, patrones de fraude interno.
+  1005→5.9 COPILOT EN TODAS LAS PANTALLAS (no un chat aparte):
+  1006→Arquitectura: un runtime de copiloto + herramientas registradas por
+  1007→módulo, con RAG sobre los datos del tenant vía Vectorize.
+  1008→El panel del copiloto conoce SIEMPRE la pantalla, los filtros y la
+  1009→selección actual.
+  1010→Por módulo:
+  1011→Inicio → resumen ejecutivo del día y de la semana.
+  1012→Reservas → "¿optimizo el sábado?" → propuesta de turnos y pacing.
+  1013→Sala → "¿cómo recoloco esta mesa que se retrasa?"
+  1014→Cocina → "¿por qué vamos lentos?" → cuello de botella y acción.
+  1015→Carta → "¿qué plato subo de precio?" → margen + elasticidad.
+  1016→CRM → "campaña para quienes no vienen desde hace 60 días".
+  1017→Reseñas → borrador de respuesta con el tono de la marca.
+  1018→Inventario → "qué comprar mañana" → pedido sugerido por proveedor.
+  1019→Personal → "necesitas 2 camareros más el viernes" → cuadrante.
+  1020→Analítica → explicación de la desviación y su causa probable.
+  1021→Reglas duras: B.13. Toda acción de escritura requiere confirmación
+  1022→explícita y queda auditada. Presupuesto de tokens por plan.
+  1023→Resumen diario automático al cierre.
+  1024→
+  1025→GATE DE SALIDA
+  1026→- El food cost calculado coincide con el inventario real (±2%) en un
+  1027→local piloto durante un mes.
+  1028→- El forecast de ventas a 7 días tiene error medio < 15% en pilotos.
+  1029→- El copiloto no produce ni una sola cifra no trazable a una fuente
+  1030→(auditoría manual de 200 respuestas).
+  1031→
+  1032→=================================================================
+  1033→FASE 6 — ESCALA ENTERPRISE
+  1034→Grupos, cadenas y franquicias.
+  1035→=================================================================
+  1036→6.1 Multi-local avanzado: jerarquía Org → Marca → Local, cambio de local
+  1037→en 1 clic, dashboard global con mapa y comparativa entre locales,
+  1038→informes consolidados, cierres de grupo.
+  1039→6.2 Carta central con overrides de precio, disponibilidad e IVA por local,
+  1040→y publicación programada a N locales.
+  1041→6.3 Modo franquicia: herencia de configuración con BLOQUEOS por nivel
+  1042→(qué puede y qué no puede tocar cada local), plantillas de local,
+  1043→alta de franquiciado en minutos, royalties y reporting.
+  1044→6.4 Gobierno e identidad: SSO SAML/OIDC, SCIM (aprovisionamiento y baja
+  1045→automática), roles personalizados, permisos granulares completos,
+  1046→passkeys obligatorias, IP allowlist, políticas de sesión.
+  1047→6.5 Auditoría Enterprise: retención ilimitada, búsqueda avanzada,
+  1048→exportación firmada, alertas de eventos sensibles.
+  1049→6.6 API pública v1: REST versionada, OpenAPI, paginación por cursor,
+  1050→rate limits por plan, claves con ámbitos, webhooks con firma y
+  1051→reintentos, changelog, política de deprecación, entorno sandbox.
+  1052→6.7 SDK oficiales (TypeScript, PHP, Python) generados desde OpenAPI.
+  1053→6.8 Data warehouse export: streaming o batch a S3/BigQuery/Snowflake,
+  1054→conectores BI, esquema documentado y estable.
+  1055→6.9 Residencia de datos por región y DPA con subencargados.
+  1056→6.10 SLA contractual con penalizaciones, medición automática del SLA y
+  1057→crédito automático cuando se incumple.
+  1058→
+  1059→GATE DE SALIDA
+  1060→- Un grupo de 20 locales opera con carta central y bloqueos, con informes
+  1061→consolidados correctos al céntimo.
+  1062→- SSO + SCIM probados contra dos proveedores de identidad.
+  1063→- API pública con documentación viva, sandbox y un integrador externo
+  1064→construyendo sobre ella sin ayuda.
+  1065→
+  1066→=================================================================
+  1067→FASE 7 — ECOSISTEMA (App Store y móvil)
+  1068→Deja de ser un producto y pasa a ser una plataforma.
+  1069→=================================================================
+  1070→7.1 APP STORE (modelo Shopify, no un simple marketplace):
+  1071→Categorías: Pagos · Marketing · Delivery · IA · Contabilidad · RRHH ·
+  1072→Cocina · Fidelización · Analítica · Integraciones · Reservas · Hardware.
+  1073→Cada app: nombre, icono, capturas, VÍDEO, descripción larga,
+  1074→valoraciones y reseñas verificadas, número de instalaciones,
+  1075→PERMISOS SOLICITADOS explícitos, compatibilidad de plan, versión,
+  1076→changelog, política de privacidad, soporte, precio (gratis, pago único,
+  1077→suscripción, revenue share).
+  1078→Instalación en 1 clic con pantalla de consentimiento de permisos,
+  1079→configuración guiada, desinstalación limpia, gestión de versiones y
+  1080→rollback, apps privadas para Enterprise.
+  1081→7.2 Plataforma de desarrolladores: portal, registro de apps, credenciales,
+  1082→ámbitos OAuth, sandbox, revisión y aprobación desde Super Admin,
+  1083→guías, ejemplos, panel de ingresos del partner.
+  1084→7.3 Extensibilidad real: puntos de extensión declarados (widgets del
+  1085→dashboard, acciones en ficha de comensal, pasos del Flow Builder,
+  1086→paneles en TPV, columnas en tablas, informes personalizados).
+  1087→7.4 Apps móviles nativas iOS y Android:
+  1088→- Manager: KPIs, alertas, aprobaciones, reseñas, copiloto.
+  1089→- Camarero: PDA completa offline.
+  1090→- Cocina: KDS en tablet.
+  1091→- Repartidor: rutas y entregas.
+  1092→Push, biometría (FaceID/Touch/huella), widgets de pantalla de inicio,
+  1093→Live Activities y Dynamic Island (estado del servicio en curso),
+  1094→Apple Watch y WearOS (avisos de mesa lista, llamada de comensal),
+  1095→Wallet (tarjeta de fidelización), NFC y QR, modo offline completo.
+  1096→7.5 Actualizaciones over-the-air y control de versiones mínimas por tenant.
+  1097→
+  1098→GATE DE SALIDA
+  1099→- Un desarrollador externo publica una app en la App Store sin acceso a
+  1100→vuestro código, y un cliente la instala en 1 clic.
+  1101→- Las apps móviles pasan revisión de App Store y Play Store.
+  1102→- Una app instalada solo puede acceder a lo que sus permisos declaran,
+  1103→verificado por tests de aislamiento.
+  1104→
+  1105→=================================================================
+  1106→FASE 8 — SUPER ADMIN COMPLETO Y CUSTOMER SUCCESS
+  1107→Tu control total. Cierra el círculo del negocio.
+  1108→=================================================================
+  1109→8.1 Torre de control completa (F.3.1).
+  1110→8.2 Ficha de tenant 360º (F.3.2) con salud técnica, entitlements,
+  1111→dominio/SSL/email/WhatsApp, uso, coste y timeline unificado.
+  1112→8.3 Impersonación segura con grabación, consentimiento y notificación
+  1113→(F.3.3). Un solo camino auditado para tocar datos de cliente.
+  1114→8.4 Observabilidad por tenant (F.3.4): latencia, errores, colas, DO,
+  1115→WebSockets, D1/R2/KV/Queues/Vectorize, IA, API, emails, WhatsApp.
+  1116→8.5 HEALTH SCORE por IA (F.3.5) con diagnóstico, causa, acción
+  1117→recomendada, borrador de mensaje y alerta proactiva al CSM.
+  1118→8.6 Playbooks automáticos de Customer Success y cartera por CSM.
+  1119→8.7 Métricas SaaS y finanzas (F.3.6): MRR, ARR, ARPA, LTV, CAC, payback,
+  1120→churn, NRR, cohortes, previsión, motivos de cancelación.
+  1121→8.8 FinOps: coste real por tenant y por feature, margen bruto por cliente,
+  1122→alerta de clientes con margen negativo, optimización de consumo de IA.
+  1123→8.9 Operaciones de plataforma (F.3.7): flags con rollout progresivo y kill
+  1124→switch, migraciones, despliegues, incidencias con SLA y post-mortem,
+  1125→comunicados in-app segmentados, revisión de App Store, backups con
+  1126→restore test semanal, break-glass con expiración y alerta al equipo.
+  1127→8.10 Mapa mundial de actividad, heatmaps de uso y detección de abuso/fraude.
+  1128→8.11 Soporte integrado: bandeja de tickets vinculada al tenant, al evento
+  1129→y a la traza del error. Un clic desde el error del cliente al log real.
+  1130→
+  1131→GATE DE SALIDA
+  1132→- Reproducir y diagnosticar un error reportado por un cliente en < 5 min
+  1133→desde el Super Admin, sin abrir la consola de Cloudflare.
+  1134→- Health Score correlaciona con churn real en datos históricos.
+  1135→- Coste y margen por cliente cuadran con la factura de infraestructura.
+  1136→- Ninguna acción sobre datos de cliente es posible fuera del camino auditado.
+  1137→
+  1138→=================================================================
+  1139→FASE 9 — ENDURECIMIENTO Y EXPANSIÓN
+  1140→Lo que separa "funciona" de "vendible a una cadena".
+  1141→=================================================================
+  1142→9.1 Seguridad: OWASP ASVS, CSP estricta, protección CSRF/XSS/SSRF,
+  1143→rotación de secretos, gestión de claves, escaneo de dependencias (SCA),
+  1144→SAST/DAST en CI, bug bounty, PENTEST EXTERNO anual con informe.
+  1145→9.2 SOC 2 Type II ready e ISO 27001 ready: políticas, controles,
+  1146→evidencias automatizadas, gestión de riesgos y de proveedores.
+  1147→No declarar certificación hasta tenerla (B.12).
+  1148→9.3 Continuidad: RPO ≤ 5 min, RTO ≤ 1 h, simulacro de desastre trimestral
+  1149→documentado, restauración probada por tenant y global.
+  1150→9.4 QA industrial: Vitest, Playwright (multi-navegador y multi-plan),
+  1151→k6 (carga y estrés: 500 comandas/min por venue, 10.000 tenants
+  1152→concurrentes), pruebas de caos (caída de D1, de un DO, de red),
+  1153→pruebas de accesibilidad, regresión visual, cobertura por umbral.
+  1154→9.5 Runbooks operativos: on-call, escalado, incidencias por severidad,
+  1155→comunicación al cliente, post-mortem sin culpables.
+  1156→9.6 Internacionalización real: i18n completo, multi-moneda, multi-huso,
+  1157→formatos locales, fiscalidad por país (Francia, Italia, Portugal,
+  1158→LATAM), traducción de contenido, precios por mercado, soporte por idioma.
+  1159→9.7 Accesibilidad certificada por auditoría externa.
+  1160→9.8 Programa de partners e integradores con certificación y comisiones.
+  1161→
+  1162→GATE DE SALIDA
+  1163→- Pentest externo sin hallazgos críticos ni altos abiertos.
+  1164→- Simulacro de desastre superado dentro de RPO/RTO declarados.
+  1165→- Prueba de carga superada con los objetivos de B.4 intactos.
+  1166→- Un segundo país operativo con su fiscalidad y su idioma.
+  1167→
+  1168→#################################################################
+  1169→PARTE I — MATRIZ DE PLANES (resumen comercial)
+  1170→#################################################################
+  1171→
+  1172→Principios inamovibles:
+  1173→1. PDA con licencias ILIMITADAS en los TRES planes. Nunca por dispositivo.
+  1174→2. Cero comisión sobre reservas y sobre pedidos del canal propio.
+  1175→3. Los planes se diferencian por CAPACIDAD, AUTOMATIZACIÓN, INTELIGENCIA
+  1176→y GOBIERNO. Nunca poniendo peajes en lo básico.
+  1177→4. Todo lo operativo crítico está en Starter. Si el restaurante no puede
+  1178→operar, no hay negocio ni upsell.
+  1179→5. Precio visible en Starter y Professional. Enterprise: hablar con ventas.
+  1180→
+  1181→STARTER — "Empieza a operar mejor hoy"
+  1182→1 local · 10 usuarios · PDA ilimitada · 1 KDS · TPV completo · offline ·
+  1183→fiscalidad · carta digital con QR (3 platos con vídeo, 2 idiomas) ·
+  1184→Order & Pay · llamar al camarero · reservas online con turnos básicos ·
+  1185→take away · CRM 1.000 fichas · sellos · 500 emails/mes · fichaje ·
+  1186→analítica 3 meses · 3 automatizaciones · 10 consultas de copiloto/mes ·
+  1187→3 integraciones · auditoría 30 días · soporte 48 h · onboarding IA.
+  1188→Gancho: sustituye 3 herramientas por menos de lo que pagas por una.
+  1189→
+  1190→PROFESSIONAL — "Haz crecer la facturación" (RECOMENDADO)
+  1191→Hasta 5 locales · usuarios ilimitados · 3 KDS con priorización avanzada ·
+  1192→pantalla de cliente · vídeo ilimitado · vista inmersiva · recomendador IA ·
+  1193→upsell en checkout · reservas avanzadas (pacing, prepago, scoring,
+  1194→waitlist, eventos) · delivery propio 0% + agregadores · CRM ilimitado ·
+  1195→puntos/niveles/Wallet · WhatsApp y SMS · atribución · reseñas con IA ·
+  1196→inventario y escandallos · cuadrantes y coste de personal · analítica
+  1197→24 meses e informes avanzados · 25 automatizaciones con Flow Builder ·
+  1198→webhooks · copiloto ilimitado · resumen diario · web personalizable ·
+  1199→integraciones ilimitadas · API de lectura · passkeys · auditoría 1 año ·
+  1200→soporte 8 h · onboarding guiado · migración incluida.
+  1201→Gancho: el ahorro en comisiones de delivery suele pagar el plan entero.
+  1202→
+  1203→ENTERPRISE — "Escala sin perder el control"
+  1204→Locales ilimitados · KDS y partidas ilimitadas · priorización con pesos
+  1205→a medida · A/B testing de carta · white-label · optimización de rutas ·
+  1206→inventario con IA y trazabilidad · previsión de plantilla · BI completo ·
+  1207→forecast · detección de anomalías · export a data warehouse ·
+  1208→automatizaciones ilimitadas · copiloto a medida con instrucciones propias ·
+  1209→App Store con apps privadas · API completa + SDK + sandbox ·
+  1210→franquicias y carta central · informes consolidados · SSO/SAML/SCIM ·
+  1211→IP allowlist · residencia de datos · auditoría ilimitada exportable ·
+  1212→SLA con penalización · gestor de cuenta · implantación gestionada ·
+  1213→formación presencial · revisión trimestral de negocio.
+  1214→Gancho: un solo panel para todo el grupo, con control de qué toca cada local.
+  1215→
+  1216→ADD-ONS (cualquier plan): local adicional · pantalla KDS · créditos de
+  1217→WhatsApp/SMS · quiosco de autoservicio · dominio y web premium ·
+  1218→paquete de tokens de IA · white-label (solo Enterprise).
+  1219→
+  1220→#################################################################
+  1221→PARTE J — LO QUE SE HA AÑADIDO Y NO ESTABA
+  1222→#################################################################
+  1223→1. Base de datos por tenant en D1 + control plane separado: el aislamiento
+  1224→deja de depender de la disciplina del desarrollador.
+  1225→2. Durable Objects como fuente de verdad en vivo (VenueHub, KdsStation,
+  1226→CashSession): orden garantizado y cero descuadres por concurrencia.
+  1227→3. Orquestador de migraciones multi-tenant con canary por tenant.
+  1228→4. Propagación de entitlements en cinco capas, incluida la capa de BUNDLE:
+  1229→el código de Enterprise nunca se descarga en un Starter.
+  1230→5. Separación explícita de Feature Flag / Entitlement / Permission.
+  1231→6. Estados de suscripción con efecto definido, incluido "impago sin
+  1232→cortar la operación": nadie deja de cobrar en hora punta por una factura.
+  1233→7. Super Admin como aplicación aislada con Zero Trust, sin ningún vínculo
+  1234→con el panel de cliente, e impersonación auditada y grabada.
+  1235→8. FinOps por tenant: coste real y margen bruto por cliente. Detecta
+  1236→clientes que te cuestan dinero (típicamente por consumo de IA).
+  1237→9. Health Score con dimensión de RESULTADO DE NEGOCIO del cliente,
+  1238→no solo de uso del producto.
+  1239→10. Baseline automático de KPIs en los primeros 30 días: te permite vender
+  1240→con datos reales de cada cliente en lugar de promesas.
+  1241→11. Disciplina de claims con tabla de benchmarks auditable.
+  1242→12. Motor de configuración centralizada: el cliente nunca ve Cloudflare,
+  1243→Stripe ni Resend. Dominio, email, SSL y WhatsApp desde tu panel.
+  1244→13. Restore test automático semanal: un backup no probado no existe.
+  1245→14. Break-glass con expiración, alerta al equipo y post-mortem obligatorio.
+  1246→15. Presupuesto de bundle y de rendimiento como criterio de CI que rompe
+  1247→el build. La velocidad se defiende con automatismos, no con buena fe.
+  1248→16. Puntos de extensión declarados para la App Store: extensibilidad real,
+  1249→no solo integraciones.
+  1250→17. Copiloto como runtime con herramientas por módulo, no como chat.
+  1251→18. Suite anti-fuga cross-tenant obligatoria en CI.
+  1252→19. Modelo de franquicia con bloqueos de configuración por nivel.
+  1253→20. Medición de conversión del Upgrade Engine: los mensajes que no
+  1254→convierten se retiran solos.
+  1255→
+  1256→#################################################################
+  1257→PARTE K — DEFINITION OF DONE (para cada entregable)
+  1258→#################################################################
+  1259→Un entregable está terminado solo si cumple TODO esto:
+  1260→□ Feature flag creado, documentado y con plan mínimo asignado.
+  1261→□ Endpoints con requiredFeature y requiredPermission declarados.
+  1262→□ Migraciones compatibles hacia atrás + rollback probado.
+  1263→□ Eventos de dominio y de auditoría emitidos.
+  1264→□ Estados de carga, error, vacío y éxito implementados.
+  1265→□ Componentes del Design System, sin literales de estilo.
+  1266→□ Accesible (WCAG 2.2 AA) y navegable por teclado.
+  1267→□ Responsive verificado en móvil, tablet y escritorio.
+  1268→□ Funciona offline o degrada de forma explícita y documentada.
+  1269→□ Tests unitarios y E2E, incluido E2E por plan.
+  1270→□ Presupuesto de rendimiento y de bundle respetado.
+  1271→□ Textos en i18n, sin cadenas hardcodeadas.
+  1272→□ Sin PII en logs.
+  1273→□ Documentado en el centro de ayuda y en el changelog.
+  1274→□ Visible en Super Admin (uso, errores, coste) si es relevante.
+
+[showing lines 800-1274 of 1275; use offset=1275 with limit to continue reading]
