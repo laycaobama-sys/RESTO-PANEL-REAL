@@ -970,7 +970,7 @@ model Employee {
   email           String?
   phone           String?
   role            String    @default("staff") // manager|chef|waiter|bartender|host|cashier|cleaner
-  pin             String? // hashed POS pin
+  pin             String? // bcrypt-hashed POS pin (salt rounds = 10); never store plaintext
   hireDate        DateTime?
   terminationDate DateTime?
   hourlyCostCents Int       @default(0)

@@ -52,3 +52,10 @@ prompt
 server.log
 # Skills directory
 /skills/
+# Security — 2FA secret + recovery codes (VULN-05)
+.superadmin-2fa.json
+*.2fa.json
+
+# Local env — never commit secrets (VULN-01 / VULN-05)
+.env.local
+.env.*.local
