@@ -542,13 +542,7 @@ function ratingStars(rating: number) {
  * Sub-componentes UI
  * ===================================================================== */
 
-function DemoBadge() {
-  return (
-    <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
-      <Sparkles className="h-3 w-3 mr-1" aria-hidden /> demo
-    </Badge>
-  );
-}
+
 
 function VerificationBadge({ v }: { v: Verification }) {
   if (v === "oficial") {
@@ -2326,7 +2320,7 @@ export function DevMarketplaceV2() {
             <div className="flex items-center gap-2">
               <Store className="h-5 w-5 text-[var(--gold)]" aria-hidden />
               <h1 className="font-display text-2xl tracking-tight">Marketplace</h1>
-              <DemoBadge />
+              
             </div>
             <p className="text-sm text-muted-foreground mt-1">
               Apps e integraciones verificadas para RestoPanel · Sandbox, revenue share y billing integrado.

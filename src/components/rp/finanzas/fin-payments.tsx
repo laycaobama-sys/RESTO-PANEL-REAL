@@ -138,16 +138,6 @@ const fmtDate = (iso?: string) => {
   });
 };
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge variant="outline" className={cn(
-      "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-      className,
-    )}>
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * Badges & meta
@@ -644,7 +634,7 @@ function PaymentDetailDialog({ payment, onClose }: { payment: Payment | null; on
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-4 w-4 rp-gold-text" aria-hidden /> Detalle de pago <DemoBadge />
+            <CreditCard className="h-4 w-4 rp-gold-text" aria-hidden /> Detalle de pago 
           </DialogTitle>
           <DialogDescription>
             Ref. externa: <span className="font-mono">{payment.externalRef ?? "—"}</span> · {payment.customerName}
@@ -789,7 +779,7 @@ function RefundDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-amber-300" aria-hidden /> Reembolsar pago <DemoBadge />
+            <RefreshCw className="h-4 w-4 text-amber-300" aria-hidden /> Reembolsar pago 
           </DialogTitle>
           <DialogDescription>
             {payment.customerName} · <span className="font-mono">{payment.externalRef ?? payment.id}</span>
@@ -1235,7 +1225,7 @@ function DisputasTab() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 rp-teal-text" aria-hidden /> Enviar evidencia <DemoBadge />
+              <ShieldAlert className="h-4 w-4 rp-teal-text" aria-hidden /> Enviar evidencia 
             </DialogTitle>
             <DialogDescription>
               {evidenceFor?.id} · {evidenceFor?.paymentRef} · vence {fmtDate(evidenceFor?.dueDate)}
@@ -1321,7 +1311,7 @@ function PoliticasTab() {
       <section>
         <div className="flex items-center gap-2 mb-2">
           <h3 className="font-medium text-sm">Políticas de depósito y no-show</h3>
-          <DemoBadge />
+          
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {POLICIES.map((p) => (
@@ -1369,7 +1359,7 @@ function PoliticasTab() {
       <section>
         <div className="flex items-center gap-2 mb-3">
           <h3 className="font-medium text-sm">Flujo de penalización por no-show</h3>
-          <DemoBadge />
+          
         </div>
         <div className="rp-glass rounded-xl p-4 sm:p-5">
           <ol className="space-y-0">
@@ -1442,7 +1432,7 @@ function StripeConfigDialog({ open, onOpenChange }: { open: boolean; onOpenChang
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4 rp-gold-text" aria-hidden /> Configurar Stripe <DemoBadge />
+            <Settings2 className="h-4 w-4 rp-gold-text" aria-hidden /> Configurar Stripe 
           </DialogTitle>
           <DialogDescription>Claves, secreto de webhook y reintentos idempotentes.</DialogDescription>
         </DialogHeader>
@@ -1515,7 +1505,7 @@ export function FinPayments() {
             <CreditCard className="h-5 w-5 rp-gold-text" aria-hidden />
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Centro de pagos</h1>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Autorizaciones, capturas, reembolsos y disputas sobre el proveedor de pago. Ledger inmutable con movimientos compensatorios. Todos los datos son demostrativos.

@@ -313,14 +313,7 @@ function permTone(perm: string): string {
 /* --------------------------------------------------------------------------
  * Demo badge
  * ------------------------------------------------------------------------ */
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 /* --------------------------------------------------------------------------
  * Main component
@@ -389,7 +382,7 @@ export function IaAutomationBuilder() {
               <h2 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
                 IA Automation Builder
               </h2>
-              <DemoBadge />
+              
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
               Describe en lenguaje natural qué necesitas y la IA diseñará el flujo. Tú revisas y apruebas antes de publicar.
@@ -556,7 +549,7 @@ export function IaAutomationBuilder() {
             <DialogTitle className="flex items-center gap-2 font-display">
               <FlaskConical className="h-5 w-5 text-[var(--teal)]" />
               Ejecución de prueba
-              <DemoBadge />
+              
             </DialogTitle>
             <DialogDescription>
               Simulación de la automatización con datos de muestra. No se envían mensajes reales ni se modifican datos.
@@ -647,7 +640,7 @@ function AiAnalysisPanel({ analysis }: { analysis: AiAnalysis }) {
         <span className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
           Análisis IA
         </span>
-        <DemoBadge />
+        
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

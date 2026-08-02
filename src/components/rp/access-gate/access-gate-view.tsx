@@ -210,19 +210,6 @@ function toneBannerCls(tone: StatusMeta["tone"]): {
  * Shared atoms
  * =======================================================*/
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 function SectionCard({
   title,
@@ -1048,7 +1035,7 @@ export function AccessGateView() {
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
               Gate de Acceso
             </h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Fase 3 · Pantallas según estado de suscripción + verificación en servidor +

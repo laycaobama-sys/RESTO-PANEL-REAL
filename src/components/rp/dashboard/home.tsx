@@ -475,19 +475,9 @@ export function Home() {
    Sub-components
 ============================================================ */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-[0.15em] text-amber-300/90",
-        className
-      )}
+
       title="Datos de demostración"
-    >
-      demo
-    </span>
-  );
-}
+
 
 function WidgetShell({
   title,
@@ -524,7 +514,7 @@ function WidgetShell({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {action}
-          <DemoBadge />
+          
         </div>
       </header>
       {children}
@@ -633,7 +623,7 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
       aria-label={`KPI ${kpi.label}: ${kpi.value}, ${kpi.delta}`}
     >
       <div className="absolute top-3 right-3">
-        <DemoBadge />
+        
       </div>
       <div className="flex items-start gap-3 pr-12">
         <div className={cn("h-9 w-9 rounded-md flex items-center justify-center shrink-0", iconBg)}>
@@ -772,7 +762,7 @@ function AlertsStrip() {
               {a.action}
               <ChevronRight className="h-3 w-3" aria-hidden />
             </button>
-            <DemoBadge />
+            
           </div>
         );
       })}

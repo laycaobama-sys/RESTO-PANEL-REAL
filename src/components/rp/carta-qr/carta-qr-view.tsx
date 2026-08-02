@@ -202,19 +202,6 @@ function eur(n: number): string {
   return n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * Mock QR component (SVG)
@@ -376,7 +363,7 @@ export function CartaQrView() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">Carta QR · Order &amp; Pay</h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Carta digital multiidioma, pedido y pago desde el móvil. Sin app, sin descargas.

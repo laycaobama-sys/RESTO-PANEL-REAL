@@ -330,19 +330,6 @@ function StarRating({ value, className }: { value: number; className?: string })
   );
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300/90 font-mono text-[10px] uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =====================================================================
  * Main view
@@ -394,7 +381,7 @@ export function ReviewsView() {
             Reputación online, análisis de sentimiento y respuestas asistidas por IA.
           </p>
         </div>
-        <DemoBadge />
+        
       </div>
 
       <HeaderSummary
@@ -584,7 +571,7 @@ function ReviewsList({
           <MessageSquare className="h-4 w-4 text-[var(--gold)]" aria-hidden />
           {reviews.length} reseña{reviews.length === 1 ? "" : "s"}
         </h2>
-        <DemoBadge />
+        
       </div>
       <ul className="space-y-1.5 max-h-[640px] overflow-y-auto rp-scroll-thin pr-1" role="list">
         {reviews.length === 0 && (
@@ -730,7 +717,7 @@ function ReviewDetail({ review }: { review: Review }) {
             </div>
           </div>
         </div>
-        <DemoBadge />
+        
       </div>
 
       <div className="mt-4 rounded-xl border border-border/40 bg-foreground/[0.02] p-4">
@@ -788,7 +775,7 @@ function ReviewDetail({ review }: { review: Review }) {
           <div className="inline-flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-[var(--gold)]" aria-hidden />
             <h4 className="text-sm font-medium">Respuesta sugerida por IA</h4>
-            <DemoBadge />
+            
           </div>
           <span className="text-[11px] font-mono text-muted-foreground">
             Fuente: Google Reviews
@@ -933,7 +920,7 @@ function StarEvolutionChart() {
             <TrendingUp className="h-3 w-3" aria-hidden />
             +0.19★
           </span>
-          <DemoBadge />
+          
         </div>
       </div>
 
@@ -1059,7 +1046,7 @@ function CopilotPanel() {
           <Sparkles className="h-4 w-4 text-[var(--teal)]" aria-hidden />
           <h3 className="font-display text-lg font-medium">Copiloto IA · Reseñas</h3>
         </div>
-        <DemoBadge />
+        
       </div>
 
       <form

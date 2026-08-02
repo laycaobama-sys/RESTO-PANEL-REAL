@@ -273,13 +273,7 @@ function saveState(s: PersistedState) {
  * Shared atoms
  * =======================================================*/
 
-function DemoBadge() {
-  return (
-    <Badge variant="outline" className="border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider">
-      demo
-    </Badge>
-  );
-}
+
 
 function SectionCard({
   title, desc, icon: Icon, action, children, className,
@@ -1013,7 +1007,7 @@ export function OnboardingGuidedView() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">Onboarding guiado</h1>
-            <DemoBadge />
+            
             <Badge variant="outline" className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px]">
               Fase 7
             </Badge>

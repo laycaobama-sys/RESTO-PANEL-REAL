@@ -612,19 +612,6 @@ function buildHistoryLog(ex: Execution): SimLine[] {
  * Small shared UI
  * ------------------------------------------------------------------------ */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
-        className
-      )}
-    >
-      <span className="h-1 w-1 rounded-full bg-amber-400" aria-hidden />
-      demo
-    </span>
-  );
-}
 
 const LEVEL_META: Record<SimLine["level"], { color: string; tag: string }> = {
   info: { color: "text-[var(--teal)]", tag: "INFO" },
@@ -1294,7 +1281,7 @@ export function AutomationBuilder() {
             esperas y bifurcaciones. Datos demo navegable.
           </p>
         </div>
-        <DemoBadge />
+        
       </header>
 
       {/* Controls bar */}
@@ -1339,7 +1326,7 @@ export function AutomationBuilder() {
       <section className="space-y-3">
         <div className="flex items-center gap-2">
           <h2 className="text-sm font-medium">Plantillas</h2>
-          <DemoBadge />
+          
           <span className="text-xs text-muted-foreground hidden sm:inline">
             Carga un flujo preconfigurado para empezar
           </span>
@@ -1440,7 +1427,7 @@ export function AutomationBuilder() {
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-muted-foreground" aria-hidden />
           <h2 className="text-sm font-medium">Historial de ejecuciones</h2>
-          <DemoBadge />
+          
           <span className="text-xs text-muted-foreground hidden sm:inline">Últimas 5 ejecuciones del flujo activo</span>
         </div>
         <div className="rp-glass rounded-xl overflow-hidden">
@@ -1499,7 +1486,7 @@ export function AutomationBuilder() {
               <div className="flex-1">
                 <DialogTitle className="flex items-center gap-2 flex-wrap">
                   Simulación de flujo
-                  <DemoBadge />
+                  
                 </DialogTitle>
                 <DialogDescription>
                   Dry-run del flujo “{currentTemplateName}” con datos demo. No se envían mensajes reales.
@@ -1558,7 +1545,7 @@ export function AutomationBuilder() {
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 flex-wrap">
                   Log de ejecución
-                  <DemoBadge />
+                  
                 </DialogTitle>
                 <DialogDescription>
                   <span className="font-mono">{historyOpen.id}</span> · {historyOpen.flow}

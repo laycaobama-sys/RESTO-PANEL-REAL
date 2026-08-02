@@ -170,19 +170,6 @@ interface DemoOrg {
    Shared bits
    ============================================================ */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 function StatusBadge({ status }: { status: OrgStatus }) {
   const map = {
@@ -623,7 +610,7 @@ function OrgHeaderCard({ org }: { org: DemoOrg }) {
             <h2 className="font-display text-xl sm:text-2xl font-light tracking-tight truncate">{org.name}</h2>
             <PlanBadge plan={org.plan} />
             <StatusBadge status={org.status} />
-            <DemoBadge />
+            
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
@@ -698,7 +685,7 @@ function OverviewTab({ org }: { org: DemoOrg }) {
         <div className="rp-glass rounded-xl p-4">
           <div className="mb-3 flex items-center justify-between">
             <h4 className="text-sm font-medium">Actividad reciente</h4>
-            <DemoBadge />
+            
           </div>
           <ul className="space-y-2.5 max-h-72 overflow-y-auto rp-scroll-thin pr-1">
             {org.activity.map((a, i) => {
@@ -728,7 +715,7 @@ function OverviewTab({ org }: { org: DemoOrg }) {
         <div className="rp-glass rounded-xl p-4">
           <div className="mb-3 flex items-center justify-between">
             <h4 className="text-sm font-medium">Integraciones activas</h4>
-            <DemoBadge />
+            
           </div>
           <ul className="space-y-1.5 max-h-72 overflow-y-auto rp-scroll-thin pr-1">
             {org.integrations.slice(0, 6).map((it) => {
@@ -879,7 +866,7 @@ function IngresosTab({ org }: { org: DemoOrg }) {
               {growth >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
               {growth >= 0 ? "+" : ""}{growth.toFixed(1)}%
             </span>
-            <DemoBadge />
+            
           </div>
         </div>
         <MiniLineChart values={org.mrrHistory} color={org.accent === "gold" ? "var(--gold)" : "var(--teal)"} />
@@ -977,7 +964,7 @@ function ReservasTab({ org }: { org: DemoOrg }) {
         <div className="rp-glass rounded-xl p-4 lg:col-span-2">
           <div className="mb-3 flex items-center justify-between">
             <h4 className="text-sm font-medium">Reservas últimos 30 días</h4>
-            <DemoBadge />
+            
           </div>
           <MiniBarChart values={org.reservas30d} color={org.accent === "gold" ? "var(--gold)" : "var(--teal)"} />
           <TabSourceFooter updated="hace 30 s">Workers (casi tiempo real)</TabSourceFooter>
@@ -987,7 +974,7 @@ function ReservasTab({ org }: { org: DemoOrg }) {
         <div className="rp-glass rounded-xl p-4">
           <div className="mb-3 flex items-center justify-between">
             <h4 className="text-sm font-medium">Canales</h4>
-            <DemoBadge />
+            
           </div>
           <div className="flex flex-col items-center gap-3">
             <DonutChart segments={org.channels} />
@@ -1210,7 +1197,7 @@ export function CcOrgDetail({ orgId }: { orgId?: string }) {
                 Ficha de <span className="rp-gold-text">organización</span>
               </h1>
             </div>
-            <DemoBadge />
+            
           </div>
           <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
             Drill-down completo de una organización: finanzas, locales, usuarios, reservas, CRM,

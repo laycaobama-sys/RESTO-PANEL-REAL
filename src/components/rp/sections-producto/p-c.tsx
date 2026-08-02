@@ -17,17 +17,6 @@ import {
 /*  Shared helpers                                              */
 /* ============================================================ */
 
-function DemoBadge({ label = "demo" }: { label?: string }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-md border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300"
-      title="Datos de demostración — no son cifras reales"
-    >
-      <span className="h-1 w-1 rounded-full bg-amber-400" />
-      {label}
-    </span>
-  );
-}
 
 function Check() {
   return (
@@ -350,7 +339,7 @@ export function ProductoPricing() {
         <GlassCard variant="strong" className="p-6 sm:p-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <H3>Calculadora</H3>
-            <DemoBadge />
+            
           </div>
 
           {/* Billing toggle */}
@@ -527,7 +516,7 @@ export function ProductoPricing() {
         <div className="flex items-center gap-3 mb-4">
           <H3 className="text-base">Comparativa de características</H3>
           <span className="h-px flex-1 bg-border/40" />
-          <DemoBadge label="27 filas" />
+          
         </div>
         <DataTable head={compHead} rows={compRows} />
         <p className="mt-3 text-[11px] text-muted-foreground">
@@ -846,7 +835,7 @@ export function ProductoDashboard() {
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
           <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-muted-foreground">
             <span>Configurar widgets</span>
-            <DemoBadge />
+            
           </div>
           {[
             { id: "gr", label: "Mostrar Google Rating", st: showGoogleRating, set: setShowGoogleRating },
@@ -880,7 +869,7 @@ export function ProductoDashboard() {
               <span className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
                 {k.label}
               </span>
-              <DemoBadge />
+              
             </div>
             <div className="mt-2 flex items-end justify-between gap-2">
               <span
@@ -909,7 +898,7 @@ export function ProductoDashboard() {
         <GlassCard className="p-5">
           <div className="flex items-center justify-between mb-4">
             <H3 className="text-base">Reservas de hoy</H3>
-            <DemoBadge />
+            
           </div>
           <ul className="space-y-2 max-h-80 overflow-y-auto rp-scroll-thin pr-1">
             {TODAY_RES.map((r) => (
@@ -938,7 +927,7 @@ export function ProductoDashboard() {
         <GlassCard className="p-5">
           <div className="flex items-center justify-between mb-4">
             <H3 className="text-base">Timeline del día</H3>
-            <DemoBadge />
+            
           </div>
           <ol className="relative space-y-4 max-h-80 overflow-y-auto rp-scroll-thin pr-1 before:absolute before:left-[5px] before:top-1 before:bottom-1 before:w-px before:bg-border/60">
             {TIMELINE.map((ev) => (
@@ -961,7 +950,7 @@ export function ProductoDashboard() {
         <GlassCard className="p-5">
           <div className="flex items-center justify-between mb-4">
             <H3 className="text-base">Actividad reciente</H3>
-            <DemoBadge />
+            
           </div>
           <ul className="space-y-3 max-h-72 overflow-y-auto rp-scroll-thin pr-1">
             {ACTIVITY.map((a) => (
@@ -987,7 +976,7 @@ export function ProductoDashboard() {
             <div className="flex items-center justify-between mb-4">
               <H3 className="text-base">Recomendaciones de IA</H3>
               <div className="flex items-center gap-2">
-                <DemoBadge />
+                
                 <Pill tone="teal">Copilot</Pill>
               </div>
             </div>
@@ -1336,7 +1325,7 @@ export function ProductoReservas() {
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
             <H3 className="text-base">Plano de mesas · Ramses Centro</H3>
             <div className="flex items-center gap-2">
-              <DemoBadge />
+              
               <Pill tone="outline">12 mesas</Pill>
             </div>
           </div>
@@ -1415,7 +1404,7 @@ export function ProductoReservas() {
           <GlassCard variant="gold" className="p-5">
             <div className="flex items-center justify-between mb-3">
               <H3 className="text-base">Mesa seleccionada</H3>
-              <DemoBadge />
+              
             </div>
             {selectedTable && selectedStatus ? (
               <div className="space-y-3">
@@ -1485,7 +1474,7 @@ export function ProductoReservas() {
           <GlassCard className="p-5">
             <div className="flex items-center justify-between mb-3">
               <H3 className="text-base">Reservas de hoy</H3>
-              <DemoBadge />
+              
             </div>
             <ul className="space-y-2 max-h-72 overflow-y-auto rp-scroll-thin pr-1">
               {FLOOR_RES.map((r) => {

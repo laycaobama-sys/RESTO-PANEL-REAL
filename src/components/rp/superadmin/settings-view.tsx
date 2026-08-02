@@ -22,13 +22,6 @@ import {
   Power, Lock, KeyRound, FileText, MapPin,
 } from "lucide-react";
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
-      demo
-    </Badge>
-  );
-}
 
 function FieldRow({
   label, hint, children, htmlFor,
@@ -71,7 +64,7 @@ function TabHeader({ icon: Icon, title, subtitle, demo }: { icon: React.ElementT
       <div>
         <div className="flex items-center gap-2">
           <h2 className="font-display text-lg font-medium tracking-tight">{title}</h2>
-          {demo && <DemoBadge />}
+          
         </div>
         <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>
       </div>
@@ -169,7 +162,7 @@ export function SettingsView() {
             <Settings className="h-5 w-5" aria-hidden />
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Configuración</h1>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Ajustes a nivel de organización. Aplican a todos los locales y usuarios según sus permisos.

@@ -580,15 +580,35 @@ export function CopilotContextualView() {
     const tokens = Math.round(text.length * 1.5) + 200;
     setTokenUsed((u) => Math.min(TOKEN_LIMIT, u + tokens));
 
-    // simulate AI response (mock — no real LLM)
-    setTimeout(() => {
-      const aiMsg = mockResponse(activeModule, text);
-      setMessages((prev) => ({
-        ...prev,
-        [activeModule]: [...prev[activeModule], aiMsg],
-      }));
-      setTokenUsed((u) => Math.min(TOKEN_LIMIT, u + Math.round(aiMsg.content.length * 0.8)));
-    }, 600);
+    // Real AI call via /api/ai/chat
+    try {
+      const res = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ module: activeModule, query: text, prompt: text }),
+      });
+      const data = await res.json();
+      const aiMsg: Message = {
+        id: `ai-${Date.now()}`,
+        role: "ai",
+        content: data.answer || data.content || "No he podido procesar tu consulta.",
+        ts: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+        sources: data.sources || [],
+        confidence: (data.provider as Confidence) || "media",
+      };
+      setMessages((prev) => ({ ...prev, [activeModule]: [...prev[activeModule], aiMsg] }));
+      setTokenUsed((u) => Math.min(TOKEN_LIMIT, u + (data.tokensUsed || Math.round(aiMsg.content.length * 0.8))));
+    } catch {
+      const aiMsg: Message = {
+        id: `ai-${Date.now()}`,
+        role: "ai",
+        content: "Error de conexión con el servicio de IA. Inténtalo de nuevo.",
+        ts: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+        sources: [],
+        confidence: "baja",
+      };
+      setMessages((prev) => ({ ...prev, [activeModule]: [...prev[activeModule], aiMsg] }));
+    }
   }
 
   function clearChat() {
@@ -828,49 +848,7 @@ export function CopilotContextualView() {
 /* =========================================================
  * Mock response generator
  * =======================================================*/
-function mockResponse(module: ModuleId, query: string): Message {
-  const q = query.toLowerCase();
-  // B.13 rule: if no data, say so
-  if (q.includes("no existe") || q.includes("inventar") || q.includes("no lo sé")) {
-    return {
-      id: `a${Date.now()}`,
-      role: "ai",
-      content: "No tengo datos suficientes para responder a esa pregunta. ¿Puedes reformular o darme más contexto? No quiero inventar información.",
-      ts: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
-      sources: [],
-      confidence: "baja",
-      noData: true,
-    };
-  }
 
-  const baseResponses: Record<ModuleId, string> = {
-    inicio: "Basándome en el dashboard actual, te puedo dar una visión consolidada. ¿Sobre qué KPI quieres profundizar?",
-    reservas: "Tienes 47 reservas hoy con 38 confirmadas. La franja de 21:30 está al 95%.",
-    sala: "El plano muestra 6 mesas libres y 18 ocupadas. Ocupación actual 78%.",
-    cocina: "Tiempo medio de ticket: 12.4 min. 3 tickets en cola de la mesa 14.",
-    carta: "El plato más vendido esta semana es la Paella de marisco (38 raciones).",
-    crm: "Tienes 1.247 clientes en CRM, 87 VIP y 23 en riesgo de fuga.",
-    resenas: "Rating medio: 4.6★. 3 reseñas negativas sin responder.",
-    inventario: "5 artículos bajo mínimo. Sugiero generar pedido urgente (€384).",
-    personal: "6 empleados fichados. 1 en pausa. 2 con horas extra esta semana.",
-    analitica: "Facturación prevista mañana: €10.250 (confianza 78%).",
-  };
-
-  return {
-    id: `a${Date.now()}`,
-    role: "ai",
-    content: baseResponses[module],
-    ts: new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
-    sources: [
-      { label: "D1 (datos)", kind: "db" },
-      { label: "Analytics", kind: "metric" },
-    ],
-    confidence: "media",
-    actions: [
-      { label: "Ver detalle", kind: "view", target: module },
-    ],
-  };
-}
 
 /* =========================================================
  * Chat message

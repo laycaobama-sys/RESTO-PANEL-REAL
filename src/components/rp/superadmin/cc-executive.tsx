@@ -90,19 +90,6 @@ interface KpiCategory {
    Shared bits
    ============================================================ */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 const FREQ_META: Record<
   Frequency,
@@ -382,7 +369,7 @@ function KpiCategoryCard({ cat }: { cat: KpiCategory }) {
         </div>
         <div className="flex items-center gap-2">
           <FrequencyBadge frequency={cat.categoryFrequency} />
-          <DemoBadge />
+          
         </div>
       </header>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -791,7 +778,7 @@ function AIRecommendations() {
             </div>
           </div>
         </div>
-        <DemoBadge />
+        
       </header>
       <ul className="space-y-2.5">
         {AI_RECS.map((r) => {
@@ -877,7 +864,7 @@ function ServicesStatus() {
             </div>
           </div>
         </div>
-        <DemoBadge />
+        
       </header>
       <ul className="space-y-1.5">
         {SERVICES.map((s) => {
@@ -973,7 +960,7 @@ function OrgsAttention() {
             </div>
           </div>
         </div>
-        <DemoBadge />
+        
       </header>
       <ul className="space-y-2">
         {ATTENTION_ORGS.map((o) => {
@@ -1731,7 +1718,7 @@ function ExecutiveHeader() {
               Command <span className="rp-gold-text">Center</span>
             </h1>
           </div>
-          <DemoBadge />
+          
           <Badge
             variant="outline"
             className="border-rose-400/40 bg-rose-400/10 text-rose-300 text-[10px] font-mono uppercase tracking-wider"
@@ -1788,7 +1775,7 @@ export function CcExecutive() {
                 <h3 className="font-display text-base sm:text-lg font-medium tracking-tight">
                   Evolución MRR · 12 meses
                 </h3>
-                <DemoBadge />
+                
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 MRR real (12m) + forecast (3m) con intervalo de confianza. Source: Stripe + D1 agregado diariamente.
@@ -1820,7 +1807,7 @@ export function CcExecutive() {
                 <h3 className="font-display text-base sm:text-lg font-medium tracking-tight">
                   Reservas por hora y día
                 </h3>
-                <DemoBadge />
+                
               </div>
               <p className="mt-0.5 text-xs text-muted-foreground">
                 Volumen de reservas en grid 24h × 7d. Source: Analytics Engine, últimos 30 días.

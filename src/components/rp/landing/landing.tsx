@@ -140,19 +140,6 @@ function useCountUp(target: number, run: boolean, duration = 1400) {
   return val;
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
-        className,
-      )}
-    >
-      <Circle className="h-1.5 w-1.5 fill-amber-300 text-amber-300" aria-hidden />
-      demo
-    </span>
-  );
-}
 
 /* ------------------------------ Landing ------------------------------ */
 
@@ -464,7 +451,7 @@ function HeroPreview() {
               Servicio · viernes 21:14
             </span>
           </div>
-          <DemoBadge />
+          
         </div>
 
         {/* KPI grid */}
@@ -686,7 +673,7 @@ function SocialProof() {
           <p className="text-xs font-mono uppercase tracking-[0.2em] text-muted-foreground">
             La plataforma en cifras
           </p>
-          <DemoBadge />
+          
         </div>
         <div
           ref={ref}
@@ -1090,7 +1077,7 @@ function ReservationsMock() {
 
   return (
     <div className="rp-glass-strong rounded-2xl p-4 sm:p-5 relative min-w-0">
-      <DemoBadge className="absolute right-4 top-4" />
+      
       <div className="flex items-center gap-2 mb-4">
         <CalendarCheck className="h-4 w-4 text-[var(--gold-soft)]" aria-hidden />
         <span className="text-xs font-mono uppercase tracking-wider text-muted-foreground">
@@ -1242,7 +1229,7 @@ function DeepDiveCRM() {
 function CrmMock() {
   return (
     <div className="rp-glass-strong rounded-2xl p-5 relative min-w-0">
-      <DemoBadge className="absolute right-4 top-4" />
+      
       <div className="flex items-center gap-3">
         <div className="h-14 w-14 rounded-full bg-gradient-to-br from-[var(--gold)] to-[var(--gold-deep)] flex items-center justify-center text-black text-lg font-medium">
           EV
@@ -1381,7 +1368,7 @@ function DeepDiveIA() {
           </div>
 
           <div className="rp-glass-strong rounded-2xl p-5 relative">
-            <DemoBadge className="absolute right-4 top-4" />
+            
             <div className="flex items-center gap-2 mb-4">
               <div className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]">
                 <Bot className="h-4 w-4" aria-hidden />
@@ -2181,7 +2168,7 @@ function PlanCard({
       {/* Plan name + tagline */}
       <div className="flex items-center justify-between">
         <h3 className="font-display text-xl font-medium">{name}</h3>
-        <DemoBadge />
+        
       </div>
       <p className="mt-1.5 text-xs text-muted-foreground leading-relaxed min-h-[2.5rem]">
         {tagline}

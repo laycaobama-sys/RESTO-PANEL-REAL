@@ -16,19 +16,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 type ServiceStatus = "operational" | "degraded" | "outage";
 
@@ -637,7 +625,7 @@ function ServiceDetailDialog({ service, open, onOpenChange }: {
               <Icon className="h-4 w-4" aria-hidden />
             </div>
             <span>{service.name}</span>
-            <DemoBadge />
+            
           </DialogTitle>
           <DialogDescription>
             Estado en tiempo real (dato demo) · SLO {service.slo}% · actual {fmtPct(service.sloActual)}
@@ -791,7 +779,7 @@ export function CcPlatformHealth() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">Salud de la plataforma</h3>
-                <DemoBadge />
+                
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {overallStatus === "operational"

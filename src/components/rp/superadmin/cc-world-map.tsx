@@ -20,19 +20,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 /* ---------------- types ---------------- */
 type LocStatus = "healthy" | "warning" | "critical";
@@ -445,7 +433,7 @@ function LocDialog({ loc, open, onOpenChange }: { loc: MapLoc | null; open: bool
             <span className="h-2.5 w-2.5 rounded-full" style={{ background: statusColor(loc.status) }} />
             {loc.city}
             <span className="text-[10px] font-mono text-muted-foreground">{loc.countryCode}</span>
-            <DemoBadge />
+            
           </DialogTitle>
           <DialogDescription>
             {loc.country} · {loc.org} · {statusLabel(loc.status)}
@@ -576,7 +564,7 @@ export function CcWorldMap() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">Mapa global</h3>
-                <DemoBadge />
+                
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Distribución geográfica de locales · {stats.filteredCount} visibles

@@ -183,19 +183,6 @@ function fmtTime(ms: number): string {
   return `${min}:${String(sec).padStart(2, "0")}`;
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * Phone frame chrome
@@ -558,7 +545,7 @@ export function PdaView() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-2xl sm:text-3xl tracking-tight">PDA · Comandero</h1>
-              <DemoBadge />
+              
             </div>
             <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
               Toma de comandas en sala. Flujo de 3 toques: mesa → producto → enviar.
@@ -656,7 +643,7 @@ export function PdaView() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-2xl tracking-tight">{selectedMesa?.name}</h1>
-              <DemoBadge />
+              
             </div>
             <p className="text-sm text-muted-foreground">
               {selectedMesa?.status === "abierta" ? "Mesa abierta" : "Esperando pedido"}

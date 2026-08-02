@@ -44,19 +44,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 /* ---------------- types ---------------- */
 type EntityType =
@@ -413,7 +401,7 @@ export function CcSearch() {
                 <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">
                   Búsqueda global
                 </h3>
-                <DemoBadge />
+                
                 <span className="inline-flex items-center gap-1 rounded-full border border-[var(--teal)]/40 bg-[var(--teal)]/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
                   <Sparkles className="h-2.5 w-2.5" aria-hidden />
                   Búsqueda semántica activa (Vectorize)

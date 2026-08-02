@@ -238,19 +238,6 @@ function timerDot(ms: number): string {
   return "bg-[var(--rp-red)] animate-pulse";
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * Stats bar
@@ -527,7 +514,7 @@ export function KdsView() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">KDS · Cocina</h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Display de cocina por partida. Bump, recall y semáforo de tiempos.

@@ -380,19 +380,6 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /** Animated number counter — uses requestAnimationFrame, transform/opacity only. */
 function useAnimatedNumber(value: number, duration = 350) {
@@ -922,7 +909,7 @@ export function ReservasView() {
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
               Reservas
             </h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Plano de mesas interactivo, lista de reservas y línea de tiempo del
@@ -1095,7 +1082,7 @@ export function ReservasView() {
                 <span className="text-sm font-medium">
                   {ZONES.find((z) => z.id === zone)?.label}
                 </span>
-                <DemoBadge />
+                
               </div>
               <div className="text-[11px] font-mono text-muted-foreground tabular-nums">
                 {visibleTables.length} mesas ·{" "}
@@ -1299,7 +1286,7 @@ export function ReservasView() {
               <div className="flex items-center gap-2">
                 <CalendarPlus className="h-4 w-4 text-[var(--gold)]" />
                 <span className="text-sm font-medium">Reservas</span>
-                <DemoBadge />
+                
               </div>
               <span className="text-[11px] font-mono text-muted-foreground tabular-nums">
                 {filteredReservations.length}
@@ -1457,7 +1444,7 @@ export function ReservasView() {
               <span className="text-sm font-medium">
                 Línea de tiempo del servicio
               </span>
-              <DemoBadge />
+              
             </div>
             <CollapsibleTrigger asChild>
               <Button
@@ -2727,7 +2714,7 @@ function NewReservationDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Plus className="h-4 w-4 text-[var(--gold)]" /> Nueva reserva
-            <DemoBadge />
+            
           </DialogTitle>
           <DialogDescription>
             Crea una reserva y, opcionalmente, asígnala a una mesa libre.

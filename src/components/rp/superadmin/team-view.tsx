@@ -22,13 +22,6 @@ import {
   Mail, Check, X, Trash2, Pencil, Lock, ChevronRight, Users, KeyRound,
 } from "lucide-react";
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
-      demo
-    </Badge>
-  );
-}
 
 /* ---------------- members data ---------------- */
 type MemberStatus = "activa" | "invitada" | "suspendida";
@@ -230,7 +223,7 @@ export function TeamView() {
             <UserCog className="h-5 w-5 rp-teal-text" aria-hidden />
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Equipo</h1>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Gestiona miembros, roles y permisos. La cuenta de Owner no puede ser eliminada ni degradada.
@@ -258,7 +251,7 @@ export function TeamView() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
             <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Miembros</h2>
-            <DemoBadge />
+            
           </div>
           <Button size="sm" onClick={() => setInviteOpen(true)}>
             <UserPlus className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Invitar miembro
@@ -353,7 +346,7 @@ export function TeamView() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
             <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Roles y permisos</h2>
-            <DemoBadge />
+            
           </div>
           <Button size="sm" variant="outline" onClick={() => setCustomRoleOpen(true)}>
             <KeyRound className="h-3.5 w-3.5 mr-1.5" aria-hidden /> Crear rol personalizado
@@ -387,7 +380,7 @@ export function TeamView() {
       <Dialog open={inviteOpen} onOpenChange={(o) => { setInviteOpen(o); if (!o) setInviteErr(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4" aria-hidden /> Invitar miembro <DemoBadge className="ml-1" /></DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><UserPlus className="h-4 w-4" aria-hidden /> Invitar miembro </DialogTitle>
             <DialogDescription>El invitado recibirá un email con un enlace para unirse a la organización.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -445,7 +438,7 @@ export function TeamView() {
             <DialogTitle className="flex items-center gap-2">
               <Shield className="h-4 w-4 rp-teal-text" aria-hidden />
               Permisos: {ROLES.find((r) => r.id === permsOpen)?.name}
-              <DemoBadge className="ml-1" />
+              
             </DialogTitle>
             <DialogDescription>Define qué acciones puede realizar este rol sobre cada recurso.</DialogDescription>
           </DialogHeader>
@@ -469,7 +462,7 @@ export function TeamView() {
       <Dialog open={customRoleOpen} onOpenChange={(o) => { setCustomRoleOpen(o); if (!o) setCustomErr(null); }}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4 rp-gold-text" aria-hidden /> Crear rol personalizado <DemoBadge className="ml-1" /></DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><KeyRound className="h-4 w-4 rp-gold-text" aria-hidden /> Crear rol personalizado </DialogTitle>
             <DialogDescription>Define un rol a medida con permisos granulares.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

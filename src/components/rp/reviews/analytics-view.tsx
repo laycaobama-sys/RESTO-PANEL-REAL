@@ -200,19 +200,6 @@ function bandPath(
   return `${top} ${bottom} Z`;
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300/90 font-mono text-[10px] uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =====================================================================
  * Main view
@@ -244,7 +231,7 @@ export function AnalyticsView() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DemoBadge />
+          
           <Button
             variant="outline"
             size="sm"
@@ -323,7 +310,7 @@ function KpiCard({ kpi }: { kpi: Kpi }) {
           <Icon className="h-3.5 w-3.5" style={{ color: accentColor }} aria-hidden />
           {kpi.label}
         </span>
-        <DemoBadge />
+        
       </div>
       <div className="font-display text-2xl sm:text-3xl font-light leading-none">
         {kpi.value}
@@ -472,7 +459,7 @@ function ChartCard({
         </div>
         <div className="flex items-center gap-2">
           {right}
-          {badge ?? <DemoBadge />}
+          
         </div>
       </div>
       {children}

@@ -106,16 +106,6 @@ const fmtDate = (iso?: string) => {
   });
 };
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge variant="outline" className={cn(
-      "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-      className,
-    )}>
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * Exception meta
@@ -313,7 +303,7 @@ function ResumenTab() {
         <div className="flex items-center gap-2 mb-3">
           <Scale className="h-4 w-4 rp-gold-text" aria-hidden />
           <h2 className="font-display text-lg font-medium tracking-tight">Resumen de conciliación</h2>
-          <DemoBadge />
+          
           <span className="text-[11px] font-mono text-muted-foreground ml-auto">15 jul 2025 · 19:30</span>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -642,7 +632,7 @@ function ExcepcionesTab() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden /> Resolver excepción <DemoBadge />
+              <CheckCircle2 className="h-4 w-4 text-emerald-300" aria-hidden /> Resolver excepción 
             </DialogTitle>
             <DialogDescription>
               {resolveFor?.id} · {resolveFor ? TYPE_META[resolveFor.type].label : ""}
@@ -893,7 +883,7 @@ function GenerateInvoiceDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Plus className="h-4 w-4 rp-gold-text" aria-hidden /> Generar factura <DemoBadge />
+            <Plus className="h-4 w-4 rp-gold-text" aria-hidden /> Generar factura 
           </DialogTitle>
           <DialogDescription>Crea una factura a partir de una orden existente.</DialogDescription>
         </DialogHeader>
@@ -986,7 +976,7 @@ export function FinReconciliation() {
             <Scale className="h-5 w-5 rp-teal-text" aria-hidden />
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Conciliación y excepciones</h1>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Cuadre de órdenes, pagos y facturas. Toda discrepancia se clasifica, se resuelve y queda registrada para auditoría. Datos demostrativos.

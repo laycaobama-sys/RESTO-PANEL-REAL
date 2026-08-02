@@ -247,19 +247,7 @@ const BRANDS_INIT: Brand[] = [
 /* =========================================================
  * Helpers
  * =======================================================*/
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 function euro(n: number): string {
   return n.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
@@ -308,7 +296,7 @@ export function ChannelsView() {
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
               Canales
             </h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Centro unificado de canales de venta. Activa o pausa canales en

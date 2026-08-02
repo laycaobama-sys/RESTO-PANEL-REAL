@@ -66,19 +66,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 /* ---------------- types ---------------- */
 type IncidentSeverity = "critical" | "high" | "medium" | "low";
@@ -515,7 +503,7 @@ function IncidentCard({
           <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
             Resumen IA
           </span>
-          <DemoBadge />
+          
         </div>
         <p className="text-xs text-foreground/85 leading-relaxed">{incident.aiSummary}</p>
       </div>
@@ -715,7 +703,7 @@ function IncidentDetailsDrawer({
                   <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--teal)]">
                     Resumen IA
                   </span>
-                  <DemoBadge />
+                  
                 </div>
                 <p className="text-xs text-foreground/85 leading-relaxed">{incident.aiSummary}</p>
               </div>
@@ -900,7 +888,7 @@ export function CcIncidents() {
                 <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">
                   Centro de incidencias
                 </h3>
-                <DemoBadge />
+                
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Gestión y resolución de incidencias de plataforma con resumen IA.

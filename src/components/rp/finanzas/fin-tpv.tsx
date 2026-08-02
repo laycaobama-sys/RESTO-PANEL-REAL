@@ -468,19 +468,6 @@ function timeShort(iso: string): string {
  * UI atoms
  * ===================================================================== */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 function ProviderAvatar({ provider, size = 44 }: { provider: Provider; size?: number }) {
   const m = PROVIDER_META[provider];
@@ -1444,7 +1431,7 @@ export function FinTpv() {
               <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
                 Conectores <span className="rp-gold-gradient">TPV</span>
               </h1>
-              <DemoBadge />
+              
             </div>
             <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
               Gestiona integraciones con sistemas POS. Matriz de capacidades, sync en tiempo

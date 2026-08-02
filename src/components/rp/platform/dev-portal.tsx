@@ -153,7 +153,7 @@ function PortalHeader() {
           <span className="rp-gold-text">FASE 8</span>
           <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
           <span>Open Platform</span>
-          <DemoBadge />
+          
         </div>
         <h2 className="mt-3 font-display text-2xl sm:text-3xl font-light tracking-tight">
           Developer Portal
@@ -175,19 +175,6 @@ function PortalHeader() {
   );
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* ============================================================
  * TAB: API KEYS
@@ -1061,7 +1048,7 @@ function OAuthTab() {
             Conecta proveedores externos de forma segura con consentimiento explícito de scopes.
           </p>
         </div>
-        <DemoBadge />
+        
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -1429,7 +1416,7 @@ function UsageTab() {
         <div className="rp-glass rounded-xl p-4 lg:col-span-2">
           <div className="flex items-center justify-between gap-2 mb-3">
             <h4 className="font-display text-base font-medium">Top endpoints</h4>
-            <DemoBadge />
+            
           </div>
           <div className="overflow-x-auto rp-scroll-thin">
             <table className="w-full border-collapse text-sm min-w-[520px]">
@@ -1725,7 +1712,7 @@ function DocsTab() {
                 Crea tu primera integración en menos de 5 minutos.
               </p>
             </div>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Autentícate con tu API key, instala el SDK y lista reservas de tu

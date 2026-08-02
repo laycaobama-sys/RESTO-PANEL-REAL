@@ -456,14 +456,7 @@ function fmtDateTime(isoStr?: string): string {
 /* =========================================================
  * Shared UI atoms
  * =======================================================*/
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-      demo
-    </span>
-  );
-}
+
 
 function SectionTitle({
   icon: Icon,
@@ -485,7 +478,7 @@ function SectionTitle({
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="font-display text-lg font-medium tracking-tight sm:text-xl">{title}</h2>
-            <DemoBadge />
+            
           </div>
           {description && (
             <p className="mt-0.5 text-sm text-muted-foreground max-w-2xl">{description}</p>

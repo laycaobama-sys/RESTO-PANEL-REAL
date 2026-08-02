@@ -992,19 +992,6 @@ function heatmapColor(v: number, max: number): string {
  * UI atoms
  * ===================================================================== */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 function ProviderBadge({ provider }: { provider: Provider }) {
   const m = PROVIDER_META[provider];
@@ -2362,7 +2349,7 @@ export function FinOrders() {
               <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
                 Órdenes <span className="rp-gold-gradient">TPV</span>
               </h1>
-              <DemoBadge />
+              
             </div>
             <p className="mt-1 text-sm text-muted-foreground max-w-2xl">
               Órdenes ingestadas desde sistemas TPV con matching a reservas y clientes.

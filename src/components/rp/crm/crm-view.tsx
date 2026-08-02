@@ -777,19 +777,6 @@ const DEMO_CUSTOMERS: Customer[] = [
 /* Demo badge                                                         */
 /* ------------------------------------------------------------------ */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
-        className
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-      demo
-    </span>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /* Section header                                                     */
@@ -2085,7 +2072,7 @@ function CustomerProfile({
       <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="tags-h">
         <SectionLabel
           icon={TagIcon}
-          right={<DemoBadge />}
+          right={}
         >
           Etiquetas
         </SectionLabel>
@@ -2125,7 +2112,7 @@ function CustomerProfile({
 
       {/* ============ Behavior metrics ============ */}
       <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="metrics-h">
-        <SectionLabel icon={TrendingUp} right={<DemoBadge />}>
+        <SectionLabel icon={TrendingUp} right={}>
           Métricas de comportamiento
         </SectionLabel>
         <h3 id="metrics-h" className="sr-only">Métricas de comportamiento</h3>
@@ -2283,7 +2270,7 @@ function CustomerProfile({
 
       {/* ============ Chronological history (timeline) ============ */}
       <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="history-h">
-        <SectionLabel icon={History} right={<DemoBadge />}>
+        <SectionLabel icon={History} right={}>
           Historial cronológico de reservas
         </SectionLabel>
         <h3 id="history-h" className="sr-only">Historial cronológico de reservas</h3>
@@ -2301,7 +2288,7 @@ function CustomerProfile({
       <div className="grid gap-5 lg:grid-cols-2">
         {/* Preferences */}
         <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="prefs-h">
-          <SectionLabel icon={Sparkles} right={<DemoBadge />}>
+          <SectionLabel icon={Sparkles} right={}>
             Preferencias y datos
           </SectionLabel>
           <h3 id="prefs-h" className="sr-only">Preferencias y datos</h3>
@@ -2343,7 +2330,7 @@ function CustomerProfile({
 
         {/* Consents */}
         <section className="rp-glass rounded-2xl p-5 sm:p-6" aria-labelledby="consent-h">
-          <SectionLabel icon={ShieldCheck} right={<DemoBadge />}>
+          <SectionLabel icon={ShieldCheck} right={}>
             Consentimientos
           </SectionLabel>
           <h3 id="consent-h" className="sr-only">Consentimientos</h3>
@@ -2540,7 +2527,7 @@ export function CrmView() {
             <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
               Clientes
             </h1>
-            <DemoBadge />
+            
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             CRM 360°: perfil, historial, métricas, consentimientos y notas del equipo.
@@ -2618,7 +2605,7 @@ export function CrmView() {
 
           <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground">
             <span>{filtered.length} clientes</span>
-            <DemoBadge />
+            
           </div>
 
           <ul className="mt-2 max-h-[60vh] lg:max-h-[calc(100vh-340px)] min-h-[280px] space-y-2 overflow-y-auto rp-scroll-thin pr-1">

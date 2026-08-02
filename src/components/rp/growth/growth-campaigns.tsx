@@ -420,14 +420,7 @@ function campaignsForDay(day: number | null): Campaign[] {
  * Shared atoms
  * ===================================================================== */
 
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 function HeaderBar({ title, desc }: { title: string; desc: string }) {
   return (
@@ -438,7 +431,7 @@ function HeaderBar({ title, desc }: { title: string; desc: string }) {
         </h1>
         <p className="text-sm text-muted-foreground mt-1 max-w-2xl">{desc}</p>
       </div>
-      <DemoBadge />
+      
     </div>
   );
 }

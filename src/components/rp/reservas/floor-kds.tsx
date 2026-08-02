@@ -758,14 +758,7 @@ function confidenceTone(c: number): string {
 /* =========================================================
  * Demo badge
  * =======================================================*/
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--gold)]/40 bg-[var(--gold)]/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.15em] text-[var(--gold-soft)]">
-      <span className="h-1.5 w-1.5 rounded-full bg-[var(--gold)]" />
-      demo
-    </span>
-  );
-}
+
 
 /* =========================================================
  * Main component
@@ -850,7 +843,7 @@ export function FloorKds() {
                 <h2 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
                   Kitchen Display System
                 </h2>
-                <DemoBadge />
+                
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 Conecta sala con cocina · Optimiza el flujo de servicio en tiempo real

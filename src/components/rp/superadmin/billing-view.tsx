@@ -19,13 +19,6 @@ import {
   TrendingUp, FileText, CalendarDays, AlertCircle, Lock, ShieldCheck, Zap,
 } from "lucide-react";
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
-      demo
-    </Badge>
-  );
-}
 
 /* ---------------- usage data ---------------- */
 const USAGE = [
@@ -199,7 +192,7 @@ export function BillingView() {
             <CreditCard className="h-5 w-5 rp-gold-text" aria-hidden />
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Facturación</h1>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Gestiona tu plan, método de pago y facturas. Todos los movimientos y datos son demostrativos.
@@ -281,7 +274,7 @@ export function BillingView() {
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Uso del período</h2>
           <span className="text-[11px] text-muted-foreground font-mono">01 jul — 31 jul 2025</span>
-          <DemoBadge />
+          
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {USAGE.map((u) => <UsageBar key={u.label} u={u} />)}
@@ -293,7 +286,7 @@ export function BillingView() {
         <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
             <h2 className="font-display text-lg sm:text-xl font-medium tracking-tight">Facturas</h2>
-            <DemoBadge />
+            
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger size="sm" className="w-40"><SelectValue placeholder="Estado" /></SelectTrigger>
@@ -341,7 +334,7 @@ export function BillingView() {
       <Dialog open={pricingOpen} onOpenChange={setPricingOpen}>
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><TrendingUp className="h-4 w-4 rp-gold-text" aria-hidden /> Cambiar plan <DemoBadge /></DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><TrendingUp className="h-4 w-4 rp-gold-text" aria-hidden /> Cambiar plan </DialogTitle>
             <DialogDescription>Selecciona el plan que mejor se adapta a tu organización. Prorrata automática.</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -387,7 +380,7 @@ export function BillingView() {
       <Dialog open={updateCardOpen} onOpenChange={(o) => { setUpdateCardOpen(o); if (!o) setCardErr(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><CreditCard className="h-4 w-4" aria-hidden /> Actualizar método de pago <DemoBadge /></DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><CreditCard className="h-4 w-4" aria-hidden /> Actualizar método de pago </DialogTitle>
             <DialogDescription>Introduce los datos de la nueva tarjeta. Procesado por Stripe (demo).</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">

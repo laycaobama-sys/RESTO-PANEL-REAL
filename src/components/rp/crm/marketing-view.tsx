@@ -277,19 +277,6 @@ const STATUS_META: Record<CampaignStatus, { label: string; tone: string; icon: R
   finalizada: { label: "Finalizada", tone: "border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)]", icon: CheckCircle2 },
 };
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300",
-        className
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden />
-      demo
-    </span>
-  );
-}
 
 function ChannelPill({ channel }: { channel: Channel }) {
   const m = CHANNEL_META[channel];
@@ -855,7 +842,7 @@ function CampaignDetails({
               {campaign.name}
             </h3>
             <StatusPill status={campaign.status} />
-            <DemoBadge />
+            
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground">
             {segment ? `Segmento: ${segment.name} (${segment.count} contactos)` : "Segmento desconocido"}
@@ -1018,7 +1005,7 @@ function SegmentCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-medium">{segment.name}</h3>
-            <DemoBadge />
+            
           </div>
           <p className="mt-1.5 text-[11px] font-mono text-muted-foreground">
             <Filter className="mr-1 inline h-3 w-3 text-[var(--teal)]" aria-hidden />
@@ -1114,7 +1101,7 @@ function TemplateCard({ template }: { template: Template }) {
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-[var(--teal)]" aria-hidden />
             <h3 className="text-sm font-medium">{template.name}</h3>
-            <DemoBadge />
+            
           </div>
           <p className="mt-1.5 text-sm font-medium text-foreground/90 truncate">{template.subject}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground line-clamp-2">{template.preview}</p>
@@ -1225,7 +1212,7 @@ export function MarketingView() {
             <h1 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">
               Marketing
             </h1>
-            <DemoBadge />
+            
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
             Segmenta, lanza campañas multicanal y reutiliza plantillas con variables dinámicas.
@@ -1278,7 +1265,7 @@ export function MarketingView() {
             </ul>
           )}
           <div className="flex justify-end">
-            <DemoBadge />
+            
           </div>
         </TabsContent>
 
@@ -1342,7 +1329,7 @@ export function MarketingView() {
                     Haz clic en una campaña de la lista para ver sus métricas y acciones.
                   </p>
                   <div className="mt-4">
-                    <DemoBadge />
+                    
                   </div>
                 </div>
               )}
@@ -1375,7 +1362,7 @@ export function MarketingView() {
             </ul>
           )}
           <div className="flex justify-end">
-            <DemoBadge />
+            
           </div>
         </TabsContent>
       </Tabs>

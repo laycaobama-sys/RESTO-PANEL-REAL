@@ -22,19 +22,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 function SectionTitle({
   title, subtitle, children, demo,
@@ -46,7 +34,7 @@ function SectionTitle({
       <div>
         <div className="flex items-center gap-2">
           <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">{title}</h3>
-          {demo && <DemoBadge />}
+          
         </div>
         {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
@@ -322,7 +310,7 @@ function OrgDetailDrawer({ org, onClose }: { org: Org | null; onClose: () => voi
               <div className="flex items-center gap-2 mt-1">
                 <Badge className="border-[var(--gold)]/30 bg-[var(--gold)]/10 text-[var(--gold-soft)]">{org.plan}</Badge>
                 <StatusPill status={org.status === "activa" ? "operational" : org.status === "trial" ? "maintenance" : org.status === "pausada" ? "degraded" : "down"} />
-                <DemoBadge />
+                
               </div>
             </DrawerHeader>
             <div className="px-4 pb-4 overflow-y-auto rp-scroll-thin space-y-4 flex-1">
@@ -409,7 +397,7 @@ export function SuperAdminView() {
             <AlertOctagon className="h-3 w-3 mr-1" aria-hidden />
             Nivel plataforma
           </Badge>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Vista operacional a nivel de plataforma RestoPanel. Acceso restringido a personal interno.

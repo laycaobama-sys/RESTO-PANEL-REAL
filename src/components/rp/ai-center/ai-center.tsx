@@ -321,14 +321,7 @@ function limitTone(p: number): "ok" | "warn" | "crit" {
    Shared atoms
 ============================================================ */
 
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 function SectionTitle({ title, subtitle, icon: Icon, children }: { title: string; subtitle?: string; icon: React.ElementType; children?: React.ReactNode }) {
   return (
@@ -1605,7 +1598,7 @@ export function AiCenter() {
               <h1 className="font-display text-xl sm:text-2xl font-medium tracking-tight truncate">
                 Centro de IA
               </h1>
-              <DemoBadge />
+              
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Workers AI · Vectorize · AI Gateway · R2 · Ramses Group

@@ -207,19 +207,6 @@ function uid(prefix = "l"): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * KPI strip
@@ -831,7 +818,7 @@ export function TpvView() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="font-display text-2xl tracking-tight">{title}</h1>
-                <DemoBadge />
+                
               </div>
               {selectedTable && (
                 <p className="text-sm text-muted-foreground">
@@ -1072,7 +1059,7 @@ export function TpvView() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">TPV</h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Punto de venta · Mesa, barra, take away y delivery propio. Offline-first con arqueo ciego.

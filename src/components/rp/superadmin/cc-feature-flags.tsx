@@ -31,19 +31,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 /* ---------------- types ---------------- */
 interface FeatureFlag {
@@ -550,7 +538,7 @@ function FlagFormDialog({
           <DialogTitle className="flex items-center gap-2">
             <Flag className="h-4 w-4 rp-gold-text" aria-hidden />
             {isEdit ? "Editar flag" : "Nueva flag"}
-            <DemoBadge />
+            
           </DialogTitle>
           <DialogDescription>
             Configura la flag y su rollout progresivo. Los cambios se aplican inmediatamente (demo).
@@ -649,7 +637,7 @@ function HistoryDialog({ flag, open, onOpenChange }: {
           <DialogTitle className="flex items-center gap-2">
             <History className="h-4 w-4 rp-gold-text" aria-hidden />
             Historial · <code className="font-mono text-sm">{flag.key}</code>
-            <DemoBadge />
+            
           </DialogTitle>
           <DialogDescription>
             Línea de tiempo de cambios · creada el {flag.createdAt}
@@ -836,7 +824,7 @@ export function CcFeatureFlags() {
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">Feature Flags</h3>
-                <DemoBadge />
+                
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Rollout progresivo con kill switch · gestión por targeting

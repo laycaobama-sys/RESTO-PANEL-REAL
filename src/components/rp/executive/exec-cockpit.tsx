@@ -312,14 +312,7 @@ const PATTERNS = [
  * Shared helpers
  * ===================================================================== */
 
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 function InfoDot({ text }: { text: string }) {
   return (
@@ -1083,7 +1076,7 @@ function WelcomeHeader({ period }: { period: Period }) {
             <h2 className="font-display text-xl sm:text-2xl font-medium text-foreground">
               Buenos días, Ana.
             </h2>
-            <DemoBadge />
+            
           </div>
           <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">
             Hoy tienes: <span className="text-foreground font-medium">47 reservas</span> ·{" "}
@@ -1377,7 +1370,7 @@ function KpisTab() {
             ))}
           </div>
         </div>
-        <DemoBadge />
+        
       </div>
 
       <div className="flex items-center justify-between text-[11px] text-muted-foreground font-mono">
@@ -2563,7 +2556,7 @@ function HeatmapsTab() {
             <h3 className="font-display text-base font-medium">Detección de patrones (IA)</h3>
             <MiniBadge tone="teal">6 patrones</MiniBadge>
           </div>
-          <DemoBadge />
+          
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2661,7 +2654,7 @@ export function ExecCockpit() {
                 <h1 className="font-display text-xl sm:text-2xl font-medium text-foreground truncate">
                   Executive Control Center
                 </h1>
-                <DemoBadge />
+                
                 <MiniBadge tone="gold">RestoPanel</MiniBadge>
               </div>
               <p className="text-[11px] text-muted-foreground font-mono mt-0.5">

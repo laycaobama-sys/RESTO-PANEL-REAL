@@ -31,19 +31,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 /* ---------------- types ---------------- */
 type Confidence = "alta" | "media" | "baja";
@@ -268,7 +256,7 @@ function AiMessage({ msg }: { msg: ChatMessage }) {
               <Sparkles className="h-3 w-3 rp-gold-text" aria-hidden />
               IA Ejecutiva · {msg.ts}
             </div>
-            <DemoBadge />
+            
           </div>
 
           {/* respuesta ejecutiva */}
@@ -472,7 +460,7 @@ export function CcExecutiveAi() {
                 <h3 className="font-display text-lg sm:text-xl font-medium tracking-tight">
                   IA Ejecutiva
                 </h3>
-                <DemoBadge />
+                
               </div>
               <p className="text-sm text-muted-foreground mt-0.5">
                 Asistente conversacional con acceso a herramientas autorizadas de la plataforma.

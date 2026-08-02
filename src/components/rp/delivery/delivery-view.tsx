@@ -147,19 +147,6 @@ function fmtTime(ms: number): string {
   return `${min} min`;
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* =========================================================
  * ROI Calculator
@@ -483,7 +470,7 @@ export function DeliveryView() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">Delivery propio</h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Reparto propio sin comisiones · 0% vs 30% agregadores · mapa en vivo, zonas y liquidación.

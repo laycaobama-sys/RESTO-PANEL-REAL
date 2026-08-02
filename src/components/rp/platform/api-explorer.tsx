@@ -620,7 +620,7 @@ export function ApiExplorer() {
             <span className="rp-gold-text">FASE 8</span>
             <span className="h-px w-8 bg-gradient-to-r from-[var(--gold)]/60 to-transparent" />
             <span>Open Platform</span>
-            <DemoBadge />
+            
           </div>
           <h2 className="mt-3 font-display text-2xl sm:text-3xl font-light tracking-tight">
             API Explorer
@@ -662,19 +662,6 @@ export function ApiExplorer() {
   );
 }
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
 
 /* ============================================================
  * LEFT: endpoint tree

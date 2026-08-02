@@ -189,14 +189,7 @@ function formatBytes(bytes: number): string {
    Shared sub-components
 ============================================================ */
 
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 function VectorizeBadge() {
   return (
@@ -1197,7 +1190,7 @@ export function AiKnowledge() {
               <h2 className="font-display text-xl sm:text-2xl font-medium tracking-tight">
                 Base de Conocimiento IA
               </h2>
-              <DemoBadge />
+              
               <VectorizeBadge />
             </div>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-2xl">

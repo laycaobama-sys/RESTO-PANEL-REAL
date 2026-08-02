@@ -251,21 +251,9 @@ function initials(name: string): string {
 }
 
 /* =========================================================
- * DemoBadge + KPI card
+ * KPI card
  * =======================================================*/
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge
-      variant="outline"
-      className={cn(
-        "border-amber-400/40 bg-amber-400/10 text-amber-300 font-mono uppercase tracking-wider text-[10px]",
-        className
-      )}
-    >
-      demo
-    </Badge>
-  );
-}
+
 
 function KpiCard({
   icon: Icon,
@@ -436,7 +424,7 @@ export function PersonalView() {
             <h1 className="font-display text-2xl sm:text-3xl tracking-tight">
               Gestión de Personal
             </h1>
-            <DemoBadge />
+            
           </div>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
             Fichaje, cuadrante semanal, rendimiento por camarero y reparto de

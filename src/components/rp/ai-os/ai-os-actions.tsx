@@ -719,19 +719,6 @@ const PROHIBITED_ACTIONS: CatalogItem[] = [
    UI primitives
 ============================================================ */
 
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.15em] text-amber-300",
-        className
-      )}
-    >
-      <span className="h-1 w-1 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
 
 function RiskBadge({ risk }: { risk: ActionRisk }) {
   const m = RISK_META[risk];
@@ -1544,7 +1531,7 @@ export function AiOsActions() {
                 <Sparkles className="h-4 w-4" />
               </span>
               <h1 className="font-display text-2xl sm:text-3xl tracking-tight">Acciones de IA</h1>
-              <DemoBadge />
+              
             </div>
             <p className="text-sm text-muted-foreground">
               Motor de acciones con flujo de aprobación, tipos clasificados y log inmutable.

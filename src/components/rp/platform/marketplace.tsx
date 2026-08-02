@@ -379,14 +379,7 @@ function verifyMeta(v: VerifyKind): { icon: LucideIcon; tone: string; label: str
 /* --------------------------------------------------------------------------
  * Demo badge
  * ------------------------------------------------------------------------ */
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 /* --------------------------------------------------------------------------
  * Star rating
@@ -556,7 +549,7 @@ export function Marketplace() {
                   <h2 className="font-display text-2xl sm:text-3xl font-light tracking-tight">
                     Marketplace
                   </h2>
-                  <DemoBadge />
+                  
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
                   Amplía RestoPanel con integraciones oficiales y de comunidad. Instalación con consentimiento OAuth-style.
@@ -1063,7 +1056,7 @@ function PublishAppDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           <DialogTitle className="flex items-center gap-2 font-display">
             <Code2 className="h-5 w-5 text-[var(--teal)]" />
             Publicar aplicación
-            <DemoBadge />
+            
           </DialogTitle>
           <DialogDescription>
             Envía tu app al marketplace de RestoPanel. Pasará por un proceso de revisión técnica y de seguridad antes de publicarse.

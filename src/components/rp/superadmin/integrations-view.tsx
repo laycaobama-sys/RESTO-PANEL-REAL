@@ -27,13 +27,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- shared bits ---------------- */
-function DemoBadge({ className }: { className?: string }) {
-  return (
-    <Badge variant="outline" className={cn("border-amber-400/40 bg-amber-400/10 text-amber-300 text-[10px] font-mono uppercase tracking-wider", className)}>
-      demo
-    </Badge>
-  );
-}
+
 
 function SectionTitle({ title, subtitle, children }: { title: string; subtitle?: string; children?: React.ReactNode }) {
   return (
@@ -141,7 +135,7 @@ function InstalledCard({ app, onConfigure, onDisconnect, onReauth, onLogs }: {
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="font-medium text-foreground">{app.name}</h4>
-            {!app.real && app.status === "connected" && <DemoBadge />}
+            
             {app.real && app.status === "connected" && (
               <Badge className="border-emerald-400/40 bg-emerald-400/10 text-emerald-300 text-[10px]">
                 <Check className="h-2.5 w-2.5 mr-1" /> real
@@ -205,7 +199,7 @@ function MarketCard({ app, onInstall }: { app: MarketApp; onInstall: (a: MarketA
             <h4 className="font-medium text-foreground">{app.name}</h4>
             {app.popular && <Badge className="border-[var(--gold)]/40 bg-[var(--gold)]/10 text-[var(--gold-soft)] text-[10px]">popular</Badge>}
             {app.new && <Badge className="border-[var(--teal)]/40 bg-[var(--teal)]/10 text-[var(--teal)] text-[10px]">nuevo</Badge>}
-            {!app.real && <DemoBadge />}
+            
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">{app.benefit}</p>
         </div>
@@ -274,7 +268,7 @@ export function IntegrationsView() {
             <Plug className="h-5 w-5 rp-teal-text" aria-hidden />
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-light tracking-tight">Integraciones</h1>
-          <DemoBadge />
+          
         </div>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Conecta RestoPanel con tus servicios externos. Gestiona integraciones instaladas, explora el marketplace
@@ -392,7 +386,7 @@ export function IntegrationsView() {
                 <DialogTitle className="flex items-center gap-2">
                   {React.createElement(ICON_MAP[configApp.id] ?? Plug, { className: "h-4 w-4" })}
                   Configurar {configApp.name}
-                  {!configApp.real && <DemoBadge className="ml-1" />}
+                  
                 </DialogTitle>
                 <DialogDescription>{configApp.description}</DialogDescription>
               </DialogHeader>
@@ -470,7 +464,7 @@ export function IntegrationsView() {
                 <DialogTitle className="flex items-center gap-2">
                   {React.createElement(ICON_MAP[installApp.id] ?? Plug, { className: "h-4 w-4" })}
                   Instalar {installApp.name}
-                  {!installApp.real && <DemoBadge className="ml-1" />}
+                  
                 </DialogTitle>
                 <DialogDescription>{installApp.benefit}</DialogDescription>
               </DialogHeader>
@@ -506,7 +500,7 @@ export function IntegrationsView() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Webhook className="h-4 w-4" aria-hidden /> Nuevo webhook
-              <DemoBadge className="ml-1" />
+              
             </DialogTitle>
             <DialogDescription>Configura un endpoint que recibirá eventos de RestoPanel.</DialogDescription>
           </DialogHeader>

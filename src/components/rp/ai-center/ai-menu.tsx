@@ -261,14 +261,7 @@ function euro(cents: number): string {
    Shared sub-components
 ============================================================ */
 
-function DemoBadge() {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-amber-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-      demo
-    </span>
-  );
-}
+
 
 function CategoryBadge({ category }: { category: MenuCategory }) {
   const meta = CATEGORY_META[category];
@@ -1081,7 +1074,7 @@ export function AiMenu() {
               <h2 className="font-display text-xl sm:text-2xl font-medium tracking-tight">
                 IA para Menú
               </h2>
-              <DemoBadge />
+              
               <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--gold)]/30 bg-[var(--gold)]/8 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider text-[var(--gold-soft)]">
                 <Utensils className="h-3 w-3" aria-hidden />12 platos analizados
               </span>

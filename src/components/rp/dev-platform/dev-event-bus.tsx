@@ -501,13 +501,7 @@ function MapIcon(p: { className?: string }) {
  * Sub-componentes
  * ===================================================================== */
 
-function DemoBadge() {
-  return (
-    <Badge className="bg-amber-500/15 text-amber-300 border-amber-500/30 hover:bg-amber-500/15">
-      <Zap className="h-3 w-3 mr-1" aria-hidden /> demo
-    </Badge>
-  );
-}
+
 
 function ConsumerIcon({ name, className }: { name: string; className?: string }) {
   switch (name) {
@@ -1250,7 +1244,7 @@ export function DevEventBus() {
             <div className="flex items-center gap-2 flex-wrap">
               <Radio className="h-5 w-5 text-[var(--gold)]" aria-hidden />
               <h1 className="font-display text-2xl tracking-tight">Event Bus</h1>
-              <DemoBadge />
+              
               <Badge className="bg-[var(--teal)]/10 text-[var(--teal)] border-[var(--teal)]/30 hover:bg-[var(--teal)]/10">
                 <Server className="h-3 w-3 mr-1" aria-hidden /> Cloudflare Queues
               </Badge>
