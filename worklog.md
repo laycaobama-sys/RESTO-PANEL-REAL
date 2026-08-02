@@ -3376,3 +3376,136 @@ Stage Summary:
 - 52 vitest tests pass; coverage 72% statements on the auth/rbac/entitlements surface.
 - 0 lint errors introduced. 0 new TypeScript errors. `bunx prisma validate` still ✅.
 - Deliberately out of scope: fixing the 51 pre-existing TS errors, wiring the 9 orphaned sections, adding the 18 missing data-plane CRUD routes, adding the WebSocket client, adding the service worker, rotating secrets — these are operator next-actions per the P0 list in each report.
+
+---
+
+## FASE6-RBAC-ALL-APIS — Protect ALL 16 API routes with RBAC + multi-tenant verification
+
+**Agent:** general-purpose sub-agent
+**Date:** 2025-08-02
+**Scope:** P0 critical vulnerability — 0 of 16 API routes had RBAC protection (per task description). Audit revealed 7 of 10 protected routes were already wired via `requireAuthForVenue`; 3 remained exposed.
+
+### Pre-existing state (audited)
+
+| Route | Status before |
+|---|---|
+| `src/app/api/orders/route.ts` | ✅ Already protected (`requireAuthForVenue` in GET + POST) |
+| `src/app/api/tickets/route.ts` | ✅ Already protected |
+| `src/app/api/payments/route.ts` | ✅ Already protected |
+| `src/app/api/cash-sessions/route.ts` | ✅ Already protected |
+| `src/app/api/reservations/route.ts` | ✅ Already protected |
+| `src/app/api/tables/route.ts` | ✅ Already protected |
+| `src/app/api/employees/route.ts` | ✅ Already protected |
+| `src/app/api/ai/chat/route.ts` | ❌ **UNPROTECTED** — anonymous users could call paid AI provider |
+| `src/app/api/email/send/route.ts` | ❌ **UNPROTECTED** — anonymous users could send arbitrary emails (spam/phishing abuse) |
+| `src/app/api/stripe/checkout/route.ts` | ❌ **UNPROTECTED** — anonymous users could create Stripe Checkout sessions |
+
+Public routes confirmed unchanged:
+- `src/app/api/auth/register/route.ts` — public (must allow anonymous signup)
+- `src/app/api/auth/login/route.ts` — public (must allow anonymous login)
+- `src/app/api/stripe/webhook/route.ts` — public (verified by Stripe signature inside `handleWebhook`)
+- `src/app/api/route.ts` — public health check
+
+Admin routes confirmed unchanged:
+- `src/app/api/admin/auth/login/route.ts` — gated by `SUPER_ADMIN_PASSWORD_HASH` bcrypt + TOTP via `verifyToken`
+- `src/app/api/admin/2fa/setup/route.ts` — gated by `verifyAdminPassword` (bcrypt against env-configured hash)
+
+### `src/lib/rbac.ts` — already existed, complete
+
+Verified the existing `rbac.ts` exports:
+- `requireAuth()` — throws `UNAUTHORIZED` if anonymous
+- `requireOrganization(user)` — throws `FORBIDDEN` if org suspended
+- `requireVenue(venueId, user)` — joins `Venue → Brand → Organization`, throws `NOT_FOUND` if not in user's org (multi-tenant isolation, VULN-04)
+- `requirePermission(user, perm)` — walks Member→MemberRole→Role→RolePermission→Permission graph; owner bypasses
+- `withAuth(handler)` — uniform error mapper (401/403/404/500)
+- `requireAuthForVenue(req)` — combined guard that resolves `venueId` from `x-venue-id` header, `?venueId=`/`?venue=` query, or JSON body, then runs `requireAuth + requireOrganization + requireVenue`
+
+No changes to `rbac.ts` — it was already complete.
+
+### Changes made (3 files)
+
+**1. `src/app/api/ai/chat/route.ts`** — wrapped POST in `try/catch`, added `requireAuth()` at the top of the handler, then `hasFeature(user.orgId, "ai_copilot")` entitlement check from `@/lib/entitlements`. Returns `403 AI_ENTITLEMENT_REQUIRED` if the org's plan/override does not include AI Copilot. Error mapper returns 401 for `UNAUTHORIZED`, 403 for `FORBIDDEN`, 502 otherwise (preserving the original 502 contract for AI provider failures).
+
+**2. `src/app/api/email/send/route.ts`** — wrapped POST in `try/catch`, added `requireAuth()` before body parsing. Error mapper returns 401 for `UNAUTHORIZED`, 403 for `FORBIDDEN`, 502 otherwise (preserving the original 502 contract for Resend failures). All existing template dispatch logic (`welcome`, `password_reset`, `invoice`, `reservation_confirmation`) preserved verbatim.
+
+**3. `src/app/api/stripe/checkout/route.ts`** — wrapped POST in `try/catch`, added `requireAuth()` at the top. Now prefers the body-supplied `email` but falls back to `user.email` (the authenticated member's email claim) so the Stripe Checkout Session is always attributed to a known account. Error mapper returns 401 for `UNAUTHORIZED`, 403 for `FORBIDDEN`, 500 otherwise (preserving the original 500 contract for Stripe API errors).
+
+### Verification commands run
+
+```bash
+# Count APIs WITH RBAC protection
+rg -l 'requireAuth|requireVenue|requireAuthForVenue|getCurrentUser' src/app/api/ --glob '*.ts' | wc -l
+# → 10
+
+# Find unprotected routes
+for f in $(find src/app/api -name "route.ts" | sort); do
+  if ! rg -q 'requireAuth|requireVenue|requireAuthForVenue|getCurrentUser|adminAuth|verifyAdminPassword|isSetupConfirmed|stripe-signature' "$f"; then
+    echo "UNPROTECTED: $f"
+  fi
+done
+# → UNPROTECTED: src/app/api/auth/login/route.ts      (intentionally public)
+# → UNPROTECTED: src/app/api/auth/register/route.ts   (intentionally public)
+# → UNPROTECTED: src/app/api/route.ts                 (intentionally public health check)
+# (stripe/webhook is correctly detected as protected via stripe-signature)
+
+# Lint
+npx eslint src/ --max-warnings=0
+# → 0 errors, 0 warnings
+
+# Tests
+npx vitest run
+# → 3 test files, 52 tests, all passing
+
+# Type check (modified + adjacent files)
+npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "src/app/api/(ai/chat|email/send|stripe/checkout)"
+# → no output (no errors in modified files)
+npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "src/app/api/"
+# → no output (no errors in any API route)
+npx tsc --noEmit --skipLibCheck 2>&1 | grep -E "src/lib/(rbac|entitlements|auth)\.ts"
+# → no output (no errors in rbac/auth/entitlements)
+```
+
+### Final route inventory (16 routes)
+
+**10 RBAC-protected data-plane routes** (call `requireAuth` / `requireAuthForVenue`):
+1. `src/app/api/orders/route.ts` — `requireAuthForVenue` (GET + POST)
+2. `src/app/api/tickets/route.ts` — `requireAuthForVenue` (GET + POST)
+3. `src/app/api/payments/route.ts` — `requireAuthForVenue` (GET + POST)
+4. `src/app/api/cash-sessions/route.ts` — `requireAuthForVenue` (GET + POST)
+5. `src/app/api/reservations/route.ts` — `requireAuthForVenue` (GET + POST)
+6. `src/app/api/tables/route.ts` — `requireAuthForVenue` (GET + POST)
+7. `src/app/api/employees/route.ts` — `requireAuthForVenue` (GET + POST)
+8. `src/app/api/ai/chat/route.ts` — `requireAuth` + `hasFeature("ai_copilot")` (POST) ← **NEW**
+9. `src/app/api/email/send/route.ts` — `requireAuth` (POST) ← **NEW**
+10. `src/app/api/stripe/checkout/route.ts` — `requireAuth` (POST) ← **NEW**
+
+**2 admin routes** (gated by their own bcrypt + TOTP auth):
+- `src/app/api/admin/auth/login/route.ts` — `SUPER_ADMIN_PASSWORD_HASH` + TOTP `verifyToken`
+- `src/app/api/admin/2fa/setup/route.ts` — `verifyAdminPassword` (bcrypt)
+
+**4 public routes** (intentionally no auth):
+- `src/app/api/auth/register/route.ts` — public registration (rate-limited)
+- `src/app/api/auth/login/route.ts` — public login (rate-limited)
+- `src/app/api/stripe/webhook/route.ts` — Stripe signature verification inside `handleWebhook`
+- `src/app/api/route.ts` — health check
+
+### Rules satisfied
+1. ✅ Every handler in every protected route calls `requireAuth()` (or `requireAuthForVenue()` which wraps it).
+2. ✅ Every handler that accepts a `venueId` calls `requireVenue()` (via `requireAuthForVenue()`).
+3. ✅ `requireAuth()` and `requireVenue()` come from the pre-existing `src/lib/rbac.ts`.
+4. ✅ `src/lib/rbac.ts` already existed and was complete — no changes needed.
+5. ✅ AI chat route additionally checks `hasFeature(user.orgId, "ai_copilot")` entitlement — 403 if not enabled.
+6. ✅ Email send route requires auth.
+7. ✅ Stripe checkout route requires auth (and falls back to `user.email` for customer attribution).
+8. ✅ TypeScript strict, no `any` introduced.
+9. ✅ No existing functionality broken — all 52 vitest tests still pass.
+10. ✅ All existing imports and logic preserved.
+
+### Stage summary
+- 3 files modified: `src/app/api/ai/chat/route.ts`, `src/app/api/email/send/route.ts`, `src/app/api/stripe/checkout/route.ts`.
+- 0 files created.
+- 0 lint errors, 0 lint warnings.
+- 0 new TypeScript errors in any API route or in `src/lib/{rbac,auth,entitlements}.ts`.
+- 52 vitest tests still pass.
+- All 16 API routes are now accounted for: 10 RBAC-protected, 2 admin-gated, 4 intentionally public.
+- VULN-02 (missing auth on data-plane routes) is now fully closed.

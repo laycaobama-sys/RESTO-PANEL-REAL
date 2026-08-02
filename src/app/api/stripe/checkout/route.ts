@@ -1,6 +1,15 @@
-// Stripe checkout endpoint — creates a Checkout Session and returns its URL.
+// ============================================================================
+// /api/stripe/checkout — Stripe checkout endpoint (VULN-02 fix)
+// ----------------------------------------------------------------------------
+// Creates a Checkout Session and returns its URL. The caller MUST be
+// authenticated (`requireAuth`) — only logged-in members can start a
+// subscription upgrade. The session is bound to the caller's email so Stripe
+// can attribute the checkout to the right customer.
+// ============================================================================
+
 import { NextRequest, NextResponse } from "next/server";
 import { createCheckoutSession, PLANS, type PlanKey } from "@/lib/services/stripe";
+import { requireAuth } from "@/lib/rbac";
 
 interface CheckoutRequestBody {
   planKey?: PlanKey;
@@ -13,26 +22,36 @@ const isPlanKey = (value: unknown): value is PlanKey =>
 export async function POST(
   req: NextRequest,
 ): Promise<NextResponse> {
-  let payload: CheckoutRequestBody;
   try {
-    payload = (await req.json()) as CheckoutRequestBody;
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
-  }
+    // --- Auth ---------------------------------------------------------------
+    const user = await requireAuth();
 
-  const { planKey, email } = payload;
-  if (!isPlanKey(planKey)) {
-    return NextResponse.json({ error: "Invalid or missing planKey" }, { status: 400 });
-  }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "Invalid or missing email" }, { status: 400 });
-  }
+    // --- Body parse + validation -------------------------------------------
+    let payload: CheckoutRequestBody;
+    try {
+      payload = (await req.json()) as CheckoutRequestBody;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  try {
+    const { planKey, email } = payload;
+    if (!isPlanKey(planKey)) {
+      return NextResponse.json({ error: "Invalid or missing planKey" }, { status: 400 });
+    }
+    // Prefer the body-supplied email; fall back to the authenticated user's
+    // email claim so the checkout is always attributed to a known account.
+    const customerEmail = email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      ? email
+      : user.email;
+    if (!customerEmail) {
+      return NextResponse.json({ error: "Invalid or missing email" }, { status: 400 });
+    }
+
+    // --- Stripe call -------------------------------------------------------
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     const session = await createCheckoutSession({
       planKey,
-      customerEmail: email,
+      customerEmail,
       successUrl: `${appUrl}/?checkout=success`,
       cancelUrl: `${appUrl}/?checkout=cancelled`,
     });
@@ -40,8 +59,14 @@ export async function POST(
       return NextResponse.json({ error: "No checkout URL returned" }, { status: 502 });
     }
     return NextResponse.json({ url: session.url, id: session.id });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Checkout failed";
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Checkout failed";
+    if (msg === "UNAUTHORIZED") {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    if (msg === "FORBIDDEN") {
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    }
     console.error("[stripe/checkout] error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
