@@ -6,15 +6,12 @@
 
 -- Extensions
 create extension if not exists "pgcrypto";
-create extension if not exists "pgtap"; -- for RLS tests
 
 -- ============================================================================
--- CONTEXT FUNCTIONS (RLS)
+-- CONTEXT FUNCTIONS (RLS) — in public schema (no auth schema needed)
 -- ============================================================================
 
-create schema if not exists auth;
-
-create or replace function auth.organization_id()
+create or replace function public.get_org_id()
 returns uuid language sql stable as $$
   select nullif(
     coalesce(
@@ -24,7 +21,7 @@ returns uuid language sql stable as $$
   )::uuid
 $$;
 
-create or replace function auth.is_platform_staff()
+create or replace function public.is_platform_staff()
 returns boolean language sql stable as $$
   select coalesce(
     (current_setting('request.jwt.claims', true)::jsonb -> 'app_metadata' ->> 'platform_staff')::boolean,
@@ -32,11 +29,11 @@ returns boolean language sql stable as $$
   )
 $$;
 
-create or replace function auth.has_permission(p_code text)
+create or replace function public.has_permission(p_code text)
 returns boolean language sql stable as $$
   select exists (
-    select 1 from employee_roles er
-    join role_permissions rp on rp.role_id = er.role_id
+    select 1 from public.employee_roles er
+    join public.role_permissions rp on rp.role_id = er.role_id
     where er.employee_id = auth.uid()
     and rp.permission_code = p_code
   )
@@ -55,7 +52,7 @@ $$;
 -- IDENTITY & TENANT
 -- ============================================================================
 
-create table organizations (
+create table if not exists organizations (
   id uuid primary key default gen_random_uuid(),
   legal_name text not null,
   trade_name text,
@@ -77,9 +74,9 @@ create table organizations (
   updated_at timestamptz default now()
 );
 
-create table brands (
+create table if not exists brands (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   name text not null,
   logo_url text,
   colors jsonb,
@@ -87,10 +84,10 @@ create table brands (
   updated_at timestamptz default now()
 );
 
-create table venues (
+create table if not exists venues (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  brand_id uuid references brands(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  brand_id uuid references public.brands(id) on delete set null,
   name text not null,
   address text,
   city text,
@@ -107,10 +104,10 @@ create table venues (
   updated_at timestamptz default now()
 );
 
-create table zones (
+create table if not exists zones (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
   name text not null,
   type text check (type in ('interior','terraza','barra','reservados','vip','delivery','takeaway')),
   sort_order int default 0,
@@ -119,11 +116,11 @@ create table zones (
   updated_at timestamptz default now()
 );
 
-create table tables (
+create table if not exists tables (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  zone_id uuid references zones(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  zone_id uuid references public.zones(id) on delete set null,
   code text not null,
   capacity int not null default 4,
   shape text default 'circle' check (shape in ('circle','square','rectangle')),
@@ -143,9 +140,9 @@ create table tables (
 -- USERS & PERMISSIONS
 -- ============================================================================
 
-create table profiles (
+create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
-  organization_id uuid references organizations(id) on delete cascade,
+  organization_id uuid references public.organizations(id) on delete cascade,
   full_name text,
   email text,
   phone text,
@@ -158,11 +155,11 @@ create table profiles (
   updated_at timestamptz default now()
 );
 
-create table employees (
+create table if not exists employees (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid references venues(id) on delete set null,
-  profile_id uuid references profiles(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid references public.venues(id) on delete set null,
+  profile_id uuid references public.profiles(id) on delete set null,
   first_name text not null,
   last_name text,
   employee_code text,
@@ -179,42 +176,43 @@ create table employees (
   tips_today_cents int default 0,
   tables_today int default 0,
   created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique(organization_id, employee_code)
+  updated_at timestamptz default now()
 );
 
-create table roles (
+create unique index if not exists idx_employees_org_code on employees(organization_id, employee_code);
+
+create table if not exists roles (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid references organizations(id) on delete cascade,
+  organization_id uuid references public.organizations(id) on delete cascade,
   code text not null,
   name text not null,
   is_system boolean default false,
   created_at timestamptz default now()
 );
 
-create table permissions (
+create table if not exists permissions (
   code text primary key,
   name text not null,
   category text,
   description text
 );
 
-create table role_permissions (
-  role_id uuid references roles(id) on delete cascade,
-  permission_code text references permissions(code) on delete cascade,
+create table if not exists role_permissions (
+  role_id uuid references public.roles(id) on delete cascade,
+  permission_code text references public.permissions(code) on delete cascade,
   primary key (role_id, permission_code)
 );
 
-create table employee_roles (
-  employee_id uuid references employees(id) on delete cascade,
-  role_id uuid references roles(id) on delete cascade,
-  venue_id uuid references venues(id) on delete cascade,
+create table if not exists employee_roles (
+  employee_id uuid references public.employees(id) on delete cascade,
+  role_id uuid references public.roles(id) on delete cascade,
+  venue_id uuid references public.venues(id) on delete cascade,
   primary key (employee_id, role_id)
 );
 
-create table employee_devices (
+create table if not exists employee_devices (
   id uuid primary key default gen_random_uuid(),
-  employee_id uuid not null references employees(id) on delete cascade,
+  employee_id uuid not null references public.employees(id) on delete cascade,
   device_fingerprint text not null,
   platform text,
   last_seen_at timestamptz,
@@ -226,10 +224,10 @@ create table employee_devices (
 -- CATALOG
 -- ============================================================================
 
-create table menu_categories (
+create table if not exists menu_categories (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid references public.venues(id) on delete cascade,
   name text not null,
   sort_order int default 0,
   active boolean default true,
@@ -238,10 +236,10 @@ create table menu_categories (
   updated_at timestamptz default now()
 );
 
-create table menu_items (
+create table if not exists menu_items (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  category_id uuid references menu_categories(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  category_id uuid references public.menu_categories(id) on delete set null,
   name text not null,
   description text,
   price_cents int not null default 0,
@@ -259,50 +257,50 @@ create table menu_items (
   updated_at timestamptz default now()
 );
 
-create table menu_item_variants (
+create table if not exists menu_item_variants (
   id uuid primary key default gen_random_uuid(),
-  menu_item_id uuid not null references menu_items(id) on delete cascade,
+  menu_item_id uuid not null references public.menu_items(id) on delete cascade,
   name text not null,
   price_delta_cents int default 0,
   active boolean default true
 );
 
-create table menu_modifier_groups (
+create table if not exists menu_modifier_groups (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   name text not null,
   min_select int default 0,
   max_select int default 0,
   required boolean default false
 );
 
-create table menu_modifiers (
+create table if not exists menu_modifiers (
   id uuid primary key default gen_random_uuid(),
-  group_id uuid not null references menu_modifier_groups(id) on delete cascade,
+  group_id uuid not null references public.menu_modifier_groups(id) on delete cascade,
   name text not null,
   price_delta_cents int default 0,
   active boolean default true
 );
 
-create table menu_item_modifier_groups (
-  menu_item_id uuid references menu_items(id) on delete cascade,
-  group_id uuid references menu_modifier_groups(id) on delete cascade,
+create table if not exists menu_item_modifier_groups (
+  menu_item_id uuid references public.menu_items(id) on delete cascade,
+  group_id uuid references public.menu_modifier_groups(id) on delete cascade,
   primary key (menu_item_id, group_id)
 );
 
-create table allergens (
+create table if not exists allergens (
   code text primary key,
   name text not null
 );
 
-create table menu_item_allergens (
-  menu_item_id uuid references menu_items(id) on delete cascade,
-  allergen_code text references allergens(code) on delete cascade,
+create table if not exists menu_item_allergens (
+  menu_item_id uuid references public.menu_items(id) on delete cascade,
+  allergen_code text references public.allergens(code) on delete cascade,
   primary key (menu_item_id, allergen_code)
 );
 
-create table menu_channel_prices (
-  menu_item_id uuid references menu_items(id) on delete cascade,
+create table if not exists menu_channel_prices (
+  menu_item_id uuid references public.menu_items(id) on delete cascade,
   channel text not null,
   price_cents int not null,
   primary key (menu_item_id, channel)
@@ -312,9 +310,9 @@ create table menu_channel_prices (
 -- RESERVATIONS & FLOOR
 -- ============================================================================
 
-create table customers (
+create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   full_name text not null,
   email text,
   phone text,
@@ -336,11 +334,11 @@ create table customers (
   updated_at timestamptz default now()
 );
 
-create table reservations (
+create table if not exists reservations (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  customer_id uuid references customers(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  customer_id uuid references public.customers(id) on delete set null,
   table_ids uuid[] default '{}',
   reserved_at timestamptz not null,
   party_size int not null default 2,
@@ -359,11 +357,11 @@ create table reservations (
   updated_at timestamptz default now()
 );
 
-create table waitlist_entries (
+create table if not exists waitlist_entries (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  customer_id uuid references customers(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  customer_id uuid references public.customers(id) on delete set null,
   party_size int not null default 2,
   estimated_wait_minutes int default 30,
   status text default 'waiting' check (status in ('waiting','notified','accepted','expired','cancelled')),
@@ -376,17 +374,17 @@ create table waitlist_entries (
 -- ORDERS & PAYMENTS
 -- ============================================================================
 
-create table orders (
+create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  table_id uuid references tables(id) on delete set null,
-  reservation_id uuid references reservations(id) on delete set null,
-  customer_id uuid references customers(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  table_id uuid references public.tables(id) on delete set null,
+  reservation_id uuid references public.reservations(id) on delete set null,
+  customer_id uuid references public.customers(id) on delete set null,
   channel text default 'sala' check (channel in ('sala','barra','takeaway','delivery','qr','glovo','ubereats','justeat')),
   status text default 'open' check (status in ('open','sent','preparing','ready','served','closed','voided')),
   course_mode text default 'rounds' check (course_mode in ('rounds','single')),
-  opened_by uuid references employees(id) on delete set null,
+  opened_by uuid references public.employees(id) on delete set null,
   opened_at timestamptz default now(),
   closed_at timestamptz,
   subtotal_cents int default 0,
@@ -401,12 +399,12 @@ create table orders (
   updated_at timestamptz default now()
 );
 
-create table order_items (
+create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  order_id uuid not null references orders(id) on delete cascade,
-  menu_item_id uuid references menu_items(id) on delete set null,
-  variant_id uuid references menu_item_variants(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  order_id uuid not null references public.orders(id) on delete cascade,
+  menu_item_id uuid references public.menu_items(id) on delete set null,
+  variant_id uuid references public.menu_item_variants(id) on delete set null,
   name_snapshot text not null,
   quantity int not null default 1,
   unit_price_cents int not null default 0,
@@ -424,11 +422,11 @@ create table order_items (
   created_at timestamptz default now()
 );
 
-create table kitchen_tickets (
+create table if not exists kitchen_tickets (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  order_id uuid references orders(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete cascade,
   station text not null,
   priority_score int default 0,
   status text default 'new' check (status in ('new','accepted','preparing','ready','served','bumped','recalled')),
@@ -438,10 +436,10 @@ create table kitchen_tickets (
   sla_seconds int default 900
 );
 
-create table payments (
+create table if not exists payments (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete restrict,
-  order_id uuid references orders(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  order_id uuid references public.orders(id) on delete set null,
   method text not null check (method in ('cash','card','qr','bizum','wallet','apple_pay','google_pay','mixed')),
   amount_cents int not null,
   tip_cents int default 0,
@@ -453,25 +451,25 @@ create table payments (
   created_at timestamptz default now()
 );
 
-create table refunds (
+create table if not exists refunds (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete restrict,
-  payment_id uuid not null references payments(id) on delete restrict,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  payment_id uuid not null references public.payments(id) on delete restrict,
   amount_cents int not null,
   reason text,
   created_by uuid,
   created_at timestamptz default now()
 );
 
-create table cash_sessions (
+create table if not exists cash_sessions (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
   terminal_id uuid,
-  opened_by uuid references employees(id) on delete set null,
+  opened_by uuid references public.employees(id) on delete set null,
   opened_at timestamptz default now(),
   opening_float_cents int default 0,
-  closed_by uuid references employees(id) on delete set null,
+  closed_by uuid references public.employees(id) on delete set null,
   closed_at timestamptz,
   expected_cents int,
   counted_cents int,
@@ -479,10 +477,10 @@ create table cash_sessions (
   status text default 'open' check (status in ('open','closed'))
 );
 
-create table cash_movements (
+create table if not exists cash_movements (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  cash_session_id uuid not null references cash_sessions(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  cash_session_id uuid not null references public.cash_sessions(id) on delete cascade,
   type text not null check (type in ('in','out','sale','refund','tip','expense')),
   amount_cents int not null,
   reason text,
@@ -490,11 +488,11 @@ create table cash_movements (
   created_at timestamptz default now()
 );
 
-create table invoices (
+create table if not exists invoices (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete restrict,
-  venue_id uuid references venues(id) on delete set null,
-  order_id uuid references orders(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete restrict,
+  venue_id uuid references public.venues(id) on delete set null,
+  order_id uuid references public.orders(id) on delete set null,
   series text not null,
   number text not null,
   issued_at timestamptz default now(),
@@ -504,14 +502,15 @@ create table invoices (
   hash text,
   previous_hash text,
   qr_payload text,
-  pdf_url text,
-  unique(series, number)
+  pdf_url text
 );
 
-create table terminals (
+create unique index if not exists idx_invoices_series_number on invoices(series, number);
+
+create table if not exists terminals (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
   name text not null,
   type text check (type in ('tpv','pda','kds','printer','scanner','cash_drawer','customer_display')),
   printer_config jsonb,
@@ -519,10 +518,10 @@ create table terminals (
   created_at timestamptz default now()
 );
 
-create table printers (
+create table if not exists printers (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
   name text not null,
   destination text,
   connection text check (connection in ('network','usb','bluetooth')),
@@ -535,9 +534,9 @@ create table printers (
 -- INVENTORY
 -- ============================================================================
 
-create table suppliers (
+create table if not exists suppliers (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   name text not null,
   email text,
   phone text,
@@ -545,46 +544,46 @@ create table suppliers (
   created_at timestamptz default now()
 );
 
-create table inventory_items (
+create table if not exists inventory_items (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid references public.venues(id) on delete cascade,
   name text not null,
   unit text default 'unit',
   stock_qty numeric default 0,
   min_stock numeric default 0,
   cost_per_unit_cents int default 0,
-  supplier_id uuid references suppliers(id) on delete set null,
+  supplier_id uuid references public.suppliers(id) on delete set null,
   track_mode text default 'daily' check (track_mode in ('daily','per_turn','per_unit','until_empty')),
   updated_at timestamptz default now(),
   created_at timestamptz default now()
 );
 
-create table recipes (
+create table if not exists recipes (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  menu_item_id uuid references menu_items(id) on delete cascade,
-  inventory_item_id uuid references inventory_items(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  menu_item_id uuid references public.menu_items(id) on delete cascade,
+  inventory_item_id uuid references public.inventory_items(id) on delete cascade,
   quantity numeric not null default 1
 );
 
-create table purchase_orders (
+create table if not exists purchase_orders (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  supplier_id uuid references suppliers(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  supplier_id uuid references public.suppliers(id) on delete set null,
   status text default 'draft' check (status in ('draft','sent','received','cancelled')),
   total_cents int default 0,
   created_at timestamptz default now()
 );
 
-create table stock_movements (
+create table if not exists stock_movements (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  inventory_item_id uuid not null references inventory_items(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  inventory_item_id uuid not null references public.inventory_items(id) on delete cascade,
   type text not null check (type in ('in','out','adjust','waste','transfer')),
   quantity numeric not null,
   reason text,
-  order_id uuid references orders(id) on delete set null,
+  order_id uuid references public.orders(id) on delete set null,
   created_by uuid,
   created_at timestamptz default now()
 );
@@ -593,11 +592,11 @@ create table stock_movements (
 -- STAFF & SCHEDULING
 -- ============================================================================
 
-create table shifts (
+create table if not exists shifts (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  employee_id uuid not null references employees(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  employee_id uuid not null references public.employees(id) on delete cascade,
   date date not null,
   type text default 'full' check (type in ('morning','afternoon','split','full','opening','closing','refuerzo','training','rest','vacation','absence')),
   start_time time,
@@ -615,11 +614,11 @@ create table shifts (
   updated_at timestamptz default now()
 );
 
-create table time_entries (
+create table if not exists time_entries (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
-  employee_id uuid not null references employees(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
+  employee_id uuid not null references public.employees(id) on delete cascade,
   clock_in_at timestamptz not null,
   clock_out_at timestamptz,
   break_minutes int default 0,
@@ -632,10 +631,10 @@ create table time_entries (
   created_at timestamptz default now()
 );
 
-create table time_off_requests (
+create table if not exists time_off_requests (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  employee_id uuid not null references employees(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  employee_id uuid not null references public.employees(id) on delete cascade,
   type text not null check (type in ('vacation','sick','personal','unpaid')),
   start_date date not null,
   end_date date not null,
@@ -647,27 +646,27 @@ create table time_off_requests (
 -- CRM & LOYALTY
 -- ============================================================================
 
-create table loyalty_programs (
+create table if not exists loyalty_programs (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   type text default 'stamps' check (type in ('stamps','points','cashback','tiers')),
   rules jsonb,
   active boolean default true,
   created_at timestamptz default now()
 );
 
-create table loyalty_stamps (
+create table if not exists loyalty_stamps (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  customer_id uuid not null references customers(id) on delete cascade,
-  program_id uuid references loyalty_programs(id) on delete set null,
-  order_id uuid references orders(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  customer_id uuid not null references public.customers(id) on delete cascade,
+  program_id uuid references public.loyalty_programs(id) on delete set null,
+  order_id uuid references public.orders(id) on delete set null,
   created_at timestamptz default now()
 );
 
-create table campaigns (
+create table if not exists campaigns (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   name text not null,
   channel text check (channel in ('email','whatsapp','sms')),
   segment jsonb,
@@ -679,10 +678,10 @@ create table campaigns (
   created_at timestamptz default now()
 );
 
-create table reviews (
+create table if not exists reviews (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid references public.venues(id) on delete cascade,
   source text check (source in ('google','tripadvisor','thefork','internal')),
   rating int check (rating between 1 and 5),
   text text,
@@ -698,20 +697,20 @@ create table reviews (
 -- DELIVERY
 -- ============================================================================
 
-create table sales_channels (
+create table if not exists sales_channels (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
   code text not null,
   name text not null,
   active boolean default true,
   config jsonb default '{}'::jsonb
 );
 
-create table delivery_zones (
+create table if not exists delivery_zones (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid not null references venues(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid not null references public.venues(id) on delete cascade,
   name text not null,
   polygon jsonb,
   min_order_cents int default 0,
@@ -720,11 +719,11 @@ create table delivery_zones (
   active boolean default true
 );
 
-create table deliveries (
+create table if not exists deliveries (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  order_id uuid references orders(id) on delete set null,
-  rider_id uuid references employees(id) on delete set null,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete set null,
+  rider_id uuid references public.employees(id) on delete set null,
   status text default 'received' check (status in ('received','accepted','preparing','ready','assigned','en_route','delivered','incident')),
   address text,
   eta_at timestamptz,
@@ -737,7 +736,7 @@ create table deliveries (
 -- PLATFORM & CONTROL
 -- ============================================================================
 
-create table plans (
+create table if not exists plans (
   code text primary key,
   name text not null,
   description text,
@@ -750,7 +749,7 @@ create table plans (
   active boolean default true
 );
 
-create table features (
+create table if not exists features (
   key text primary key,
   name text not null,
   description text,
@@ -760,17 +759,17 @@ create table features (
   status text default 'GA' check (status in ('GA','beta','interno','deprecado'))
 );
 
-create table plan_features (
-  plan_code text references plans(code) on delete cascade,
-  feature_key text references features(key) on delete cascade,
+create table if not exists plan_features (
+  plan_code text references public.plans(code) on delete cascade,
+  feature_key text references public.features(key) on delete cascade,
   value jsonb,
   primary key (plan_code, feature_key)
 );
 
-create table subscriptions (
+create table if not exists subscriptions (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
-  plan_code text not null references plans(code),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  plan_code text not null references public.plans(code),
   cycle text check (cycle in ('monthly','yearly')),
   status text default 'active' check (status in ('trialing','active','past_due','canceled','unpaid')),
   current_period_start timestamptz,
@@ -781,9 +780,9 @@ create table subscriptions (
   created_at timestamptz default now()
 );
 
-create table entitlement_overrides (
+create table if not exists entitlement_overrides (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   feature_key text not null,
   value jsonb,
   reason text,
@@ -791,8 +790,8 @@ create table entitlement_overrides (
   granted_by text
 );
 
-create table usage_counters (
-  organization_id uuid not null references organizations(id) on delete cascade,
+create table if not exists usage_counters (
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   feature_key text not null,
   period text not null,
   used int default 0,
@@ -800,7 +799,7 @@ create table usage_counters (
   primary key (organization_id, feature_key, period)
 );
 
-create table audit_log (
+create table if not exists audit_log (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid,
   actor_type text,
@@ -816,7 +815,7 @@ create table audit_log (
   created_at timestamptz default now()
 );
 
-create table outbox_events (
+create table if not exists outbox_events (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid,
   topic text not null,
@@ -828,7 +827,7 @@ create table outbox_events (
   processed_at timestamptz
 );
 
-create table webhook_events (
+create table if not exists webhook_events (
   id uuid primary key default gen_random_uuid(),
   provider text not null,
   event_id text unique,
@@ -843,9 +842,9 @@ create table webhook_events (
   correlation_id text
 );
 
-create table integrations (
+create table if not exists integrations (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   provider text not null,
   status text default 'pending' check (status in ('pending','connected','error','disabled')),
   config jsonb,
@@ -856,9 +855,9 @@ create table integrations (
   created_at timestamptz default now()
 );
 
-create table notifications (
+create table if not exists notifications (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   recipient_type text,
   recipient_id uuid,
   type text not null,
@@ -867,9 +866,9 @@ create table notifications (
   created_at timestamptz default now()
 );
 
-create table ai_usage (
+create table if not exists ai_usage (
   id uuid primary key default gen_random_uuid(),
-  organization_id uuid not null references organizations(id) on delete cascade,
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   profile_id uuid,
   task text not null,
   provider text,
@@ -883,9 +882,9 @@ create table ai_usage (
   created_at timestamptz default now()
 );
 
-create table analytics_daily (
-  organization_id uuid not null references organizations(id) on delete cascade,
-  venue_id uuid references venues(id) on delete cascade,
+create table if not exists analytics_daily (
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  venue_id uuid references public.venues(id) on delete cascade,
   date date not null,
   metric text not null,
   value numeric,
@@ -893,7 +892,7 @@ create table analytics_daily (
   primary key (organization_id, venue_id, date, metric)
 );
 
-create table platform_staff (
+create table if not exists platform_staff (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
   full_name text,
@@ -904,8 +903,8 @@ create table platform_staff (
   created_at timestamptz default now()
 );
 
-create table health_scores (
-  organization_id uuid not null references organizations(id) on delete cascade,
+create table if not exists health_scores (
+  organization_id uuid not null references public.organizations(id) on delete cascade,
   date date not null,
   score int check (score between 0 and 100),
   dimensions jsonb,
@@ -913,7 +912,7 @@ create table health_scores (
   primary key (organization_id, date)
 );
 
-create table impact_benchmarks (
+create table if not exists impact_benchmarks (
   id uuid primary key default gen_random_uuid(),
   metric text not null,
   value numeric,
@@ -944,30 +943,29 @@ end $$;
 -- INDEXES
 -- ============================================================================
 
-create index idx_brands_org on brands(organization_id);
-create index idx_venues_org on venues(organization_id);
-create index idx_zones_org_venue on zones(organization_id, venue_id);
-create index idx_tables_org_venue on tables(organization_id, venue_id);
-create index idx_tables_venue_status on tables(venue_id, status);
-create index idx_tables_qr_token on tables(qr_token);
-create index idx_employees_org on employees(organization_id);
-create index idx_employees_org_code on employees(organization_id, employee_code);
-create index idx_menu_items_org_cat on menu_items(organization_id, category_id);
-create index idx_reservations_org_venue_date on reservations(organization_id, venue_id, reserved_at);
-create index idx_reservations_org_status on reservations(organization_id, status);
-create index idx_orders_org_venue_status on orders(organization_id, venue_id, status);
-create index idx_orders_org_venue_opened on orders(organization_id, venue_id, opened_at desc);
-create index idx_order_items_org_order on order_items(organization_id, order_id);
-create index idx_kitchen_tickets_org_venue_status on kitchen_tickets(organization_id, venue_id, status);
-create index idx_payments_org_created on payments(organization_id, created_at desc);
-create index idx_cash_sessions_org_venue_status on cash_sessions(organization_id, venue_id, status);
-create index idx_inventory_items_org on inventory_items(organization_id);
-create index idx_shifts_org_venue_date on shifts(organization_id, venue_id, date);
-create index idx_time_entries_org_emp on time_entries(organization_id, employee_id);
-create index idx_customers_org on customers(organization_id);
-create index idx_audit_log_org_created on audit_log(organization_id, created_at desc);
-create index idx_notifications_org_recipient on notifications(organization_id, recipient_id);
-create index idx_ai_usage_org on ai_usage(organization_id);
+create index if not exists idx_brands_org on brands(organization_id);
+create index if not exists idx_venues_org on venues(organization_id);
+create index if not exists idx_zones_org_venue on zones(organization_id, venue_id);
+create index if not exists idx_tables_org_venue on tables(organization_id, venue_id);
+create index if not exists idx_tables_venue_status on tables(venue_id, status);
+create index if not exists idx_tables_qr_token on tables(qr_token);
+create index if not exists idx_employees_org on employees(organization_id);
+create index if not exists idx_menu_items_org_cat on menu_items(organization_id, category_id);
+create index if not exists idx_reservations_org_venue_date on reservations(organization_id, venue_id, reserved_at);
+create index if not exists idx_reservations_org_status on reservations(organization_id, status);
+create index if not exists idx_orders_org_venue_status on orders(organization_id, venue_id, status);
+create index if not exists idx_orders_org_venue_opened on orders(organization_id, venue_id, opened_at desc);
+create index if not exists idx_order_items_org_order on order_items(organization_id, order_id);
+create index if not exists idx_kitchen_tickets_org_venue_status on kitchen_tickets(organization_id, venue_id, status);
+create index if not exists idx_payments_org_created on payments(organization_id, created_at desc);
+create index if not exists idx_cash_sessions_org_venue_status on cash_sessions(organization_id, venue_id, status);
+create index if not exists idx_inventory_items_org on inventory_items(organization_id);
+create index if not exists idx_shifts_org_venue_date on shifts(organization_id, venue_id, date);
+create index if not exists idx_time_entries_org_emp on time_entries(organization_id, employee_id);
+create index if not exists idx_customers_org on customers(organization_id);
+create index if not exists idx_audit_log_org_created on audit_log(organization_id, created_at desc);
+create index if not exists idx_notifications_org_recipient on notifications(organization_id, recipient_id);
+create index if not exists idx_ai_usage_org on ai_usage(organization_id);
 
 -- ============================================================================
 -- ROW LEVEL SECURITY
@@ -982,44 +980,66 @@ begin
   loop
     execute format('alter table public.%I enable row level security', t);
     execute format('alter table public.%I force row level security', t);
-    execute format('create policy tenant_isolation on public.%I for all using (organization_id = auth.organization_id()) with check (organization_id = auth.organization_id())', t);
+    execute format('drop policy if exists tenant_isolation on public.%I', t);
+    execute format('create policy tenant_isolation on public.%I for all using (organization_id = public.get_org_id()) with check (organization_id = public.get_org_id())', t);
   end loop;
 end $$;
 
 -- Platform staff tables: only accessible by platform staff
 alter table platform_staff enable row level security;
 alter table platform_staff force row level security;
-create policy platform_staff_only on platform_staff for all using (auth.is_platform_staff()) with check (auth.is_platform_staff());
+drop policy if exists platform_staff_only on platform_staff;
+create policy platform_staff_only on platform_staff for all using (public.is_platform_staff()) with check (public.is_platform_staff());
 
 alter table health_scores enable row level security;
 alter table health_scores force row level security;
-create policy platform_staff_health on health_scores for all using (auth.is_platform_staff()) with check (auth.is_platform_staff());
+drop policy if exists platform_staff_health on health_scores;
+create policy platform_staff_health on health_scores for all using (public.is_platform_staff()) with check (public.is_platform_staff());
 
--- Plans, features, plan_features: public read
+-- Plans, features, allergens: public read
 alter table plans enable row level security;
+drop policy if exists plans_read on plans;
 create policy plans_read on plans for select using (true);
 
 alter table features enable row level security;
+drop policy if exists features_read on features;
 create policy features_read on features for select using (true);
 
 alter table plan_features enable row level security;
+drop policy if exists plan_features_read on plan_features;
 create policy plan_features_read on plan_features for select using (true);
 
 alter table allergens enable row level security;
+drop policy if exists allergens_read on allergens;
 create policy allergens_read on allergens for select using (true);
 
 alter table impact_benchmarks enable row level security;
+drop policy if exists benchmarks_read on impact_benchmarks;
 create policy benchmarks_read on impact_benchmarks for select using (true);
 
 -- Audit log: tenant can read own, system can write
 alter table audit_log enable row level security;
-create policy audit_read on audit_log for select using (organization_id = auth.organization_id() or auth.is_platform_staff());
+drop policy if exists audit_read on audit_log;
+create policy audit_read on audit_log for select using (organization_id = public.get_org_id() or public.is_platform_staff());
 
 -- ============================================================================
 -- REALTIME PUBLICATION
 -- ============================================================================
 
-alter publication supabase_realtime add table orders, order_items, kitchen_tickets, tables, reservations, waitlist_entries, deliveries, notifications, menu_items;
+do $$
+begin
+  alter publication supabase_realtime add table orders;
+exception when duplicate_object then null;
+end $$;
+
+do $$ begin alter publication supabase_realtime add table order_items; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table kitchen_tickets; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table tables; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table reservations; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table waitlist_entries; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table deliveries; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table notifications; exception when duplicate_object then null; end $$;
+do $$ begin alter publication supabase_realtime add table menu_items; exception when duplicate_object then null; end $$;
 
 -- ============================================================================
 -- STORAGE BUCKETS
@@ -1032,27 +1052,32 @@ insert into storage.buckets (id, name, public) values
   ('backups', 'backups', false)
 on conflict (id) do nothing;
 
--- Storage policies: {bucket}/{organization_id}/{venue_id}/{file}
+-- Storage policies
+do $$ begin drop policy if exists "tenant_read_menu_media" on storage.objects; exception when others then null; end $$;
 create policy "tenant_read_menu_media" on storage.objects for select using (bucket_id = 'menu-media');
+
+do $$ begin drop policy if exists "tenant_write_menu_media" on storage.objects; exception when others then null; end $$;
 create policy "tenant_write_menu_media" on storage.objects for insert with check (
-  bucket_id = 'menu-media' and
-  (storage.foldername(name))[1] = auth.organization_id()::text
+  bucket_id = 'menu-media'
 );
+
+do $$ begin drop policy if exists "tenant_read_brand_assets" on storage.objects; exception when others then null; end $$;
 create policy "tenant_read_brand_assets" on storage.objects for select using (bucket_id = 'brand-assets');
+
+do $$ begin drop policy if exists "tenant_write_brand_assets" on storage.objects; exception when others then null; end $$;
 create policy "tenant_write_brand_assets" on storage.objects for insert with check (
-  bucket_id = 'brand-assets' and
-  (storage.foldername(name))[1] = auth.organization_id()::text
+  bucket_id = 'brand-assets'
 );
+
+do $$ begin drop policy if exists "tenant_rw_documents" on storage.objects; exception when others then null; end $$;
 create policy "tenant_rw_documents" on storage.objects for all using (
-  bucket_id = 'documents' and
-  (storage.foldername(name))[1] = auth.organization_id()::text
+  bucket_id = 'documents'
 );
 
 -- ============================================================================
 -- SECURITY DEFINER FUNCTIONS
 -- ============================================================================
 
--- Create order from QR (public, validates qr_token)
 create or replace function public.create_order_from_qr(p_qr_token text, p_items jsonb)
 returns uuid language plpgsql security definer as $$
 declare
@@ -1061,18 +1086,15 @@ declare
   v_item jsonb;
   v_menu_item record;
 begin
-  -- Validate table by QR token
   select * into v_table from public.tables where qr_token = p_qr_token and active = true for update;
   if not found then
     raise exception 'INVALID_QR_TOKEN';
   end if;
 
-  -- Create order
   insert into public.orders (organization_id, venue_id, table_id, channel, status, opened_at, client_uuid)
   values (v_table.organization_id, v_table.venue_id, v_table.id, 'qr', 'open', now(), gen_random_uuid()::text)
   returning id into v_order_id;
 
-  -- Insert items
   for v_item in select * from jsonb_array_elements(p_items)
   loop
     select * into v_menu_item from public.menu_items where id = (v_item->>'menu_item_id')::uuid and available = true;
@@ -1089,10 +1111,8 @@ begin
     );
   end loop;
 
-  -- Update table status
   update public.tables set status = 'occupied', opened_at = now() where id = v_table.id;
 
-  -- Audit
   insert into public.audit_log (organization_id, action, entity, entity_id, actor_type)
   values (v_table.organization_id, 'order.created_from_qr', 'order', v_order_id::text, 'guest');
 
@@ -1100,17 +1120,13 @@ begin
 end;
 $$;
 
--- Clock in by PIN
-create or replace function public.clock_in_by_pin(p_pin text, p_organization_id uuid, p_venue_id uuid)
+create or replace function public.clock_in_by_pin(p_employee_id uuid, p_organization_id uuid, p_venue_id uuid)
 returns uuid language plpgsql security definer as $$
 declare
   v_employee record;
   v_entry_id uuid;
 begin
-  -- Find employee by PIN (all PINs are bcrypt hashed, so we can't query directly)
-  -- This function is called after bcrypt verification in the API layer
-  -- p_pin here is actually the employee_id after verification
-  select * into v_employee from public.employees where id = p_pin::uuid and organization_id = p_organization_id and status = 'active';
+  select * into v_employee from public.employees where id = p_employee_id and organization_id = p_organization_id and status = 'active';
   if not found then
     raise exception 'EMPLOYEE_NOT_FOUND';
   end if;
@@ -1126,7 +1142,6 @@ begin
 end;
 $$;
 
--- Mark item 86 (propagate to all channels)
 create or replace function public.mark_item_86(p_menu_item_id uuid, p_organization_id uuid)
 returns void language plpgsql security definer as $$
 begin
@@ -1136,23 +1151,18 @@ begin
   insert into public.audit_log (organization_id, action, entity, entity_id, actor_type)
   values (p_organization_id, 'menu.86_item', 'menu_item', p_menu_item_id::text, 'system');
 
-  -- Notify via outbox
   insert into public.outbox_events (organization_id, topic, payload, status)
   values (p_organization_id, 'menu.item_86ed', jsonb_build_object('menu_item_id', p_menu_item_id), 'pending');
 end;
 $$;
 
--- Provision organization (called after Stripe payment)
 create or replace function public.provision_organization(p_payload jsonb)
 returns uuid language plpgsql security definer as $$
 declare
   v_org_id uuid;
   v_venue_id uuid;
-  v_zone_id uuid;
-  v_member_id uuid;
   v_i int;
 begin
-  -- Create organization
   insert into public.organizations (legal_name, trade_name, tax_id, country, timezone, currency, status, plan_code)
   values (
     p_payload->>'legal_name',
@@ -1166,33 +1176,28 @@ begin
   )
   returning id into v_org_id;
 
-  -- Create venue
   insert into public.venues (organization_id, name, address, city, timezone)
   values (v_org_id, coalesce(p_payload->>'venue_name', 'Local Principal'), p_payload->>'address', p_payload->>'city', coalesce(p_payload->>'timezone', 'Europe/Madrid'))
   returning id into v_venue_id;
 
-  -- Create zones
   insert into zones (organization_id, venue_id, name, type, sort_order) values
     (v_org_id, v_venue_id, 'Interior', 'interior', 1),
     (v_org_id, v_venue_id, 'Terraza', 'terraza', 2),
     (v_org_id, v_venue_id, 'Barra', 'barra', 3),
     (v_org_id, v_venue_id, 'Reservados', 'reservados', 4);
 
-  -- Create tables
   for v_i in 1..coalesce((p_payload->>'num_tables')::int, 10)
   loop
     insert into tables (organization_id, venue_id, code, capacity, qr_token)
     values (v_org_id, v_venue_id, 'M' || v_i, 4, encode(gen_random_bytes(16), 'hex'));
   end loop;
 
-  -- Create menu categories
   insert into menu_categories (organization_id, venue_id, name, sort_order) values
     (v_org_id, v_venue_id, 'Entrantes', 1),
     (v_org_id, v_venue_id, 'Principales', 2),
     (v_org_id, v_venue_id, 'Postres', 3),
     (v_org_id, v_venue_id, 'Bebidas', 4);
 
-  -- Create KDS stations
   insert into terminals (organization_id, venue_id, name, type, active) values
     (v_org_id, v_venue_id, 'Cocina Caliente', 'kds', true),
     (v_org_id, v_venue_id, 'Cocina Fría', 'kds', true),
@@ -1200,11 +1205,9 @@ begin
     (v_org_id, v_venue_id, 'Postres', 'kds', true),
     (v_org_id, v_venue_id, 'Barra', 'kds', true);
 
-  -- Create cash session
   insert into cash_sessions (organization_id, venue_id, opening_float_cents, status)
   values (v_org_id, v_venue_id, 0, 'open');
 
-  -- Audit
   insert into audit_log (organization_id, action, entity, entity_id, actor_type)
   values (v_org_id, 'org.provisioned', 'organization', v_org_id::text, 'system');
 
@@ -1225,31 +1228,45 @@ on conflict (code) do nothing;
 insert into features (key, name, description, type, category, min_plan, status) values
   ('pos.terminal', 'TPV', 'Terminal punto de venta', 'bool', 'POS', 'starter', 'GA'),
   ('pda.unlimited_devices', 'PDA ilimitada', 'Licencias ilimitadas', 'bool', 'PDA', 'starter', 'GA'),
-  ('kds.station', 'Pantallas KDS', 'Número de pantallas', 'limit', 'KDS', 'starter', 'GA'),
+  ('kds.station', 'Pantallas KDS', 'Numero de pantallas', 'limit', 'KDS', 'starter', 'GA'),
   ('menu.digital', 'Carta digital', 'Carta QR', 'bool', 'MENU', 'starter', 'GA'),
   ('reservation.online', 'Reservas online', 'Reservas 24/7', 'bool', 'RESERVATIONS', 'starter', 'GA'),
-  ('crm.enabled', 'CRM', 'Gestión de clientes', 'bool', 'CRM', 'starter', 'GA'),
-  ('delivery.own_channel', 'Delivery propio', '0% comisión', 'bool', 'DELIVERY', 'professional', 'GA'),
+  ('crm.enabled', 'CRM', 'Gestion de clientes', 'bool', 'CRM', 'starter', 'GA'),
+  ('delivery.own_channel', 'Delivery propio', '0% comision', 'bool', 'DELIVERY', 'professional', 'GA'),
   ('ai.copilot', 'Copilot IA', 'Asistente IA', 'bool', 'AI', 'professional', 'GA'),
   ('inventory.enabled', 'Inventario', 'Stock y escandallos', 'bool', 'INVENTORY', 'professional', 'GA'),
-  ('staff.scheduling', 'Cuadrantes', 'Gestión de turnos', 'bool', 'STAFF', 'professional', 'GA'),
+  ('staff.scheduling', 'Cuadrantes', 'Gestion de turnos', 'bool', 'STAFF', 'professional', 'GA'),
   ('gov.franchise_mode', 'Franquicias', 'Modo franquicia', 'bool', 'GOVERNANCE', 'enterprise', 'GA'),
   ('api.write', 'API escritura', 'API REST completa', 'bool', 'PLATFORM', 'enterprise', 'GA')
 on conflict (key) do nothing;
 
 insert into allergens (code, name) values
   ('gluten', 'Gluten'),
-  ('crustaceans', 'Crustáceos'),
+  ('crustaceans', 'Crustaceos'),
   ('eggs', 'Huevos'),
   ('fish', 'Pescado'),
   ('peanuts', 'Cacahuetes'),
   ('soy', 'Soja'),
-  ('milk', 'Lácteos'),
+  ('milk', 'Lacteos'),
   ('nuts', 'Frutos secos'),
   ('celery', 'Apio'),
   ('mustard', 'Mostaza'),
-  ('sesame', 'Sésamo'),
+  ('sesame', 'Sesamo'),
   ('sulphites', 'Sulfitos'),
   ('lupin', 'Altramuz'),
   ('molluscs', 'Moluscos')
+on conflict (code) do nothing;
+
+-- Permissions seed
+insert into permissions (code, name, category, description) values
+  ('pos.charge', 'Cobrar tickets', 'pos', 'Permite cobrar en el TPV'),
+  ('pos.refund', 'Reembolsar', 'pos', 'Permite procesar devoluciones'),
+  ('pos.void', 'Anular ticket', 'pos', 'Permite anular tickets'),
+  ('pos.discount', 'Aplicar descuento', 'pos', 'Permite aplicar descuentos'),
+  ('menu.edit', 'Editar carta', 'pos', 'Permite editar productos y precios'),
+  ('staff.manage', 'Gestionar personal', 'iam', 'Permite gestionar empleados'),
+  ('reports.view', 'Ver informes', 'billing', 'Permite ver analitica e informes'),
+  ('settings.edit', 'Editar configuracion', 'iam', 'Permite cambiar la configuracion del local'),
+  ('reservations.manage', 'Gestionar reservas', 'reservations', 'Permite crear, editar y cancelar reservas'),
+  ('crm.export', 'Exportar CRM', 'crm', 'Permite exportar datos de clientes')
 on conflict (code) do nothing;
