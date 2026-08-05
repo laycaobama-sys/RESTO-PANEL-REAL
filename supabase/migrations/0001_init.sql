@@ -31,12 +31,7 @@ $$;
 
 create or replace function public.has_permission(p_code text)
 returns boolean language sql stable as $$
-  select exists (
-    select 1 from public.employee_roles er
-    join public.role_permissions rp on rp.role_id = er.role_id
-    where er.employee_id = auth.uid()
-    and rp.permission_code = p_code
-  )
+  select false
 $$;
 
 -- updated_at trigger
@@ -923,6 +918,18 @@ create table if not exists impact_benchmarks (
   verified_by text,
   updated_at timestamptz default now()
 );
+
+-- Now redefine has_permission with real query (tables exist)
+create or replace function public.has_permission(p_code text)
+returns boolean language sql stable as $$
+  select exists (
+    select 1
+    from public.employee_roles er
+    join public.role_permissions rp on rp.role_id = er.role_id
+    where er.employee_id = auth.uid()
+    and rp.permission_code = p_code
+  )
+$$;
 
 -- ============================================================================
 -- TRIGGERS: set_updated_at on all tables with updated_at
